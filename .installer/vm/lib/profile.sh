@@ -12,11 +12,12 @@
 # Sourced by vm/vm.sh and tests/vm/profile.bats.
 # =============================================================================
 
-# shellcheck source=../../lib/config/profile.sh
-# Brings load_profile + assemble_profile_config (and, transitively, picker.sh +
-# layers.sh) — the same loader/assembler the real install front-end uses, so a
-# VM resolves the unified profile.jsonc rather than a copied Install Template.
-source "${BASH_SOURCE[0]%/*}/../../lib/config/profile.sh"
+# shellcheck source=../../lib/config/profile-loader.sh Brings
+# profile_loader_load + profile_loader_assemble_config (and, transitively,
+# picker.sh + layers.sh) — the same loader/assembler the real install front-end
+# uses, so a VM resolves the unified profile.jsonc rather than a copied Install
+# Template.
+source "${BASH_SOURCE[0]%/*}/../../lib/config/profile-loader.sh"
 
 # The host profile install:"repo" resolves to — the designated default. One
 # knob, env-overridable, so the shipped-default smoke survives install.jsonc.
@@ -62,15 +63,15 @@ profile_disk_devices() {
 
 # _profile_resolve_host <profile_json> <host>
 #   Resolves a host_profile reference through the unified loader/assembler:
-#   load_profile reads the host's profile.jsonc (merged over core), the VM's
-#   disk count maps to /dev/sdX, and assemble_profile_config assigns them onto
-#   the profile's pool skeleton — the exact effective config the real
-#   `install.sh --profile <host>` produces. hostname falls back to the
-#   host-dir name (ADR 0036: dir ≡ hostname).
+#   profile_loader_load reads the host's profile.jsonc (merged over core), the
+#   VM's disk count maps to /dev/sdX, and profile_loader_assemble_config
+#   assigns them onto the profile's pool skeleton — the exact effective config
+#   the real `install.sh --profile <host>` produces. hostname falls back to
+#   the host-dir name (ADR 0036: dir ≡ hostname).
 _profile_resolve_host() {
   local profile="$1" host="$2"
   local loaded pin mode count
-  loaded="$(load_profile "$host")" || return $?
+  loaded="$(profile_loader_load "$host")" || return $?
   # A multi host pins mode in its profile (its os_pool.topology then drives the
   # assignment). An unpinned host takes the VM's layout.mode, defaulting to
   # single; a multi topology there is rejected — pin os_pool in the profile.
@@ -102,7 +103,7 @@ _profile_resolve_host() {
       return 1
       ;;
   esac
-  assemble_profile_config "$host" "$assignment"
+  profile_loader_assemble_config "$host" "$assignment"
 }
 
 # _profile_resolve_repo <profile_json>

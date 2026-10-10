@@ -24,7 +24,7 @@ source "${INSTALLER_DIR}/lib/guided/shell.sh"
 
 # Seed exactly as guided_build does, then run the menu only (calling
 # guided_run_persistent directly, not via guided_build).
-_GUIDED_STATE="$(cfgstate_new)"
+_GUIDED_STATE="$(config_state_new)"
 _GUIDED_DISK=""
 _guided_set_identity
 _guided_users_reset

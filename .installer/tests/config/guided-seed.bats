@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/seed.sh — the Guided Installer's default
+# Tests for .installer/lib/config/config-state.sh — the Guided Installer's default
 # seeder
 # (guided-installer-redesign issue 01 / M3): a pure helper that fills a launch
 # Config State with this operator's computed defaults, so an untouched run is
@@ -25,34 +25,32 @@ setup() {
  "packages":{"repo":{"shell":["htop"]},"aur":{"misc":["brave-bin"]}}}
 JSON
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
-  # shellcheck source=../../lib/config/seed.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
 
 # ── tracer: the seeded launch state carries the default hostname ────────────
 
-@test "cfgstate_seed_defaults: seeds hostname eterniox" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds hostname eterniox" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
 # ── the Primary User is seeded explicitly (so the host is never userless) ────
 
-@test "cfgstate_seed_defaults: seeds aquastias as the Primary User" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds aquastias as the Primary User" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.users == ["aquastias"]'
 }
 
 # ── the common case needs no decision: single-disk layout by default ────────
 
-@test "cfgstate_seed_defaults: seeds the single-disk layout" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds the single-disk layout" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.mode == "single"'
 }
@@ -60,8 +58,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── locale / timezone / keymap default to this operator's values ────────────
 # (back-end-required identity; surfaced as editable Host rows over these seeds.)
 
-@test "cfgstate_seed_defaults: seeds locale, timezone and keymap" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds locale, timezone and keymap" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.locale == "en_US.UTF-8"'
   echo "$output" | jq -e '.system.timezone == "Europe/Bucharest"'
@@ -74,20 +72,20 @@ teardown() { rm -rf "$TEST_DIR"; }
 # `cups` installs on every host and used to appear nowhere in the menu, because
 # the seeder hand-copied a few core values rather than loading core.
 
-@test "cfgstate_seed_defaults: seeds vm.swappiness=10 from Host Core" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds vm.swappiness=10 from Host Core" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
-@test "cfgstate_seed_defaults: Host Core's system programs surface" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: Host Core's system programs surface" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
-@test "cfgstate_seed_defaults: Host Core's packages surface" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: Host Core's packages surface" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.packages.repo.shell == ["htop"]'
   echo "$output" | jq -e '.packages.aur.misc == ["brave-bin"]'
@@ -95,24 +93,24 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # The ordered selections still replace whatever core declared — the baseline
 # fold is the Layer Resolver, not a blanket concat.
-@test "cfgstate_seed_defaults: a core kernel does not concat with the default" {
+@test "config_state_seed_defaults: a core kernel does not concat with the default" {
   cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSON'
 {"options":{"kernel":["zen"]}}
 JSON
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.kernel == ["lts"]'
 }
 
-@test "cfgstate_seed_defaults: with no Host Core it still seeds the defaults" {
+@test "config_state_seed_defaults: with no Host Core it still seeds the defaults" {
   rm -rf "$INSTALLER_DIR/hosts"
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
-@test "cfgstate_seed_defaults: seeds selection defaults (no field opens empty)" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds selection defaults (no field opens empty)" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.kernel == ["lts"]'
   echo "$output" | jq -e '.environment.gpu == "auto"'
@@ -120,8 +118,8 @@ JSON
   echo "$output" | jq -e '(.options.mirror_countries | length) == 5'
 }
 
-@test "cfgstate_seed_defaults: seeds the secure Security/Backup baseline" {
-  run cfgstate_seed_defaults "$(cfgstate_new)"
+@test "config_state_seed_defaults: seeds the secure Security/Backup baseline" {
+  run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.post_install.security.firewall == "firewalld"'
   echo "$output" | jq -e '.post_install.security.antivirus == true'

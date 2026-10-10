@@ -7,7 +7,7 @@
 # and the persistent-fzf controller.
 
 setup() {
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
 }
 

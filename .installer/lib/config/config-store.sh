@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/store.sh — Config Store (the effectful edge over Config State)
+# lib/config/config-store.sh — Config Store (the effectful edge over Config
+# State)
 # =============================================================================
 # Owns the Guided Installer's triad session files behind a small named
 # interface, so no caller pokes the tmpfs paths directly:
@@ -16,29 +17,32 @@
 # unchanged.
 #
 # Public API:
-#   cfgstore_state              → current Config State JSON (stdout)
-#   cfgstore_write_state <json> → replace the Config State
-#   cfgstore_nav                → current nav JSON
-#   cfgstore_write_nav   <json> → replace nav
-#   cfgstore_baseline           → the computed baseline JSON ('{}' when unset)
-#   cfgstore_write_baseline <j> → seed the baseline (once, at session init)
+#   config_store_state              → current Config State JSON (stdout)
+#   config_store_write_state <json> → replace the Config State
+#   config_store_navigation                → current nav JSON
+#   config_store_write_navigation   <json> → replace nav
+#   config_store_baseline           → the computed baseline JSON ('{}' when
+#                                     unset)
+#   config_store_write_baseline <j> → seed the baseline (once, at session init)
+#
+# Used by: lib/guided/controller.sh, lib/guided/shell.sh.
 # =============================================================================
 
 [[ -n "${_STORE_SH_SOURCED:-}" ]] && return 0
 _STORE_SH_SOURCED=1
 
-cfgstore_state()       { printf '%s' "$(<"$GUIDED_STATE_FILE")"; }
-cfgstore_write_state() { printf '%s\n' "$1" >"$GUIDED_STATE_FILE"; }
-cfgstore_nav()         { printf '%s' "$(<"$GUIDED_NAV_FILE")"; }
-cfgstore_write_nav()   { printf '%s\n' "$1" >"$GUIDED_NAV_FILE"; }
+config_store_state()       { printf '%s' "$(<"$GUIDED_STATE_FILE")"; }
+config_store_write_state() { printf '%s\n' "$1" >"$GUIDED_STATE_FILE"; }
+config_store_navigation()         { printf '%s' "$(<"$GUIDED_NAV_FILE")"; }
+config_store_write_navigation()   { printf '%s\n' "$1" >"$GUIDED_NAV_FILE"; }
 
 # The baseline is optional — unset before the launcher computes it, so read
 # defensively and fall back to an empty map.
-cfgstore_baseline() {
+config_store_baseline() {
   if [[ -n "${GUIDED_BASELINE_FILE:-}" && -f "${GUIDED_BASELINE_FILE}" ]]; then
     printf '%s' "$(<"$GUIDED_BASELINE_FILE")"
   else
     printf '%s' '{}'
   fi
 }
-cfgstore_write_baseline() { printf '%s\n' "$1" >"$GUIDED_BASELINE_FILE"; }
+config_store_write_baseline() { printf '%s\n' "$1" >"$GUIDED_BASELINE_FILE"; }

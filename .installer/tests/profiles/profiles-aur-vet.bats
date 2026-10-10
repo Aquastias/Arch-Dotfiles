@@ -102,7 +102,7 @@ SH
 }
 
 @test "userprog: under yay the helper is repo-only; under paru unchanged" {
-  resolve_program() { echo "cat/prog"; }
+  program_registry_resolve() { echo "cat/prog"; }
   _runner_programs_user_program_chroot() { echo "$4" > "$T/helper"; }
   _runner_programs_install_user_program alice prog yay
   [ "$(< "$T/helper")" = "yay --repo" ]
@@ -111,7 +111,7 @@ SH
 }
 
 @test "userprog: program installs run the hook unattended" {
-  resolve_program() { echo "cat/prog"; }
+  program_registry_resolve() { echo "cat/prog"; }
   arch-chroot() { cat > "$T/script"; }
   _runner_programs_install_user_program alice prog paru
   grep -q "export AUR_VET_UNATTENDED=1" "$T/script"

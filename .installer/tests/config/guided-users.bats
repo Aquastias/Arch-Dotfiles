@@ -13,17 +13,17 @@ setup() {
 
   # shellcheck source=../../lib/config/emit.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
-  # validate_config_schema — assert the authored user delta is schema-clean.
-  # shellcheck source=../../lib/config/profile.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
+  # profile_loader_validate_schema — assert the authored user delta is schema-clean.
+  # shellcheck source=../../lib/config/profile-loader.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
 }
 
 # ── tracer: a form's fields become a User Profile, name dropped ─────────────
 
-@test "guided_user_profile: maps the form fields, drops the username" {
+@test "emit_user_profile: maps the form fields, drops the username" {
   form='{"name":"alice","shell":"/bin/zsh","sudo":true}'
 
-  run guided_user_profile "$form"
+  run emit_user_profile "$form"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.shell == "/bin/zsh"'
   echo "$output" | jq -e '.sudo == true'
@@ -32,13 +32,13 @@ setup() {
 
 # ── a fuller form: arrays + git kept, empty/false fields pruned, schema-clean ─
 
-@test "guided_user_profile: keeps arrays + git, prunes empties, validates" {
+@test "emit_user_profile: keeps arrays + git, prunes empties, validates" {
   form='{"name":"bob","shell":"","sudo":false,
          "groups":["docker"],"programs":["git"],
          "git":{"name":"Bob","email":"b@x.io"},
          "ssh_authorized_keys":[]}'
 
-  run guided_user_profile "$form"
+  run emit_user_profile "$form"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'has("shell") | not'                 # "" pruned
   echo "$output" | jq -e 'has("sudo") | not'                  # false pruned
@@ -47,15 +47,15 @@ setup() {
   echo "$output" | jq -e '.git.name == "Bob" and .git.email == "b@x.io"'
   echo "$output" | jq -e 'has("ssh_authorized_keys") | not'   # [] pruned
 
-  run validate_config_schema user "$(guided_user_profile "$form")"
+  run profile_loader_validate_schema user "$(emit_user_profile "$form")"
   [ "$status" -eq 0 ]
 }
 
 # ── ADR 0134: config_exclude + programs_inherit authored via the form ────────
 
-@test "guided_user_profile: config_exclude kept; both 0134 keys schema-clean" {
+@test "emit_user_profile: config_exclude kept; both 0134 keys schema-clean" {
   # a non-empty config_exclude survives the pruner
-  run guided_user_profile \
+  run emit_user_profile \
     '{"name":"c","config_exclude":["kitty"],"programs":["kitty"]}'
   echo "$output" | jq -e '.config_exclude == ["kitty"]'
   echo "$output" | jq -e 'has("name") | not'
@@ -63,8 +63,8 @@ setup() {
   # the create form re-attaches programs_inherit:false after pruning (the pruner
   # drops `false`); the resulting delta carrying both keys is schema-valid.
   local delta
-  delta="$(guided_user_profile '{"name":"c","config_exclude":["kitty"]}' \
+  delta="$(emit_user_profile '{"name":"c","config_exclude":["kitty"]}' \
     | jq -c '. + {programs_inherit:false}')"
-  run validate_config_schema user "$delta"
+  run profile_loader_validate_schema user "$delta"
   [ "$status" -eq 0 ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/store.sh — the Config Store, the effectful
+# Tests for .installer/lib/config/config-store.sh — the Config Store, the effectful
 # edge over
 # the pure Config State. Owns the triad session files behind named verbs so no
 # caller pokes the tmpfs paths directly. Pure round-trip through the file: set a
@@ -10,31 +10,31 @@ setup() {
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
   export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
-  source "$BATS_TEST_DIRNAME/../../lib/config/store.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-store.sh"
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
 @test "state: write then read round-trips" {
-  cfgstore_write_state '{"system":{"hostname":"box"}}'
-  [ "$(cfgstore_state)" = '{"system":{"hostname":"box"}}' ]
+  config_store_write_state '{"system":{"hostname":"box"}}'
+  [ "$(config_store_state)" = '{"system":{"hostname":"box"}}' ]
 }
 
 @test "nav: write then read round-trips" {
-  cfgstore_write_nav '{"screen":"category","category":"System"}'
-  [ "$(cfgstore_nav)" = '{"screen":"category","category":"System"}' ]
+  config_store_write_navigation '{"screen":"category","category":"System"}'
+  [ "$(config_store_navigation)" = '{"screen":"category","category":"System"}' ]
 }
 
 @test "baseline: write then read round-trips" {
-  cfgstore_write_baseline '{"users":["aquastias"]}'
-  [ "$(cfgstore_baseline)" = '{"users":["aquastias"]}' ]
+  config_store_write_baseline '{"users":["aquastias"]}'
+  [ "$(config_store_baseline)" = '{"users":["aquastias"]}' ]
 }
 
 @test "baseline: falls back to empty map when the file is absent" {
   rm -f "$GUIDED_BASELINE_FILE"
-  [ "$(cfgstore_baseline)" = '{}' ]
+  [ "$(config_store_baseline)" = '{}' ]
 }
 
 @test "baseline: falls back to empty map when the path is unset" {
   unset GUIDED_BASELINE_FILE
-  [ "$(cfgstore_baseline)" = '{}' ]
+  [ "$(config_store_baseline)" = '{}' ]
 }

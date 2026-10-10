@@ -100,7 +100,7 @@ setup() {
 # ── drift guard: the manifest's valid set == the menu enum SSOT ───────────────
 
 @test "drift guard: manifest loaders == menu_enum_options bootloader set" {
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   local enum manifest
   enum="$(menu_enum_options options.bootloader | sort)"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for the shared pure package maps (base / gpu / audio / filesystem) and
 # the DRIFT GUARD that locks them: the same names must reach both callers — the
-# install path (package_list_collect / resolve_environment) and the Package
+# install path (package_list_collect / environment_resolve) and the Package
 # Resolver (package_resolver_resolve). A future re-hardcode in either caller
 # fails here, not in a VM. gpu is pinned to an explicit vendor so the guard
 # stays deterministic and headless (no lspci).
@@ -12,7 +12,7 @@ setup() {
   CONFIG_FILE="$TEST_DIR/install.json"
   export CONFIG_FILE
   source "$INSTALLER_DIR/lib/common.sh"
-  source "$INSTALLER_DIR/lib/config/accessors.sh"
+  source "$INSTALLER_DIR/lib/config/install-config.sh"
   source "$INSTALLER_DIR/lib/packages/base.sh"
   source "$INSTALLER_DIR/lib/packages/gpu.sh"
   source "$INSTALLER_DIR/lib/packages/audio.sh"
@@ -21,7 +21,7 @@ setup() {
   source "$INSTALLER_DIR/lib/config/environment.sh"
   source "$INSTALLER_DIR/lib/packages/package-resolver.sh"
   # Keep gpu resolution deterministic even if a test uses intel/auto.
-  _gpu_lspci_output() { printf ''; }
+  _environment_gpu_lspci_output() { printf ''; }
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -92,7 +92,7 @@ res_src() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3
     "environment":{"desktop":["kde"],"gpu":"amd"}}'
   write_config "$cfg"
   diff <(gpu_vendor_packages amd | tr ' ' '\n' | sort -u) <(res_src "$cfg" gpu)
-  resolve_environment
+  environment_resolve
   diff <(gpu_vendor_packages amd | tr ' ' '\n' | sort -u) \
        <(printf '%s\n' "${GPU_PACMAN_PACKAGES[@]}" | sort -u)
 }
@@ -102,7 +102,7 @@ res_src() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3
     "environment":{"desktop":["kde"],"gpu":"amd"}}'
   write_config "$cfg"
   diff <(audio_packages | sort -u) <(res_src "$cfg" audio)
-  resolve_environment
+  environment_resolve
   diff <(audio_packages | sort -u) \
        <(printf '%s\n' "${AUDIO_PACKAGES[@]}" | sort -u)
 }

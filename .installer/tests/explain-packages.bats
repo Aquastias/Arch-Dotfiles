@@ -156,8 +156,8 @@ JSON
   local direct
   direct="$(cd "$OS" && INSTALLER_DIR="$OS" bash -c '
     source lib/common.sh
-    source lib/config/profile.sh
+    source lib/config/profile-loader.sh
     source lib/packages/package-resolver.sh
-    package_resolver_resolve "$(load_profile laptop)" | cut -f3 | sort -u')"
+    package_resolver_resolve "$(profile_loader_load laptop)" | cut -f3 | sort -u')"
   [ "$output" = "$direct" ]
 }

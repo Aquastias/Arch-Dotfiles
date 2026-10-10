@@ -22,15 +22,15 @@ setup() {
 JSON
   printf '{"shell":"/bin/zsh"}\n' > "$INSTALLER_DIR/users/core/profile.jsonc"
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
-  cfgstate_seed_defaults "$(cfgstate_new)" > "$GUIDED_BASELINE_FILE"
+  config_state_seed_defaults "$(config_state_new)" > "$GUIDED_BASELINE_FILE"
   printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
 }
 teardown() { rm -rf "$TEST_DIR"; }
@@ -315,7 +315,7 @@ guard_registry() {
     > "$INSTALLER_DIR/programs/security/clamav/config.jsonc"
   printf '{"name":"docker","kind":"user"}\n' \
     > "$INSTALLER_DIR/programs/virtualization/docker/config.jsonc"
-  configs_build_registry
+  program_registry_build
 }
 
 @test "guard: a Menu-Owned host name (grub) is not added; informs Bootloader" {

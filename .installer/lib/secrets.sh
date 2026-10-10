@@ -34,7 +34,8 @@ secrets_load() {
   local profile="$1"
 
   local host_secrets="${INSTALLER_DIR}/hosts/${profile}/secrets.json"
-  # VM hosts live under hosts/vm/<name>/ (fallback mirrors _profile_load).
+  # VM hosts live under hosts/vm/<name>/ (fallback mirrors
+  # _profile_loader_load).
   [[ -f "$host_secrets" ]] \
     || host_secrets="${INSTALLER_DIR}/hosts/vm/${profile}/secrets.json"
   local -a user_secrets=() user_names=()
@@ -72,15 +73,16 @@ secrets_load() {
 # Scope user secrets to the users this host declares (mirrors
 # runner_run_profiles' .users[]), not every users/*/secrets.json in the repo.
 # Otherwise a committed fixture such as users/vm/test/secrets.json would force
-# every host to demand an age key. When load_profile is unavailable (unit
+# every host to demand an age key. When profile_loader_load is unavailable (unit
 # tests sourcing this file standalone) no users are scoped in.
 _secrets_collect_user_secrets() {
   local profile="$1"
   local host_json="" user user_file
-  host_json="$(load_profile "$profile" 2>/dev/null)" || return 0
+  host_json="$(profile_loader_load "$profile" 2>/dev/null)" || return 0
   while IFS= read -r user; do
     [[ -n "$user" ]] || continue
-    # VM users live under users/vm/<name>/ (fallback mirrors _profile_load).
+    # VM users live under users/vm/<name>/ (fallback mirrors
+    # _profile_loader_load).
     user_file="${INSTALLER_DIR}/users/${user}/secrets.json"
     [[ -f "$user_file" ]] \
       || user_file="${INSTALLER_DIR}/users/vm/${user}/secrets.json"

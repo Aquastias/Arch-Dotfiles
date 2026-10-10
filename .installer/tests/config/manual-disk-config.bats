@@ -18,10 +18,10 @@ setup() {
   info() { :; }; section() { :; }; warn() { :; }
   export -f jsonc_strip jsonc_read config_optional config_required error info section warn
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
-  # shellcheck source=../../lib/config/profile.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
+  # shellcheck source=../../lib/config/profile-loader.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -41,12 +41,12 @@ MANUAL='{
 # ── schema: the new keys are enumerated; unknown ones still abort ────────────
 
 @test "schema: a manual disk_config validates against the host schema" {
-  run validate_config_schema host "$MANUAL"
+  run profile_loader_validate_schema host "$MANUAL"
   [ "$status" -eq 0 ]
 }
 
 @test "schema: an unknown key under disk_config aborts" {
-  run validate_config_schema host \
+  run profile_loader_validate_schema host \
     '{"disk_config":{"kind":"manual","bogus":1}}'
   [ "$status" -ne 0 ]
 }
@@ -74,7 +74,7 @@ MANUAL='{
   write_config "$MANUAL"
   [ "$(install_config_partition_device 1)"     = "/dev/sda2" ]
   [ "$(install_config_partition_mountpoint 1)" = "/" ]
-  [ "$(install_config_partition_fs 1)"         = "ext4" ]
+  [ "$(install_config_partition_filesystem 1)"         = "ext4" ]
 }
 
 @test "accessor: format defaults true, is false only when set false" {

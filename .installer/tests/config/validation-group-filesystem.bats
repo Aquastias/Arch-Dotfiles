@@ -23,8 +23,8 @@ setup() {
   warn()    { :; }
   export -f jsonc_strip jsonc_read config_optional config_required error info section warn
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   # shellcheck source=../../lib/config/validation.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/validation.sh"
 }

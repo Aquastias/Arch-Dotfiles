@@ -3,7 +3,7 @@
 # 0055): both are encrypted, SSH-enabled ZFS machines (desktop impermanent;
 # laptop persistent-root) that load and validate clean against the closed
 # schema. Behaviour under test: the
-# effective config the loader produces + validate_profile's verdict — never how
+# effective config the loader produces + profile_loader_validate's verdict — never how
 # the profile file is laid out. Prior art: profile-loader.bats.
 
 setup() {
@@ -14,14 +14,14 @@ setup() {
   section() { :; }
   export -f info warn error section
 
-  # shellcheck source=../../lib/config/profile.sh
-  source "$INSTALLER_DIR/lib/config/profile.sh"
+  # shellcheck source=../../lib/config/profile-loader.sh
+  source "$INSTALLER_DIR/lib/config/profile-loader.sh"
 }
 
 # ── each profile merges with core and carries the new machine shape ─────────
 
 flags_on() {  # <profile-name>
-  load_profile "$1" | jq -e '
+  profile_loader_load "$1" | jq -e '
     .filesystem == "zfs"
     and .options.encryption == true
     and .options.impermanence.enabled == true
@@ -29,7 +29,7 @@ flags_on() {  # <profile-name>
 }
 
 persists() {  # <profile-name>
-  load_profile "$1" | jq -e '
+  profile_loader_load "$1" | jq -e '
     (.persist.directories // []) as $d
     | ($d | index("/home")) != null
       and ($d | index("/var/lib/docker")) != null
@@ -43,12 +43,12 @@ persists() {  # <profile-name>
 # Discord (extra repo) is a fleet app declared in Host Core, so it resolves onto
 # both real machines (desktop, laptop) with no per-profile packages block.
 @test "discord (from core) resolves onto desktop and laptop" {
-  load_profile desktop | jq -e '[.packages.repo[]?[]?] | index("discord")'
-  load_profile laptop  | jq -e '[.packages.repo[]?[]?] | index("discord")'
+  profile_loader_load desktop | jq -e '[.packages.repo[]?[]?] | index("discord")'
+  profile_loader_load laptop  | jq -e '[.packages.repo[]?[]?] | index("discord")'
 }
 
 @test "laptop: encrypted, ssh-enabled zfs (impermanence disabled)" {
-  load_profile laptop | jq -e '
+  profile_loader_load laptop | jq -e '
     .filesystem == "zfs"
     and .options.encryption == true
     and (.options.impermanence.enabled // false) == false
@@ -60,13 +60,13 @@ persists() {  # <profile-name>
 }
 
 @test "laptop: has no impermanence persist block (persistent root)" {
-  load_profile laptop | jq -e '(.persist // null) == null'
+  profile_loader_load laptop | jq -e '(.persist // null) == null'
 }
 
 # ── the layouts are unchanged (desktop multi mirror+raidz1, laptop single) ──
 
 @test "desktop: keeps its rpool mirror x2 + data raidz1 x3 layout" {
-  run load_profile desktop
+  run profile_loader_load desktop
   echo "$output" | jq -e '.mode == "multi"'
   echo "$output" | jq -e '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
   echo "$output" | jq -e '.storage_groups[0].topology == "raidz1"
@@ -74,18 +74,18 @@ persists() {  # <profile-name>
 }
 
 @test "laptop: keeps its single-disk layout" {
-  run load_profile laptop
+  run profile_loader_load laptop
   echo "$output" | jq -e '.mode == "single"'
 }
 
 # ── validate-at-load passes for both (closed schema + config-sanity) ────────
 
-@test "desktop: validate_profile passes" {
-  run validate_profile desktop
+@test "desktop: profile_loader_validate passes" {
+  run profile_loader_validate desktop
   [ "$status" -eq 0 ]
 }
 
-@test "laptop: validate_profile passes" {
-  run validate_profile laptop
+@test "laptop: profile_loader_validate passes" {
+  run profile_loader_validate laptop
   [ "$status" -eq 0 ]
 }

@@ -12,16 +12,16 @@
 
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
-  source "$INSTALLER_DIR/lib/config/profile.sh"
+  source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   source "$INSTALLER_DIR/lib/config/layer-resolver.sh"
-  source "$INSTALLER_DIR/lib/config/layers.sh"
-  configs_build_registry
+  source "$INSTALLER_DIR/lib/config/program-registry.sh"
+  program_registry_build
 }
 
 # repo_of <profile> / aur_of <profile> — the resolved flat package set.
-repo_of() { load_profile "$1" | jq -r '.packages.repo // {}
+repo_of() { profile_loader_load "$1" | jq -r '.packages.repo // {}
   | to_entries[].value[]' | sort -u; }
-aur_of()  { load_profile "$1" | jq -r '.packages.aur // {}
+aur_of()  { profile_loader_load "$1" | jq -r '.packages.aur // {}
   | to_entries[].value[]' | sort -u; }
 core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   | jq -r '.packages.repo | to_entries[].value[]' | sort -u; }
@@ -31,7 +31,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 @test "core, desktop and laptop all resolve without error" {
   local h
   for h in desktop laptop; do
-    run load_profile "$h"
+    run profile_loader_load "$h"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e . >/dev/null
   done
@@ -96,7 +96,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     pkgs="$(repo_of "$h"; aur_of "$h")"
     while IFS= read -r p; do
       [[ -n "$p" ]] || continue
-      [ "$(program_kind "$p")" = "none" ] \
+      [ "$(program_registry_kind "$p")" = "none" ] \
         || { echo "$h: '$p' is a Program, not a package"; return 1; }
     done <<<"$pkgs"
   done
@@ -195,7 +195,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 @test "the VM fixtures inherit no packages from Host Core" {
   local h
   for h in arch-data arch-kde arch-secure; do
-    run load_profile "$h"
+    run profile_loader_load "$h"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e '(.packages.repo // {}) == {}'
     echo "$output" | jq -e '(.packages.aur // {}) == {}'
@@ -220,7 +220,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 @test "the VM fixtures still inherit Host Core's sysctl" {
   local h
   for h in arch-data arch-kde arch-secure; do
-    run load_profile "$h"
+    run profile_loader_load "$h"
     echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
     echo "$output" | jq -e '.host_programs | index("cups") | not'
   done
@@ -231,7 +231,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # single home: absent from packages.repo, present in host_programs on the real
 # hosts, and dropped on the bare inherit:false profiles.
 
-host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
+host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[]'; }
 
 @test "promoted base host programs resolve into host_programs, not packages" {
   local h p pkgs hp
@@ -263,7 +263,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
 # ── the user layer ──────────────────────────────────────────────────────────
 
 @test "a real user inherits User Core's programs and zsh shell" {
-  run load_user_profile aquastias
+  run profile_loader_load_user aquastias
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.programs | index("docker")'
   echo "$output" | jq -e '.programs | index("virt-manager")'
@@ -273,7 +273,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
 @test "the throwaway test users exclude User Core's programs" {
   local u
   for u in test data; do
-    run load_user_profile "$u"
+    run profile_loader_load_user "$u"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e '.programs | index("docker") | not'
     echo "$output" | jq -e '.programs | index("virt-manager") | not'
@@ -283,7 +283,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
 @test "the bare server user (programs_inherit:false) inherits no programs" {
   # ADR 0134: minimal's server user drops User Core's programs wholesale via one
   # flag — the user-layer twin of packages.inherit:false.
-  run load_user_profile server
+  run profile_loader_load_user server
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '(.programs // []) == []'
   echo "$output" | jq -e '.programs | index("kitty") | not'
@@ -295,11 +295,11 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
 @test "the control keys never reach a resolved profile" {
   local h
   for h in desktop laptop arch-kde; do
-    run load_profile "$h"
+    run profile_loader_load "$h"
     echo "$output" | jq -e '(.packages // {}) | has("inherit") | not'
     echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
     echo "$output" | jq -e 'has("host_programs_exclude") | not'
   done
-  run load_user_profile test
+  run profile_loader_load_user test
   echo "$output" | jq -e 'has("programs_exclude") | not'
 }

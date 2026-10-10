@@ -80,7 +80,7 @@ load_configuration() {
     "${INSTALL_MODE}")" \
     || error "Cannot select a layout adapter for the configured filesystem."
   source_module "${layout_adapter}"
-  validate_install_context
+  validation_check_install_context
 }
 
 # Topology resolution / size calculation, then the full plan and the
@@ -233,14 +233,14 @@ source_module "${SCRIPT_DIR}/lib/packages/kernel.sh"
 source_module "${SCRIPT_DIR}/lib/packages/microcode.sh"
 source_module "${SCRIPT_DIR}/lib/config/categorized-list.sh"
 source_module "${SCRIPT_DIR}/lib/config/post-install.sh"
-source_module "${SCRIPT_DIR}/lib/config/accessors.sh"
+source_module "${SCRIPT_DIR}/lib/config/install-config.sh"
 source_module "${SCRIPT_DIR}/lib/config/timezone.sh"
 source_module "${SCRIPT_DIR}/lib/install-state.sh"
 source_module "${SCRIPT_DIR}/lib/config/lifecycle.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/guided/secrets.sh"
-source_module "${SCRIPT_DIR}/lib/config/layers.sh"
-source_module "${SCRIPT_DIR}/lib/config/profile.sh"
+source_module "${SCRIPT_DIR}/lib/config/program-registry.sh"
+source_module "${SCRIPT_DIR}/lib/config/profile-loader.sh"
 source_module "${SCRIPT_DIR}/lib/layout/dispatch.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pools.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pool-owners.sh"

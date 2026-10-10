@@ -4,7 +4,7 @@
 // owning user via paru, with temp NOPASSWD sudo for /var/lib/systemd/linger
 // write.
 // requires podman (ADR 0065): podman's package + subuid/subgid setup must be in
-// place first. The dependency is enforced at validate_install_context — a list
+// place first. The dependency is enforced at validation_check_install_context — a list
 // that omits podman or orders it after searxng aborts before any side effect.
 // Quadlet units (.container/.network) are stowed from dotfiles and picked up
 // by the user systemd generator at boot; container images are pulled on first

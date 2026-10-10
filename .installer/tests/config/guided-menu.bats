@@ -12,8 +12,8 @@ setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   # shellcheck source=../../lib/config/menu.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
 }
@@ -23,7 +23,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── tracer: fresh state lists the hostname row under System, not overridden ──
 
 @test "menu_rows: a fresh state surfaces hostname under System, not overridden" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
     | jq -e 'any(.[]; .section == "System" and .field == "system.hostname")'
@@ -33,7 +33,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── a set field shows its value and flips the ● flag ───────────────────────
 
 @test "menu_rows: a set hostname shows its value and is marked overridden" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
 
   run menu_rows "$state"
   [ "$status" -eq 0 ]
@@ -44,7 +44,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Disks is filesystem-first; the filesystem defaults to zfs (ADR 0040) ────
 
 @test "menu_rows: the Disks filesystem row defaults to zfs" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row filesystem | jq -e '.section == "Disks"'
   echo "$output" | row filesystem | jq -e '.value == "zfs"'
@@ -54,7 +54,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Encryption sits under Disks (the filesystem governs it) ────────────────
 
 @test "menu_rows: the Disks encryption row defaults to false" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.encryption | jq -e '.section == "Disks"'
   echo "$output" | row options.encryption | jq -e '.value == "false"'
@@ -62,7 +62,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: an enabled encryption shows true and is overridden" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.encryption 'true')"
+  state="$(config_state_set "$(config_state_new)" options.encryption 'true')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row options.encryption | jq -e '.value == "true"'
@@ -72,7 +72,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Impermanence sits under Disks, offered by default (zfs) ─────────────────
 
 @test "menu_rows: the Disks impermanence row defaults to false" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.impermanence.enabled | jq -e '.section == "Disks"'
   echo "$output" | row options.impermanence.enabled | jq -e '.value == "false"'
@@ -81,28 +81,28 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Impermanence is hidden for non-snapshotting filesystems (ext4 / xfs) ────
 
 @test "menu_rows: the impermanence row is hidden when filesystem is ext4" {
-  state="$(cfgstate_set "$(cfgstate_new)" filesystem '"ext4"')"
+  state="$(config_state_set "$(config_state_new)" filesystem '"ext4"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled") | not'
 }
 
 @test "menu_rows: the impermanence row is hidden when filesystem is xfs" {
-  state="$(cfgstate_set "$(cfgstate_new)" filesystem '"xfs"')"
+  state="$(config_state_set "$(config_state_new)" filesystem '"xfs"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled") | not'
 }
 
 @test "menu_rows: the impermanence row is shown for btrfs" {
-  state="$(cfgstate_set "$(cfgstate_new)" filesystem '"btrfs"')"
+  state="$(config_state_set "$(config_state_new)" filesystem '"btrfs"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled")'
 }
 
 @test "menu_rows: the impermanence row is shown for zfs (default)" {
-  state="$(cfgstate_set "$(cfgstate_new)" filesystem '"zfs"')"
+  state="$(config_state_set "$(config_state_new)" filesystem '"zfs"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled")'
@@ -111,7 +111,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Options section: FS-agnostic host knobs (issue 05) ─────────────────────
 
 @test "menu_rows: the bootloader row sits under Bootloader, defaults systemd-boot" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.bootloader | jq -e '.section == "Bootloader"'
   echo "$output" | row options.bootloader | jq -e '.value == "systemd-boot"'
@@ -121,14 +121,14 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── kernel is a token list: defaults lts, renders multi-select comma-joined ─
 
 @test "menu_rows: the kernel row sits under Kernels, defaults lts" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.kernel | jq -e '.section == "Kernels"'
   echo "$output" | row options.kernel | jq -e '.value == "lts"'
 }
 
 @test "menu_rows: a multi-kernel selection renders comma-joined, primary first" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.kernel '["zen","lts"]')"
+  state="$(config_state_set "$(config_state_new)" options.kernel '["zen","lts"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row options.kernel | jq -e '.value == "zen, lts"'
@@ -140,7 +140,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # under Expert (ADR 0071).
 
 @test "menu_rows: storage knobs show under Disks, ssh / age_key_url under Expert" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   # swap / swap_size are no longer menu_rows fields — like layout, they surface
   # as a synthetic controller row (the swap sub-editor) under Disks.
@@ -156,7 +156,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Daemons (ADR 0081): printing/bluetooth/power share one category ────────
 
 @test "menu_rows: printing sits under Daemons, defaults true, no ●" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.printing.enabled \
     | jq -e '.section == "Daemons"'
@@ -165,7 +165,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: turning printing off shows false and flips ●" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.printing.enabled 'false')"
+  state="$(config_state_set "$(config_state_new)" options.printing.enabled 'false')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row options.printing.enabled | jq -e '.value == "false"'
@@ -173,7 +173,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: bluetooth sits under Daemons, defaults true, no ●" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.bluetooth.enabled \
     | jq -e '.section == "Daemons"'
@@ -182,7 +182,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_categories: Daemons is a category with a non-empty summary" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
     | jq -e 'any(.[]; .name == "Daemons" and (.summary | length > 0))'
@@ -191,7 +191,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Power profile (ADR 0080): an enum leaf, now a Daemons row (ADR 0081) ────
 
 @test "menu_rows: power profile sits under Daemons, defaults ppd, no ●" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.power.profile | jq -e '.section == "Daemons"'
   echo "$output" | row options.power.profile \
@@ -208,7 +208,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_category_rows: Daemons returns the three service rows" {
-  run menu_category_rows "Daemons" "$(cfgstate_new)"
+  run menu_category_rows "Daemons" "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .section == "Daemons")'
   echo "$output" | jq -e 'any(.[]; .field == "options.printing.enabled")'
@@ -217,10 +217,10 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_categories: the Daemons ● folds any of its three toggles" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.name == "Daemons") | .overridden == false'
-  state="$(cfgstate_set "$(cfgstate_new)" options.bluetooth.enabled 'false')"
+  state="$(config_state_set "$(config_state_new)" options.bluetooth.enabled 'false')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.name == "Daemons") | .overridden == true'
@@ -229,14 +229,14 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Environment: desktop (multi) + gpu (auto default) ──────────────────────
 
 @test "menu_rows: the gpu row sits under Environment, defaults auto" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row environment.gpu | jq -e '.section == "Environment"'
   echo "$output" | row environment.gpu | jq -e '.value == "auto"'
 }
 
 @test "menu_rows: a multi-gpu selection renders comma-joined under Environment" {
-  state="$(cfgstate_set "$(cfgstate_new)" environment.gpu '["amd","nvidia"]')"
+  state="$(config_state_set "$(config_state_new)" environment.gpu '["amd","nvidia"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row environment.gpu | jq -e '.section == "Environment"'
@@ -245,7 +245,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: the display_manager row sits under Environment, defaults auto" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row environment.display_manager \
     | jq -e '.section == "Environment"'
@@ -254,7 +254,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: a chosen display_manager shows its value and is overridden" {
-  state="$(cfgstate_set "$(cfgstate_new)" environment.display_manager '"sddm"')"
+  state="$(config_state_set "$(config_state_new)" environment.display_manager '"sddm"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row environment.display_manager | jq -e '.value == "sddm"'
@@ -264,7 +264,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── Options (mirrors) / Packages rows (folded in by issue 02) ──────────────
 
 @test "menu_rows: Mirrors & Repositories carries countries + optional repos + custom" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.mirror_countries \
     | jq -e '.section == "Mirrors & Repositories"'
@@ -282,7 +282,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # custom_repositories holds objects — the row value must not error on join, it
 # renders the repo names (ADR 0072).
 @test "menu_rows: custom_repositories renders repo names, not a jq error" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.custom_repositories \
+  state="$(config_state_set "$(config_state_new)" options.custom_repositories \
     '[{"name":"cool","url":"https://x"},{"name":"neat","url":"https://y"}]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
@@ -290,7 +290,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: the extra-packages field row is gone (ADR 0086)" {
-  state="$(cfgstate_set "$(cfgstate_new)" \
+  state="$(config_state_set "$(config_state_new)" \
     packages.repo.extra '["htop","tmux"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
@@ -311,7 +311,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: no host programs row (Menu-Owned); post_install split out" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   # host_programs has no menu row (ADR 0086): every host program is Menu-Owned.
   ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
@@ -326,14 +326,14 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # fresh, seeded run shows the value with no ● until the operator edits it.
 
 @test "menu_rows: a baseline value shows without ●; an override flips ●" {
-  baseline="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  baseline="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
 
-  run menu_rows "$(cfgstate_new)" "$baseline"        # seed only, no override
+  run menu_rows "$(config_state_new)" "$baseline"        # seed only, no override
   [ "$status" -eq 0 ]
   echo "$output" | row system.hostname | jq -e '.value == "eterniox"'
   echo "$output" | row system.hostname | jq -e '.overridden == false'
 
-  override="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
+  override="$(config_state_set "$(config_state_new)" system.hostname '"myhost"')"
   run menu_rows "$override" "$baseline"              # operator override wins
   [ "$status" -eq 0 ]
   echo "$output" | row system.hostname | jq -e '.value == "myhost"'
@@ -350,8 +350,8 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # empty defaults are unseeded by design and skipped.
 
 @test "drift: each seeded menu default matches its _MENU_FIELDS spec default" {
-  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
-  local baseline; baseline="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
+  local baseline; baseline="$(config_state_seed_defaults "$(config_state_new)")"
   local spec section path label default rendered
   for spec in "${_MENU_FIELDS[@]}"; do
     IFS='|' read -r section path label default <<<"$spec"
@@ -366,7 +366,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
       || { echo "drift at $path: baseline '$rendered' != spec '$default'"; false; }
   done
   # the seeded system.locale must project to the language/encoding spec defaults
-  local rows; rows="$(menu_rows "$(cfgstate_new)" "$baseline")"
+  local rows; rows="$(menu_rows "$(config_state_new)" "$baseline")"
   echo "$rows" | row __language__ | jq -e '.value == "en_US"'
   echo "$rows" | row __encoding__ | jq -e '.value == "UTF-8"'
 }
@@ -374,7 +374,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── keyboard / locale are Locales rows; timezone is a System row (ADR 0076) ─
 
 @test "menu_rows: keyboard surfaces under Locales, timezone under System" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row system.keymap   | jq -e '.section == "Locales"'
   echo "$output" | row system.timezone | jq -e '.section == "System"'
@@ -382,7 +382,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # the keymap field is labelled `keyboard` under Locales (ADR 0076)
 @test "menu_rows: the keymap field is labelled keyboard" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row system.keymap | jq -e '.label == "keyboard"'
 }
@@ -390,7 +390,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── locale projection: language + encoding are views of system.locale (0076) ─
 
 @test "menu_rows: fresh state shows language en_US, encoding UTF-8, no ●" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row __language__ | jq -e '.section == "Locales"'
   echo "$output" | row __language__ | jq -e '.value == "en_US" and .overridden == false'
@@ -398,7 +398,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: overriding system.locale projects into language + encoding" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.locale '"de_DE.UTF-8"')"
+  state="$(config_state_set "$(config_state_new)" system.locale '"de_DE.UTF-8"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   # only the changed part carries ●: language flips, encoding stays UTF-8
@@ -407,7 +407,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: a non-UTF-8 locale marks encoding, not language" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.locale '"en_US.ISO-8859-1"')"
+  state="$(config_state_set "$(config_state_new)" system.locale '"en_US.ISO-8859-1"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row __language__ | jq -e '.value == "en_US" and .overridden == false'
@@ -415,7 +415,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: an array locale projects element 0" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.locale \
+  state="$(config_state_set "$(config_state_new)" system.locale \
     '["fr_FR.UTF-8","en_US.UTF-8"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
@@ -425,7 +425,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── console font leaf (ADR 0076) ────────────────────────────────────────────
 
 @test "menu_rows: console font is a Locales row defaulting to default8x16" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row system.console_font | jq -e '.section == "Locales"'
   echo "$output" | row system.console_font \
@@ -433,7 +433,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: overriding console font flips its ●" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.console_font '"ter-116n"')"
+  state="$(config_state_set "$(config_state_new)" system.console_font '"ter-116n"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row system.console_font \
@@ -443,7 +443,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # ── the menu still carries a System and a Users section ─────────────────────
 
 @test "menu_rows: the menu carries both a System and a Users section" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .section == "Users")'
@@ -458,7 +458,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 cat_at() { jq -e ".[$1]"; }
 
 @test "menu_categories: returns the categories in install-flow order (ADR 0081)" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'length == 14'
   echo "$output" | jq -e '[.[].name] == ["System","Locales","Users","Disks",
@@ -467,7 +467,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_categories: each category carries its bucket" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .bucket | length > 0)'
   echo "$output" | jq -e '.[] | select(.name == "System")   | .bucket == "GENERAL"'
@@ -476,7 +476,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .summary | length > 0)'
   echo "$output" \
@@ -484,13 +484,13 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_categories: a fresh state overrides nothing" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .overridden == false)'
 }
 
 @test "menu_categories: editing a field flips only its category's ●" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"myhost"')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.name == "System")  | .overridden == true'
@@ -500,8 +500,8 @@ cat_at() { jq -e ".[$1]"; }
 
 # the ● folds the override map only — a seeded-but-untouched value carries no ●
 @test "menu_categories: a baseline-only value leaves the category unmarked" {
-  baseline="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  run menu_categories "$(cfgstate_new)" "$baseline"
+  baseline="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  run menu_categories "$(config_state_new)" "$baseline"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.name == "System") | .overridden == false'
 }
@@ -511,7 +511,7 @@ cat_at() { jq -e ".[$1]"; }
 # (same per-row shape as menu_rows). The baseline still supplies seeded values.
 
 @test "menu_category_rows: System returns only System rows incl. hostname" {
-  run menu_category_rows System "$(cfgstate_new)"
+  run menu_category_rows System "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .field == "system.hostname")'
@@ -519,7 +519,7 @@ cat_at() { jq -e ".[$1]"; }
 
 # Font Catalog (ADR 0080): the curated multi-select lives as a System leaf.
 @test "menu_category_rows: the Font Catalog is a System row" {
-  run menu_category_rows System "$(cfgstate_new)"
+  run menu_category_rows System "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.fonts")'
 }
@@ -533,7 +533,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_categories: the System summary mentions fonts" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
     | jq -e 'any(.[]; .name == "System" and (.summary | test("fonts")))'
@@ -541,7 +541,7 @@ cat_at() { jq -e ".[$1]"; }
 
 # ── menu_top_lines (ADR 0081): the bucketed top-screen category block ────────
 @test "menu_top_lines: emits each bucket header once, before its categories" {
-  run menu_top_lines "$(cfgstate_new)"
+  run menu_top_lines "$(config_state_new)"
   [ "$status" -eq 0 ]
   # every bucket header present, exactly once
   for b in "── GENERAL ──" "── STORAGE & BOOT ──" "── SOFTWARE ──" \
@@ -556,7 +556,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_top_lines: an overridden category carries a trailing ●" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"myhost"')"
   run menu_top_lines "$state"
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" | grep -q "^System — .*  ●$"
@@ -565,7 +565,7 @@ cat_at() { jq -e ".[$1]"; }
 # ADR 0082: a blank spacer line separates one bucket from the next (but not
 # before the first bucket header).
 @test "menu_top_lines: a blank line separates the buckets" {
-  run menu_top_lines "$(cfgstate_new)"
+  run menu_top_lines "$(config_state_new)"
   [ "$status" -eq 0 ]
   # the line immediately before a non-first bucket header is blank
   [ -z "$(printf '%s\n' "$output" | grep -B1 -Fx '── STORAGE & BOOT ──' \
@@ -580,7 +580,7 @@ cat_at() { jq -e ".[$1]"; }
 # section is independent of the path.
 
 @test "menu_category_rows: esp size surfaces under Disks (swap is synthetic)" {
-  run menu_category_rows Disks "$(cfgstate_new)"
+  run menu_category_rows Disks "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.esp_size")'
   # swap / swap_size moved to the controller's synthetic swap row (sub-editor).
@@ -591,7 +591,7 @@ cat_at() { jq -e ".[$1]"; }
 # mirrors + optional repos + custom servers/repos live under Mirrors &
 # Repositories (ADR 0071/0072)
 @test "menu_category_rows: countries + optional/custom repos under Mirrors & Repositories" {
-  run menu_category_rows "Mirrors & Repositories" "$(cfgstate_new)"
+  run menu_category_rows "Mirrors & Repositories" "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.mirror_countries")'
   echo "$output" | jq -e 'any(.[]; .field == "options.optional_repos")'
@@ -602,7 +602,7 @@ cat_at() { jq -e ".[$1]"; }
 # ── Pacman category (ADR 0074): the [options] block flags as a section ───────
 
 @test "menu_categories: Pacman is a category, summary mentions ilovecandy" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .name == "Pacman")'
   echo "$output" \
@@ -610,7 +610,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_category_rows: Pacman carries the six [options] flags with defaults" {
-  run menu_category_rows Pacman "$(cfgstate_new)"
+  run menu_category_rows Pacman "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .section == "Pacman")'
   echo "$output" | row options.pacman.ilovecandy | jq -e '.value == "true"'
@@ -624,7 +624,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_rows: toggling a Pacman flag flips its ● and value" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.pacman.ilovecandy 'false')"
+  state="$(config_state_set "$(config_state_new)" options.pacman.ilovecandy 'false')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row options.pacman.ilovecandy | jq -e '.value == "false"'
@@ -632,7 +632,7 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_categories: editing a Pacman flag flips only the Pacman ●" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.pacman.color 'false')"
+  state="$(config_state_set "$(config_state_new)" options.pacman.color 'false')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.name == "Pacman") | .overridden == true'
@@ -649,14 +649,14 @@ cat_at() { jq -e ".[$1]"; }
 # sysctl is kernel hardening, so it lives under Security (ADR 0071); the map
 # value renders as comma-joined key=value pairs and flips the Security ● when set.
 @test "menu_category_rows: sysctl is a Security row, empty + unmarked when unset" {
-  run menu_category_rows Security "$(cfgstate_new)"
+  run menu_category_rows Security "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row sysctl | jq -e '.value == ""'
   echo "$output" | row sysctl | jq -e '.overridden == false'
 }
 
 @test "menu_rows: a set sysctl renders key=value pairs and is overridden" {
-  state="$(cfgstate_set "$(cfgstate_new)" sysctl '{"vm.swappiness":10}')"
+  state="$(config_state_set "$(config_state_new)" sysctl '{"vm.swappiness":10}')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | row sysctl | jq -e '.value == "vm.swappiness=10"'
@@ -667,7 +667,7 @@ cat_at() { jq -e ".[$1]"; }
 # extra-packages row but no host programs row (ADR 0086 — every host program is
 # Menu-Owned, so the picker has no members).
 @test "menu_category_rows: Packages has no field rows (drill-only)" {
-  run menu_category_rows Packages "$(cfgstate_new)"
+  run menu_category_rows Packages "$(config_state_new)"
   [ "$status" -eq 0 ]
   # Neither extra packages nor host programs — Packages is a pure
   # repo/aur/derived drill now (ADR 0086).
@@ -677,13 +677,13 @@ cat_at() { jq -e ".[$1]"; }
 }
 
 @test "menu_category_rows: Security + Backup carry the structured tool rows" {
-  run menu_category_rows Security "$(cfgstate_new)"
+  run menu_category_rows Security "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "post_install.security.firewall")'
   echo "$output" | jq -e 'any(.[]; .field == "post_install.security.antivirus")'
   echo "$output" | jq -e 'any(.[]; .field == "post_install.security.rootkit")'
   echo "$output" | jq -e 'any(.[]; .field == "post_install.security.apparmor")'
-  run menu_category_rows Backup "$(cfgstate_new)"
+  run menu_category_rows Backup "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.zfs_auto_snapshot")'
   echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.borg")'
@@ -691,7 +691,7 @@ cat_at() { jq -e ".[$1]"; }
 
 # Expert is now a real category (ADR 0071): the ssh + age-key-url remainder.
 @test "menu_category_rows: Expert carries ssh + age key url" {
-  run menu_category_rows Expert "$(cfgstate_new)"
+  run menu_category_rows Expert "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.ssh.enabled")'
   echo "$output" | jq -e 'any(.[]; .field == "options.age_key_url")'
@@ -700,14 +700,14 @@ cat_at() { jq -e ".[$1]"; }
 
 # the old catch-all "Options" category is gone (its fields were redistributed)
 @test "menu_categories: the Options section is gone" {
-  run menu_categories "$(cfgstate_new)"
+  run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .name != "Options")'
 }
 
 # dotfiles_repo is removed entirely — no row in any category (issue 02)
 @test "menu_rows: the dotfiles_repo field is gone" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .field != "dotfiles_repo")'
 }

@@ -1,13 +1,13 @@
 #!/usr/bin/env bats
 # Tests for .installer/vm/lib/profile.sh — VM Profile resolution (deep, pure).
-# Prior art: tests/config/profile-loader.bats (load_profile +
-# assemble_profile_config), tests/config/install-config.bats.
+# Prior art: tests/config/profile-loader.bats (profile_loader_load +
+# profile_loader_assemble_config), tests/config/install-config.bats.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
   HOSTS_DIR="$TEST_DIR/hosts"
   mkdir -p "$HOSTS_DIR"
-  # load_profile/assemble_profile_config resolve hosts under
+  # profile_loader_load/profile_loader_assemble_config resolve hosts under
   # $INSTALLER_DIR/hosts.
   export TEST_DIR HOSTS_DIR INSTALLER_DIR="$TEST_DIR"
 
@@ -78,11 +78,11 @@ JSONC
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
 }
 
-# ── host_profile resolves the unified profile.jsonc (load_profile) ───────────
+# ── host_profile resolves the unified profile.jsonc (profile_loader_load) ───────────
 
-@test "profile_resolve_config: host_profile single resolves via load_profile" {
+@test "profile_resolve_config: host_profile single resolves via profile_loader_load" {
   # A real profile.jsonc-backed host — proves the resolver reads the unified
-  # profile (merged over core) via load_profile.
+  # profile (merged over core) via profile_loader_load.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/myhost"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
 { "host_programs": ["cups"],
@@ -104,7 +104,7 @@ JSONC
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
   # hostname falls back to the host-dir name (ADR 0036: dir ≡ hostname)
   [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
-  # software arrives via load_profile's core merge — impossible on the old
+  # software arrives via profile_loader_load's core merge — impossible on the old
   # template-only path; reflector is section-derived by Mirrors (ADR 0089)
   [ "$(echo "$output" | jq -c '.host_programs')" = '["cups","reflector"]' ]
   [ "$(echo "$output" | jq -c '.environment.desktop')" = '["kde"]' ]

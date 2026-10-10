@@ -63,9 +63,9 @@ opinionated default environment, not a new mechanism.
 
 ### Effective Config
 The ephemeral, fully-resolved install config the installer back-end consumes —
-never a committed file. `assemble_profile_config` builds it from a Host Profile
-(merged with Host Core) plus the operator's disk assignment, adding the device
-paths the profile deliberately omits. Written to tmpfs by `install.sh
+never a committed file. `profile_loader_assemble_config` builds it from a Host
+Profile (merged with Host Core) plus the operator's disk assignment, adding the
+device paths the profile deliberately omits. Written to tmpfs by `install.sh
 --profile`, or injected by the VM seed on the unattended `install.sh
 <config-file>` path. Carries exactly the shape `03-install.sh` read from the
 retired `install.jsonc`, so the back-end never changed. The committed audit
@@ -327,31 +327,33 @@ contract is testable without a VM. Replaces the two divergent merge rules that
 were in use (concatenation in config load, replacement in the guided view),
 **both** of which were load-bearing where they were. The subtract-then- strip
 exclusion logic has **one** implementation — the jq `apply_exclusions` def in
-`layer_jq_exclusions`, included by both the fold (`_layer_fold_one`) and the
-guided effective-config path (`layer_apply_exclusions`), mirroring how
-`layer_jq_prelude` already shares `is_additive` with the Save-path inverse, so
-the two exclusion paths cannot drift.
+`layer_resolver_jq_exclusions`, included by both the fold
+(`_layer_resolver_fold_one`) and the guided effective-config path
+(`layer_resolver_apply_exclusions`), mirroring how `layer_resolver_jq_prelude`
+already shares `is_additive` with the Save-path inverse, so the two exclusion
+paths cannot drift.
 
 ### Config Store
-`.installer/lib/config/store.sh`. The **effectful** edge over the pure Config
-State —
-owns the Guided Installer's triad session files (`GUIDED_STATE_FILE` /
-`GUIDED_NAV_FILE` / `GUIDED_BASELINE_FILE`) behind a small named interface
-(`cfgstore_state` / `cfgstore_write_state`, `cfgstore_nav` /
-`cfgstore_write_nav`, `cfgstore_baseline` / `cfgstore_write_baseline`) so no
-caller pokes the tmpfs paths directly. `config/state.sh` (`cfgstate_*`) stays
-**pure** (JSON in/out); the Config Store is where the file IPC lives, once. fzf
-runs each keystroke bind in a **fresh shell**, so the session state must be
+`.installer/lib/config/config-store.sh`. The **effectful** edge over the pure
+Config State — owns the Guided Installer's triad session files
+(`GUIDED_STATE_FILE` / `GUIDED_NAV_FILE` / `GUIDED_BASELINE_FILE`) behind a
+small named interface (`config_store_state` / `config_store_write_state`,
+`config_store_navigation` / `config_store_write_navigation`,
+`config_store_baseline` / `config_store_write_baseline`) so no caller pokes the
+tmpfs paths directly. `config/config-state.sh` (`cfgstate_*`) stays **pure**
+(JSON in/out); the Config Store is where the file IPC lives, once. fzf runs each
+keystroke bind in a **fresh shell**, so the session state must be
 process-external — the backing is a tmpfs file read via the `GUIDED_*_FILE` path
 the launcher (`guided_run_persistent`) exports; there is **one adapter** (the
 file), and the controller tests set the same globals to a temp path, asserting
 behaviour through it unchanged. The controller's private `_ctl_state` /
-`_ctl_write_state` / `_ctl_nav` / `_ctl_write_nav` / `_ctl_baseline` now delegate
-here, and the former direct pokes in `guided/fzf-entry.sh` (the `cfdisk` /
-`pkgbrowse` execute() verbs) and `guided/shell.sh` (the session seed/read in
-`guided_run_persistent`) route through it. Scope is the Config State
-triad; the other session handoff files (secrets, userforms, history, pw buffers,
-session-undo, skip, list, result) are separate concerns not yet folded in.
+`_ctl_write_state` / `_ctl_nav` / `_ctl_write_nav` / `_ctl_baseline` now
+delegate here, and the former direct pokes in `guided/fzf-entry.sh` (the
+`cfdisk` / `pkgbrowse` execute() verbs) and `guided/shell.sh` (the session
+seed/read in `guided_run_persistent`) route through it. Scope is the Config
+State triad; the other session handoff files (secrets, userforms, history, pw
+buffers, session-undo, skip, list, result) are separate concerns not yet folded
+in.
 
 ### Package Resolver
 `.installer/lib/packages/package-resolver.sh`. The pure module answering "what
@@ -523,25 +525,24 @@ Dependency]] (`requires`) and [[Program Conflict]] (`conflicts`), and optional
 A `requires: [name, …]` array in a [[Program Config]] naming other Programs
 whose install-time setup — package **and** side effects (e.g. podman's
 subuid/subgid + linger) — must be in place before this one runs ([ADR 0065]).
-Enforced at
-`validate_install_context` before any side effect: a required program must be a
-[[Host Program]] (installed before all user programs) or appear earlier in the
-same user's `programs` list, since the [[Runner]] installs a user's programs in
-declared order. A missing or later-ordered dependency aborts up front with an
-actionable message rather than hard-failing mid-install. Today only `searxng`
-declares one (`["podman"]`).
+Enforced at `validation_check_install_context` before any side effect: a
+required program must be a [[Host Program]] (installed before all user programs)
+or appear earlier in the same user's `programs` list, since the [[Runner]]
+installs a user's programs in declared order. A missing or later-ordered
+dependency aborts up front with an actionable message rather than hard-failing
+mid-install. Today only `searxng` declares one (`["podman"]`).
 
 ### Program Conflict (`conflicts`)
 A `conflicts: [name, …]` array in a [[Program Config]] naming other Programs
 this one is mutually exclusive with, e.g. firewalld vs ufw ([ADR 0115]).
 Symmetric — declaring on one side is enough. Enforced at
-`validate_install_context` before any side effect, over the combined set that
-reaches a machine ([[Host Program]]s plus a user's own `programs`): a selection
-with both rivals aborts up front instead of one installing + enabling and the
-other failing mid-run. Any runtime `command_exists` guard in `install.sh` stays
-as defense-in-depth. Distinct from package-level conflicts, which pacman
-resolves; this models cross-[[Program]] exclusion the package manager cannot
-see.
+`validation_check_install_context` before any side effect, over the combined set
+that reaches a machine ([[Host Program]]s plus a user's own `programs`): a
+selection with both rivals aborts up front instead of one installing + enabling
+and the other failing mid-run. Any runtime `command_exists` guard in
+`install.sh` stays as defense-in-depth. Distinct from package-level conflicts,
+which pacman resolves; this models cross-[[Program]] exclusion the package
+manager cannot see.
 
 ### Host Program
 A program that requires root and is installed via pacman during the chroot
@@ -679,12 +680,13 @@ supersede plain ones (`ttf-fira-code` dropped) because the tracked shell payload
 is Powerlevel10k, which renders Nerd glyphs.
 
 ### Program Registry
-The in-memory index built once per run by `configs_build_registry`
-(`lib/config/layers.sh`), mapping each program name to its `category/name` path
-**and** its `kind`. Exposes `program_kind <name>` → `host` | `user` |
-`none`, and `program_names_of_kind <kind>`. Backs the exclusivity validator,
-both Guided Installer program pickers, and the [[Package Resolver]], so a menu
-render never re-parses thirty-one `config.jsonc` files.
+The in-memory index built once per run by `program_registry_build`
+(`lib/config/program-registry.sh`), mapping each program name to its
+`category/name` path **and** its `kind`. Exposes `program_registry_kind <name>`
+→ `host` | `user` | `none`, and `program_registry_names_of_kind <kind>`. Backs
+the exclusivity validator, both Guided Installer program pickers, and the
+[[Package Resolver]], so a menu render never re-parses thirty-one `config.jsonc`
+files.
 
 ### User Program
 A program installed for a specific user via the AUR Helper inside the chroot.
@@ -848,18 +850,17 @@ by name only across all categories (names are unique).
 
 ### Layout Module
 `.installer/lib/layout/zfs/<mode>.sh` (`zfs/single.sh`, `zfs/multi.sh`; ADR
-0043). Each
-implements the layout interface (`layout_validate`, `layout_plan`,
+0043). Each implements the layout interface (`layout_validate`, `layout_plan`,
 `layout_partition`, `layout_create_pools`, `layout_mount_esp`) and publishes a
 normalized state record consumed by chroot/finalize: `LAYOUT_ESP_PARTS[]`
 (resolved ESP device paths, primary at index 0), `LAYOUT_OS_POOL_NAME`,
 `LAYOUT_DATA_POOL_NAME` (empty when no data pool). `layout_validate` is a pure
-check (no state writes) — called by `validate_install_context` to gate disk
-paths and mode-specific topology before any work begins; exits via `error` on
-first failure. The active module is selected by `INSTALL_MODE` and sourced from
-`03-install.sh` **before** `validate_install_context` runs, so the dispatcher
-can call `layout_validate` on the active adapter. The seam wrappers enforce
-phase ordering via `layout_enter_phase` / `layout_exit_phase` in
+check (no state writes) — called by `validation_check_install_context` to gate
+disk paths and mode-specific topology before any work begins; exits via `error`
+on first failure. The active module is selected by `INSTALL_MODE` and sourced
+from `03-install.sh` **before** `validation_check_install_context` runs, so the
+dispatcher can call `layout_validate` on the active adapter. The seam wrappers
+enforce phase ordering via `layout_enter_phase` / `layout_exit_phase` in
 `lib/layout/core.sh` (phases: validate→plan→partition→pools→esp); a verb called
 out of order aborts via `error` before any destructive operation. Mode-private
 globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`,
@@ -2153,9 +2154,9 @@ desktop, gpu, swap). Cells, their allowed values, and the exclusions between
 them are **derived from the menu's own option functions** (`_ctl_topologies_
 for_fs`, `menu_rows`, picker/validation), never a hand-kept duplicate, so an
 unreachable combination is one the menu never emits ([ADR 0046]). Covered in two
-tiers: **Tier 1** assembles + `validate_install_context`-checks the *exhaustive*
-storage cluster with no VM (always-on in bats); **Tier 2** installs a
-**pairwise** (2-wise) subset plus a pinned seed list of historically-broken
+tiers: **Tier 1** assembles + `validation_check_install_context`-checks the
+*exhaustive* storage cluster with no VM (always-on in bats); **Tier 2** installs
+a **pairwise** (2-wise) subset plus a pinned seed list of historically-broken
 tuples through a real VM (`vm.sh --testing`), reusing Tier 1's assembler to feed
 the Effective Config via the config seam. The covered set is recorded as a
 committed **Matrix Manifest** (one line per cell); VM Profiles are materialized

@@ -1,5 +1,4 @@
 adr-link	CONTEXT.md	ADR 0069
-file-length	.installer/lib/config/validation.sh	-
 file-length	.installer/lib/feature-audit/live.sh	-
 file-length	.installer/lib/guided/controller.sh	-
 file-length	.installer/lib/guided/shell.sh	-
@@ -20,11 +19,8 @@ file-length	.installer/tests/vm/seed-generator.bats	-
 file-length	.installer/vm/lib/flow-persistent.sh	-
 file-length	.installer/vm/lib/seed-generator.sh	-
 file-length	.installer/vm/vm-agent.sh	-
-function-length	.installer/lib/config/categorized-list.sh	categorized_list_parse
-function-length	.installer/lib/config/environment.sh	_resolve_env_validate
 function-length	.installer/lib/config/menu.sh	menu_rows
-function-length	.installer/lib/config/seed.sh	_cfgstate_computed_defaults
-function-length	.installer/lib/config/validation.sh	_validation_preflight_programs
+function-length	.installer/lib/config/profile-loader.sh	profile_loader_validate_schema
 function-length	.installer/lib/feature-audit/binds-guest.sh	fa_bsetup
 function-length	.installer/lib/feature-audit/binds.sh	_fa_parse_hyprland
 function-length	.installer/lib/feature-audit/live.sh	_fa_bind_one
@@ -71,7 +67,6 @@ function-name	.installer/extras/desktop/kde/audit.sh	_fa_kde_scheme
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-function-name	.installer/lib/config/accessors.sh	install_config_partition_fs
 function-name	.installer/lib/config/config-apply.sh	ca_home_dir
 function-name	.installer/lib/config/config-apply.sh	ca_plan
 function-name	.installer/lib/config/config-apply.sh	ca_ships_home_list
@@ -115,23 +110,6 @@ function-name	.installer/lib/config/nav.sh	nav_to_text
 function-name	.installer/lib/config/nav.sh	nav_to_useredit
 function-name	.installer/lib/config/nav.sh	nav_to_userfield
 function-name	.installer/lib/config/nav.sh	nav_to_values
-function-name	.installer/lib/config/profile.sh	profile_dir
-function-name	.installer/lib/config/seed.sh	_cfgstate_computed_defaults
-function-name	.installer/lib/config/seed.sh	cfgstate_host_core
-function-name	.installer/lib/config/seed.sh	cfgstate_seed_defaults
-function-name	.installer/lib/config/state.sh	cfgstate_emit
-function-name	.installer/lib/config/state.sh	cfgstate_get
-function-name	.installer/lib/config/state.sh	cfgstate_is_overridden
-function-name	.installer/lib/config/state.sh	cfgstate_new
-function-name	.installer/lib/config/state.sh	cfgstate_set
-function-name	.installer/lib/config/state.sh	cfgstate_unset
-function-name	.installer/lib/config/store.sh	cfgstore_baseline
-function-name	.installer/lib/config/store.sh	cfgstore_nav
-function-name	.installer/lib/config/store.sh	cfgstore_state
-function-name	.installer/lib/config/store.sh	cfgstore_write_baseline
-function-name	.installer/lib/config/store.sh	cfgstore_write_nav
-function-name	.installer/lib/config/store.sh	cfgstore_write_state
-function-name	.installer/lib/config/validation.sh	_validation_topology_for_fs
 function-name	.installer/lib/feature-audit/binds-guest.sh	_fa_act
 function-name	.installer/lib/feature-audit/binds-guest.sh	_fa_audio
 function-name	.installer/lib/feature-audit/binds-guest.sh	fa_bbaseline
@@ -556,30 +534,8 @@ local-name	.installer/extras/desktop/kde/kde.sh	_seed_write:dst
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	-:d
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env:p
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir:p
-local-name	.installer/lib/config/accessors.sh	install_config_any_nonzfs_luks:n
-local-name	.installer/lib/config/accessors.sh	install_config_any_zfs:n
-local-name	.installer/lib/config/accessors.sh	install_config_data_pool_ashift:v
-local-name	.installer/lib/config/accessors.sh	install_config_data_pool_encryption:v
-local-name	.installer/lib/config/accessors.sh	install_config_data_pool_filesystem:v
-local-name	.installer/lib/config/accessors.sh	install_config_data_pool_mount:v
-local-name	.installer/lib/config/accessors.sh	install_config_data_pool_topology:v
-local-name	.installer/lib/config/accessors.sh	install_config_encryption_method:v
-local-name	.installer/lib/config/accessors.sh	install_config_get:d
-local-name	.installer/lib/config/accessors.sh	install_config_get:n
-local-name	.installer/lib/config/accessors.sh	install_config_get:p
-local-name	.installer/lib/config/accessors.sh	install_config_get:t
-local-name	.installer/lib/config/accessors.sh	install_config_get:v
-local-name	.installer/lib/config/accessors.sh	install_config_kernels:tok
-local-name	.installer/lib/config/accessors.sh	install_config_partition_format:v
-local-name	.installer/lib/config/accessors.sh	install_config_storage_group_ashift:v
-local-name	.installer/lib/config/accessors.sh	install_config_storage_group_encryption:v
-local-name	.installer/lib/config/accessors.sh	install_config_storage_group_filesystem:v
-local-name	.installer/lib/config/accessors.sh	install_config_uses_filesystem:fs
-local-name	.installer/lib/config/accessors.sh	install_config_uses_filesystem:n
 local-name	.installer/lib/config/bluetooth.sh	bluetooth_inject:cfg
 local-name	.installer/lib/config/bluetooth.sh	bluetooth_inject:progs
-local-name	.installer/lib/config/categorized-list.sh	categorized_list_parse:lkey
-local-name	.installer/lib/config/categorized-list.sh	categorized_list_parse:ltype
 local-name	.installer/lib/config/config-apply.sh	ca_home_dir:d
 local-name	.installer/lib/config/config-apply.sh	ca_home_dir:d
 local-name	.installer/lib/config/config-apply.sh	ca_ships_home_list:d
@@ -593,7 +549,6 @@ local-name	.installer/lib/config/display.sh	display_reverse:r
 local-name	.installer/lib/config/display.sh	display_reverse:r
 local-name	.installer/lib/config/display.sh	_display_word:c
 local-name	.installer/lib/config/display.sh	_display_word:w
-local-name	.installer/lib/config/edits.sh	-:cfgstate_set
 local-name	.installer/lib/config/edits.sh	edit_add_custom_repository:rf
 local-name	.installer/lib/config/edits.sh	edit_append_persist:dir
 local-name	.installer/lib/config/edits.sh	edit_apply_skeleton:sk
@@ -604,49 +559,20 @@ local-name	.installer/lib/config/edits.sh	edit_set_gpu:p
 local-name	.installer/lib/config/edits.sh	edit_set_scalar:v
 local-name	.installer/lib/config/edits.sh	edit_set_sysctl:k
 local-name	.installer/lib/config/edits.sh	edit_set_sysctl:v
-local-name	.installer/lib/config/emit.sh	-:cfgstate_emit
-local-name	.installer/lib/config/environment.sh	_env_summary_labels:t
-local-name	.installer/lib/config/environment.sh	_env_summary_labels:t
-local-name	.installer/lib/config/environment.sh	_gpu_intel_refine:dec_id
-local-name	.installer/lib/config/environment.sh	_resolve_env_display_manager:_d
-local-name	.installer/lib/config/environment.sh	_resolve_env_display_manager:_d
-local-name	.installer/lib/config/environment.sh	_resolve_env_gpu:_pkgs
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_de
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_dm_ok
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_dt
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_gt
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_ns_ok
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_v
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_v
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_v
-local-name	.installer/lib/config/environment.sh	_resolve_env_validate:_v
 local-name	.installer/lib/config/fonts.sh	fonts_aur_packages:pkg
 local-name	.installer/lib/config/fonts.sh	fonts_default_selection:pkg
 local-name	.installer/lib/config/fonts.sh	_fonts_kind:pkg
 local-name	.installer/lib/config/fonts.sh	fonts_repo_packages:pkg
 local-name	.installer/lib/config/fonts.sh	fonts_selected:cfg
-local-name	.installer/lib/config/layers.sh	configs_build_registry:d
-local-name	.installer/lib/config/layers.sh	configs_build_registry:d
-local-name	.installer/lib/config/layers.sh	program_kind:cfg
-local-name	.installer/lib/config/layers.sh	program_kind:rel
-local-name	.installer/lib/config/layers.sh	reconcile_user_program:h
-local-name	.installer/lib/config/layers.sh	reconcile_user_program:h
-local-name	.installer/lib/config/layers.sh	resolve_program:d
-local-name	.installer/lib/config/layers.sh	resolve_program:d
-local-name	.installer/lib/config/layers.sh	resolve_program:rel
-local-name	.installer/lib/config/layers.sh	validate_program:dir
-local-name	.installer/lib/config/layers.sh	validate_program:rel
 local-name	.installer/lib/config/locale-parts.sh	locale_compose:enc
 local-name	.installer/lib/config/locale-source.sh	locale_list_encodings:f
 local-name	.installer/lib/config/locale-source.sh	locale_list_languages:f
-local-name	.installer/lib/config/manual-partition.sh	-:cfgstate_get
 local-name	.installer/lib/config/manual-partition.sh	manual_cycle_fs:cur
 local-name	.installer/lib/config/manual-partition.sh	manual_cycle_fs:f
 local-name	.installer/lib/config/manual-partition.sh	manual_cycle_mountpoint:cur
 local-name	.installer/lib/config/manual-partition.sh	manual_cycle_mountpoint:n
 local-name	.installer/lib/config/manual-partition.sh	manual_set_field:jval
 local-name	.installer/lib/config/manual-partition.sh	manual_set_field:val
-local-name	.installer/lib/config/menu.sh	-:cfgstate_get
 local-name	.installer/lib/config/mirrors.sh	mirrors_inject:cfg
 local-name	.installer/lib/config/mirrors.sh	mirrors_inject:progs
 local-name	.installer/lib/config/nav.sh	nav_to_secret:c
@@ -660,21 +586,9 @@ local-name	.installer/lib/config/power.sh	power_inject:cfg
 local-name	.installer/lib/config/power.sh	power_inject:progs
 local-name	.installer/lib/config/printing.sh	printing_inject:cfg
 local-name	.installer/lib/config/printing.sh	printing_inject:progs
-local-name	.installer/lib/config/profile.sh	profile_dir:d
-local-name	.installer/lib/config/profile.sh	_validate_bootloader:bl
-local-name	.installer/lib/config/profile.sh	validate_profile:u
-local-name	.installer/lib/config/profile.sh	validate_profile:u
-local-name	.installer/lib/config/profile.sh	validate_profile:u
-local-name	.installer/lib/config/profile.sh	validate_profile:uj
-local-name	.installer/lib/config/profile.sh	_validate_program_configs:cfg
-local-name	.installer/lib/config/profile.sh	_validate_program_configs:p
-local-name	.installer/lib/config/profile.sh	_validate_program_configs:p
-local-name	.installer/lib/config/profile.sh	_validate_program_configs:rel
 local-name	.installer/lib/config/profiles.sh	profiles_header:f
 local-name	.installer/lib/config/profiles.sh	profiles_list:d
 local-name	.installer/lib/config/profiles.sh	profiles_list:d
-local-name	.installer/lib/config/seed.sh	cfgstate_host_core:f
-local-name	.installer/lib/config/seed.sh	-:cfgstate_set
 local-name	.installer/lib/config/skeleton.sh	skeleton_add_data_pool:skel
 local-name	.installer/lib/config/skeleton.sh	skeleton_add_storage:skel
 local-name	.installer/lib/config/skeleton.sh	skeleton_build_assignment:c
@@ -691,46 +605,6 @@ local-name	.installer/lib/config/skeleton.sh	skeleton_validate:topo
 local-name	.installer/lib/config/timezone.sh	timezone_resolve:cfg
 local-name	.installer/lib/config/timezone.sh	timezone_valid:dir
 local-name	.installer/lib/config/timezone.sh	timezone_valid:z
-local-name	.installer/lib/config/validation.sh	validate_install_context:_eff_json
-local-name	.installer/lib/config/validation.sh	validate_staging:f
-local-name	.installer/lib/config/validation.sh	validate_staging:f
-local-name	.installer/lib/config/validation.sh	_validation_check_conflicts:c
-local-name	.installer/lib/config/validation.sh	_validation_check_conflicts:p
-local-name	.installer/lib/config/validation.sh	_validation_check_conflicts:p
-local-name	.installer/lib/config/validation.sh	_validation_check_requires_order:p
-local-name	.installer/lib/config/validation.sh	_validation_check_requires_order:r
-local-name	.installer/lib/config/validation.sh	_validation_check_requires_order:ri
-local-name	.installer/lib/config/validation.sh	_validation_check_requires_order:_si
-local-name	.installer/lib/config/validation.sh	_validation_filesystem:f
-local-name	.installer/lib/config/validation.sh	_validation_filesystem:f
-local-name	.installer/lib/config/validation.sh	_validation_filesystem:fs
-local-name	.installer/lib/config/validation.sh	_validation_impermanence_gpu:v
-local-name	.installer/lib/config/validation.sh	_validation_impermanence_gpu:v
-local-name	.installer/lib/config/validation.sh	_validation_one_group:dc
-local-name	.installer/lib/config/validation.sh	_validation_one_group:f
-local-name	.installer/lib/config/validation.sh	_validation_one_group:f
-local-name	.installer/lib/config/validation.sh	_validation_one_group:fs
-local-name	.installer/lib/config/validation.sh	_validation_one_group:topo
-local-name	.installer/lib/config/validation.sh	_validation_persist:any_err
-local-name	.installer/lib/config/validation.sh	_validation_persist:dirs
-local-name	.installer/lib/config/validation.sh	_validation_persist:imp_enabled
-local-name	.installer/lib/config/validation.sh	_validation_persist_one:c
-local-name	.installer/lib/config/validation.sh	_validation_persist_one:c
-local-name	.installer/lib/config/validation.sh	_validation_persist_one:ds
-local-name	.installer/lib/config/validation.sh	_validation_persist_one:ds
-local-name	.installer/lib/config/validation.sh	_validation_preflight_programs:sys_progs
-local-name	.installer/lib/config/validation.sh	_validation_preflight_programs:u
-local-name	.installer/lib/config/validation.sh	_validation_preflight_programs:u
-local-name	.installer/lib/config/validation.sh	_validation_preflight_programs:u
-local-name	.installer/lib/config/validation.sh	_validation_preflight_programs:uj
-local-name	.installer/lib/config/validation.sh	_validation_program_conflicts:cf
-local-name	.installer/lib/config/validation.sh	_validation_program_conflicts:rel
-local-name	.installer/lib/config/validation.sh	_validation_program_requires:cf
-local-name	.installer/lib/config/validation.sh	_validation_program_requires:rel
-local-name	.installer/lib/config/validation.sh	_validation_topology_for_fs:fs
-local-name	.installer/lib/config/validation.sh	_validation_topology_for_fs:t
-local-name	.installer/lib/config/validation.sh	_validation_topology_for_fs:t
-local-name	.installer/lib/config/validation.sh	_validation_topology_for_fs:topo
 local-name	.installer/lib/feature-audit/binds-guest.sh	fa_beval:a
 local-name	.installer/lib/feature-audit/binds-guest.sh	fa_beval:arg
 local-name	.installer/lib/feature-audit/binds-guest.sh	fa_beval:b
@@ -904,9 +778,6 @@ local-name	.installer/lib/feature-audit/report.sh	_fa_noise_tsv:f
 local-name	.installer/lib/feature-audit/report.sh	_fa_render_md:n
 local-name	.installer/lib/feature-audit/report.sh	fa_report:md
 local-name	.installer/lib/feature-audit/report.sh	_fa_variant_adrs:vs
-local-name	.installer/lib/guided/controller.sh	-:cfgstate_get
-local-name	.installer/lib/guided/controller.sh	-:cfgstate_host_core
-local-name	.installer/lib/guided/controller.sh	-:cfgstore_state
 local-name	.installer/lib/guided/controller.sh	_ctl_append_primary_user_programs:cur
 local-name	.installer/lib/guided/controller.sh	_ctl_apply_enum:val
 local-name	.installer/lib/guided/controller.sh	_ctl_apply_locale_part:cur
@@ -1139,8 +1010,6 @@ local-name	.installer/lib/guided/controller.sh	-:nav_new
 local-name	.installer/lib/guided/mask.sh	guided_mask_apply:buf
 local-name	.installer/lib/guided/mask.sh	guided_mask_apply:c
 local-name	.installer/lib/guided/mask.sh	guided_mask_apply:q
-local-name	.installer/lib/guided/save.sh	-:cfgstate_emit
-local-name	.installer/lib/guided/save.sh	-:cfgstate_host_core
 local-name	.installer/lib/guided/save.sh	guided_save_host_profile:dir
 local-name	.installer/lib/guided/secrets-file.sh	guided_secretsfile_missing:f
 local-name	.installer/lib/guided/secrets-file.sh	guided_secretsfile_missing:n
@@ -1160,9 +1029,6 @@ local-name	.installer/lib/guided/secrets.sh	guided_write_passwords:enc
 local-name	.installer/lib/guided/secrets.sh	guided_write_passwords:hf
 local-name	.installer/lib/guided/secrets.sh	guided_write_passwords:root_pw
 local-name	.installer/lib/guided/secrets.sh	guided_write_passwords:uf
-local-name	.installer/lib/guided/shell.sh	-:cfgstate_new
-local-name	.installer/lib/guided/shell.sh	-:cfgstate_seed_defaults
-local-name	.installer/lib/guided/shell.sh	-:cfgstore_state
 local-name	.installer/lib/guided/shell.sh	_guided_add_persist:dir
 local-name	.installer/lib/guided/shell.sh	_guided_apply_userforms:dir
 local-name	.installer/lib/guided/shell.sh	_guided_apply_userforms:f
@@ -1257,8 +1123,6 @@ local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:f
 local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:k
 local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:n
 local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:tmp
-local-name	.installer/lib/matrix/assemble.sh	-:cfgstate_new
-local-name	.installer/lib/matrix/assemble.sh	-:cfgstate_seed_defaults
 local-name	.installer/lib/matrix/assemble.sh	matrix_cell_assemble:n
 local-name	.installer/lib/matrix/assemble.sh	_matrix_cell_mode:m
 local-name	.installer/lib/matrix/assemble.sh	matrix_cell_state:enc
@@ -1543,9 +1407,9 @@ local-name	.installer/tests/config/claude-agent.bats	@test home/.claude is the s
 local-name	.installer/tests/config/claude-agent.bats	@test install.sh installs claude-code + sandbox/gh/ccusage/npm deps:p
 local-name	.installer/tests/config/claude-agent.bats	@test seeded settings.json curates the feature set (ADR 0142):s
 local-name	.installer/tests/config/claude-agent.bats	@test seeded settings.json pins the decided keys:s
-local-name	.installer/tests/config/environment-resolution.bats	@test resolve_environment is idempotent: second call produces identical state:a1
-local-name	.installer/tests/config/environment-resolution.bats	@test resolve_environment is idempotent: second call produces identical state:d1
-local-name	.installer/tests/config/environment-resolution.bats	@test resolve_environment is idempotent: second call produces identical state:g1
+local-name	.installer/tests/config/environment-resolution.bats	@test environment_resolve is idempotent: second call produces identical state:a1
+local-name	.installer/tests/config/environment-resolution.bats	@test environment_resolve is idempotent: second call produces identical state:d1
+local-name	.installer/tests/config/environment-resolution.bats	@test environment_resolve is idempotent: second call produces identical state:g1
 local-name	.installer/tests/config/guided-edits.bats	@test edit_add_mirror_server: dedup-appends a Server URL:s
 local-name	.installer/tests/config/guided-edits.bats	@test edit_append_packages: split names append to packages.repo.extra:s
 local-name	.installer/tests/config/guided-flatten.bats	@test fully-bound assignment equals picker_build_assignment for same disks:s
@@ -1812,8 +1676,8 @@ local-name	.installer/tests/guided/disk-bind.bats	@test _ctl_free_disks: exclude
 local-name	.installer/tests/guided/disk-bind.bats	@test _ctl_pool_normalise_fs: ext4 trims bound devices to the first:s
 local-name	.installer/tests/guided/disk-bind.bats	@test _ctl_pool_toggle_disk: binds a disk, disk_count derives to 1:g
 local-name	.installer/tests/guided/disk-bind.bats	@test _ctl_pool_toggle_disk: toggling a bound disk unbinds it, count 0:g
-local-name	.installer/tests/guided/emit.bats	@test guided_core_delta: drops what Host Core already provides:eff
-local-name	.installer/tests/guided/emit.bats	@test guided_core_delta round-trips through the Layer Resolver:eff
+local-name	.installer/tests/guided/emit.bats	@test emit_core_delta: drops what Host Core already provides:eff
+local-name	.installer/tests/guided/emit.bats	@test emit_core_delta round-trips through the Layer Resolver:eff
 local-name	.installer/tests/guided/emit.bats	@test menu view and installed set agree, aside from the derived cups:installed_sp
 local-name	.installer/tests/guided/emit.bats	@test menu view and installed set agree, aside from the derived cups:shown_sp
 local-name	.installer/tests/guided/emit.bats	@test printing on injects cups at emit; off omits it:asgn
@@ -1833,7 +1697,7 @@ local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: data repla
 local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: os replaces the os_pool:g
 local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: os replaces the os_pool:s
 local-name	.installer/tests/guided/pool-ref.bats	@test nav_to_pooledit: carries an explicit group kind:p
-local-name	.installer/tests/guided/profiles-menu.bats	@test a seeded profile matches load_profile exactly:d
+local-name	.installer/tests/guided/profiles-menu.bats	@test a seeded profile matches profile_loader_load exactly:d
 local-name	.installer/tests/guided/profiles-menu.bats	@test preview(profiles): expands a user to shell·groups:d
 local-name	.installer/tests/guided/profiles-menu.bats	@test preview(profiles): resolves over Host Core, not the raw delta:d
 local-name	.installer/tests/guided/profiles-menu.bats	@test seeding resolves the profile over Host Core, not the raw delta:d
@@ -1918,8 +1782,8 @@ local-name	.installer/tests/matrix/matrix-driver.bats	@test run_all: one failing
 local-name	.installer/tests/matrix/matrix-driver.bats	@test summary_format: lists all cells; FAIL row has a re-run hint, SKIP≠FAIL:recs
 local-name	.installer/tests/matrix/matrix-generator.bats	@test tier1: cell count equals the exhaustive cross-product; ids unique:fs
 local-name	.installer/tests/matrix/matrix-generator.bats	@test tier1: cell count equals the exhaustive cross-product; ids unique:fs
-local-name	.installer/tests/matrix/matrix-generator.bats	@test tier1: every distinct root/pool topology passes _validation_topology_for_fs:fs
-local-name	.installer/tests/matrix/matrix-generator.bats	@test tier1: every distinct root/pool topology passes _validation_topology_for_fs:topo
+local-name	.installer/tests/matrix/matrix-generator.bats	@test tier1: every distinct root/pool topology passes _validation_topology_for_filesystem:fs
+local-name	.installer/tests/matrix/matrix-generator.bats	@test tier1: every distinct root/pool topology passes _validation_topology_for_filesystem:topo
 local-name	.installer/tests/matrix/matrix-generator.bats	@test tier2: every scalar axis value appears in some cell:val
 local-name	.installer/tests/matrix/matrix-generator.bats	@test tier2: identical seed yields byte-identical output:a
 local-name	.installer/tests/matrix/matrix-generator.bats	@test tier2: identical seed yields byte-identical output:b
@@ -2277,49 +2141,6 @@ prefix	.installer/extras/desktop/kde/kde.sh	_seed_write
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-prefix	.installer/lib/config/accessors.sh	install_config_any_nonzfs_luks
-prefix	.installer/lib/config/accessors.sh	install_config_any_zfs
-prefix	.installer/lib/config/accessors.sh	install_config_apparmor_enabled
-prefix	.installer/lib/config/accessors.sh	_install_config_array
-prefix	.installer/lib/config/accessors.sh	install_config_custom_repositories
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_ashift
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_disks
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_encryption
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_filesystem
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_mount
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_name
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_owners
-prefix	.installer/lib/config/accessors.sh	install_config_data_pools_count
-prefix	.installer/lib/config/accessors.sh	install_config_data_pool_topology
-prefix	.installer/lib/config/accessors.sh	install_config_encryption_enabled
-prefix	.installer/lib/config/accessors.sh	install_config_encryption_method
-prefix	.installer/lib/config/accessors.sh	install_config_get
-prefix	.installer/lib/config/accessors.sh	install_config_gpu
-prefix	.installer/lib/config/accessors.sh	install_config_impermanence_enabled
-prefix	.installer/lib/config/accessors.sh	install_config_kernel
-prefix	.installer/lib/config/accessors.sh	install_config_kernels
-prefix	.installer/lib/config/accessors.sh	install_config_keymap
-prefix	.installer/lib/config/accessors.sh	install_config_keymaps
-prefix	.installer/lib/config/accessors.sh	install_config_locale
-prefix	.installer/lib/config/accessors.sh	install_config_locales
-prefix	.installer/lib/config/accessors.sh	install_config_mirror_countries
-prefix	.installer/lib/config/accessors.sh	install_config_mirror_servers
-prefix	.installer/lib/config/accessors.sh	install_config_multilib
-prefix	.installer/lib/config/accessors.sh	install_config_optional_repos
-prefix	.installer/lib/config/accessors.sh	install_config_partition_device
-prefix	.installer/lib/config/accessors.sh	install_config_partition_format
-prefix	.installer/lib/config/accessors.sh	install_config_partition_fs
-prefix	.installer/lib/config/accessors.sh	install_config_partition_mountpoint
-prefix	.installer/lib/config/accessors.sh	install_config_partitions_count
-prefix	.installer/lib/config/accessors.sh	install_config_partitions_json
-prefix	.installer/lib/config/accessors.sh	install_config_storage_group_ashift
-prefix	.installer/lib/config/accessors.sh	install_config_storage_group_encryption
-prefix	.installer/lib/config/accessors.sh	install_config_storage_group_filesystem
-prefix	.installer/lib/config/accessors.sh	install_config_storage_group_name
-prefix	.installer/lib/config/accessors.sh	install_config_storage_group_owners
-prefix	.installer/lib/config/accessors.sh	install_config_storage_groups_count
-prefix	.installer/lib/config/accessors.sh	install_config_timezone
-prefix	.installer/lib/config/accessors.sh	install_config_uses_filesystem
 prefix	.installer/lib/config/config-apply.sh	ca_home_dir
 prefix	.installer/lib/config/config-apply.sh	ca_plan
 prefix	.installer/lib/config/config-apply.sh	ca_ships_home_list
@@ -2339,19 +2160,6 @@ prefix	.installer/lib/config/edits.sh	edit_set_gpu
 prefix	.installer/lib/config/edits.sh	edit_set_scalar
 prefix	.installer/lib/config/edits.sh	edit_set_sysctl
 prefix	.installer/lib/config/edits.sh	edit_set_users
-prefix	.installer/lib/config/emit.sh	guided_core_delta
-prefix	.installer/lib/config/emit.sh	guided_profile_delta
-prefix	.installer/lib/config/emit.sh	guided_user_profile
-prefix	.installer/lib/config/environment.sh	_env_summary_labels
-prefix	.installer/lib/config/environment.sh	_gpu_detect_vendors
-prefix	.installer/lib/config/environment.sh	_gpu_intel_refine
-prefix	.installer/lib/config/environment.sh	_gpu_lspci_output
-prefix	.installer/lib/config/environment.sh	print_environment_summary
-prefix	.installer/lib/config/environment.sh	_resolve_env_audio
-prefix	.installer/lib/config/environment.sh	_resolve_env_display_manager
-prefix	.installer/lib/config/environment.sh	_resolve_env_gpu
-prefix	.installer/lib/config/environment.sh	resolve_environment
-prefix	.installer/lib/config/environment.sh	_resolve_env_validate
 prefix	.installer/lib/config/history.sh	hist_can_redo
 prefix	.installer/lib/config/history.sh	hist_can_undo
 prefix	.installer/lib/config/history.sh	hist_commit
@@ -2359,26 +2167,6 @@ prefix	.installer/lib/config/history.sh	hist_new
 prefix	.installer/lib/config/history.sh	hist_present
 prefix	.installer/lib/config/history.sh	hist_redo
 prefix	.installer/lib/config/history.sh	hist_undo
-prefix	.installer/lib/config/layer-resolver.sh	layer_additive_json
-prefix	.installer/lib/config/layer-resolver.sh	layer_additive_keys
-prefix	.installer/lib/config/layer-resolver.sh	layer_apply_exclusions
-prefix	.installer/lib/config/layer-resolver.sh	_layer_fold_one
-prefix	.installer/lib/config/layer-resolver.sh	layer_jq_exclusions
-prefix	.installer/lib/config/layer-resolver.sh	layer_jq_prelude
-prefix	.installer/lib/config/layer-resolver.sh	layer_replace_keys
-prefix	.installer/lib/config/layer-resolver.sh	layer_resolve
-prefix	.installer/lib/config/layer-resolver.sh	layer_resolve_host
-prefix	.installer/lib/config/layer-resolver.sh	layer_resolve_user
-prefix	.installer/lib/config/layers.sh	configs_build_registry
-prefix	.installer/lib/config/layers.sh	_configs_merge
-prefix	.installer/lib/config/layers.sh	_configs_parse
-prefix	.installer/lib/config/layers.sh	program_kind
-prefix	.installer/lib/config/layers.sh	program_names_of_kind
-prefix	.installer/lib/config/layers.sh	reconcile_user_program
-prefix	.installer/lib/config/layers.sh	resolve_program
-prefix	.installer/lib/config/layers.sh	validate_package_program_exclusivity
-prefix	.installer/lib/config/layers.sh	validate_program
-prefix	.installer/lib/config/layers.sh	validate_programs
 prefix	.installer/lib/config/locale-parts.sh	locale_compose
 prefix	.installer/lib/config/locale-parts.sh	locale_encoding
 prefix	.installer/lib/config/locale-parts.sh	locale_language
@@ -2399,30 +2187,6 @@ prefix	.installer/lib/config/manual-partition.sh	manual_store_partitions
 prefix	.installer/lib/config/manual-partition.sh	manual_target_disk
 prefix	.installer/lib/config/menu-owned.sh	bootloader_owned_programs
 prefix	.installer/lib/config/menu-owned.sh	secrets_owned_programs
-prefix	.installer/lib/config/profile.sh	assemble_profile_config
-prefix	.installer/lib/config/profile.sh	load_profile
-prefix	.installer/lib/config/profile.sh	load_user_profile
-prefix	.installer/lib/config/profile.sh	_validate_bootloader
-prefix	.installer/lib/config/profile.sh	validate_config_schema
-prefix	.installer/lib/config/profile.sh	validate_profile
-prefix	.installer/lib/config/profile.sh	_validate_program_configs
-prefix	.installer/lib/config/seed.sh	_cfgstate_computed_defaults
-prefix	.installer/lib/config/seed.sh	cfgstate_host_core
-prefix	.installer/lib/config/seed.sh	cfgstate_seed_defaults
-prefix	.installer/lib/config/state.sh	cfgstate_emit
-prefix	.installer/lib/config/state.sh	cfgstate_get
-prefix	.installer/lib/config/state.sh	cfgstate_is_overridden
-prefix	.installer/lib/config/state.sh	cfgstate_new
-prefix	.installer/lib/config/state.sh	cfgstate_set
-prefix	.installer/lib/config/state.sh	cfgstate_unset
-prefix	.installer/lib/config/store.sh	cfgstore_baseline
-prefix	.installer/lib/config/store.sh	cfgstore_nav
-prefix	.installer/lib/config/store.sh	cfgstore_state
-prefix	.installer/lib/config/store.sh	cfgstore_write_baseline
-prefix	.installer/lib/config/store.sh	cfgstore_write_nav
-prefix	.installer/lib/config/store.sh	cfgstore_write_state
-prefix	.installer/lib/config/validation.sh	validate_install_context
-prefix	.installer/lib/config/validation.sh	validate_staging
 prefix	.installer/lib/feature-audit/binds-guest.sh	_fa_act
 prefix	.installer/lib/feature-audit/binds-guest.sh	_fa_audio
 prefix	.installer/lib/feature-audit/binds-guest.sh	fa_bbaseline
@@ -2533,7 +2297,7 @@ prefix	.installer/lib/feature-audit/manifest.sh	fa_variant_json
 prefix	.installer/lib/feature-audit/manifest.sh	fa_variant_phases
 prefix	.installer/lib/feature-audit/manifest.sh	fa_variant_vm_profile
 prefix	.installer/lib/feature-audit/manifest.sh	layout_disk_exists
-prefix	.installer/lib/feature-audit/manifest.sh	load_profile
+prefix	.installer/lib/feature-audit/manifest.sh	profile_loader_load
 prefix	.installer/lib/feature-audit/probe-lib.sh	fa_as_root
 prefix	.installer/lib/feature-audit/probe-lib.sh	fa_as_user
 prefix	.installer/lib/feature-audit/probe-lib.sh	fa_cfg
@@ -2968,9 +2732,6 @@ tool	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env:t
 tool	.installer/extras/desktop/niri/niri.sh	-:dirname
 tool	.installer/extras/dm/greetd/greetd.sh	-:dirname
 tool	.installer/extras/dm/sddm/sddm.sh	-:dirname
-tool	.installer/lib/config/accessors.sh	-:head
-tool	.installer/lib/config/accessors.sh	-:head
-tool	.installer/lib/config/accessors.sh	install_config_kernel:head
 tool	.installer/lib/config/config-apply.sh	ca_ships_home_list:basename
 tool	.installer/lib/config/config-apply.sh	ca_ships_home_list:dirname
 tool	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list:basename
@@ -2979,14 +2740,7 @@ tool	.installer/lib/config/display.sh	_display_curated:tr
 tool	.installer/lib/config/display.sh	display_label:tr
 tool	.installer/lib/config/display.sh	_display_word:tr
 tool	.installer/lib/config/display.sh	_display_word:tr
-tool	.installer/lib/config/environment.sh	_gpu_intel_refine:head
-tool	.installer/lib/config/layers.sh	configs_build_registry:basename
-tool	.installer/lib/config/layers.sh	configs_build_registry:basename
-tool	.installer/lib/config/layers.sh	configs_build_registry:dirname
-tool	.installer/lib/config/layers.sh	resolve_program:basename
-tool	.installer/lib/config/layers.sh	resolve_program:dirname
 tool	.installer/lib/config/manual-partition.sh	manual_target_disk:head
-tool	.installer/lib/config/profile.sh	_validate_bootloader:paste
 tool	.installer/lib/config/profiles.sh	profiles_list:basename
 tool	.installer/lib/config/timezone.sh	timezone_resolve:head
 tool	.installer/lib/config/timezone.sh	timezone_resolve:tr
@@ -3110,7 +2864,7 @@ tool	.installer/tests/chroot/configure-ordering.bats	@test configure.sh runs gpu
 tool	.installer/tests/chroot/configure-ordering.bats	@test configure.sh runs gpu.sh before initcpio.sh:cut
 tool	.installer/tests/chroot/configure-ordering.bats	@test configure.sh runs gpu.sh before initcpio.sh:head
 tool	.installer/tests/chroot/configure-ordering.bats	@test configure.sh runs gpu.sh before initcpio.sh:head
-tool	.installer/tests/config/audio-resolution.bats	@test calling _resolve_env_audio twice does not duplicate packages:tr
+tool	.installer/tests/config/audio-resolution.bats	@test calling _environment_resolve_audio twice does not duplicate packages:tr
 tool	.installer/tests/config/audio-resolution.bats	@test two-desktop array still produces PipeWire stack (no duplicates):tr
 tool	.installer/tests/config/clamav-program.bats	-:cut
 tool	.installer/tests/config/clamav-program.bats	-:head

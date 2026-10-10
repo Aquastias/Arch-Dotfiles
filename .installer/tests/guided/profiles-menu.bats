@@ -10,7 +10,7 @@ setup() {
   export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
@@ -268,7 +268,7 @@ JSON
   jq -e '.sysctl["vm.swappiness"] == 10'      "$GUIDED_STATE_FILE"
 }
 
-@test "a seeded profile matches load_profile exactly" {
+@test "a seeded profile matches profile_loader_load exactly" {
   local d; d="$TEST_DIR/os3"
   mkdir -p "$d/hosts"/{core,desktop}
   cat > "$d/hosts/core/profile.jsonc" <<'JSON'
@@ -283,10 +283,10 @@ JSON
   set_nav "$(nav_to_profiles)"
   guided_ctl_enter "desktop" >/dev/null
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
   local seeded resolved
   seeded="$(jq -cS '{host_programs, packages, options}' "$GUIDED_STATE_FILE")"
-  resolved="$(load_profile desktop \
+  resolved="$(profile_loader_load desktop \
     | jq -cS '{host_programs, packages, options}')"
   [ "$seeded" = "$resolved" ]
 }

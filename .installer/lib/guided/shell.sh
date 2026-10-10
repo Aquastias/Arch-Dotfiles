@@ -26,17 +26,14 @@
 # shellcheck source=../common.sh
 declare -F error >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../common.sh"
-# shellcheck source=../config/state.sh
-declare -F cfgstate_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
-# shellcheck source=../config/store.sh
-declare -F cfgstore_state >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/store.sh"
-# shellcheck source=../config/seed.sh
-declare -F cfgstate_seed_defaults >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
+# shellcheck source=../config/config-state.sh
+declare -F config_state_new >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-state.sh"
+# shellcheck source=../config/config-store.sh
+declare -F config_store_state >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-store.sh"
 # shellcheck source=../config/layer-resolver.sh
-declare -F layer_resolve >/dev/null 2>&1 \
+declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/layer-resolver.sh"
 # shellcheck source=../config/edits.sh
 declare -F edit_set_scalar >/dev/null 2>&1 \
@@ -191,7 +188,7 @@ _GUIDED_HIST=""
 # override, so a fresh run carries no ● yet still emits (validation.sh requires
 # locale + timezone, and the host must never be userless).
 _guided_set_identity() {
-  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
 }
 
 # _guided_effective — the effective override map the back-end consumes: the
@@ -404,7 +401,7 @@ _guided_edit_filesystem() {
   token="${pick%% *}"
   for f in "${_GUIDED_FS_ACTIVE[@]}"; do
     if [[ "$token" == "$f" ]]; then
-      _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" filesystem \
+      _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" filesystem \
         "$(jq -n --arg x "$token" '$x')")"
       return 0
     fi
@@ -487,7 +484,7 @@ _guided_edit_kernel() {
   local arr
   arr="$(_guided_multi_array kernel "Kernels (first = primary)" \
     "${opts[@]}")" || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.kernel "$arr")"
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" options.kernel "$arr")"
 }
 
 # _guided_edit_bootloader — pick the bootloader (grub | systemd-boot).
@@ -496,7 +493,7 @@ _guided_edit_bootloader() {
   local v
   v="$(guided_select bootloader "Bootloader" "${opts[@]}")"
   [[ -n "$v" ]] || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.bootloader \
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" options.bootloader \
     "$(jq -n --arg x "$v" '$x')")"
 }
 
@@ -508,7 +505,7 @@ _guided_edit_display_manager() {
   local v
   v="$(guided_select display_manager "Display manager" "${opts[@]}")"
   [[ -n "$v" ]] || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.display_manager \
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" environment.display_manager \
     "$(jq -n --arg x "$v" '$x')")"
 }
 
@@ -537,7 +534,7 @@ _guided_edit_desktop() {
   local -a opts; mapfile -t opts < <(menu_enum_options environment.desktop)
   local arr
   arr="$(_guided_multi_array desktop "Desktop" "${opts[@]}")" || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.desktop "$arr")"
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" environment.desktop "$arr")"
 }
 
 # _guided_edit_gpu — Environment gpu: auto, or a multi-select of vendors. auto
@@ -568,7 +565,7 @@ _guided_edit_mirror_countries() {
   local arr
   arr="$(_guided_multi_array mirror_countries "Mirror countries" \
     "${opts[@]}")" || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" \
     options.mirror_countries "$arr")"
 }
 
@@ -581,7 +578,7 @@ _guided_edit_optional_repos() {
   local arr
   arr="$(_guided_multi_array optional_repos "Optional repositories" \
     "${opts[@]}")" || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.optional_repos "$arr")"
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" options.optional_repos "$arr")"
 }
 
 # Custom mirror Server= URL, appended dedup (ADR 0072). rc 1 (no commit) on
@@ -612,7 +609,7 @@ _guided_edit_firewall() {
   firewalld | ufw | none) ;;
   *) return 1 ;;
   esac
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
+  _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" \
     post_install.security.firewall "\"$v\"")"
 }
 _guided_edit_antivirus() {
@@ -751,7 +748,7 @@ _guided_pick_users() {
 }
 
 # _guided_create_user — the ad-hoc create form: collect a User Profile's fields
-# through the seam, author the delta (guided_user_profile prunes empties + drops
+# through the seam, author the delta (emit_user_profile prunes empties + drops
 # the name), and register the user + its password aside. Password defaults to
 # 12345 (the house default) when left blank. rc 1 (no user) on an empty name.
 _guided_create_user() {
@@ -802,7 +799,7 @@ _guided_create_user() {
       config_exclude:$config_exclude,
       git: ({name:$gn, email:$ge} | with_entries(select(.value != ""))),
       ssh_authorized_keys:$keys}')"
-  local profile; profile="$(guided_user_profile "$form")"
+  local profile; profile="$(emit_user_profile "$form")"
   # programs_inherit:false is the meaningful flag but the pruner drops `false`;
   # re-attach it explicitly when bareness was chosen (true is the omitted
   # default). See ADR 0134.
@@ -843,7 +840,7 @@ _guided_materialize_users() {
     dir="${INSTALLER_DIR}/users/${name}"
     [[ -f "${dir}/profile.jsonc" ]] && continue
     mkdir -p "$dir"
-    guided_user_profile \
+    emit_user_profile \
       '{"shell":"/bin/bash","sudo":true,"groups":["wheel"],
         "programs":["searxng"]}' \
       > "${dir}/profile.jsonc"
@@ -861,11 +858,10 @@ _guided_materialize_users() {
 
 # _guided_apply_userforms [mode] — merge _GUIDED_USERFORMS_JSON deltas onto each
 # named user's profile.jsonc (the clone). No-op when empty (replay / no edits).
-# Reads the existing profile via _configs_parse (JSONC→JSON) so committed
-# comments
-# are tolerated; writes plain JSON (comments are not needed on the clone). Under
-# mode "save" a user that was committed at the start of materialize is SKIPPED —
-# Save never rewrites committed source (ADR 0051).
+# Reads the existing profile via _program_registry_parse (JSONC→JSON) so
+# committed comments are tolerated; writes plain JSON (comments are not needed
+# on the clone). Under mode "save" a user that was committed at the start of
+# materialize is SKIPPED — Save never rewrites committed source (ADR 0051).
 _guided_apply_userforms() {
   local mode="${1:-proceed}" name delta dir f base
   [[ -n "${_GUIDED_USERFORMS_JSON:-}" ]] || return 0
@@ -879,7 +875,7 @@ _guided_apply_userforms() {
     [[ "$delta" == "{}" || -z "$delta" ]] && continue
     dir="${INSTALLER_DIR}/users/${name}"; f="${dir}/profile.jsonc"
     mkdir -p "$dir"
-    if [[ -f "$f" ]]; then base="$(_configs_parse "$f")"; else base='{}'; fi
+    if [[ -f "$f" ]]; then base="$(_program_registry_parse "$f")"; else base='{}'; fi
     jq -n --argjson b "$base" --argjson d "$delta" '$b * $d' > "$f"
   done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
 }
@@ -949,7 +945,7 @@ _guided_secrets_manifest() {
   local eff users enc
   eff="$(_guided_effective)"
   users="$(jq -c '.users // []' <<<"$eff")"
-  [[ "$(cfgstate_get "$eff" options.encryption)" == "true" ]] \
+  [[ "$(config_state_get "$eff" options.encryption)" == "true" ]] \
     && enc=true || enc=false
   guided_default_missing_secrets "$manifest" "$users" "$enc"
 }
@@ -1062,9 +1058,9 @@ guided_run_persistent() {
   export GUIDED_RICH_CHROME
   GUIDED_RICH_CHROME="$(_ctl_detect_rich_chrome)"
 
-  cfgstore_write_baseline "$_GUIDED_BASELINE"
-  cfgstore_write_state "$_GUIDED_STATE"
-  cfgstore_write_nav "$(nav_new)"
+  config_store_write_baseline "$_GUIDED_BASELINE"
+  config_store_write_state "$_GUIDED_STATE"
+  config_store_write_navigation "$(nav_new)"
   : >"$GUIDED_RESULT_FILE"
   hist_new "$_GUIDED_STATE" >"$GUIDED_HIST_FILE"   # undo/redo seed
 
@@ -1124,7 +1120,7 @@ page-down" \
     --bind "ctrl-r:transform(bash $entry key ctrl-r)" \
     >/dev/null || true
 
-  _GUIDED_STATE="$(cfgstore_state)"
+  _GUIDED_STATE="$(config_store_state)"
   # Load the in-menu credentials captured via execute() into the held-aside vars
   # so the existing manifest path (_guided_secrets_manifest) is unchanged. The
   # Proceed gate guaranteed root + every enabled user is set before accept.
@@ -1183,7 +1179,7 @@ _guided_guard_post_install() {
 # ACCEPT before the layout is accepted (issue 04). Emits the assignment on
 # stdout; non-zero on any failure.
 _guided_resolve_assignment() {
-  local mode; mode="$(cfgstate_get "$(_guided_effective)" mode)"
+  local mode; mode="$(config_state_get "$(_guided_effective)" mode)"
   if [[ "$mode" == "multi" ]]; then
     local assignment
     # In-Menu Disk Binding (ADR 0047): when any group is device-bound, the disks
@@ -1246,16 +1242,16 @@ _guided_seed_from_profile() {
   local name="${_GUIDED_ANSWERS[profile]-}" f profile
   [[ -n "$name" ]] || return 0
   f="${INSTALLER_DIR}/hosts/${name}/profile.jsonc"
-  profile="$(_configs_parse "$f" 2>/dev/null)" || return 0
+  profile="$(_program_registry_parse "$f" 2>/dev/null)" || return 0
   # Resolve over Host Core first — see _ctl_enter_profiles: seeding the raw
   # delta would install a different set from `install.sh --profile <name>`.
-  profile="$(layer_resolve host "$(cfgstate_host_core)" "$profile")"
+  profile="$(layer_resolver_resolve host "$(config_state_host_core)" "$profile")"
   _GUIDED_STATE="$(profiles_seed "$_GUIDED_STATE" "$profile")"
 }
 
 guided_build() {
   local assignment effective confirm hostname mode
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   _GUIDED_DISK=""
   _guided_set_identity
   _guided_users_reset
@@ -1310,7 +1306,7 @@ guided_build() {
     _guided_set_root_password
     # The single path resolves its one disk here; multi collects N at accept.
     # Manual replay already set it (its manual_disk is the install disk).
-    [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" \
+    [[ "$(config_state_get "$(_guided_effective)" mode)" == "multi" \
       || -n "$_GUIDED_DISK" ]] || _guided_edit_disk
     ((_had_errexit)) && set -e
     eval "${_err_trap:-:}"
@@ -1336,7 +1332,7 @@ guided_build() {
   # the paru pass. Checked once here, ahead of every terminal action.
   _guided_guard_post_install || return 1
 
-  hostname="$(cfgstate_get "$(_guided_effective)" system.hostname)"
+  hostname="$(config_state_get "$(_guided_effective)" system.hostname)"
 
   # Save is device-less — no disks, no install. Write the committed profile +
   # materialize ad-hoc User Profiles, then stop.
@@ -1403,7 +1399,7 @@ guided_build() {
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.
-  mode="$(cfgstate_get "$(_guided_effective)" mode)"
+  mode="$(config_state_get "$(_guided_effective)" mode)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
   if manual_kind_active "$_GUIDED_STATE"; then

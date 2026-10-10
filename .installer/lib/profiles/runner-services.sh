@@ -9,7 +9,7 @@
 runner_enable_system_services() {
   local program="$1"
   local relative_path config_file
-  relative_path="$(resolve_program "$program")"
+  relative_path="$(program_registry_resolve "$program")"
   config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   local -a services=()
   mapfile -t services < <(jsonc_strip "$config_file" \
@@ -25,7 +25,7 @@ runner_enable_system_services() {
 runner_enable_user_services() {
   local user="$1" program="$2"
   local relative_path config_file
-  relative_path="$(resolve_program "$program")"
+  relative_path="$(program_registry_resolve "$program")"
   config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   local -a services=()
   mapfile -t services < <(jsonc_strip "$config_file" \

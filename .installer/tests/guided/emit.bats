@@ -4,7 +4,7 @@
 # an effective view (+ optional disk assignment) → a device-baked Effective
 # Config. Pure: JSON-in/JSON-out, no TTY, no disk writes.
 #
-# Host Core enters ONCE, via the menu baseline (cfgstate_seed_defaults), so
+# Host Core enters ONCE, via the menu baseline (config_state_seed_defaults), so
 # these build their state the way guided.sh does: overrides over a seeded
 # baseline. The emitter merging core a second time is exactly the bug where
 # the menu showed `grub` and the install produced `["cups","grub"]`.
@@ -30,15 +30,13 @@ setup() {
     '{"host_programs":["grub"],"sysctl":{"vm.swappiness":10}}' \
     > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
-  # shellcheck source=../../lib/config/seed.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   # shellcheck source=../../lib/config/emit.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
-  # validate_config_schema — assert the guided output is schema-clean.
-  # shellcheck source=../../lib/config/profile.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
+  # profile_loader_validate_schema — assert the guided output is schema-clean.
+  # shellcheck source=../../lib/config/profile-loader.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -46,19 +44,19 @@ teardown() { rm -rf "$TEST_DIR"; }
 # effective <state> — overrides over the seeded (Host Core) baseline, the same
 # shape guided.sh passes to emit_effective.
 effective() {
-  jq -n --argjson b "$(cfgstate_seed_defaults "$(cfgstate_new)")" \
+  jq -n --argjson b "$(config_state_seed_defaults "$(config_state_new)")" \
         --argjson o "$1" '$b * $o'
 }
 
 # ── tracer: single-disk ZFS Effective Config over Host Core ─────────────────
 
 @test "emit_effective: bakes hostname + picked disk merged over Host Core" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" mode '"single"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" mode '"single"')"
   # Isolate the printing-derived cups: disable the other toggle-derived System
   # Programs (bluetooth, power — ADR 0080) so host_programs stays focused.
-  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
-  state="$(cfgstate_set "$state" options.power.profile '"none"')"
+  state="$(config_state_set "$state" options.bluetooth.enabled 'false')"
+  state="$(config_state_set "$state" options.power.profile '"none"')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   run emit_effective "$(effective "$state")" "$assignment"
@@ -75,16 +73,16 @@ effective() {
 # ── Options + Environment overrides ride through to the Effective Config ────
 
 @test "emit_effective: Options + Environment overrides bake in, schema-clean" {
-  state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
-  state="$(cfgstate_set "$state" options.kernel '["zen","lts"]')"
-  state="$(cfgstate_set "$state" options.bootloader '"grub"')"
-  state="$(cfgstate_set "$state" options.swap 'false')"
-  state="$(cfgstate_set "$state" options.swap_size '"8G"')"
-  state="$(cfgstate_set "$state" options.esp_size '"4G"')"
-  state="$(cfgstate_set "$state" options.ssh.enabled 'true')"
-  state="$(cfgstate_set "$state" options.age_key_url '"https://x.test/k.age"')"
-  state="$(cfgstate_set "$state" environment.desktop '["kde"]')"
-  state="$(cfgstate_set "$state" environment.gpu '["amd","nvidia"]')"
+  state="$(config_state_set "$(config_state_new)" mode '"single"')"
+  state="$(config_state_set "$state" options.kernel '["zen","lts"]')"
+  state="$(config_state_set "$state" options.bootloader '"grub"')"
+  state="$(config_state_set "$state" options.swap 'false')"
+  state="$(config_state_set "$state" options.swap_size '"8G"')"
+  state="$(config_state_set "$state" options.esp_size '"4G"')"
+  state="$(config_state_set "$state" options.ssh.enabled 'true')"
+  state="$(config_state_set "$state" options.age_key_url '"https://x.test/k.age"')"
+  state="$(config_state_set "$state" environment.desktop '["kde"]')"
+  state="$(config_state_set "$state" environment.gpu '["amd","nvidia"]')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   run emit_effective "$(effective "$state")" "$assignment"
@@ -98,7 +96,7 @@ effective() {
   echo "$output" | jq -e '.environment.gpu == ["amd","nvidia"]'
 
   # the guided output stays as schema-clean as a hand-authored profile.
-  run validate_config_schema host "$(emit_effective "$state" "$assignment")"
+  run profile_loader_validate_schema host "$(emit_effective "$state" "$assignment")"
   [ "$status" -eq 0 ]
 }
 
@@ -113,8 +111,8 @@ effective() {
     > "$INSTALLER_DIR/programs/security/wireguard/config.jsonc"
   : > "$INSTALLER_DIR/programs/security/wireguard/install.sh"
 
-  state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
-  state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
+  state="$(config_state_set "$(config_state_new)" mode '"single"')"
+  state="$(config_state_set "$state" packages.repo.extra '["htop"]')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   run emit_effective "$(effective "$state")" "$assignment"
@@ -134,16 +132,16 @@ effective() {
 # the Printing toggle rides the baseline instead (on by default). cups is
 # materialised only at emit, mirroring GPU/audio/security derived sets.
 @test "the print daemon is toggle-derived, not a baseline System Program" {
-  local base; base="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  local base; base="$(config_state_seed_defaults "$(config_state_new)")"
   jq -e '.host_programs | index("cups") | not' <<<"$base"
   jq -e '.options.printing.enabled == true' <<<"$base"
 }
 
 @test "printing on injects cups at emit; off omits it" {
-  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  local state; state="$(config_state_set "$(config_state_new)" mode '"single"')"
   # Isolate printing from the other toggle-derived programs (ADR 0080).
-  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
-  state="$(cfgstate_set "$state" options.power.profile '"none"')"
+  state="$(config_state_set "$state" options.bluetooth.enabled 'false')"
+  state="$(config_state_set "$state" options.power.profile '"none"')"
   local asgn='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   # default on → cups injected alongside the authored core program; reflector is
@@ -154,18 +152,18 @@ effective() {
 
   # turned off → cups absent, the authored core program untouched; reflector
   # still lands (state-independent)
-  local off; off="$(cfgstate_set "$state" options.printing.enabled 'false')"
+  local off; off="$(config_state_set "$state" options.printing.enabled 'false')"
   run emit_effective "$(effective "$off")" "$asgn"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs == ["grub","reflector"]'
 }
 
 @test "menu view and installed set agree, aside from the derived cups" {
-  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  local state; state="$(config_state_set "$(config_state_new)" mode '"single"')"
   # Isolate printing from the other toggle-derived programs (ADR 0080).
-  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
-  state="$(cfgstate_set "$state" options.power.profile '"none"')"
-  state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
+  state="$(config_state_set "$state" options.bluetooth.enabled 'false')"
+  state="$(config_state_set "$state" options.power.profile '"none"')"
+  state="$(config_state_set "$state" packages.repo.extra '["htop"]')"
   local view; view="$(effective "$state")"
 
   run emit_effective "$view" \
@@ -190,11 +188,11 @@ effective() {
 # (toggle-owned, injected regardless), so this untick uses the authored core
 # program grub: unticking it removes grub, while the derived cups still lands.
 @test "unticking a core system program removes it from the install" {
-  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  local state; state="$(config_state_set "$(config_state_new)" mode '"single"')"
   # Isolate printing from the other toggle-derived programs (ADR 0080).
-  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
-  state="$(cfgstate_set "$state" options.power.profile '"none"')"
-  state="$(cfgstate_set "$state" host_programs '[]')"
+  state="$(config_state_set "$state" options.bluetooth.enabled 'false')"
+  state="$(config_state_set "$state" options.power.profile '"none"')"
+  state="$(config_state_set "$state" host_programs '[]')"
 
   run emit_effective "$(effective "$state")" \
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
@@ -208,14 +206,14 @@ effective() {
 # that wrote the effective view verbatim would bake it in and decouple the new
 # profile from core on the next edit.
 
-@test "guided_core_delta: drops what Host Core already provides" {
+@test "emit_core_delta: drops what Host Core already provides" {
   local core='{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
                "packages":{"repo":{"shell":["htop","fzf"]}}}'
   local eff='{"host_programs":["cups","grub"],
               "sysctl":{"vm.swappiness":10},
               "packages":{"repo":{"shell":["htop","fzf","btop"]}},
               "system":{"hostname":"eterniox"}}'
-  run guided_core_delta "$eff" "$core"
+  run emit_core_delta "$eff" "$core"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs == ["grub"]'
   echo "$output" | jq -e '.packages.repo.shell == ["btop"]'
@@ -223,16 +221,16 @@ effective() {
   echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
-@test "guided_core_delta: a replace key equal to core's is dropped" {
-  run guided_core_delta '{"options":{"kernel":["lts"],"bootloader":"grub"}}' \
+@test "emit_core_delta: a replace key equal to core's is dropped" {
+  run emit_core_delta '{"options":{"kernel":["lts"],"bootloader":"grub"}}' \
                         '{"options":{"kernel":["lts"]}}'
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '(.options | has("kernel")) | not'
   echo "$output" | jq -e '.options.bootloader == "grub"'
 }
 
-@test "guided_core_delta: a replace key differing from core's is kept whole" {
-  run guided_core_delta '{"options":{"kernel":["zen"]}}' \
+@test "emit_core_delta: a replace key differing from core's is kept whole" {
+  run emit_core_delta '{"options":{"kernel":["zen"]}}' \
                         '{"options":{"kernel":["lts"]}}'
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.kernel == ["zen"]'
@@ -240,7 +238,7 @@ effective() {
 
 # The contract that makes "stays layered" true: resolving the saved delta back
 # over Host Core must reproduce exactly what the operator saw.
-@test "guided_core_delta round-trips through the Layer Resolver" {
+@test "emit_core_delta round-trips through the Layer Resolver" {
   source "$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh"
   local core='{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
                "packages":{"repo":{"shell":["htop","fzf"]}}}'
@@ -249,8 +247,8 @@ effective() {
               "packages":{"repo":{"shell":["htop","fzf","btop"]}},
               "options":{"kernel":["zen"]}}'
   local delta round
-  delta="$(guided_core_delta "$eff" "$core")"
-  round="$(layer_resolve host "$core" "$delta")"
+  delta="$(emit_core_delta "$eff" "$core")"
+  round="$(layer_resolver_resolve host "$core" "$delta")"
   [ "$(jq -cS . <<<"$round")" = "$(jq -cS . <<<"$eff")" ]
 }
 
@@ -262,8 +260,8 @@ effective() {
 JSON
   source "$BATS_TEST_DIRNAME/../../lib/guided/save.sh"
 
-  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
-  state="$(cfgstate_set "$state" system.hostname '"newbox"')"
+  local state; state="$(config_state_set "$(config_state_new)" mode '"single"')"
+  state="$(config_state_set "$state" system.hostname '"newbox"')"
   run guided_save_host_profile "$(effective "$state")" newbox
   [ "$status" -eq 0 ]
 
@@ -280,11 +278,11 @@ JSON
 # ── safety: the guided output is as schema-clean as a hand-authored profile ─
 
 @test "emit_effective: the produced config passes closed-schema validation" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" mode '"single"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" mode '"single"')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   effective="$(emit_effective "$state" "$assignment")"
-  run validate_config_schema host "$effective"
+  run profile_loader_validate_schema host "$effective"
   [ "$status" -eq 0 ]
 }

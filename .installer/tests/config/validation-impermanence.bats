@@ -18,8 +18,8 @@ setup() {
 
   export RPOOL=rpool
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   # shellcheck source=../../lib/config/validation.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/validation.sh"
 }
@@ -97,7 +97,7 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 # ── impermanence + hybrid GPU: forbidden (ADR 0060) ─────────────────────────
 # _validation_impermanence_gpu reads the resolved ENVIRONMENT_GPU array (set by
-# resolve_environment in the real pipeline); the tests set it directly.
+# environment_resolve in the real pipeline); the tests set it directly.
 
 @test "impermanence + amd&nvidia hybrid: errors" {
   write_config '{"options":{"impermanence":{"enabled":true,

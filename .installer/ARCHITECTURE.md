@@ -173,7 +173,7 @@ flowchart LR
   ph_pk["packages.collect +<br/>zfs-dkms / kernel"]:::ph
   ph_g["ZFS Module Guard"]:::ph
   ph_b["chroot bootloader-&lt;n&gt;"]:::ph
-  ph_ev["resolve_environment"]:::ph
+  ph_ev["environment_resolve"]:::ph
   ph_ex["extras.sh runner"]:::ph
   ph_im["chroot/impermanence.sh"]:::ph
   ph_id["chroot/identity.sh"]:::ph

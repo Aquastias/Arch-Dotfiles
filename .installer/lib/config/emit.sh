@@ -13,17 +13,19 @@
 #
 # Public API:
 #   emit_effective <state> <assignment>  → device-baked Effective Config
+#
+# Used by: lib/guided/save.sh, lib/guided/shell.sh, lib/matrix/assemble.sh.
 # =============================================================================
 
-# shellcheck source=./state.sh
-declare -F cfgstate_emit >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/state.sh"
+# shellcheck source=./config-state.sh
+declare -F config_state_emit >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 # shellcheck source=./layer-resolver.sh
-declare -F layer_additive_keys >/dev/null 2>&1 \
+declare -F layer_resolver_additive_keys >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
-# shellcheck source=./layers.sh
-declare -F _configs_merge >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/layers.sh"
+# shellcheck source=./program-registry.sh
+declare -F _program_registry_merge >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/program-registry.sh"
 # shellcheck source=../picker.sh
 declare -F picker_assign_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
@@ -40,12 +42,12 @@ declare -F power_inject >/dev/null 2>&1 \
 declare -F mirrors_inject >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/mirrors.sh"
 
-# guided_profile_delta <config> — the device-less Host Profile a Save writes
+# emit_profile_delta <config> — the device-less Host Profile a Save writes
 # (issue 08). Strips every device path — the single `.disk` and the per-pool
 # `.disks[]` arrays — keeping the mode/topology/disk_count skeleton, so the
 # committed artifact never carries operator-picked devices (ADR 0036's invariant)
 # yet still re-installs via `install.sh --profile <name>`. Pure: JSON in/out.
-guided_profile_delta() {
+emit_profile_delta() {
   jq -c '
     del(.disk)
     | if .os_pool then .os_pool |= del(.disks) else . end
@@ -54,7 +56,7 @@ guided_profile_delta() {
   ' <<<"$1"
 }
 
-# guided_core_delta <effective> — the effective config reduced to what it adds
+# emit_core_delta <effective> — the effective config reduced to what it adds
 # OVER Host Core, so a saved profile stays layered rather than freezing a
 # snapshot (ADR 0056, PRD story 32).
 #
@@ -63,17 +65,18 @@ guided_profile_delta() {
 # into every saved profile and decouple it from core on the next edit.
 #
 # The reduction is the inverse of the Layer Resolver's fold, key-class by
-# key-class, so `layer_resolve host <core> <delta>` reproduces <effective>:
+# key-class, so `layer_resolver_resolve host <core> <delta>` reproduces
+# <effective>:
 #   additive array → subtract core's members
 #   object         → drop keys whose value core already provides
 #   everything else→ drop when identical to core's value
 # Pure: JSON in, JSON out.
-guided_core_delta() {
+emit_core_delta() {
   local effective="$1" core="$2" additive
-  additive="$(layer_additive_json host)"
+  additive="$(layer_resolver_additive_json host)"
 
   jq -n --argjson eff "$effective" --argjson core "$core" \
-        --argjson additive "$additive" "$(layer_jq_prelude)"'
+        --argjson additive "$additive" "$(layer_resolver_jq_prelude)"'
     def prune($e; $c; $path):
       if   ($c == null) then $e
       elif ($e == null) then null
@@ -104,12 +107,12 @@ guided_core_delta() {
   '
 }
 
-# guided_user_profile <form> — author a User Profile delta (issue 07) from an
+# emit_user_profile <form> — author a User Profile delta (issue 07) from an
 # ad-hoc user form. Drops the `name` key (the directory basename is the username,
 # ADR 0036) and prunes empty values (empty string, empty array, `false`, null)
 # so the result is a sparse delta over User Core — only what the operator set,
 # closed-schema-valid. Pure: form JSON in → profile JSON out.
-guided_user_profile() {
+emit_user_profile() {
   jq -c '
     del(.name)
     | with_entries(select(
@@ -129,20 +132,22 @@ _emit_json_array() {
 # picker's assembler).
 #
 # Host Core is NOT merged here — it enters once, into the menu's baseline
-# (cfgstate_seed_defaults), and the caller passes the effective view. Merging it
-# again was the bug where the menu showed `host programs: grub` but the install
-# produced `["cups","grub"]` (display replaced arrays, emit concatenated).
+# (config_state_seed_defaults), and the caller passes the effective view.
+# Merging it again was the bug where the menu showed `host programs: grub` but
+# the install produced `["cups","grub"]` (display replaced arrays, emit
+# concatenated).
 #
 # No promotion step either: a name is either a Program or a package, enforced at
-# config load by validate_package_program_exclusivity (it used to be promoted
-# here only in the guided path, diverging from the --profile / file paths).
+# config load by program_registry_validate_package_exclusivity (it used to be
+# promoted here only in the guided path, diverging from the --profile / file
+# paths).
 emit_effective() {
   local state="$1" assignment="$2" view
   # Apply the operator's own exclusions before baking disks. The Packages
   # screen writes packages.exclude into Config State, but the guided path
   # never goes through a layer fold (core is already in the baseline), so
   # without this an unchecked package would be emitted and installed anyway.
-  view="$(layer_apply_exclusions "$(cfgstate_emit "$state")")"
+  view="$(layer_resolver_apply_exclusions "$(config_state_emit "$state")")"
   # Section-derived Host Programs (ADR 0079/0080/0089): fold cups (printing),
   # bluetooth, the power daemon, then reflector (mirrors) into host_programs at
   # emit — the Printing / Bluetooth / Power / Mirrors sections own them, so they

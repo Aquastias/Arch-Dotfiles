@@ -347,7 +347,7 @@ _package_resolver_desktop_sets() {
 # _package_resolver_display_manager <config> <desktops> — the greeter, its
 # own derived set keyed on the resolved display_manager (ADR 0069), not
 # smuggled inside kde-shell. `auto` resolves the same DESKTOP-AWARE way the
-# installer does (_resolve_env_display_manager, ADR 0091): greetd for a
+# installer does (_environment_resolve_display_manager, ADR 0091): greetd for a
 # KDE-free desktop set (hyprland/niri), sddm when kde is present; none when no
 # desktop. Explicit greetd/sddm win.
 _package_resolver_display_manager() {
@@ -464,7 +464,7 @@ _package_resolver_has_secrets() {
   host="$(_package_resolver_jq "$config" '.system.hostname // empty')"
   [[ -n "${INSTALLER_DIR:-}" ]] || return 1
   # VM hosts/users live under <kind>/vm/<name>/ (fallback mirrors
-  # _profile_load).
+  # _profile_loader_load).
   if [[ -n "$host" ]]; then
     [[ -f "${INSTALLER_DIR}/hosts/${host}/secrets.json" \
        || -f "${INSTALLER_DIR}/hosts/vm/${host}/secrets.json" ]] && return 0

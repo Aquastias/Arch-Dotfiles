@@ -45,7 +45,7 @@ _summary_unbound() {
     export CONFIG_FILE="$cfg"
     source "$INSTALLER_DIR/lib/common.sh"
     source "$INSTALLER_DIR/lib/config/categorized-list.sh"
-    source "$INSTALLER_DIR/lib/config/accessors.sh"
+    source "$INSTALLER_DIR/lib/config/install-config.sh"
     source "$INSTALLER_DIR/lib/config/lifecycle.sh"
     lsblk() { echo 20G; }   # no real block device in the harness
     lifecycle_load_config >/dev/null 2>&1
@@ -84,7 +84,7 @@ _summary_unbound() {
     export INSTALLER_DIR='$INSTALLER_DIR' SCRIPT_DIR='$INSTALLER_DIR' CONFIG_FILE='$cfg'
     source '$INSTALLER_DIR/lib/common.sh'
     source '$INSTALLER_DIR/lib/config/categorized-list.sh'
-    source '$INSTALLER_DIR/lib/config/accessors.sh'
+    source '$INSTALLER_DIR/lib/config/install-config.sh'
     source '$INSTALLER_DIR/lib/config/lifecycle.sh'
     lsblk() { echo 20G; }
     lifecycle_load_config >/dev/null 2>&1

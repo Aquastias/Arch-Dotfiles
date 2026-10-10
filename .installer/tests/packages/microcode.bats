@@ -3,7 +3,7 @@
 #
 # Strategy: override _microcode_cpuinfo() as an injectable seam so tests
 # control the detected CPU vendor without real hardware (mirrors the GPU
-# resolution _gpu_lspci_output seam in lib/config/environment.sh).
+# resolution _environment_gpu_lspci_output seam in lib/config/environment.sh).
 
 setup() {
   error() { echo "ERROR: $*" >&2; exit 1; }

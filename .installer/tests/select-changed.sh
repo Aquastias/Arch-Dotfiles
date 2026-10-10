@@ -43,9 +43,9 @@ _changed_is_broad_blast() {
   case "$1" in
     .installer/lib/common.sh) return 0 ;;
     .installer/lib/install-state.sh) return 0 ;;
-    .installer/lib/config/accessors.sh) return 0 ;;
+    .installer/lib/config/install-config.sh) return 0 ;;
     .installer/lib/config/categorized-list.sh) return 0 ;;
-    .installer/lib/config/store.sh) return 0 ;;
+    .installer/lib/config/config-store.sh) return 0 ;;
     .installer/tests/fixtures/*) return 0 ;;
     .installer/tests/run.sh) return 0 ;;
     .installer/tests/select-changed.sh) return 0 ;;

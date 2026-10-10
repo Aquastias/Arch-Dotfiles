@@ -50,7 +50,7 @@ declare -F pacman_config_apply_options >/dev/null 2>&1 \
 # The _package_list_add_* steps append to this function's `packages` array
 # (dynamic scope).
 package_list_collect() {
-  resolve_environment
+  environment_resolve
 
   # Base set from the shared Base Package List (lib/packages/base.sh) — the
   # same names the Package Resolver reports, so install and query cannot
@@ -66,7 +66,7 @@ package_list_collect() {
   _package_list_add_zfs_userland
   _package_list_add_filesystem_userland
 
-  # GPU and audio packages resolved during validate_install_context
+  # GPU and audio packages resolved during validation_check_install_context
   packages+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
   packages+=("${AUDIO_PACKAGES[@]+"${AUDIO_PACKAGES[@]}"}")
 

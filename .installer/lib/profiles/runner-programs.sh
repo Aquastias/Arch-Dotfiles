@@ -9,7 +9,7 @@
 _runner_programs_install_host_program() {
   local program="$1"
   local relative_path
-  relative_path="$(resolve_program "$program")"
+  relative_path="$(program_registry_resolve "$program")"
   info "Installing Host Program: ${program}  (.installer/programs/${relative_path})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/env \
     INSTALLER_DIR="${_RUNNER_RUNTIME_DIR}" \
@@ -43,7 +43,7 @@ CHROOT_USERPROG
 _runner_programs_install_user_program() {
   local user="$1" program="$2" helper="$3"
   local relative_path
-  relative_path="$(resolve_program "$program")"
+  relative_path="$(program_registry_resolve "$program")"
   info "Installing user program: ${program}  (user=${user}, .installer/programs/${relative_path})"
   # Under yay (no vetting hook, ADR 0143) the helper is repo-only: a program's
   # repo packages still install, an AUR-only one fails instead of building
@@ -78,7 +78,7 @@ runner_install_host_programs() {
 # no host installs aborts (reconcile prints why).
 runner_install_user_program() {
   local user="$1" program="$2" helper="$3" action
-  action="$(reconcile_user_program "$program" \
+  action="$(program_registry_reconcile_user_program "$program" \
     "${system_programs[@]+"${system_programs[@]}"}")" \
     || error "User '${user}': cannot reconcile program '${program}'."
   case "$action" in

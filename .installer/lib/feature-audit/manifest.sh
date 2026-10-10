@@ -18,7 +18,7 @@
 #   fa_variant_json <id>              → the variant object
 #   fa_variant_vm_profile <id>        → VM Profile JSON (vm.sh input)
 #   fa_variant_config <id>            → the resolved Effective Config
-#   fa_validate_config <cfg-json>     → 0 iff validate_install_context passes
+#   fa_validate_config <cfg-json>     → 0 iff validation_check_install_context passes
 # =============================================================================
 
 # committed audit data (manifest, Known Noise), INSTALLER_DIR-relative
@@ -58,11 +58,11 @@ fa_variant_host_core() {
   m="$(fa_manifest_json)"
   v="$(fa_variant_json "$1")" || return 1
   h="$(jq -r --argjson v "$v" '$v.host // .base.host' <<<"$m")"
-  [[ "$(type -t profile_dir)" == function ]] || {
-    # shellcheck source=../config/profile.sh
-    source "$INSTALLER_DIR/lib/config/profile.sh"
+  [[ "$(type -t profile_loader_directory)" == function ]] || {
+    # shellcheck source=../config/profile-loader.sh
+    source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   }
-  f="$(profile_dir hosts "$h")/profile.jsonc"
+  f="$(profile_loader_directory hosts "$h")/profile.jsonc"
   jsonc_strip "$f" | jq -r '.packages.inherit != false'
 }
 
@@ -113,11 +113,12 @@ fa_variant_config() {
     # shellcheck source=../../vm/lib/profile.sh
     source "$INSTALLER_DIR/vm/lib/profile.sh"
     if [[ -n "$patch" ]]; then
-      eval "_fa_orig_$(declare -f load_profile)"
-      load_profile() {
+      eval "_fa_orig_$(declare -f profile_loader_load)"
+      profile_loader_load() {
         if [[ "$1" == "$host" ]]; then
-          _fa_orig_load_profile "$1" | jq -c --argjson p "$patch" '. * $p'
-        else _fa_orig_load_profile "$1"; fi
+          _fa_orig_profile_loader_load "$1" \
+            | jq -c --argjson p "$patch" '. * $p'
+        else _fa_orig_profile_loader_load "$1"; fi
       }
     fi
     profile_resolve_config "$prof"
@@ -125,7 +126,7 @@ fa_variant_config() {
 }
 
 # fa_validate_config <cfg-json> — run the installer's own
-# validate_install_context over an Effective Config (block-device probe
+# validation_check_install_context over an Effective Config (block-device probe
 # stubbed: disks are a VM concern), as the Combination Matrix Tier 1 does.
 fa_validate_config() {
   local cfg="$1" f
@@ -135,8 +136,9 @@ fa_validate_config() {
     export CONFIG_FILE="$f" SCRIPT_DIR="$INSTALLER_DIR"
     local m
     for m in lib/common.sh lib/config/categorized-list.sh \
-      lib/config/post-install.sh lib/config/accessors.sh \
-      lib/config/lifecycle.sh lib/config/layers.sh lib/config/profile.sh \
+      lib/config/post-install.sh lib/config/install-config.sh \
+      lib/config/lifecycle.sh lib/config/program-registry.sh \
+      lib/config/profile-loader.sh \
       lib/layout/dispatch.sh lib/packages/package-list.sh \
       lib/profiles/runner.sh lib/config/validation.sh; do
       # shellcheck source=/dev/null
@@ -147,9 +149,9 @@ fa_validate_config() {
     # shellcheck source=/dev/null
     source "$(root_adapter_source "$INSTALLER_DIR" \
       "$(install_config_filesystem)" "$INSTALL_MODE")"
-    # shellcheck disable=SC2329 # called by validate_install_context
+    # shellcheck disable=SC2329 # called by validation_check_install_context
     layout_disk_exists() { return 0; }
-    validate_install_context
+    validation_check_install_context
   ) >"$f.log" 2>&1
   local rc=$?
   ((rc == 0)) || sed 's/\x1b\[[0-9;]*m//g' "$f.log" | grep -E 'ERROR|WARN' >&2

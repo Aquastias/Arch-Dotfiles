@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# Tests for _resolve_env_validate() in lib/config/lifecycle.sh.
+# Tests for _environment_validate() in lib/config/lifecycle.sh.
 #
 # Strategy: stub common.sh helpers (config_optional, jsonc, error, info, section, warn)
 # so the module can be sourced without a live system. Happy-path tests call
-# _resolve_env_validate() directly and assert globals. Error-path tests use
+# _environment_validate() directly and assert globals. Error-path tests use
 # `run` so error() exits the subshell rather than the test process.
 
 setup() {
@@ -36,7 +36,7 @@ write_config() {
 
 @test "desktop 'kde' passes validation and sets ENVIRONMENT_DESKTOP" {
   write_config '{"environment": {"desktop": "kde", "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
 }
@@ -44,21 +44,21 @@ write_config() {
 @test "desktop array ['kde'] passes and sets a one-element array" {
   write_config \
     '{"environment": {"desktop": ["kde"], "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
 }
 
 @test "desktop 'hyprland' passes validation and sets ENVIRONMENT_DESKTOP" {
   write_config '{"environment": {"desktop": "hyprland", "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
 }
 
 @test "desktop 'niri' passes validation and sets ENVIRONMENT_DESKTOP" {
   write_config '{"environment": {"desktop": "niri", "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "niri" ]
 }
@@ -66,7 +66,7 @@ write_config() {
 @test "desktop array ['kde','hyprland','niri'] passes and sets three elements" {
   write_config \
     '{"environment": {"desktop": ["kde","hyprland","niri"], "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 3 ]
   [ "${ENVIRONMENT_DESKTOP[2]}" = "niri" ]
 }
@@ -74,7 +74,7 @@ write_config() {
 @test "desktop array ['kde','hyprland'] passes and sets two elements" {
   write_config \
     '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
   [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
@@ -83,33 +83,33 @@ write_config() {
 @test "desktop array with an unknown value fails validation" {
   write_config \
     '{"environment": {"desktop": ["kde", "sway"], "gpu": "auto"}}'
-  run _resolve_env_validate
+  run _environment_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "sway" ]]
 }
 
 @test "desktop null passes validation and gives empty array" {
   write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 0 ]
 }
 
 @test "environment key missing entirely passes validation" {
   write_config '{"mode": "single", "disk": "/dev/sda"}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 0 ]
 }
 
 @test "desktop 'gnome' fails validation with error naming valid options" {
   write_config '{"environment": {"desktop": "gnome", "gpu": "auto"}}'
-  run _resolve_env_validate
+  run _environment_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "kde" ]]
 }
 
 @test "gpu 'auto' passes validation" {
   write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${ENVIRONMENT_GPU[0]}" = "auto" ]
 }
 
@@ -117,14 +117,14 @@ write_config() {
   for vendor in amd nvidia intel; do
     write_config \
       "{\"environment\": {\"desktop\": null, \"gpu\": \"${vendor}\"}}"
-    _resolve_env_validate
+    _environment_validate
     [ "${ENVIRONMENT_GPU[0]}" = "$vendor" ]
   done
 }
 
 @test "gpu array ['amd','nvidia'] passes and sets two-element array" {
   write_config '{"environment": {"desktop": null, "gpu": ["amd", "nvidia"]}}'
-  _resolve_env_validate
+  _environment_validate
   [ "${#ENVIRONMENT_GPU[@]}" -eq 2 ]
   [ "${ENVIRONMENT_GPU[0]}" = "amd" ]
   [ "${ENVIRONMENT_GPU[1]}" = "nvidia" ]
@@ -132,7 +132,7 @@ write_config() {
 
 @test "gpu 'vulkan' fails validation with error naming valid options" {
   write_config '{"environment": {"desktop": null, "gpu": "vulkan"}}'
-  run _resolve_env_validate
+  run _environment_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "amd" ]]
   [[ "$output" =~ "nvidia" ]]
@@ -143,27 +143,27 @@ write_config() {
 @test "display_manager 'sddm' passes validation" {
   write_config \
     '{"environment": {"desktop": "kde", "display_manager": "sddm"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }
 
 @test "display_manager 'greetd' passes validation" {
   write_config \
     '{"environment": {"desktop": "hyprland", "display_manager": "greetd"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "display_manager defaults to 'auto' when absent" {
   write_config '{"environment": {"desktop": "kde"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "auto" ]
 }
 
 @test "display_manager unknown value fails validation naming valid options" {
   write_config \
     '{"environment": {"desktop": "kde", "display_manager": "lightdm"}}'
-  run _resolve_env_validate
+  run _environment_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "lightdm" ]]
   [[ "$output" =~ "greetd" ]]
@@ -173,27 +173,27 @@ write_config() {
 
 @test "wayland_shell defaults to noctalia when absent" {
   write_config '{"environment": {"desktop": "niri"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "noctalia" ]
 }
 
 @test "wayland_shell 'none' passes validation" {
   write_config '{"environment": {"desktop": "niri", "wayland_shell": "none"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
 }
 
 @test "wayland_shell is honored for hyprland too" {
   write_config \
     '{"environment": {"desktop": "hyprland", "wayland_shell": "none"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
 }
 
 @test "wayland_shell unknown value fails validation naming valid options" {
   write_config \
     '{"environment": {"desktop": "niri", "wayland_shell": "waybar"}}'
-  run _resolve_env_validate
+  run _environment_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "waybar" ]]
   [[ "$output" =~ "noctalia" ]]
@@ -203,20 +203,20 @@ write_config() {
 
 @test "stock defaults to false when absent" {
   write_config '{"environment": {"desktop": "niri"}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_STOCK" = "false" ]
 }
 
 @test "stock=true validates and forces wayland_shell=none" {
   write_config '{"environment": {"desktop": "niri", "stock": true}}'
-  _resolve_env_validate
+  _environment_validate
   [ "$ENVIRONMENT_STOCK" = "true" ]
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
 }
 
 @test "stock non-bool value fails validation" {
   write_config '{"environment": {"desktop": "niri", "stock": "yes"}}'
-  run _resolve_env_validate
+  run _environment_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "stock" ]]
 }
@@ -226,7 +226,7 @@ write_config() {
 @test "summary shows desktop, GPU and audio when desktop is selected" {
   ENVIRONMENT_DESKTOP=("kde")
   ENVIRONMENT_GPU=("amd")
-  run print_environment_summary
+  run environment_print_summary
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Desktop:" ]]
   [[ "$output" =~ "KDE" ]]
@@ -239,7 +239,7 @@ write_config() {
 @test "summary shows 'none' for audio when no desktop is selected" {
   ENVIRONMENT_DESKTOP=()
   ENVIRONMENT_GPU=("amd")
-  run print_environment_summary
+  run environment_print_summary
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Audio:" ]]
   [[ "$output" =~ "none" ]]

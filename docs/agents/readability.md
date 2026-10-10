@@ -245,7 +245,9 @@ lib/config/ (per-file stems)
 - `seed.sh` + `state.sh` (`cfgstate_`) → merge into `config-state.sh`;
   `config_state_`
 - `store.sh` (`cfgstore_`) → rename `config-store.sh`; `config_store_`
-- `validation.sh`: `validate_`, `_validation_` → `validation_`
+- `validation.sh`: `validate_`, `_validation_` → `validation_`; its program
+  contracts split out to `validation-programs.sh`, kept on `validation_` by
+  a `file` rule
 - `bluetooth.sh`, `display.sh`, `fonts.sh`, `menu.sh`, `mirrors.sh`,
   `power.sh`, `printing.sh`, `profiles.sh`, `skeleton.sh`, `timezone.sh` → `=`
 

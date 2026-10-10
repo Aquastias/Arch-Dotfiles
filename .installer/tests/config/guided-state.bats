@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/state.sh — the Guided Installer's Config State
+# Tests for .installer/lib/config/config-state.sh — the Guided Installer's Config State
 # (ADR 0039): a sparse override map over the computed defaults, mutated by
 # pure verbs (get/set/unset/emit), JSON-in/JSON-out, no TTY.
 #
@@ -10,32 +10,32 @@ setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
 }
 
 # ── tracer: set a field, see it in the emitted override map ─────────────────
 
-@test "cfgstate_set: a set field appears in the emitted override map" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+@test "config_state_set: a set field appears in the emitted override map" {
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
 
-  run cfgstate_emit "$state"
+  run config_state_emit "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
 # ── get: read back a set override (raw value) ──────────────────────────────
 
-@test "cfgstate_get: returns the raw value at a set path" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+@test "config_state_get: returns the raw value at a set path" {
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
 
-  run cfgstate_get "$state" system.hostname
+  run config_state_get "$state" system.hostname
   [ "$status" -eq 0 ]
   [ "$output" = "eterniox" ]
 }
 
-@test "cfgstate_get: an unset path yields empty" {
-  run cfgstate_get "$(cfgstate_new)" system.hostname
+@test "config_state_get: an unset path yields empty" {
+  run config_state_get "$(config_state_new)" system.hostname
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
@@ -45,22 +45,22 @@ setup() {
 # empty), so a false bool read back as "". A bool field set to false must
 # round-trip as "false", or the menu and edits can't tell off from unset.
 
-@test "cfgstate_get: a stored false round-trips as \"false\", not empty" {
-  state="$(cfgstate_set "$(cfgstate_new)" options.multilib 'false')"
+@test "config_state_get: a stored false round-trips as \"false\", not empty" {
+  state="$(config_state_set "$(config_state_new)" options.multilib 'false')"
 
-  run cfgstate_get "$state" options.multilib
+  run config_state_get "$state" options.multilib
   [ "$status" -eq 0 ]
   [ "$output" = "false" ]
 }
 
 # ── unset: drop one override, leave the rest ───────────────────────────────
 
-@test "cfgstate_unset: clears one override and keeps the others" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" mode '"single"')"
-  state="$(cfgstate_unset "$state" system.hostname)"
+@test "config_state_unset: clears one override and keeps the others" {
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" mode '"single"')"
+  state="$(config_state_unset "$state" system.hostname)"
 
-  run cfgstate_emit "$state"
+  run config_state_emit "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'has("system") | not'
   echo "$output" | jq -e '.mode == "single"'
@@ -68,13 +68,13 @@ setup() {
 
 # ── is_overridden: the ● predicate the menu model reads ────────────────────
 
-@test "cfgstate_is_overridden: true for a set path, false for an unset one" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+@test "config_state_is_overridden: true for a set path, false for an unset one" {
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
 
-  run cfgstate_is_overridden "$state" system.hostname
+  run config_state_is_overridden "$state" system.hostname
   [ "$status" -eq 0 ]
 
-  run cfgstate_is_overridden "$state" mode
+  run config_state_is_overridden "$state" mode
   [ "$status" -ne 0 ]
 }
 
@@ -83,31 +83,31 @@ setup() {
 #    subtree), all = a fresh state. Each leaves no trace of what it cleared.
 
 @test "reset(field): unset a leaf clears just that field, siblings remain" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" system.locale '"de_DE.UTF-8"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" system.locale '"de_DE.UTF-8"')"
 
-  run cfgstate_unset "$state" system.hostname
+  run config_state_unset "$state" system.hostname
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system | has("hostname") | not'
   echo "$output" | jq -e '.system.locale == "de_DE.UTF-8"'
 }
 
 @test "reset(section): unset a prefix drops the whole subtree, others remain" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" system.locale '"de_DE.UTF-8"')"
-  state="$(cfgstate_set "$state" filesystem '"zfs"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" system.locale '"de_DE.UTF-8"')"
+  state="$(config_state_set "$state" filesystem '"zfs"')"
 
-  run cfgstate_unset "$state" system
+  run config_state_unset "$state" system
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'has("system") | not'      # whole section gone
   echo "$output" | jq -e '.filesystem == "zfs"'      # sibling section intact
 }
 
 @test "reset(all): a fresh state carries none of the overrides" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" filesystem '"zfs"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" filesystem '"zfs"')"
 
-  run cfgstate_emit "$(cfgstate_new)"        # reset-all == a fresh state
+  run config_state_emit "$(config_state_new)"        # reset-all == a fresh state
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '. == {}'
 }

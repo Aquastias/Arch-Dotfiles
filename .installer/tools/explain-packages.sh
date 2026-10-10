@@ -20,8 +20,8 @@ export INSTALLER_DIR
 
 # shellcheck source=../lib/common.sh
 source "${INSTALLER_DIR}/lib/common.sh"
-# shellcheck source=../lib/config/profile.sh
-source "${INSTALLER_DIR}/lib/config/profile.sh"
+# shellcheck source=../lib/config/profile-loader.sh
+source "${INSTALLER_DIR}/lib/config/profile-loader.sh"
 # shellcheck source=../lib/packages/package-resolver.sh
 source "${INSTALLER_DIR}/lib/packages/package-resolver.sh"
 
@@ -42,7 +42,7 @@ fi
 
 # Resolve the profile over Host Core through the Layer Resolver — the same
 # path install.sh --profile takes, so the report matches the install.
-if ! effective="$(load_profile "$profile" 2>/dev/null)"; then
+if ! effective="$(profile_loader_load "$profile" 2>/dev/null)"; then
   rc=$?
   if [[ $rc -eq 1 ]]; then
     echo "explain-packages: no profile '${profile}' — resolved core only." >&2

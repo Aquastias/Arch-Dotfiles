@@ -16,8 +16,8 @@ setup() {
   section() { :; }
   export -f info warn error section
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   # shellcheck source=../../lib/packages/pacman-config.sh
   source "$BATS_TEST_DIRNAME/../../lib/packages/pacman-config.sh"
 

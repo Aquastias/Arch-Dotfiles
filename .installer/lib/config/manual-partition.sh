@@ -19,9 +19,9 @@
 #   manual_kind_active <state>            → 0 when disk_config.kind is manual
 # =============================================================================
 
-# shellcheck source=./state.sh
-declare -F cfgstate_get >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/state.sh"
+# shellcheck source=./config-state.sh
+declare -F config_state_get >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 # The supported-filesystem / mountpoint source of truth + the validator live in
 # the back-end planner; the editor and its live problem notice read from there.
 # shellcheck source=../layout/manual/plan.sh
@@ -151,14 +151,14 @@ manual_row_label() {
 # Config State under disk_config.partitions (transient; ADR 0036 keeps it out of
 # any committed/exported artifact). The one place the assignment enters state.
 manual_store_partitions() {
-  cfgstate_set "$1" disk_config.partitions "$2"
+  config_state_set "$1" disk_config.partitions "$2"
 }
 
 # manual_kind_active <state> — 0 when Manual Partitioning is the active disk
 # kind. The guided terminal-action gate uses it to withhold Save Profile and
 # Export (a hand-drawn table is Proceed-only — ADR 0073).
 manual_kind_active() {
-  [[ "$(cfgstate_get "$1" disk_config.kind)" == "manual" ]]
+  [[ "$(config_state_get "$1" disk_config.kind)" == "manual" ]]
 }
 
 # manual_lsblk_json <disk> — the partition table of <disk> as the JSON

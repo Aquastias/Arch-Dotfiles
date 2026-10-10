@@ -8,7 +8,7 @@
 #       delta over Host Core to hosts/<name>/profile.jsonc (re-installs via
 #       `install.sh --profile <name>`). Refuses to overwrite an existing
 #       hosts/<name>/ — there is no overwrite path; the operator picks a new
-#       name. Disks are stripped (guided_profile_delta); the committed audit
+#       name. Disks are stripped (emit_profile_delta); the committed audit
 #       artifact never carries operator-picked devices (ADR 0036).
 #
 #   guided_export_config <effective> <path>  — write the device-BAKED Effective
@@ -20,18 +20,15 @@
 # single profile/config write. Requires INSTALLER_DIR set.
 # =============================================================================
 
-# shellcheck source=../config/state.sh
-declare -F cfgstate_emit >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
+# shellcheck source=../config/config-state.sh
+declare -F config_state_emit >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-state.sh"
 # shellcheck source=../config/emit.sh
-declare -F guided_profile_delta >/dev/null 2>&1 \
+declare -F emit_profile_delta >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
-# shellcheck source=../config/seed.sh
-declare -F cfgstate_host_core >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
-# shellcheck source=../config/profile.sh
-declare -F validate_config_schema >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/profile.sh"
+# shellcheck source=../config/profile-loader.sh
+declare -F profile_loader_validate_schema >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/profile-loader.sh"
 
 # guided_save_host_profile <state> <name> — see header. rc 1 (no write) on an
 # empty name, a name collision, or a schema-invalid delta.
@@ -50,9 +47,9 @@ guided_save_host_profile() {
   # bake core's whole inherited package list into the new profile and decouple
   # it from core on the next edit.
   local delta
-  delta="$(guided_profile_delta "$(cfgstate_emit "$state")")"
-  delta="$(guided_core_delta "$delta" "$(cfgstate_host_core)")"
-  validate_config_schema host "$delta" || return 1
+  delta="$(emit_profile_delta "$(config_state_emit "$state")")"
+  delta="$(emit_core_delta "$delta" "$(config_state_host_core)")"
+  profile_loader_validate_schema host "$delta" || return 1
   mkdir -p "$dir"
   printf '%s\n' "$delta" > "${dir}/profile.jsonc"
 }

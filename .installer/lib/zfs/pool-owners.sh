@@ -321,7 +321,7 @@ _pool_owners_group_map() {
   declare -A members=()
   users="$(_pool_owners_declared_users)"
   for user in $users; do
-    user_json="$(load_user_profile "$user" 2>/dev/null)" || continue
+    user_json="$(profile_loader_load_user "$user" 2>/dev/null)" || continue
     groups_csv="$(runner_resolve_user_groups "$user_json" 2>/dev/null)" || true
     for group in ${groups_csv//,/ }; do
       [[ -n "$group" ]] || continue

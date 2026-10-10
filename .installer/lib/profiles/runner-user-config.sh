@@ -57,7 +57,7 @@ _runner_user_config_names_to_relative_paths() {
   local name relative_path
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
-    relative_path="$(resolve_program "$name" 2>/dev/null)" || continue
+    relative_path="$(program_registry_resolve "$name" 2>/dev/null)" || continue
     printf '%s\n' "$relative_path"
   done < <(jq -r '.[]' <<<"$1")
 }

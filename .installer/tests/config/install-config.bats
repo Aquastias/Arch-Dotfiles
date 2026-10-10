@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/accessors.sh — schema-driven Install Config
+# Tests for .installer/lib/config/install-config.sh — schema-driven Install Config
 # reader.
 #
 # Structure (ADR 0015):
@@ -21,8 +21,8 @@ setup() {
   section() { :; }
   export -f info warn error section
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

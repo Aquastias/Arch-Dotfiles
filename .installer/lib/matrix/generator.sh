@@ -54,8 +54,9 @@ _matrix_impermanence_values() {
 
 # _matrix_single_topology <fs> — the topology a single-disk group of <fs> uses.
 # zfs names a single-vdev pool `none` (a raw disk, no redundancy vdev); every
-# other filesystem calls it `single`. Matches _validation_topology_for_fs's
-# valid sets (zfs has no `single`; btrfs/ext4/xfs have no `none`).
+# other filesystem calls it `single`. Matches
+# _validation_topology_for_filesystem's valid sets (zfs has no `single`;
+# btrfs/ext4/xfs have no `none`).
 _matrix_single_topology() {
   case "$1" in zfs) printf 'none\n' ;; *) printf 'single\n' ;; esac
 }

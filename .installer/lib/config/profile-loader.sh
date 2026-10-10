@@ -1,27 +1,31 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/profile.sh — Profile Loader, closed-schema validator, install-time
+# lib/config/profile-loader.sh — Profile Loader, closed-schema validator,
+# install-time
 #                         disk assembler (ADR 0036)
 # =============================================================================
 # The pure spine of the unified-profile redesign: read a unified Host (or
 # User) Profile and turn it into an effective config, with up-front
 # closed-schema validation — no libvirt, no disk writes.
 #
-# `load_profile <name>` merges hosts/<name>/profile.jsonc over
+# `profile_loader_load <name>` merges hosts/<name>/profile.jsonc over
 # hosts/core/profile.jsonc (merge rules per layers.sh) and emits the effective
 # config on stdout. profile.jsonc is the *only* host input — there is no
 # legacy fallback (issue 10).
 #
 # Pure: no side effects beyond reading files and writing stdout/stderr.
 # Requires INSTALLER_DIR set.
+#
+# Used by: install.sh, 03-install.sh, tools/explain-packages.sh, the Guided
+# Installer, lib/feature-audit/, vm/lib/profile.sh.
 # =============================================================================
 
 # shellcheck source=./layer-resolver.sh
-declare -F layer_resolve >/dev/null 2>&1 \
+declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
-# shellcheck source=./layers.sh
-declare -F _configs_merge >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/layers.sh"
+# shellcheck source=./program-registry.sh
+declare -F _program_registry_merge >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/program-registry.sh"
 
 # shellcheck source=../picker.sh
 declare -F picker_assign_disks >/dev/null 2>&1 \
@@ -48,26 +52,26 @@ declare -F mirrors_inject >/dev/null 2>&1 \
 declare -F bootloader_is_valid >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloader.sh"
 
-# load_profile <name> — effective host config on stdout.
-# load_user_profile <name> — effective user config on stdout (symmetric).
+# profile_loader_load <name> — effective host config on stdout.
+# profile_loader_load_user <name> — effective user config on stdout (symmetric).
 # Both merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc.
 # Exit codes: 0 ok | 1 specific missing (core only) | 2 hard error |
 #             3 reserved name.
-load_profile()      { _profile_load hosts "$1"; }
-load_user_profile() { _profile_load users "$1"; }
+profile_loader_load()      { _profile_loader_load hosts "$1"; }
+profile_loader_load_user() { _profile_loader_load users "$1"; }
 
 # Shared loader — merge <kind>/core/profile.jsonc with <kind>/<name>/
 # profile.jsonc. VM hosts/users live under <kind>/vm/<name>/ (fallback).
-# profile_dir <kind> <name> — a profile's directory: <kind>/<name>, else the
-# VM fixture under <kind>/vm/<name>. The one lookup every profile file reader
-# (profile.jsonc, secrets.json) shares.
-profile_dir() {
-  local d="${INSTALLER_DIR}/$1/$2"
-  [[ -d "$d" ]] || d="${INSTALLER_DIR}/$1/vm/$2"
-  printf '%s\n' "$d"
+# profile_loader_directory <kind> <name> — a profile's directory: <kind>/<name>,
+# else the VM fixture under <kind>/vm/<name>. The one lookup every profile file
+# reader (profile.jsonc, secrets.json) shares.
+profile_loader_directory() {
+  local directory="${INSTALLER_DIR}/$1/$2"
+  [[ -d "$directory" ]] || directory="${INSTALLER_DIR}/$1/vm/$2"
+  printf '%s\n' "$directory"
 }
 
-_profile_load() {
+_profile_loader_load() {
   local kind="$1" name="$2"
 
   if [[ -z "${INSTALLER_DIR:-}" ]]; then
@@ -80,14 +84,15 @@ _profile_load() {
   fi
 
   local core_file="${INSTALLER_DIR}/${kind}/core/profile.jsonc"
-  local spec_file; spec_file="$(profile_dir "$kind" "$name")/profile.jsonc"
+  local spec_file
+  spec_file="$(profile_loader_directory "$kind" "$name")/profile.jsonc"
 
   if [[ ! -f "$core_file" ]]; then
     echo "profile: missing ${kind%s} core profile: ${core_file}" >&2
     return 2
   fi
   local core_json
-  if ! core_json="$(_configs_parse "$core_file")"; then
+  if ! core_json="$(_program_registry_parse "$core_file")"; then
     echo "profile: failed to parse ${kind%s} core profile: ${core_file}" >&2
     return 2
   fi
@@ -99,30 +104,30 @@ _profile_load() {
   fi
 
   local spec_json
-  if ! spec_json="$(_configs_parse "$spec_file")"; then
+  if ! spec_json="$(_program_registry_parse "$spec_file")"; then
     echo "profile: failed to parse ${kind%s} profile: ${spec_file}" >&2
     return 2
   fi
 
-  # Resolve through the Layer Resolver (ADR 0057) rather than the blanket
-  # concat _configs_merge does: with Host Core carrying real content, a core
+  # Resolve through the Layer Resolver (ADR 0057) rather than the blanket concat
+  # _program_registry_merge does: with Host Core carrying real content, a core
   # options.kernel of ["lts"] plus a host wanting ["zen"] would otherwise
   # install both. The menu resolves through the same module, so display and
   # install cannot disagree.
-  layer_resolve "${kind%s}" "$core_json" "$spec_json"
+  layer_resolver_resolve "${kind%s}" "$core_json" "$spec_json"
 }
 
-# assemble_profile_config <name> <assignment_json> — the install-time effective
-# config for `install.sh --profile <name>`. Loads the named profile, maps the
-# operator-picked disks onto it (picker_assign_disks), and applies the
+# profile_loader_assemble_config <name> <assignment_json> — the install-time
+# effective config for `install.sh --profile <name>`. Loads the named profile,
+# maps the operator-picked disks onto it (picker_assign_disks), and applies the
 # dirname-is-identity hostname fallback (ADR 0036): when the profile omits
 # system.hostname, the profile name is used. No host_profile field is emitted.
 # Pure: reads files + the JSON arg only, never disks. Exit codes propagate from
-# load_profile / picker_assign_disks (min-disk validation aborts here).
-assemble_profile_config() {
+# profile_loader_load / picker_assign_disks (min-disk validation aborts here).
+profile_loader_assemble_config() {
   local name="$1" assignment="$2" profile_json effective
 
-  profile_json="$(load_profile "$name")" || return $?
+  profile_json="$(profile_loader_load "$name")" || return $?
   effective="$(picker_assign_disks "$profile_json" "$assignment")" || return $?
 
   # Printing Service (ADR 0079): fold the toggle-derived cups into
@@ -256,22 +261,23 @@ _PROFILE_SCHEMA_user=(
 
 # `requires[]` (ADR 0065): other Programs whose install-time setup must run
 # before this one (e.g. searxng needs podman's package + subuid/subgid). The
-# ordering is enforced at validate_install_context, before any side effect.
-# `conflicts[]` (ADR 0115): other Programs this one is mutually exclusive with
-# (e.g. firewalld vs ufw). Symmetric — one side declaring is enough. Enforced
-# at validate_install_context, before any side effect.
+# ordering is enforced at validation_check_install_context, before any side
+# effect. `conflicts[]` (ADR 0115): other Programs this one is mutually
+# exclusive with (e.g. firewalld vs ufw). Symmetric — one side declaring is
+# enough. Enforced at validation_check_install_context, before any side effect.
 _PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" \
   "conflicts[]" "system_services[]" "user_services[]" "stow_opt_in" )
 
-# validate_config_schema <kind> <json> — kind ∈ {host, user, program}.
+# profile_loader_validate_schema <kind> <json> — kind ∈ {host, user, program}.
 # Emits nothing and returns 0 when every key is enumerated; otherwise calls
 # error() with the shortest offending path and returns non-zero. Pure: reads
 # the JSON arg only, never disks.
-validate_config_schema() {
+profile_loader_validate_schema() {
   local kind="$1" json="$2"
   case "$kind" in
   host | user | program) ;;
-  *) error "validate_config_schema: unknown schema kind '${kind}'"; return 1 ;;
+  *) error "profile_loader_validate_schema: unknown schema kind '${kind}'"
+     return 1 ;;
   esac
 
   local -n _pats="_PROFILE_SCHEMA_${kind}"
@@ -307,8 +313,10 @@ validate_config_schema() {
     | map(select(okprefix($P; .) | not))
     | sort_by(length)
     | if length == 0 then "" else (.[0] | render) end
-  ')" || { error "validate_config_schema: jq failed for ${kind} schema"; \
-           return 1; }
+  ')" || {
+    error "profile_loader_validate_schema: jq failed for ${kind} schema"
+    return 1
+  }
 
   if [[ -n "$bad" ]]; then
     error "Unknown key '${bad}' in ${kind} config (closed schema, ADR 0036)." \
@@ -317,12 +325,12 @@ validate_config_schema() {
   fi
 }
 
-# _profile_reject_manual <host-json> [<name>] — abort when a committed profile
-# declares Manual Partitioning (ADR 0073). It is Guided-Installer-only and never
-# committed: a hand-drawn table cannot be replayed from a profile, and there is
-# no pool skeleton for the picker to resolve disks against. rc 0 otherwise.
-# Pure: reads its JSON argument only.
-_profile_reject_manual() {
+# _profile_loader_reject_manual <host-json> [<name>] — abort when a committed
+# profile declares Manual Partitioning (ADR 0073). It is Guided-Installer-only
+# and never committed: a hand-drawn table cannot be replayed from a profile, and
+# there is no pool skeleton for the picker to resolve disks against. rc 0
+# otherwise. Pure: reads its JSON argument only.
+_profile_loader_reject_manual() {
   local json="$1" name="${2:-<profile>}"
   [[ "$(printf '%s' "$json" | jq -r '.disk_config.kind // "auto"')" \
      != "manual" ]] && return 0
@@ -331,88 +339,94 @@ _profile_reject_manual() {
   return 1
 }
 
-# _validate_bootloader <host-json> [<name>] — reject an options.bootloader value
-# outside the closed set (ADR 0077). The Bootloader Manifest's known loaders are
-# pinned to menu_enum_options options.bootloader by a drift-guard test, so this
-# rejects a typo with its path before any disk write. rc 0 when valid or absent.
-# Pure: reads its JSON argument only.
-_validate_bootloader() {
-  local json="$1" name="${2:-<profile>}" bl
-  bl="$(printf '%s' "$json" | jq -r '.options.bootloader // empty')"
-  [[ -z "$bl" ]] && return 0
-  bootloader_is_valid "$bl" && return 0
-  error "Profile '${name}' sets options.bootloader='${bl}', not one of:" \
-    "$(bootloader_all | paste -sd' ' -) (ADR 0077)."
+# _profile_loader_validate_bootloader <host-json> [<name>] — reject an
+# options.bootloader value outside the closed set (ADR 0077). The Bootloader
+# Manifest's known loaders are pinned to menu_enum_options options.bootloader by
+# a drift-guard test, so this rejects a typo with its path before any disk
+# write. rc 0 when valid or absent. Pure: reads its JSON argument only.
+_profile_loader_validate_bootloader() {
+  local json="$1" name="${2:-<profile>}" bootloader
+  bootloader="$(printf '%s' "$json" | jq -r '.options.bootloader // empty')"
+  [[ -z "$bootloader" ]] && return 0
+  bootloader_is_valid "$bootloader" && return 0
+  error "Profile '${name}' sets options.bootloader='${bootloader}'," \
+    "not one of:" \
+    "$(bootloader_all | join_words) (ADR 0077)."
   return 1
 }
 
-# validate_profile <name> — the validate-at-load entrypoint. Loads and
+# profile_loader_validate <name> — the validate-at-load entrypoint. Loads and
 # closed-schema-validates the host profile, every referenced user profile,
 # and every referenced program config.jsonc (host host_programs + each
 # user's programs). Aborts via error() with the offending path on the first
 # failure; runs before any disk-touching phase. Requires INSTALLER_DIR set.
-validate_profile() {
+profile_loader_validate() {
   local name="$1"
 
   local host_json
-  host_json="$(load_profile "$name")" \
-    || { error "validate_profile: cannot load host profile '${name}'"; \
+  host_json="$(profile_loader_load "$name")" \
+    || { error "profile_loader_validate: cannot load host profile '${name}'"; \
          return 1; }
-  validate_config_schema host "$host_json" || return 1
-  _profile_reject_manual "$host_json" "$name" || return 1
-  _validate_bootloader "$host_json" "$name" || return 1
+  profile_loader_validate_schema host "$host_json" || return 1
+  _profile_loader_reject_manual "$host_json" "$name" || return 1
+  _profile_loader_validate_bootloader "$host_json" "$name" || return 1
 
   # Security & Backup Extras shape (ADR 0041): reject the old bool form and
   # malformed objects (bad firewall enum, non-bool toggles) — the closed schema
   # only guards key names, not the object/bool distinction at post_install.*.
-  local pi_json
-  pi_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
-  post_install_validate "$pi_json" || return 1
+  local post_install_json
+  post_install_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
+  post_install_validate "$post_install_json" || return 1
 
   local -a users
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
 
-  local u uj
-  for u in "${users[@]}"; do
-    [[ -n "$u" ]] || continue
-    uj="$(load_user_profile "$u")" \
-      || { error "validate_profile: cannot load user profile '${u}'"; \
-           return 1; }
-    validate_config_schema user "$uj" || return 1
+  local user user_json
+  for user in "${users[@]}"; do
+    [[ -n "$user" ]] || continue
+    user_json="$(profile_loader_load_user "$user")" \
+      || {
+        error "profile_loader_validate: cannot load user profile '${user}'"
+        return 1
+      }
+    profile_loader_validate_schema user "$user_json" || return 1
   done
 
-  configs_build_registry
+  program_registry_build
 
-  local -a sysprogs uprogs
-  mapfile -t sysprogs < <(printf '%s' "$host_json" \
+  local -a host_programs user_programs
+  mapfile -t host_programs < <(printf '%s' "$host_json" \
     | jq -r '.host_programs[]?')
-  _validate_program_configs "${sysprogs[@]}" || return 1
+  _profile_loader_validate_program_configs "${host_programs[@]}" || return 1
 
-  for u in "${users[@]}"; do
-    [[ -n "$u" ]] || continue
-    uj="$(load_user_profile "$u")"
-    mapfile -t uprogs < <(printf '%s' "$uj" | jq -r '.programs[]?')
-    _validate_program_configs "${uprogs[@]}" || return 1
+  for user in "${users[@]}"; do
+    [[ -n "$user" ]] || continue
+    user_json="$(profile_loader_load_user "$user")"
+    mapfile -t user_programs < <(printf '%s' "$user_json" \
+      | jq -r '.programs[]?')
+    _profile_loader_validate_program_configs "${user_programs[@]}" || return 1
   done
 }
 
 # Closed-schema-validate each named program's config.jsonc. Resolves names
 # via the registry; a missing program / config.jsonc / parse error aborts.
-_validate_program_configs() {
-  local p rel cfg json
-  for p in "$@"; do
-    [[ -n "$p" ]] || continue
-    if ! rel="$(resolve_program "$p")"; then
-      error "validate_profile: program '${p}' not found under" \
-            "${INSTALLER_DIR}/programs/<cat>/${p}/"
+_profile_loader_validate_program_configs() {
+  local program relative_path config_file json
+  for program in "$@"; do
+    [[ -n "$program" ]] || continue
+    if ! relative_path="$(program_registry_resolve "$program")"; then
+      error "profile_loader_validate: program '${program}' not found under" \
+            "${INSTALLER_DIR}/programs/<cat>/${program}/"
       return 1
     fi
-    cfg="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
-    if ! json="$(jsonc_strip "$cfg" 2>/dev/null | jq '.' 2>/dev/null)"; then
-      error "validate_profile: program '${p}' config.jsonc missing or" \
-            "unparseable at ${cfg}"
+    config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
+    if ! json="$(jsonc_strip "$config_file" 2>/dev/null \
+                 | jq '.' 2>/dev/null)"; then
+      error "profile_loader_validate: program '${program}' config.jsonc" \
+            "missing or" \
+            "unparseable at ${config_file}"
       return 1
     fi
-    validate_config_schema program "$json" || return 1
+    profile_loader_validate_schema program "$json" || return 1
   done
 }

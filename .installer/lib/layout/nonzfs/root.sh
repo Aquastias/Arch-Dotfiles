@@ -20,7 +20,7 @@
 # resolver (nonzfs/devices.sh), and the shared boot emitters (nonzfs/boot.sh).
 #
 # Requires (already sourced by 03-install.sh): lib/common.sh (config_required, part_name,
-# section/info/warn/confirm), lib/config/accessors.sh, lib/zfs/pools.sh
+# section/info/warn/confirm), lib/config/install-config.sh, lib/zfs/pools.sh
 # (zfs_ram_gib). Provides the seam: layout_validate, _layout_plan_mode,
 # _layout_os_disks, _layout_publish_boot, layout_partition, layout_create_pools,
 # layout_mount_esp.

@@ -419,8 +419,8 @@ _pools_validate_topology() {
 # runs the native vdev validator (_pools_validate_topology); a non-zfs pool
 # (btrfs/ext4/xfs) carries a native topology the zfs validator doesn't know
 # (e.g. btrfs raid1), and its validity was already gated by validation.sh's
-# _validation_topology_for_fs — so it passes here. Silent + 0 when ok; prints a
-# reason + returns 1 on a zfs mismatch. Pure.
+# _validation_topology_for_filesystem — so it passes here. Silent + 0 when ok;
+# prints a reason + returns 1 on a zfs mismatch. Pure.
 zfs_data_pool_topology_ok() {
   local filesystem="$1" topology="$2" count="$3"
   [[ "$filesystem" == "zfs" ]] || return 0

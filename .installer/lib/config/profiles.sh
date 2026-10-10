@@ -9,8 +9,8 @@
 #   - Seed a Config State from a chosen profile (the profile's values merged in),
 #     so picking one populates the whole menu.
 #
-# Distinct from lib/config/profile.sh (singular), which authors the device-less
-# profile DELTA for Save. This module CONSUMES committed profiles.
+# Distinct from lib/config/profile-loader.sh (singular), which authors the
+# device-less profile DELTA for Save. This module CONSUMES committed profiles.
 #
 # Public API:
 #   profiles_list   <hosts-root>          → installable profile names, one per

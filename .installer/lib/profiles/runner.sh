@@ -3,7 +3,7 @@
 # lib/profiles/runner.sh — Host/user profile runner
 # =============================================================================
 # Sourced by 03-install.sh after chroot_configure_system().
-# Requires: lib/common.sh and lib/config/layers.sh already sourced.
+# Requires: lib/common.sh and lib/config/program-registry.sh already sourced.
 #
 # Public API:
 #   runner_run_profiles  Entry point. Reads merged host config for $RESOLVED_HOST_PROFILE,
@@ -15,9 +15,10 @@
 #   - Specific host config missing    → warn and return (graceful).
 #   - User dir referenced but missing → hard error.
 #   - Program not found / system flag mismatch → hard error
-#     (validation lives in lib/config/layers.sh and runs before any side effects).
+#     (validation lives in lib/config/program-registry.sh and runs before any
+#     side effects).
 #   - Staged runtime missing pieces   → hard error (caught by
-#     validate_staging before any program runs).
+#     validation_check_staging before any program runs).
 #
 # Program execution:
 #   Every Program Install Script is invoked via lib/profiles/program-runner.sh, which
@@ -76,8 +77,8 @@ readonly _RUNNER_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 readonly -a _AUR_VET_SHARE_FILES=(
   scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv
 )
-# Paths (relative to the runtime root) that constitute a valid staged tree.
-# Both runner_stage_runtime and validate_staging iterate this array so the
+# Paths (relative to the runtime root) that constitute a valid staged tree. Both
+# runner_stage_runtime and validation_check_staging iterate this array so the
 # contract lives in one place.
 readonly -a _STAGED_RUNTIME_FILES=(
   "lib/shell-stdlib.sh"
@@ -270,7 +271,7 @@ runner_run_profiles() {
 
   # ── Stage runtime, validate it, create users, install programs ───────────
   runner_stage_runtime
-  validate_staging "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}"
+  validation_check_staging "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}"
   runner_install_aur_vet
   runner_create_users
   runner_install_host_programs
@@ -333,17 +334,18 @@ _runner_load_users_and_programs() {
     "${system_programs[@]+"${system_programs[@]}"}")
 
   # Pre-load user profiles for install execution.
-  # Program contract validation was done by validate_install_context.
+  # Program contract validation was done by validation_check_install_context.
   local user user_json load_status
   for user in "${users[@]}"; do
     load_status=0
-    user_json="$(load_user_profile "$user" 2>/dev/null)" || load_status=$?
+    user_json="$(profile_loader_load_user "$user" 2>/dev/null)" \
+      || load_status=$?
     case "$load_status" in
     0 | 1) USER_JSONS["$user"]="$user_json" ;;
     2) error "Users core profile could not be loaded." ;;
     3) error "User '${user}' is named 'core' (reserved)." ;;
     *) error "Unexpected return code ${load_status} from" \
-             "load_user_profile for '${user}'." ;;
+             "profile_loader_load_user for '${user}'." ;;
     esac
   done
 }

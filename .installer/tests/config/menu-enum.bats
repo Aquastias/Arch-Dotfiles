@@ -6,8 +6,8 @@
 # front-ends can never drift on what a field offers. Pure: no TTY.
 
 setup() {
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   # shellcheck source=../../lib/config/menu.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
 }

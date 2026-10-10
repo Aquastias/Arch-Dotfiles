@@ -6,7 +6,7 @@
 # the VM harness. No TTY, no fzf, no side effects beyond reading files and
 # writing to stdout/stderr.
 #
-# Sourced by lib/config/profile.sh, install.sh, vm/lib/profile.sh, and
+# Sourced by lib/config/profile-loader.sh, install.sh, vm/lib/profile.sh, and
 # tests/picker.bats.
 # =============================================================================
 

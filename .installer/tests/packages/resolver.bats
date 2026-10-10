@@ -522,8 +522,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # ── the real committed profiles ─────────────────────────────────────────────
 
 @test "the real desktop profile resolves through the resolver" {
-  source "$INSTALLER_DIR/lib/config/profile.sh"
-  local eff; eff="$(load_profile desktop)"
+  source "$INSTALLER_DIR/lib/config/profile-loader.sh"
+  local eff; eff="$(profile_loader_load desktop)"
   run package_resolver_resolve "$eff"
   [ "$status" -eq 0 ]
   local p; p="$(cut -f3 <<<"$output" | sort -u)"
@@ -540,10 +540,10 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # both profiles resolve to the same package set (ADR 0114, superseding ADR 0056's
 # laptop-subset framing). They differ only in hardware/hostname/impermanence.
 @test "desktop and laptop resolve to the same package set (all apps in core)" {
-  source "$INSTALLER_DIR/lib/config/profile.sh"
+  source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   local d l
-  d="$(package_resolver_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
-  l="$(package_resolver_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"
+  d="$(package_resolver_resolve "$(profile_loader_load desktop)" | cut -f3 | sort -u)"
+  l="$(package_resolver_resolve "$(profile_loader_load laptop)"  | cut -f3 | sort -u)"
   [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
   [ "$(comm -23 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
 }

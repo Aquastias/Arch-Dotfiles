@@ -12,8 +12,8 @@ setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   # shellcheck source=../../lib/config/skeleton.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/skeleton.sh"
   # shellcheck source=../../lib/config/profiles.sh
@@ -81,8 +81,8 @@ teardown() { rm -rf "$HOSTS"; }
 # ── seed-merge: profile values win, seed fields survive ─────────────────────
 
 @test "profiles_seed: profile values win over the seeded state" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"seeded"')"
-  state="$(cfgstate_set "$state" system.keymap '"us"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"seeded"')"
+  state="$(config_state_set "$state" system.keymap '"us"')"
   profile='{"system":{"hostname":"eterniox"},"options":{"encryption":true}}'
 
   run profiles_seed "$state" "$profile"
@@ -95,7 +95,7 @@ teardown() { rm -rf "$HOSTS"; }
 @test "profiles_seed: introduces no device paths (flattened)" {
   profile='{"os_pool":{"pool_name":"rpool","topology":"mirror",
             "devices":["/dev/disk/by-id/a","/dev/disk/by-id/b"]}}'
-  run profiles_seed "$(cfgstate_new)" "$profile"
+  run profiles_seed "$(config_state_new)" "$profile"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.os_pool | has("devices") | not'
   echo "$output" | jq -e '.os_pool.disk_count == 2'   # count derived

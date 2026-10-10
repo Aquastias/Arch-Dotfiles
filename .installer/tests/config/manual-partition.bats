@@ -6,7 +6,7 @@
 # launch + live lsblk re-read are VM-verified (the manual matrix case).
 
 setup() {
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/manual-partition.sh"
 }
 
@@ -101,13 +101,13 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 # ── Proceed-only guard ──────────────────────────────────────────────────────
 
 @test "kind_active: true when disk_config.kind is manual" {
-  local s; s="$(cfgstate_set "$(cfgstate_new)" disk_config.kind '"manual"')"
+  local s; s="$(config_state_set "$(config_state_new)" disk_config.kind '"manual"')"
   run manual_kind_active "$s"
   [ "$status" -eq 0 ]
 }
 
 @test "kind_active: false on the default (auto) state" {
-  run manual_kind_active "$(cfgstate_new)"
+  run manual_kind_active "$(config_state_new)"
   [ "$status" -ne 0 ]
 }
 
@@ -117,7 +117,7 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
   local parts state
   parts="$(manual_set_field "$(manual_scan_partitions "$LSBLK")" \
     /dev/sda2 mountpoint /)"
-  state="$(manual_store_partitions "$(cfgstate_new)" "$parts")"
+  state="$(manual_store_partitions "$(config_state_new)" "$parts")"
   echo "$state" | jq -e '.disk_config.partitions | length == 4'
   echo "$state" | jq -e \
     '.disk_config.partitions[] | select(.device=="/dev/sda2") | .mountpoint == "/"'
@@ -126,7 +126,7 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 @test "store: the stored shape is exactly the planner's input" {
   local parts state
   parts="$(manual_scan_partitions "$LSBLK")"
-  state="$(manual_store_partitions "$(cfgstate_new)" "$parts")"
+  state="$(manual_store_partitions "$(config_state_new)" "$parts")"
   # round-trips back out via the accessor path shape
   echo "$state" | jq -e '.disk_config.partitions
     | all(.[]; has("device") and has("mountpoint") and has("fs")

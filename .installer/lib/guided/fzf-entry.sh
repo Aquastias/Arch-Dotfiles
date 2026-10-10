@@ -99,9 +99,9 @@ cfdisk)
   # assignment into the guided state. The controller (sourced above) already
   # pulled in manual-partition.sh + picker.sh. VM/HITL-verified glue.
   _mdisk="$(manual_target_disk)" || exit 0
-  _mcur="$(cfgstore_state)"
+  _mcur="$(config_store_state)"
   if _mnew="$(manual_partition_flow "$_mcur" "$_mdisk")"; then
-    cfgstore_write_state "$_mnew"
+    config_store_write_state "$_mnew"
   fi
   ;;
 secret)

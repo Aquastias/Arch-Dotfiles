@@ -3,15 +3,15 @@
 # (ADR 0115). A program's declared `conflicts: [...]` may not name another
 # program that also reaches the machine — a host system program or one of the
 # same user's programs. Symmetric: one side declaring is enough. Enforced at
-# validate_install_context time, before any install side effect.
+# validation_check_install_context time, before any install side effect.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
   export INSTALLER_DIR="$TEST_DIR"
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  # shellcheck source=../../lib/config/layers.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/layers.sh"
+  # shellcheck source=../../lib/config/program-registry.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/program-registry.sh"
   # shellcheck source=../../lib/config/validation.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/validation.sh"
 }

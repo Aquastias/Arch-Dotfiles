@@ -17,8 +17,8 @@ setup() {
 }
 
 # resolve <core-json> <profile-json> — host fold, compact output.
-resolve() { layer_resolve_host "$1" "$2" | jq -c .; }
-uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
+resolve() { layer_resolver_resolve_host "$1" "$2" | jq -c .; }
+uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 
 # ── additive keys concat + dedupe ───────────────────────────────────────────
 
@@ -151,8 +151,8 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
 # above. A new key added to either table without a test fails here.
 @test "classification: every table key is covered by a test in this file" {
   local key probe
-  for key in $(layer_additive_keys host) $(layer_replace_keys host) \
-             $(layer_additive_keys user) $(layer_replace_keys user); do
+  for key in $(layer_resolver_additive_keys host) $(layer_resolver_replace_keys host) \
+             $(layer_resolver_additive_keys user) $(layer_resolver_replace_keys user); do
     probe="${key%.\*}"                       # packages.repo.* → packages.repo
     grep -q -- "$probe" "$BATS_TEST_FILENAME" \
       || { echo "classification key not covered by a test: $key"; return 1; }
@@ -204,7 +204,7 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   local leaf='{"packages":{"repo":{"cli":["htop"]}}}'
   run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh'
-    layer_resolve host '$core' '$mid' '$leaf' | jq -c ."
+    layer_resolver_resolve host '$core' '$mid' '$leaf' | jq -c ."
   echo "$output" | jq -e '.packages.repo.cli == ["fzf","htop"]'
 }
 
@@ -314,10 +314,10 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   [ "$a" = "$b" ]
 }
 
-@test "layer_resolve folds N layers left to right" {
+@test "layer_resolver_resolve folds N layers left to right" {
   run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh'
-    layer_resolve host '{\"users\":[\"a\"]}' '{\"users\":[\"b\"]}' \
+    layer_resolver_resolve host '{\"users\":[\"a\"]}' '{\"users\":[\"b\"]}' \
       '{\"users\":[\"c\"]}' | jq -c ."
   echo "$output" | jq -e '.users == ["a","b","c"]'
 }

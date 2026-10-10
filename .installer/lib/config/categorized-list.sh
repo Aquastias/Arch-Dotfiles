@@ -13,7 +13,7 @@
 
 # Kebab-case category names: lowercase letters, digits, hyphens. No leading
 # or trailing hyphen; no consecutive hyphens.
-_CL_CAT_RE='^[a-z0-9]+(-[a-z0-9]+)*$'
+_CATEGORIZED_LIST_CATEGORY_PATTERN='^[a-z0-9]+(-[a-z0-9]+)*$'
 
 # categorized_list_parse JSON LEAF_TYPE [FIELD_PATH]
 #   JSON       — JSON string. Two-level: { category: <leaves> }.
@@ -42,54 +42,17 @@ categorized_list_parse() {
     error "${field_path}: expected object, got ${top_type}."
   fi
 
-  local want_cat_type want_leaf
+  local want_category_type want_leaf
   if [[ "$leaf_type" == "string" ]]; then
-    want_cat_type="array"
+    want_category_type="array"
     want_leaf="string"
   else
-    want_cat_type="object"
+    want_category_type="object"
     want_leaf="boolean"
   fi
 
-  local key got_type
-  while IFS=$'\t' read -r key got_type; do
-    if ! [[ "$key" =~ $_CL_CAT_RE ]]; then
-      error "${field_path}.${key}: invalid category name" \
-            "(expected kebab-case ${_CL_CAT_RE})."
-    fi
-    if [[ "$got_type" != "$want_cat_type" ]]; then
-      error "${field_path}.${key}: expected ${want_cat_type}," \
-            "got ${got_type}."
-    fi
-  done < <(printf '%s' "$json" \
-    | jq -r 'to_entries[] | "\(.key)\t\(.value | type)"')
-
-  local cat leaf_path lkey ltype
-  if [[ "$leaf_type" == "string" ]]; then
-    while IFS=$'\t' read -r cat leaf_path ltype; do
-      if [[ "$ltype" != "$want_leaf" ]]; then
-        error "${field_path}.${cat}${leaf_path}: expected ${want_leaf} leaf," \
-              "got ${ltype}."
-      fi
-    done < <(printf '%s' "$json" \
-      | jq -r '
-          to_entries[] as $c
-          | $c.value | to_entries[]
-          | "\($c.key)\t[\(.key)]\t\(.value | type)"
-        ')
-  else
-    while IFS=$'\t' read -r cat lkey ltype; do
-      if [[ "$ltype" != "$want_leaf" ]]; then
-        error "${field_path}.${cat}.${lkey}: expected ${want_leaf} leaf," \
-              "got ${ltype}."
-      fi
-    done < <(printf '%s' "$json" \
-      | jq -r '
-          to_entries[] as $c
-          | $c.value | to_entries[]
-          | "\($c.key)\t\(.key)\t\(.value | type)"
-        ')
-  fi
+  _categorized_list_check_categories "$json" "$field_path" "$want_category_type"
+  _categorized_list_check_leaves "$json" "$field_path" "$leaf_type" "$want_leaf"
 
   if [[ "$leaf_type" == "string" ]]; then
     printf '%s' "$json" \
@@ -101,4 +64,42 @@ categorized_list_parse() {
         | unique[]
       '
   fi
+}
+
+# _categorized_list_check_categories <json> <field-path> <want-type> — abort
+# (error) on a non-kebab-case category name or a category of the wrong type.
+_categorized_list_check_categories() {
+  local json="$1" field_path="$2" want_category_type="$3" key got_type
+  while IFS=$'\t' read -r key got_type; do
+    if ! [[ "$key" =~ $_CATEGORIZED_LIST_CATEGORY_PATTERN ]]; then
+      error "${field_path}.${key}: invalid category name" \
+            "(expected kebab-case ${_CATEGORIZED_LIST_CATEGORY_PATTERN})."
+    fi
+    if [[ "$got_type" != "$want_category_type" ]]; then
+      error "${field_path}.${key}: expected ${want_category_type}," \
+            "got ${got_type}."
+    fi
+  done < <(printf '%s' "$json" \
+    | jq -r 'to_entries[] | "\(.key)\t\(.value | type)"')
+}
+
+# _categorized_list_check_leaves <json> <field-path> <leaf-type> <want-leaf>
+# — abort (error) on a leaf that is not <want-leaf>. A string leaf is named
+# by its index (`.cat[0]`), a bool leaf by its key (`.cat.name`).
+_categorized_list_check_leaves() {
+  local json="$1" field_path="$2" leaf_type="$3" want_leaf="$4"
+  local category leaf_path got_type
+  while IFS=$'\t' read -r category leaf_path got_type; do
+    if [[ "$got_type" != "$want_leaf" ]]; then
+      error "${field_path}.${category}${leaf_path}: expected ${want_leaf}" \
+            "leaf, got ${got_type}."
+    fi
+  done < <(printf '%s' "$json" \
+    | jq -r --arg mode "$leaf_type" '
+        to_entries[] as $c
+        | $c.value | to_entries[]
+        | "\($c.key)\t"
+          + (if $mode == "string" then "[\(.key)]" else ".\(.key)" end)
+          + "\t\(.value | type)"
+      ')
 }

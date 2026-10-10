@@ -108,13 +108,13 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
 
 - `requires[]` — other Programs whose install-time **setup** (package *and* its
   side effects — e.g. podman's subuid/subgid + linger) must already be in place
-  when this one runs ([ADR 0065]). Validated at `validate_install_context`
+  when this one runs ([ADR 0065]). Validated at `validation_check_install_context`
   before any side effect: a required program must be a Host Program or listed
   earlier in the same user's `programs`. Declare only for cross-Program *setup
   ordering* — not for plain package deps, which pacman/paru already resolve.
 - `conflicts[]` — other Programs this one is mutually exclusive with, e.g.
   firewalld vs ufw ([ADR 0115]). Symmetric: declaring on one side is enough.
-  Validated at `validate_install_context` before any side effect — a selection
+  Validated at `validation_check_install_context` before any side effect — a selection
   with both aborts up front. Keep any runtime `command_exists` guard in
   `install.sh` as defense-in-depth for manual/partial runs.
 - `system_services[]` — unit names the runner enables system-wide after

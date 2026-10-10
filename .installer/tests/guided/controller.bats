@@ -15,7 +15,7 @@ setup() {
   # Profiles row (ADR 0055) stays hidden unless a test wires its own tree.
   export INSTALLER_DIR="$TEST_DIR"
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
@@ -234,7 +234,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$INSTALLER_DIR/programs/security/sops/config.jsonc"
   printf '{"name":"myhostprog","kind":"host"}\n' \
     > "$INSTALLER_DIR/programs/system/myhostprog/config.jsonc"
-  configs_build_registry
+  program_registry_build
 
   run _ctl_host_program_names
   [ "$status" -eq 0 ]
@@ -262,7 +262,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$INSTALLER_DIR/programs/virtualization/docker/config.jsonc"
   printf '{"name":"teamspeak3","kind":"user"}\n' \
     > "$INSTALLER_DIR/programs/communication/teamspeak3/config.jsonc"
-  configs_build_registry
+  program_registry_build
 
   run _ctl_user_program_names
   [ "$status" -eq 0 ]
@@ -278,7 +278,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   mkdir -p "$INSTALLER_DIR/programs/bootloader/grub"
   printf '{"name":"grub","kind":"host"}\n' \
     > "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc"
-  configs_build_registry
+  program_registry_build
 
   run _ctl_host_program_names
   [ "$status" -eq 0 ]
@@ -299,17 +299,17 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_ctl_enter "Color: true"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.options.pacman.color' "$GUIDED_STATE_FILE")" = "false" ]
-  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.pacman.color
+  config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.pacman.color
 }
 
 @test "enter(category): flipping a bool back to its default clears the override" {
   _seed_baseline
   set_nav "$(nav_to_category Expert)"
   guided_ctl_enter "SSH: false" >/dev/null   # default false → true, override kept
-  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
+  config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
   set_nav "$(nav_to_category Expert)"
   guided_ctl_enter "SSH: true"  >/dev/null   # true → back to default false, drop
-  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
+  ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
 }
 
 # environment.stock (ADR 0112): the Environment stock Cycle Field flips in place,
@@ -320,10 +320,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_ctl_enter "Stock: false"        # default false → true, override kept
   [ "$output" = "refresh" ]
   [ "$(jq -c '.environment.stock' "$GUIDED_STATE_FILE")" = "true" ]
-  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
+  config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
   set_nav "$(nav_to_category Environment)"
   guided_ctl_enter "Stock: true" >/dev/null  # true → back to default false, drop
-  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
+  ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
 }
 
 @test "header(category): the hint advertises cycle" {
@@ -635,8 +635,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # for an unchanged value. Regression for the "select zfs → marked modified" bug.
 
 _seed_baseline() {
-  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
-  cfgstate_seed_defaults "$(cfgstate_new)" > "$GUIDED_BASELINE_FILE"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
+  config_state_seed_defaults "$(config_state_new)" > "$GUIDED_BASELINE_FILE"
 }
 
 @test "enter(values): re-picking the default filesystem (zfs) leaves no override" {
@@ -646,7 +646,7 @@ _seed_baseline() {
   [ "$status" -eq 0 ]
   # zfs == the seeded default → normalised away → no override key, no ●
   [ "$(jq -c 'has("filesystem")' "$GUIDED_STATE_FILE")" = "false" ]
-  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
+  ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
 }
 
 @test "enter(values): a non-default filesystem (btrfs) keeps the override" {
@@ -654,19 +654,19 @@ _seed_baseline() {
   set_nav "$(nav_to_values Disks filesystem filesystem)"
   run guided_ctl_enter "btrfs"
   [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
-  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
+  config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
 }
 
 @test "enter(values): a bool toggled on then back to its default drops the ●" {
   _seed_baseline
   set_nav "$(nav_to_values Disks options.encryption encryption)"
   guided_ctl_enter "true"  >/dev/null   # away from default false → override kept
-  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
+  config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
   set_nav "$(nav_to_values Disks options.encryption encryption)"
   guided_ctl_enter "false" >/dev/null   # back to default false → normalised away
   [ "$(jq -c 'getpath(["options","encryption"]) == null' \
       "$GUIDED_STATE_FILE")" = "true" ]
-  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
+  ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
 }
 
 # ── disk-layout preset picker (native — no terminal drop, no disk-count) ──────
@@ -2383,7 +2383,7 @@ secret_setup() {
 }
 
 @test "enter(impermanence): toggling back to the baseline drops the override" {
-  cfgstate_seed_defaults "$(cfgstate_new)" > "$GUIDED_BASELINE_FILE"
+  config_state_seed_defaults "$(config_state_new)" > "$GUIDED_BASELINE_FILE"
   printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_impermanence Disks)"

@@ -19,7 +19,7 @@ setup() {
   mkdir -p "$INSTALLER_DIR/hosts/core"
   printf '%s\n' '{"host_programs":["cups"]}' > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
 

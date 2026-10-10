@@ -18,7 +18,7 @@
 # ZFS-multi-specific; the shared structure and creation path are here.
 #
 # Requires at call time: lib/common.sh (config_required/section/info/warn/error, part_name),
-# lib/config/accessors.sh (install_config_data_pool_*), MOUNT_ROOT,
+# lib/config/install-config.sh (install_config_data_pool_*), MOUNT_ROOT,
 # INSTALLER_DIR.
 # =============================================================================
 

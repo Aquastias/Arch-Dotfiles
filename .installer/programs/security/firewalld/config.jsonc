@@ -4,7 +4,7 @@
 // owning user via paru, with temp NOPASSWD sudo for root writes. firewalld
 // is not OS-essential; any user can opt in via their user config.
 // conflicts ufw (ADR 0115): both a firewall — declaring both aborts at
-// validate_install_context; install.sh keeps a runtime guard as backstop.
+// validation_check_install_context; install.sh keeps a runtime guard as backstop.
 
 {
   "name": "firewalld",

@@ -26,7 +26,7 @@ declare -F post_install_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
 # =============================================================================
-# RESOLVED GLOBALS — set during validate_install_context,
+# RESOLVED GLOBALS — set during validation_check_install_context,
 # consumed by chroot_configure_system
 # =============================================================================
 # shellcheck disable=SC2034 # consumed by validation.sh, profiles.sh, chroot.sh
@@ -39,7 +39,7 @@ RESOLVED_HOST_PROFILE=""
 # =============================================================================
 # Each mode is defined by a "signature": a JSON path that must be present and
 # non-empty. If multiple signatures match, lifecycle_detect_mode() errors — set
-# 'mode' explicitly instead. validate_install_context() dispatches
+# 'mode' explicitly instead. validation_check_install_context() dispatches
 # to _validation_<mode>().
 
 declare -gA _LIFECYCLE_MODE_SIGNATURES=(
@@ -142,7 +142,7 @@ lifecycle_print_summary() {
 
   echo ""
   echo -e "  ${BOLD}Environment:${NC}"
-  print_environment_summary
+  environment_print_summary
 
   _lifecycle_print_extras
   _lifecycle_print_settings

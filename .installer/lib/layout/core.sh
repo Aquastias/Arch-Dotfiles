@@ -67,7 +67,8 @@ layout_validate_esp_size() {
 # seam behind every adapter's disk-existence probe (single/multi/nonzfs/btrfs),
 # so the check is overridable in unit tests that use fake disk paths and by the
 # no-VM Tier-1 assembly oracle (Combination Matrix, ADR 0046), which runs
-# validate_install_context without real disks. Production behaviour is `-b`.
+# validation_check_install_context without real disks. Production behaviour is
+# `-b`.
 layout_disk_exists() { [[ -b "$1" ]]; }
 
 # ── Size parsers ─────────────────────────────────────────────────────────────

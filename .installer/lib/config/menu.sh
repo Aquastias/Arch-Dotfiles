@@ -21,9 +21,9 @@
 # shows its value with no ● until the operator edits it.
 # =============================================================================
 
-# shellcheck source=./state.sh
-declare -F cfgstate_get >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/state.sh"
+# shellcheck source=./config-state.sh
+declare -F config_state_get >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 
 # shellcheck source=./locale-source.sh
 declare -F locale_list_keymaps >/dev/null 2>&1 \
@@ -286,7 +286,7 @@ _menu_fields_json() {
 # One jq call: merges baseline*override, derives the effective filesystem
 # (Impermanence hidden for ext4/xfs — ADR 0040), and per field renders the value
 # (array→", ", object→"k=v", scalar→string, empty→default) and the override-only
-# ● flag. Render logic mirrors menu_render_value / cfgstate_is_overridden.
+# ● flag. Render logic mirrors menu_render_value / config_state_is_overridden.
 menu_rows() {
   local state="$1" baseline="${2:-{\}}"
   local lockpaths; lockpaths="$(menu_manual_locked_paths | jq -Rn '[inputs]')"

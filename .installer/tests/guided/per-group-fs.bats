@@ -21,12 +21,12 @@ setup() {
   info() { :; }; section() { :; }; warn() { :; }
   export -f jsonc_strip config_optional config_required error info section warn
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/validation.sh"
 
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"

@@ -21,12 +21,12 @@ setup() {
     '{"host_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
     > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   # shellcheck source=../../lib/config/emit.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
-  # shellcheck source=../../lib/config/profile.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
+  # shellcheck source=../../lib/config/profile-loader.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
   # shellcheck source=../../lib/guided/save.sh
   source "$BATS_TEST_DIRNAME/../../lib/guided/save.sh"
 }
@@ -35,12 +35,12 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # ── tracer: the saved delta drops device paths, keeps the pool skeleton ──────
 
-@test "guided_profile_delta: strips device paths, keeps the skeleton" {
+@test "emit_profile_delta: strips device paths, keeps the skeleton" {
   config='{"mode":"single","disk":"/dev/sda",
            "os_pool":{"topology":"mirror","disk_count":2,
                       "disks":["/dev/a","/dev/b"]}}'
 
-  run guided_profile_delta "$config"
+  run emit_profile_delta "$config"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'has("disk") | not'              # single .disk dropped
   echo "$output" | jq -e '.os_pool | has("disks") | not'  # pool .disks[] dropped
@@ -49,12 +49,12 @@ teardown() { rm -rf "$TEST_DIR"; }
   echo "$output" | jq -e '.mode == "single"'
 }
 
-# ── Save writes a device-less, schema-valid profile that load_profile reads ──
+# ── Save writes a device-less, schema-valid profile that profile_loader_load reads ──
 
 @test "guided_save_host_profile: writes a device-less profile that re-loads" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" mode '"single"')"
-  state="$(cfgstate_set "$state" options.bootloader '"grub"')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" mode '"single"')"
+  state="$(config_state_set "$state" options.bootloader '"grub"')"
 
   run guided_save_host_profile "$state" "eterniox"
   [ "$status" -eq 0 ]
@@ -62,10 +62,10 @@ teardown() { rm -rf "$TEST_DIR"; }
   # device-less + schema-clean + re-loadable via the Profile Loader
   run jq -e 'has("disk") | not' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
   [ "$status" -eq 0 ]
-  loaded="$(load_profile eterniox)"
+  loaded="$(profile_loader_load eterniox)"
   echo "$loaded" | jq -e '.options.bootloader == "grub"'   # delta applied
   echo "$loaded" | jq -e '.host_programs == ["cups"]'    # over Host Core
-  run validate_config_schema host "$loaded"
+  run profile_loader_validate_schema host "$loaded"
   [ "$status" -eq 0 ]
 }
 
@@ -74,7 +74,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "guided_save_host_profile: refuses to overwrite an existing profile" {
   mkdir -p "$INSTALLER_DIR/hosts/taken"
   printf 'KEEP\n' > "$INSTALLER_DIR/hosts/taken/profile.jsonc"
-  state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(config_state_set "$(config_state_new)" mode '"single"')"
 
   run guided_save_host_profile "$state" "taken"
   [ "$status" -ne 0 ]
@@ -107,15 +107,15 @@ teardown() { rm -rf "$TEST_DIR"; }
 # a passphrase. Guards the "never enters Save/Export" claim of Seam 3.
 
 @test "Save/Export carry no disk passphrase, even with encryption on" {
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  state="$(cfgstate_set "$state" mode '"single"')"
-  state="$(cfgstate_set "$state" options.encryption 'true')"
+  state="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
+  state="$(config_state_set "$state" mode '"single"')"
+  state="$(config_state_set "$state" options.encryption 'true')"
 
   guided_save_host_profile "$state" "eterniox"
   saved="$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
   ! grep -qE "enc_passphrase|12345678" "$saved"
 
-  effective="$(cfgstate_set "$state" disk '"/dev/sda"')"
+  effective="$(config_state_set "$state" disk '"/dev/sda"')"
   out="$TEST_DIR/usb/eterniox.effective.jsonc"
   guided_export_config "$effective" "$out"
   ! grep -qE "enc_passphrase|12345678" "$out"

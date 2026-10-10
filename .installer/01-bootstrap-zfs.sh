@@ -28,8 +28,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=lib/zfs/module.sh
 source "${SCRIPT_DIR}/lib/zfs/module.sh"
 # Config accessors — for the any-ZFS gate below (install_config_any_zfs).
-# shellcheck source=lib/config/accessors.sh
-source "${SCRIPT_DIR}/lib/config/accessors.sh"
+# shellcheck source=lib/config/install-config.sh
+source "${SCRIPT_DIR}/lib/config/install-config.sh"
 
 # =============================================================================
 # MAIN — the bootstrap, step by step

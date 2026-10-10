@@ -9,9 +9,9 @@
 # so both sides share one mapping. Adding a flavour is a one-line change. See
 # ADR 0024.
 #
-# Used by: 03-install.sh, lib/config/accessors.sh, lib/packages/package-list.sh,
-# lib/packages/package-resolver.sh; chroot: lib/chroot/bootloader-common.sh,
-# lib/chroot/initcpio.sh.
+# Used by: 03-install.sh, lib/config/install-config.sh,
+# lib/packages/package-list.sh, lib/packages/package-resolver.sh; chroot:
+# lib/chroot/bootloader-common.sh, lib/chroot/initcpio.sh.
 # =============================================================================
 
 [[ -n "${_KERNEL_SH_SOURCED:-}" ]] && return 0

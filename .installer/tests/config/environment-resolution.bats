@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for resolve_environment() in lib/config/environment.sh — the single public
+# Tests for environment_resolve() in lib/config/environment.sh — the single public
 # seam. Drives the module end-to-end with a fixture install.jsonc and asserts
 # the five resolved globals populate. Stubs lspci so GPU "auto" is hermetic.
 
@@ -28,9 +28,9 @@ write_config() {
   printf '%s\n' "$1" > "$CONFIG_FILE"
 }
 
-@test "resolve_environment populates all five globals from config" {
+@test "environment_resolve populates all five globals from config" {
   write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
-  resolve_environment
+  environment_resolve
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
   [ "${ENVIRONMENT_GPU[0]}" = "nvidia" ]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
@@ -38,23 +38,23 @@ write_config() {
   [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
 }
 
-@test "resolve_environment accepts hyprland and derives audio" {
+@test "environment_resolve accepts hyprland and derives audio" {
   write_config '{"environment": {"desktop": "hyprland", "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
   [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
 }
 
-@test "resolve_environment accepts niri and derives audio" {
+@test "environment_resolve accepts niri and derives audio" {
   write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "${ENVIRONMENT_DESKTOP[0]}" = "niri" ]
   [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
 }
 
-@test "resolve_environment accepts a kde+hyprland co-install" {
+@test "environment_resolve accepts a kde+hyprland co-install" {
   write_config '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
   [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
 }
@@ -63,7 +63,7 @@ write_config() {
 
 @test "stock defaults to false and leaves wayland_shell at noctalia" {
   write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_STOCK" = "false" ]
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "noctalia" ]
 }
@@ -71,7 +71,7 @@ write_config() {
 @test "stock=true resolves the flag and forces wayland_shell=none" {
   write_config \
     '{"environment": {"desktop": "niri", "gpu": "amd", "stock": true}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_STOCK" = "true" ]
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
 }
@@ -79,19 +79,19 @@ write_config() {
 @test "stock=true overrides an explicit wayland_shell=noctalia" {
   write_config '{"environment": {"desktop": "hyprland", "gpu": "amd",
     "stock": true, "wayland_shell": "noctalia"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
 }
 
-@test "resolve_environment is idempotent: second call produces identical state" {
+@test "environment_resolve is idempotent: second call produces identical state" {
   write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
-  resolve_environment
+  environment_resolve
   local d1="${ENVIRONMENT_DESKTOP[*]}"
   local g1="${ENVIRONMENT_GPU[*]}"
   local gp1="${GPU_PACMAN_PACKAGES[*]}"
   local gr1="${GPU_PARU_PACKAGES[*]}"
   local a1="${AUDIO_PACKAGES[*]}"
-  resolve_environment
+  environment_resolve
   [ "${ENVIRONMENT_DESKTOP[*]}" = "$d1" ]
   [ "${ENVIRONMENT_GPU[*]}" = "$g1" ]
   [ "${GPU_PACMAN_PACKAGES[*]}" = "$gp1" ]
@@ -102,84 +102,84 @@ write_config() {
 @test "display_manager auto resolves to sddm when kde present (with hyprland)" {
   write_config \
     '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }
 
 @test "display_manager auto resolves to greetd for a hyprland-only box" {
   write_config '{"environment": {"desktop": "hyprland", "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "display_manager auto resolves to greetd for a niri-only box" {
   write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "display_manager auto resolves to greetd for a hyprland+niri box" {
   write_config '{"environment": {"desktop": ["hyprland","niri"], "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "display_manager auto resolves to sddm for a kde+niri box" {
   write_config '{"environment": {"desktop": ["kde","niri"], "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }
 
 @test "explicit greetd is honored on a hyprland box" {
   write_config \
     '{"environment": {"desktop": ["kde","hyprland"], "display_manager": "greetd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "display_manager auto resolves to sddm for a kde-only install" {
   write_config '{"environment": {"desktop": "kde", "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }
 
 @test "display_manager auto resolves to none when no desktop is selected" {
   write_config '{"environment": {"desktop": null, "gpu": "amd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "none" ]
 }
 
 @test "explicit sddm passes through on a hyprland box" {
   write_config \
     '{"environment": {"desktop": "hyprland", "display_manager": "sddm"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }
 
 @test "explicit greetd passes through on a kde-only box" {
   write_config \
     '{"environment": {"desktop": "kde", "display_manager": "greetd"}}'
-  resolve_environment
+  environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "concrete display_manager with no desktop aborts" {
   write_config \
     '{"environment": {"desktop": null, "display_manager": "sddm"}}'
-  run resolve_environment
+  run environment_resolve
   [ "$status" -ne 0 ]
   [[ "$output" =~ "desktop" ]]
 }
 
-@test "resolve_environment with gpu='auto' mutates ENVIRONMENT_GPU to detected vendors" {
+@test "environment_resolve with gpu='auto' mutates ENVIRONMENT_GPU to detected vendors" {
   write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
-  _gpu_lspci_output() {
+  _environment_gpu_lspci_output() {
     echo "00:02.0 VGA compatible controller [0300]: NVIDIA Corp [10de:1234]"
   }
-  resolve_environment
+  environment_resolve
   [ "${ENVIRONMENT_GPU[0]}" = "nvidia" ]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
-  resolve_environment
+  environment_resolve
   [ "${ENVIRONMENT_GPU[0]}" = "nvidia" ]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
 }

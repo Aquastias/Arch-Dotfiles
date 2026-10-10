@@ -16,11 +16,17 @@
 # Layers fold in order, LAST wins — a host re-adds what a lower layer excluded.
 #
 # Public API:
-#   layer_resolve_host <core-json> <profile-json>  → effective host JSON
-#   layer_resolve_user <core-json> <profile-json>  → effective user JSON
-#   layer_resolve <kind> <json...>                 → fold N layers in order
-#   layer_additive_keys <host|user>                → the classification table
-#   layer_replace_keys  <host|user>                → (for tests + docs)
+#   layer_resolver_resolve_host <core-json> <profile-json>
+#       → effective host JSON
+#   layer_resolver_resolve_user <core-json> <profile-json>
+#       → effective user JSON
+#   layer_resolver_resolve <kind> <json...>
+#       → fold N layers in order
+#   layer_resolver_additive_keys <host|user> → the classification table
+#   layer_resolver_replace_keys  <host|user> → (for tests + docs)
+#
+# Used by: lib/config/{config-state,emit,profile-loader}.sh, the Guided
+# Installer (lib/guided/controller.sh, lib/guided/shell.sh).
 # =============================================================================
 
 # ── the classification table ────────────────────────────────────────────────
@@ -48,49 +54,50 @@ _LAYER_REPLACE_host=(
 )
 _LAYER_REPLACE_user=( "shell" "sudo" "user_services" "git" )
 
-layer_additive_keys() {
+layer_resolver_additive_keys() {
   case "$1" in
   host) printf '%s\n' "${_LAYER_ADDITIVE_host[@]}" ;;
   user) printf '%s\n' "${_LAYER_ADDITIVE_user[@]}" ;;
-  *) echo "layer_additive_keys: kind must be host|user, got '$1'" >&2
+  *) echo "layer_resolver_additive_keys: kind must be host|user, got '$1'" >&2
      return 1 ;;
   esac
 }
-layer_replace_keys() {
+layer_resolver_replace_keys() {
   case "$1" in
   host) printf '%s\n' "${_LAYER_REPLACE_host[@]}" ;;
   user) printf '%s\n' "${_LAYER_REPLACE_user[@]}" ;;
-  *) echo "layer_replace_keys: kind must be host|user, got '$1'" >&2
+  *) echo "layer_resolver_replace_keys: kind must be host|user, got '$1'" >&2
      return 1 ;;
   esac
 }
 
 # ── the fold ────────────────────────────────────────────────────────────────
-# layer_resolve <host|user> <layer-json>... — fold left to right; first is the
-# base (core), each next a delta over the result.
-layer_resolve() {
+# layer_resolver_resolve <host|user> <layer-json>... — fold left to right; first
+# is the base (core), each next a delta over the result.
+layer_resolver_resolve() {
   local kind="$1"; shift
   (($#)) || { printf '{}\n'; return 0; }
 
   local acc="$1"; shift
   local additive
-  additive="$(layer_additive_keys "$kind" | jq -R . | jq -s -c .)" \
+  additive="$(layer_resolver_additive_keys "$kind" | jq -R . | jq -s -c .)" \
     || return 1
 
   local next
   for next in "$@"; do
-    acc="$(_layer_fold_one "$acc" "$next" "$additive")" || return 1
+    acc="$(_layer_resolver_fold_one "$acc" "$next" "$additive")" || return 1
   done
   printf '%s\n' "$acc"
 }
 
-layer_resolve_host() { layer_resolve host "$1" "$2"; }
-layer_resolve_user() { layer_resolve user "$1" "$2"; }
+layer_resolver_resolve_host() { layer_resolver_resolve host "$1" "$2"; }
+layer_resolver_resolve_user() { layer_resolver_resolve user "$1" "$2"; }
 
-# layer_jq_prelude — shared jq defs so the classification predicate has ONE
-# implementation; `guided_core_delta` (Save path, inverse of _layer_fold_one)
-# must classify keys identically or the two drift. Needs an $additive binding.
-layer_jq_prelude() {
+# layer_resolver_jq_prelude — shared jq defs so the classification predicate has
+# ONE implementation; `emit_core_delta` (Save path, inverse of
+# _layer_resolver_fold_one) must classify keys identically or the two drift.
+# Needs an $additive binding.
+layer_resolver_jq_prelude() {
   cat <<'JQ'
     def odedup: reduce .[] as $x ([];
       if any(.[]; . == $x) then . else . + [$x] end);
@@ -111,11 +118,12 @@ layer_jq_prelude() {
 JQ
 }
 
-# layer_jq_exclusions — shared jq def for the fold (_layer_fold_one) and the
-# guided path (layer_apply_exclusions), so subtract-then-strip has ONE
+# layer_resolver_jq_exclusions — shared jq def for the fold
+# (_layer_resolver_fold_one) and the guided path
+# (layer_resolver_apply_exclusions), so subtract-then-strip has ONE
 # implementation. No $additive dependency, so a caller that omits it can still
 # include this.
-layer_jq_exclusions() {
+layer_resolver_jq_exclusions() {
   cat <<'JQ'
     def _drop($excl): map(select(. as $p | $excl | index($p) | not));
     def _drop_cats($excl): with_entries(.value |=
@@ -139,18 +147,20 @@ layer_jq_exclusions() {
 JQ
 }
 
-# layer_additive_json <host|user> — classification table as a JSON array for
-# --argjson additive.
-layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
+# layer_resolver_additive_json <host|user> — classification table as a JSON
+# array for --argjson additive.
+layer_resolver_additive_json() {
+  layer_resolver_additive_keys "$1" | jq -R . | jq -s -c .
+}
 
-# layer_apply_exclusions <config> — apply a config's OWN excludes to itself,
-# then strip the control keys. The Guided Effective Config needs this: it never
-# goes through a fold (Host Core is already baseline), so without it an
+# layer_resolver_apply_exclusions <config> — apply a config's OWN excludes to
+# itself, then strip the control keys. The Guided Effective Config needs this:
+# it never goes through a fold (Host Core is already baseline), so without it an
 # unchecked package would be installed anyway.
-layer_apply_exclusions() {
+layer_resolver_apply_exclusions() {
   # inherit is meaningless without a fold, so drop it up front; apply_exclusions
   # then subtracts the config's OWN excludes and strips the control keys.
-  jq "$(layer_jq_exclusions)"'
+  jq "$(layer_resolver_jq_exclusions)"'
     del(.packages.inherit)
     | del(.programs_inherit)
     | apply_exclusions(
@@ -160,20 +170,19 @@ layer_apply_exclusions() {
   ' <<<"$1"
 }
 
-# _layer_fold_one <lower> <upper> <additive-paths-json> — one layer over one.
-# Order is deliberate: (1) inherit:false drops lower packages + host_programs,
-# (2) additive
-# keys concat+dedupe / everything else replaces (recursing into plain objects so
-# a nested scalar override keeps its siblings), (3) exclusions apply last. See
-# the numbered steps below.
-_layer_fold_one() {
+# _layer_resolver_fold_one <lower> <upper> <additive-paths-json> — one layer
+# over one. Order is deliberate: (1) inherit:false drops lower packages +
+# host_programs, (2) additive keys concat+dedupe / everything else replaces
+# (recursing into plain objects so a nested scalar override keeps its siblings),
+# (3) exclusions apply last. See the numbered steps below.
+_layer_resolver_fold_one() {
   local lower="$1" upper="$2" additive="$3"
 
   jq -n \
     --argjson lower "$lower" \
     --argjson upper "$upper" \
     --argjson additive "$additive" \
-    "$(layer_jq_prelude)$(layer_jq_exclusions)"'
+    "$(layer_resolver_jq_prelude)$(layer_resolver_jq_exclusions)"'
     def merge($a; $b; $path):
       if   ($a == null) then $b
       elif ($b == null) then $a

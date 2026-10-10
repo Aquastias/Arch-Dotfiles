@@ -15,7 +15,7 @@ setup() {
   export GUIDED_USERFORMS_FILE="$TEST_DIR/userforms.json"
   export INSTALLER_DIR="$TEST_DIR"
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"

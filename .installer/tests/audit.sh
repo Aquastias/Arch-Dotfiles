@@ -75,7 +75,7 @@ echo -e "\n${BOLD}Installer static audit${NC}  (INSTALLER_DIR: ${OS})"
 _section "1. Host-side lib modules"
 # =============================================================================
 for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
-          lib/config/lifecycle.sh lib/config/layers.sh \
+          lib/config/lifecycle.sh lib/config/program-registry.sh \
           lib/config/environment.sh lib/config/validation.sh \
           lib/packages/package-list.sh lib/chroot.sh lib/profiles/runner.sh \
           lib/finalize.sh \

@@ -28,12 +28,12 @@
 # shellcheck source=../globals.sh
 [[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
   || source "${BASH_SOURCE[0]%/*}/../globals.sh"
-# shellcheck source=../config/state.sh
-declare -F cfgstate_get >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
-# shellcheck source=../config/store.sh
-declare -F cfgstore_state >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/store.sh"
+# shellcheck source=../config/config-state.sh
+declare -F config_state_get >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-state.sh"
+# shellcheck source=../config/config-store.sh
+declare -F config_store_state >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-store.sh"
 # shellcheck source=../config/nav.sh
 declare -F nav_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/nav.sh"
@@ -67,9 +67,9 @@ declare -F display_label >/dev/null 2>&1 \
 # shellcheck source=secrets-file.sh
 declare -F guided_secretsfile_has_root >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/secrets-file.sh"
-# shellcheck source=../config/profile.sh
-declare -F load_user_profile >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/profile.sh"
+# shellcheck source=../config/profile-loader.sh
+declare -F profile_loader_load_user >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/profile-loader.sh"
 # shellcheck source=../config/printing.sh
 declare -F printing_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/printing.sh"
@@ -88,9 +88,9 @@ declare -F menu_owned_programs >/dev/null 2>&1 \
 # shellcheck source=../config/profiles.sh
 declare -F profiles_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/profiles.sh"
-# shellcheck source=../config/layers.sh
-declare -F _configs_parse >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/layers.sh"
+# shellcheck source=../config/program-registry.sh
+declare -F _program_registry_parse >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/program-registry.sh"
 # shellcheck source=userforms.sh
 declare -F guided_userform_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/userforms.sh"
@@ -105,11 +105,8 @@ declare -F guided_mask_apply >/dev/null 2>&1 \
 # shellcheck source=../packages/package-resolver.sh
 declare -F package_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../packages/package-resolver.sh"
-# shellcheck source=../config/seed.sh
-declare -F cfgstate_host_core >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
 # shellcheck source=../config/layer-resolver.sh
-declare -F layer_resolve >/dev/null 2>&1 \
+declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/layer-resolver.sh"
 
 # _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
@@ -144,7 +141,7 @@ _ctl_secret_tag() {
       guided_secretsfile_has_user "$f" "$name" && { echo "custom"; return; } ;;
     esac
   fi
-  [[ -n "$(cfgstate_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+  [[ -n "$(config_state_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
       options.age_key_url)" ]] && { echo "from age"; return; }
   if [[ "$role" == "enc" ]]; then echo "default $INSTALL_DEFAULT_ENC_PASSPHRASE"
   else echo "default 12345"; fi
@@ -170,7 +167,7 @@ _ctl_pw_missing() {
 _ctl_enc_missing() {
   local f="${GUIDED_SECRETS_FILE:-}"
   [[ -n "$f" ]] || return 1
-  [[ "$(cfgstate_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+  [[ "$(config_state_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
     options.encryption)" == "true" ]] || return 1
   guided_secretsfile_has_enc "$f" && return 1
   return 0
@@ -212,13 +209,13 @@ _ctl_display_value_str() {
 _CTL_DIVIDER="──────────────────────────"
 
 # ── state-file accessors ─────────────────────────────────────────────────────
-# Thin delegations to the Config Store (lib/config/store.sh), which owns the
-# triad session files — so the file IPC lives in one place, not here.
-_ctl_state()       { cfgstore_state; }
-_ctl_nav()         { cfgstore_nav; }
-_ctl_baseline()    { cfgstore_baseline; }
-_ctl_write_state() { cfgstore_write_state "$1"; }
-_ctl_write_nav()   { cfgstore_write_nav "$1"; }
+# Thin delegations to the Config Store (lib/config/config-store.sh), which owns
+# the triad session files — so the file IPC lives in one place, not here.
+_ctl_state()       { config_store_state; }
+_ctl_nav()         { config_store_navigation; }
+_ctl_baseline()    { config_store_baseline; }
+_ctl_write_state() { config_store_write_state "$1"; }
+_ctl_write_nav()   { config_store_write_navigation "$1"; }
 
 # _ctl_effective <state> <baseline> — the merged view (override wins).
 _ctl_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }
@@ -273,7 +270,7 @@ _ctl_built_root_filesystems() { printf '%s\n' zfs btrfs ext4 xfs; }
 
 # _ctl_topologies_for_fs <fs> → the ordered topology cycle for a group of that
 # filesystem (issue 09), matching the validation contract in
-# lib/config/validation.sh::_validation_topology_for_fs. zfs keeps
+# lib/config/validation.sh::_validation_topology_for_filesystem. zfs keeps
 # mirror/raidz/stripe; btrfs offers native raid; ext4/xfs are single-disk only.
 # The order is the cycle order — the zfs list ends in `stripe` so the historical
 # stripe→mirror wrap is preserved.
@@ -348,7 +345,7 @@ _ctl_enum_options() {
 # and <path> is one of the pool-dependent Disks fields it disables (ADR 0073).
 # The one guard both apply paths call, so a locked field can never be edited.
 _ctl_manual_locked() {
-  [[ "$(cfgstate_get "$1" disk_config.kind)" == "manual" ]] \
+  [[ "$(config_state_get "$1" disk_config.kind)" == "manual" ]] \
     && menu_manual_locked_paths | grep -qxF "$2"
 }
 
@@ -413,7 +410,7 @@ _ctl_apply_locale_part() {
     (.system.locale) as $l
     | if ($l | type) == "array" and ($l | length) > 1 then ([$n] + $l[1:])
       else $n end' <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
-  cfgstate_set "$state" system.locale "$locjson"
+  config_state_set "$state" system.locale "$locjson"
 }
 
 # _ctl_apply_enum <state> <path> <value> → new state. Reserved filesystems are a
@@ -467,7 +464,7 @@ _ctl_apply_text() {
     [[ -n "$val" ]] || { printf '%s' "$state"; return 1; }
     local _cur; _cur="$(jq -c '.users // []' \
       <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
-    cfgstate_set "$state" users "$(jq -cn --argjson a "$_cur" --arg v "$val" \
+    config_state_set "$state" users "$(jq -cn --argjson a "$_cur" --arg v "$val" \
       'if any($a[]; . == $v) then $a else ($a + [$v]) end')" ;;
   # sysctl / custom mirror Server / custom repository — the routing-heavy adds
   # share one implementation with the replay helpers via edits.sh (ADR 0072).
@@ -500,7 +497,7 @@ _ctl_route_package_entry() {
   for name in $raw; do
     if menu_owned_programs | grep -qxF -- "$name"; then owned+=("$name")
     else
-      case "$(program_kind "$name")" in
+      case "$(program_registry_kind "$name")" in
       user) usr+=("$name") ;;
       host) host+=("$name") ;;
       *)    pkgs+=("$name") ;;
@@ -564,12 +561,12 @@ _ctl_append_primary_user_programs() {
 # shape gaps (keymap "us" vs ["us"], gpu "auto"). Pure.
 _ctl_normalise_default() {
   local state="$1" path="$2"
-  cfgstate_is_overridden "$state" "$path" || { printf '%s' "$state"; return 0; }
+  config_state_is_overridden "$state" "$path" || { printf '%s' "$state"; return 0; }
   local ov dv
   ov="$(menu_render_value "$state" "$path")"
   dv="$(menu_render_value "$(_ctl_baseline)" "$path")"
   if [[ "$ov" == "$dv" ]]; then
-    cfgstate_unset "$state" "$path"
+    config_state_unset "$state" "$path"
   else
     printf '%s' "$state"
   fi
@@ -592,10 +589,10 @@ _ctl_curated_persist_count() {
 # row itself was dropped (ADR 0086), so _ctl_host_program_names is not reached.
 # (`|| :` keeps an empty result a success, not grep's rc 1.)
 _ctl_host_program_names() {
-  program_names_of_kind host | grep -vxF -f <(menu_owned_programs) || :
+  program_registry_names_of_kind host | grep -vxF -f <(menu_owned_programs) || :
 }
 _ctl_user_program_names() {
-  program_names_of_kind user | grep -vxF -f <(menu_owned_programs) || :
+  program_registry_names_of_kind user | grep -vxF -f <(menu_owned_programs) || :
 }
 
 # _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.
@@ -661,9 +658,9 @@ _ctl_toggle_multi() {
               | if any($c[]; . == $v) then ($c - [$v]) else ($c + [$v]) end)
       end')"
     case "$new" in
-    '["auto"]') cfgstate_set   "$state" environment.gpu '"auto"' ;;
-    '[]')       cfgstate_unset "$state" environment.gpu ;;
-    *)          cfgstate_set   "$state" environment.gpu "$new" ;;
+    '["auto"]') config_state_set   "$state" environment.gpu '"auto"' ;;
+    '[]')       config_state_unset "$state" environment.gpu ;;
+    *)          config_state_set   "$state" environment.gpu "$new" ;;
     esac
     return
   fi
@@ -673,9 +670,9 @@ _ctl_toggle_multi() {
   new="$(jq -cn --argjson a "$cur" --arg v "$val" \
     'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
   if [[ "$new" == '[]' ]]; then
-    cfgstate_unset "$state" "$field"
+    config_state_unset "$state" "$field"
   else
-    cfgstate_set "$state" "$field" "$new"
+    config_state_set "$state" "$field" "$new"
   fi
 }
 
@@ -706,7 +703,7 @@ _ctl_user_names() {
 _ctl_default_user_shell() {
   local s=""
   [[ -n "${INSTALLER_DIR:-}" && -f "${INSTALLER_DIR}/users/core/profile.jsonc" ]] \
-    && s="$(_configs_parse "${INSTALLER_DIR}/users/core/profile.jsonc" 2>/dev/null \
+    && s="$(_program_registry_parse "${INSTALLER_DIR}/users/core/profile.jsonc" 2>/dev/null \
           | jq -r '.shell // empty' 2>/dev/null)"
   printf '%s' "${s:-/bin/zsh}"
 }
@@ -723,7 +720,7 @@ _ctl_user_shell_full() {
     && s="$(guided_userform_field "$GUIDED_USERFORMS_FILE" "$n" shell)"
   if [[ -z "$s" && -n "${INSTALLER_DIR:-}" \
      && -f "${INSTALLER_DIR}/users/${n}/profile.jsonc" ]]; then
-    s="$(load_user_profile "$n" 2>/dev/null \
+    s="$(profile_loader_load_user "$n" 2>/dev/null \
       | jq -r '.shell // empty' 2>/dev/null)"
   fi
   [[ -n "$s" ]] || s="$(_ctl_default_user_shell)"
@@ -772,7 +769,7 @@ _ctl_user_is_committed() {
 _ctl_user_committed() {
   local c='{}'
   _ctl_user_is_committed "$1" \
-    && c="$(load_user_profile "$1" 2>/dev/null || printf '{}')"
+    && c="$(profile_loader_load_user "$1" 2>/dev/null || printf '{}')"
   printf '%s' "${c:-{\}}"
 }
 
@@ -907,7 +904,7 @@ _ctl_toggle_users() {
   cur="$(jq -c '.users // []' <<<"$(_ctl_effective "$state" "$base")")"
   new="$(jq -cn --argjson a "$cur" --arg v "$name" \
     'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
-  cfgstate_set "$state" users "$new"
+  config_state_set "$state" users "$new"
 }
 
 # _ctl_field_for_label <category> <label> → the dotted path of the row whose
@@ -1083,7 +1080,7 @@ _ctl_swap_label() {
 # label is.
 _ctl_encryption_label() {
   local eff="$1" tag="$2"
-  if [[ "$(cfgstate_get "$eff" options.encryption)" == "true" ]]; then
+  if [[ "$(config_state_get "$eff" options.encryption)" == "true" ]]; then
     printf 'on · %s' "$tag"
   else
     printf 'off'
@@ -1279,7 +1276,7 @@ _ctl_action_row() { printf '%s\n' "$@"; }
 # declares there plus anything currently excluded (so it can be re-checked).
 _ctl_pkg_union() {
   local eff="$1" slot="$2" cat="$3" core
-  core="$(cfgstate_host_core)"
+  core="$(config_state_host_core)"
   jq -rn --argjson e "$eff" --argjson c "$core" \
      --arg s "$slot" --arg k "$cat" '
     (($e.packages[$s][$k] // []) + ($c.packages[$s][$k] // [])
@@ -1292,7 +1289,7 @@ _ctl_pkg_union() {
 # across the effective view and Host Core so a core-only category still shows.
 _ctl_pkg_categories() {
   local eff="$1" slot="$2" core
-  core="$(cfgstate_host_core)"
+  core="$(config_state_host_core)"
   jq -rn --argjson e "$eff" --argjson c "$core" --arg s "$slot" '
     (($e.packages[$s] // {}) + ($c.packages[$s] // {}))
     | keys_unsorted | sort | .[]'
@@ -1316,7 +1313,7 @@ _ctl_pkg_excluded() {
 _ctl_pkg_in_core() {
   jq -e --arg s "$1" --arg k "$2" --arg p "$3" \
     '(.packages[$s][$k] // []) | index($p)' \
-    <<<"$(cfgstate_host_core)" >/dev/null 2>&1
+    <<<"$(config_state_host_core)" >/dev/null 2>&1
 }
 
 # _ctl_pkg_derived <effective> — the Package Resolver's derived rows for this
@@ -1493,7 +1490,7 @@ _ctl_profile_tree() {
   printf '  ▸ users\n'
   while IFS= read -r u; do
     [[ -n "$u" ]] || continue
-    up="$(load_user_profile "$u" 2>/dev/null || printf '{}')"
+    up="$(profile_loader_load_user "$u" 2>/dev/null || printf '{}')"
     [[ -n "$up" ]] || up='{}'
     sh="$(jq -r '.shell // "/bin/zsh"' <<<"$up")"
     grp="$(jq -r '(.groups // []) | join(", ")' <<<"$up")"
@@ -1699,8 +1696,8 @@ guided_ctl_preview() {
       && return 0
     local _pf _prof
     _pf="$(_ctl_hosts_root)/${line}/profile.jsonc"
-    if _prof="$(_configs_parse "$_pf" 2>/dev/null)"; then
-      _ctl_profile_tree "$(layer_resolve host "$(cfgstate_host_core)" "$_prof")"
+    if _prof="$(_program_registry_parse "$_pf" 2>/dev/null)"; then
+      _ctl_profile_tree "$(layer_resolver_resolve host "$(config_state_host_core)" "$_prof")"
     else
       printf '\033[2m(no profile — hosts/%s/profile.jsonc)\033[0m\n' "$line"
     fi
@@ -1945,7 +1942,7 @@ guided_ctl_list() {
           continue
         fi
         local _impon; _impon=off
-        [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
+        [[ "$(config_state_get "$(_ctl_effective "$state" "$base")" \
           options.impermanence.enabled)" == "true" ]] && _impon=on
         printf 'Impermanence ▸ %s%s\n' "$_impon" \
           "$([[ "$_fov" == "true" ]] && printf '  ●')"
@@ -2037,7 +2034,7 @@ guided_ctl_list() {
       # a package another choice already pulls in (derived, read-only here).
       local _beff _bcore _bextra _bexcl _bderiv
       _beff="$(_ctl_effective "$state" "$base")"
-      _bcore="$(jq -rn --argjson c "$(cfgstate_host_core)" --arg s "$_bslot" \
+      _bcore="$(jq -rn --argjson c "$(config_state_host_core)" --arg s "$_bslot" \
         '($c.packages[$s] // {}) | [ .[] | .[]? ] | unique | .[]')"
       _bextra="$(jq -rn --argjson e "$_beff" --arg s "$_bslot" \
         '($e.packages[$s].extra // []) | .[]')"
@@ -2172,7 +2169,7 @@ guided_ctl_list() {
     # Manual Partitioning assignment table (ADR 0073): a validity line, the
     # cfdisk hand-off, then one row per partition (device → mountpoint · fs).
     local _pj _probs
-    _pj="$(cfgstate_get "$state" disk_config.partitions)"; _pj="${_pj:-[]}"
+    _pj="$(config_state_get "$state" disk_config.partitions)"; _pj="${_pj:-[]}"
     if _probs="$(layout_manual_partition_problems "$_pj")"; then
       printf '✓ layout is valid — ready to Proceed\n'
     else
@@ -2205,7 +2202,7 @@ guided_ctl_list() {
     # the passphrase row too when on. The passphrase row shows its source tag,
     # never the value.
     local _eff; _eff="$(_ctl_effective "$state" "$base")"
-    if [[ "$(cfgstate_get "$_eff" options.encryption)" == "true" ]]; then
+    if [[ "$(config_state_get "$_eff" options.encryption)" == "true" ]]; then
       printf 'enabled: on\n'
       printf 'password: %s\n' "$(_ctl_secret_tag enc)"
     else
@@ -2217,7 +2214,7 @@ guided_ctl_list() {
     # the enablement row when off; when on, the persist directories (each a
     # removable row), a read-only curated-defaults count, and the Add action.
     local _eff _impen; _eff="$(_ctl_effective "$state" "$base")"
-    _impen="$(cfgstate_get "$_eff" options.impermanence.enabled)"
+    _impen="$(config_state_get "$_eff" options.impermanence.enabled)"
     if [[ "$_impen" != "true" ]]; then
       printf 'enabled: off\n'
     else
@@ -2545,7 +2542,7 @@ _ctl_enter_pkgs() {
 _ctl_pkg_in_core_any() {
   jq -e --arg s "$1" --arg p "$2" \
     '[(.packages[$s] // {}) | .[] | .[]?] | index($p)' \
-    <<<"$(cfgstate_host_core)" >/dev/null 2>&1
+    <<<"$(config_state_host_core)" >/dev/null 2>&1
 }
 
 # _ctl_enter_pkgbrowse <line> — toggle one package from the full repo browser
@@ -2697,7 +2694,7 @@ _ctl_enter_secret() {
 _ctl_user_committed_shell() {
   local s=""
   _ctl_user_is_committed "$1" \
-    && s="$(load_user_profile "$1" 2>/dev/null \
+    && s="$(profile_loader_load_user "$1" 2>/dev/null \
               | jq -r '.shell // empty' 2>/dev/null)"
   printf '%s' "${s:-$(_ctl_default_user_shell)}"
 }
@@ -2764,7 +2761,7 @@ _ctl_enter_useredit() {
     # Session-created user: drop it from the install list and its held-aside
     # form,
     # then return to the Users list.
-    _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
+    _ctl_write_state "$(config_state_set "$(_ctl_state)" users \
       "$(jq -c --arg u "$un" '(.users // []) - [$u]' \
         <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")")"
     [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
@@ -2820,7 +2817,7 @@ _ctl_proceed_directive() {
   # of problems is shown live on the Partitions screen; this just blocks Proceed
   # with a header notice. The back-end validator is the ultimate hard stop.
   if manual_kind_active "$state"; then
-    local _p; _p="$(cfgstate_get "$state" disk_config.partitions)"
+    local _p; _p="$(config_state_get "$state" disk_config.partitions)"
     layout_manual_partition_problems "${_p:-[]}" >/dev/null || {
       echo "notice Manual layout not installable — fix it on Partitions ▸"
       return
@@ -2875,7 +2872,7 @@ _ctl_enter_profiles() {
     _ctl_write_nav "$(nav_to_newhost)"; echo render; return
   fi
   f="$(_ctl_hosts_root)/${line}/profile.jsonc"
-  if ! profile="$(_configs_parse "$f" 2>/dev/null)"; then
+  if ! profile="$(_program_registry_parse "$f" 2>/dev/null)"; then
     echo "notice ⚠ Could not read profile '${line}'"; return
   fi
   # Seed the RESOLVED profile, not the raw delta. A committed profile is a
@@ -2884,7 +2881,7 @@ _ctl_enter_profiles() {
   # install) `host_programs: ["grub"]` where `install.sh --profile desktop`
   # installs `["cups","grub"]`. Resolving here means one profile produces one
   # install through every front-end.
-  profile="$(layer_resolve host "$(cfgstate_host_core)" "$profile")"
+  profile="$(layer_resolver_resolve host "$(config_state_host_core)" "$profile")"
   _ctl_write_state "$(profiles_seed "$(_ctl_state)" "$profile")"
   _ctl_write_nav '{"screen":"top"}'
   echo render
@@ -2947,7 +2944,7 @@ _ctl_newhost_reset() {
 # disk_config.partitions. The single write path the assignment editor uses.
 _ctl_manual_set() {
   local st="$1" dev="$2" field="$3" val="$4" parts
-  parts="$(cfgstate_get "$st" disk_config.partitions)"
+  parts="$(config_state_get "$st" disk_config.partitions)"
   manual_store_partitions "$st" \
     "$(manual_set_field "${parts:-[]}" "$dev" "$field" "$val")"
 }
@@ -3038,7 +3035,7 @@ _ctl_enter_rooteditor() {
     _rc="$(_ctl_root_shell_full)"
     _rn="$(_ctl_cycle_next "$_rc" /bin/bash /bin/zsh /bin/fish)"
     if [[ "$_rn" == "$(_ctl_root_shell_committed)" ]]; then
-      _ctl_write_state "$(cfgstate_unset "$(_ctl_state)" options.root_shell)"
+      _ctl_write_state "$(config_state_unset "$(_ctl_state)" options.root_shell)"
     else
       _ctl_write_state \
         "$(edit_set_scalar "$(_ctl_state)" options.root_shell "$_rn")"
@@ -3062,7 +3059,7 @@ _ctl_enter_category() {
     echo render; return ;;
   "Manual partitioning:"*)   # on/off toggle over disk_config.kind (ADR 0073)
     local _mst _mcur _mnew
-    _mst="$(_ctl_state)"; _mcur="$(cfgstate_get "$_mst" disk_config.kind)"
+    _mst="$(_ctl_state)"; _mcur="$(config_state_get "$_mst" disk_config.kind)"
     [[ "$_mcur" == "manual" ]] && _mnew=auto || _mnew=manual
     _ctl_write_state "$(_ctl_apply_enum "$_mst" disk_config.kind "$_mnew")"
     # Turning it on: reload + a header notice pointing at the Partitions row.
@@ -3284,7 +3281,7 @@ _ctl_enter_text() {
         >/dev/null; then
       echo "notice ⚠ user '${query}' already exists — pick another name"; return
     fi
-    _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
+    _ctl_write_state "$(config_state_set "$(_ctl_state)" users \
       "$(jq -cn --arg v "$query" --argjson a \
         "$(jq -c '.users // []' \
           <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")" \
@@ -3309,7 +3306,7 @@ _ctl_enter_text() {
         '(.users // []) | any(. == $v)' <<<"$_eff" >/dev/null; then
       echo "notice ⚠ user '${query}' already exists — pick another name"; return
     fi
-    _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
+    _ctl_write_state "$(config_state_set "$(_ctl_state)" users \
       "$(jq -cn --arg v "$query" --argjson a "$(jq -c '.users // []' \
         <<<"$_eff")" '$a + [$v]')")"
     _ctl_clone_seed "$_src" "$query"
@@ -3594,7 +3591,7 @@ _ctl_enter_rootdisk() {
   fi
   path="$(_ctl_line_to_disk "$line")"
   [[ -n "$path" ]] || { echo refresh; return; }
-  _ctl_write_state "$(cfgstate_set "$(_ctl_state)" root_disk "\"$path\"")"
+  _ctl_write_state "$(config_state_set "$(_ctl_state)" root_disk "\"$path\"")"
   _ctl_write_nav "$(nav_to_category "$cat")"
   echo render
 }
@@ -3654,7 +3651,7 @@ guided_ctl_action() {
     impermanence)
       # Add persist — the editor's ^A accelerator (ADR 0066). Only meaningful
       # with impermanence on (the add row only renders then; else noop).
-      if [[ "$(cfgstate_get \
+      if [[ "$(config_state_get \
         "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
         options.impermanence.enabled)" == "true" ]]; then
         _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"

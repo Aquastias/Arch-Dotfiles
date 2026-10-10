@@ -2,7 +2,7 @@
 # Tests for the program-dependency ordering check in lib/config/validation.sh
 # (ADR 0065). A program's declared `requires: [...]` must be installed before
 # it — either a host system program (installed before all user programs) or an
-# earlier entry in the same user's list. Enforced at validate_install_context
+# earlier entry in the same user's list. Enforced at validation_check_install_context
 # time, before any install side effect.
 
 setup() {
@@ -10,8 +10,8 @@ setup() {
   export INSTALLER_DIR="$TEST_DIR"
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  # shellcheck source=../../lib/config/layers.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/layers.sh"
+  # shellcheck source=../../lib/config/program-registry.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/program-registry.sh"
   # shellcheck source=../../lib/config/validation.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/validation.sh"
 }

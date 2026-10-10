@@ -11,7 +11,7 @@ setup() {
   export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
 
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
@@ -25,12 +25,12 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 row() { jq -e ".[] | select(.field == \"$1\")"; }
-manual_state() { cfgstate_set "$(cfgstate_new)" disk_config.kind '"manual"'; }
+manual_state() { config_state_set "$(config_state_new)" disk_config.kind '"manual"'; }
 
 # ── the toggle row ──────────────────────────────────────────────────────────
 
 @test "menu_rows: a manual-partitioning row sits under Disks, default auto" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row disk_config.kind | jq -e '.section == "Disks"'
   echo "$output" | row disk_config.kind | jq -e '.value == "auto"'
@@ -46,7 +46,7 @@ manual" ]
 # ── shown-but-locked dependent fields ───────────────────────────────────────
 
 @test "menu_rows: nothing is locked while auto (the default)" {
-  run menu_rows "$(cfgstate_new)"
+  run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .locked == false)'
 }
@@ -90,7 +90,7 @@ manual" ]
   # The notice now rides the manual-on fzf directive (header), not stderr, so
   # apply stays a clean pure state transform.
   local state
-  state="$(_ctl_apply_enum "$(cfgstate_new)" disk_config.kind manual)"
+  state="$(_ctl_apply_enum "$(config_state_new)" disk_config.kind manual)"
   echo "$state" | jq -e '.disk_config.kind == "manual"'
 }
 
@@ -109,7 +109,7 @@ manual" ]
 }
 
 @test "apply: encryption is editable again once manual is off" {
-  run _ctl_apply_enum "$(cfgstate_new)" options.encryption true
+  run _ctl_apply_enum "$(config_state_new)" options.encryption true
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.encryption == true'
 }
@@ -226,7 +226,7 @@ part_nav() {
   # An override set before manual persists through manual→auto (Config State
   # is non-destructive; the toggle only writes disk_config.kind).
   local s
-  s="$(cfgstate_set "$(cfgstate_new)" filesystem '"btrfs"')"
+  s="$(config_state_set "$(config_state_new)" filesystem '"btrfs"')"
   s="$(_ctl_apply_enum "$s" disk_config.kind manual)"
   s="$(_ctl_apply_enum "$s" disk_config.kind auto)"
   echo "$s" | jq -e '.filesystem == "btrfs"'

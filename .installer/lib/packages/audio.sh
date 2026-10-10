@@ -3,10 +3,10 @@
 # lib/packages/audio.sh — Audio package set (pure, single source of truth)
 # =============================================================================
 # The PipeWire stack installed whenever any desktop is selected. Pure: shared by
-# the install path (config/environment.sh's _resolve_env_audio) and the Package
-# Resolver (package-resolver.sh's audio source), so the two cannot drift. The
-# DECISION to install audio (a desktop is present) stays with each caller; this
-# is only the name list.
+# the install path (config/environment.sh's _environment_resolve_audio) and the
+# Package Resolver (package-resolver.sh's audio source), so the two cannot
+# drift. The DECISION to install audio (a desktop is present) stays with each
+# caller; this is only the name list.
 #
 # Used by: lib/config/environment.sh, lib/packages/package-resolver.sh.
 # =============================================================================

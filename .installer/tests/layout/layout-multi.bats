@@ -12,8 +12,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   # shellcheck source=../../lib/zfs/pools.sh
   source "$BATS_TEST_DIRNAME/../../lib/zfs/pools.sh"
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   # shellcheck source=../../lib/zfs/pool-owners.sh
   source "$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh"
   # shellcheck source=../../lib/layout/zfs/multi.sh
@@ -108,8 +108,8 @@ setup_phase_smoke_fixture() {
 }
 JSONC
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
 
   info()    { :; }
   warn()    { :; }
@@ -164,8 +164,8 @@ JSONC
 # warn() that echoes to stdout, then asserts on the captured $output.
 
 setup_data_pool_size_fixture() {
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   section() { :; }
   info()    { :; }
   warn()    { echo "WARN: $*"; }
@@ -640,8 +640,8 @@ setup_leftover_fixture() {
   # sources (they only load pools.sh when the primitive is not already a function).
   export INSTALLER_DIR; INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
 
   info()    { :; }
   warn()    { :; }

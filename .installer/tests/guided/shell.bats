@@ -29,7 +29,7 @@ setup() {
     > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
   # Real pure cores (emit pulls in the real picker_assign_disks + layers).
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
 
@@ -341,7 +341,7 @@ write_answers() {
     'adv_storage_count=1' 'adv_storage_0_name=data' \
     'adv_storage_0_topology=raidz1' 'adv_storage_0_disk_count=3' \
     'adv_data_count=0')"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
 
   _guided_author_skeleton
   echo "$_GUIDED_STATE" | jq -e '.mode == "multi"'
@@ -430,17 +430,17 @@ write_answers() {
 
 @test "_guided_edit_filesystem: picking zfs commits the filesystem" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "zfs"; }
   export -f guided_select
 
   _guided_edit_filesystem
-  [ "$(cfgstate_get "$_GUIDED_STATE" filesystem)" = "zfs" ]
+  [ "$(config_state_get "$_GUIDED_STATE" filesystem)" = "zfs" ]
 }
 
 @test "_guided_edit_filesystem: a reserved filesystem is refused, no commit" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   # All four adapters ship today, so exercise the reserved seam (kept for a
   # future unbuilt adapter) with an injected reserved filesystem.
   _GUIDED_FS_RESERVED=(reiserfs)
@@ -449,14 +449,14 @@ write_answers() {
 
   run _guided_edit_filesystem
   [ "$status" -ne 0 ]
-  [ -z "$(cfgstate_get "$_GUIDED_STATE" filesystem)" ]
+  [ -z "$(config_state_get "$_GUIDED_STATE" filesystem)" ]
 }
 
 # ── encryption / impermanence are bool toggles through the seam ─────────────
 
 @test "_guided_edit_encryption: selecting true enables encryption" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "true"; }
   export -f guided_select
 
@@ -466,7 +466,7 @@ write_answers() {
 
 @test "_guided_edit_impermanence: selecting true enables impermanence" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "true"; }
   export -f guided_select
 
@@ -478,7 +478,7 @@ write_answers() {
 
 @test "_guided_add_persist: appends a directory to persist.directories" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "/etc/wireguard"; }
   export -f guided_prompt
 
@@ -488,7 +488,7 @@ write_answers() {
 
 @test "_guided_add_persist: empty input adds nothing" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' ""; }
   export -f guided_prompt
 
@@ -503,21 +503,21 @@ write_answers() {
 
 @test "_guided_edit_locale: a typed value writes an override over the seed" {
   _GUIDED_REPLAY=0
-  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "de_DE.UTF-8"; }
   export -f guided_prompt
 
   _guided_edit_locale
   echo "$_GUIDED_STATE" | jq -e '.system.locale == "de_DE.UTF-8"'   # in override
-  cfgstate_is_overridden "$_GUIDED_STATE" system.locale             # flips ●
-  [ "$(cfgstate_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
+  config_state_is_overridden "$_GUIDED_STATE" system.locale             # flips ●
+  [ "$(config_state_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
 }
 
 @test "_guided_edit_timezone / _guided_edit_keymap: typed values override the seeds" {
   _GUIDED_REPLAY=0
-  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() {
     case "$1" in
     timezone) printf '%s' "America/New_York" ;;
@@ -537,20 +537,20 @@ write_answers() {
 # reset drops the OVERRIDE, and the seeded baseline still supplies the value.
 
 @test "reset of an overridden locale falls back to the seeded baseline" {
-  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
-  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.locale '"de_DE.UTF-8"')"
-  [ "$(cfgstate_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
+  _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
+  _GUIDED_STATE="$(config_state_set "$(config_state_new)" system.locale '"de_DE.UTF-8"')"
+  [ "$(config_state_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
 
-  _GUIDED_STATE="$(cfgstate_unset "$_GUIDED_STATE" system.locale)"   # reset field
-  [ -z "$(cfgstate_get "$_GUIDED_STATE" system.locale)" ]           # override gone
-  [ "$(cfgstate_get "$(_guided_effective)" system.locale)" = "en_US.UTF-8" ]
+  _GUIDED_STATE="$(config_state_unset "$_GUIDED_STATE" system.locale)"   # reset field
+  [ -z "$(config_state_get "$_GUIDED_STATE" system.locale)" ]           # override gone
+  [ "$(config_state_get "$(_guided_effective)" system.locale)" = "en_US.UTF-8" ]
 }
 
 # ── Pacman + Advanced edits (issue 06 Pass B): reuse the issue-05 helpers ───
 
 @test "_guided_edit_mirror_countries: multi-select stores the country array" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "Japan" "Australia"; }
   export -f guided_multi
 
@@ -559,7 +559,7 @@ write_answers() {
 }
 
 @test "_guided_edit_optional_repos: a replay set selects the optional repos" {
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_load_replay "$(write_answers 'optional_repos=multilib core-testing')"
   _guided_edit_optional_repos
   echo "$_GUIDED_STATE" \
@@ -567,7 +567,7 @@ write_answers() {
 }
 
 @test "_guided_add_custom_repository: a replayed repo appends an object" {
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_load_replay "$(write_answers 'custom_repository=cool https://x Never')"
   _guided_add_custom_repository
   echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].name == "cool"'
@@ -579,7 +579,7 @@ write_answers() {
 
 @test "_guided_edit_firewall: picking ufw sets the firewall to ufw" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "ufw"; }
   export -f guided_select
 
@@ -589,7 +589,7 @@ write_answers() {
 
 @test "_guided_edit_firewall: picking none disables the firewall" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "none"; }
   export -f guided_select
 
@@ -599,7 +599,7 @@ write_answers() {
 
 @test "_guided_edit_antivirus: selecting false drops clamav from the selection" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "false"; }
   export -f guided_select
 
@@ -609,7 +609,7 @@ write_answers() {
 
 @test "_guided_edit_borg: selecting false drops borg from the selection" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "false"; }
   export -f guided_select
 
@@ -623,7 +623,7 @@ write_answers() {
 @test "_guided_guard_post_install: passes with selections and a seeded user" {
   _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
     '{users:["aquastias"], post_install:$pi}')"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   run _guided_guard_post_install
   [ "$status" -eq 0 ]
 }
@@ -631,15 +631,15 @@ write_answers() {
 @test "_guided_guard_post_install: aborts with selections but zero users" {
   _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
     '{post_install:$pi}')"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   run _guided_guard_post_install
   [ "$status" -ne 0 ]
   [[ "$output" == *"user"* ]]
 }
 
 @test "_guided_guard_post_install: passes userless when nothing is selected" {
-  _GUIDED_BASELINE="$(cfgstate_new)"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_BASELINE="$(config_state_new)"
+  _GUIDED_STATE="$(config_state_new)"
   run _guided_guard_post_install
   [ "$status" -eq 0 ]
 }
@@ -648,7 +648,7 @@ write_answers() {
 
 @test "_guided_pick_users: committed multi-select sets users[], primary first" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/bob" "$INSTALLER_DIR/users/core"
   : > "$INSTALLER_DIR/users/alice/profile.jsonc"
   : > "$INSTALLER_DIR/users/bob/profile.jsonc"
@@ -671,7 +671,7 @@ write_answers() {
     'new_user_git_email=c@x.io' \
     'new_user_ssh_keys=' \
     'new_user_password=hunter2')"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   _guided_users_reset
 
   _guided_create_user
@@ -687,7 +687,7 @@ write_answers() {
 @test "_guided_create_user: an empty password defaults to 12345" {
   guided_load_replay "$(write_answers \
     'new_user_name=dave' 'new_user_password=')"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   _guided_users_reset
 
   _guided_create_user
@@ -746,7 +746,7 @@ write_answers() {
 
 @test "_guided_add_package: typed names (whitespace-split) append to extra" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "htop tmux"; }
   export -f guided_prompt
 
@@ -756,7 +756,7 @@ write_answers() {
 
 @test "_guided_add_package: empty input adds nothing" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' ""; }
   export -f guided_prompt
 
@@ -767,7 +767,7 @@ write_answers() {
 
 @test "_guided_add_host_program: picked names append, deduped" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" host_programs '["cups"]')"
+  _GUIDED_STATE="$(config_state_set "$(config_state_new)" host_programs '["cups"]')"
   guided_multi() { printf '%s\n' "docker" "cups"; }   # cups already present
   export -f guided_multi
 
@@ -779,7 +779,7 @@ write_answers() {
 
 @test "_guided_add_sysctl: a key=value sets a literal (dotted) sysctl key" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "vm.swappiness=10"; }
   export -f guided_prompt
 
@@ -790,7 +790,7 @@ write_answers() {
 
 @test "_guided_add_sysctl: a malformed entry (no =) commits nothing" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "not-a-pair"; }
   export -f guided_prompt
 
@@ -813,7 +813,7 @@ write_answers() {
 
 @test "_guided_edit_kernel: multi-select stores the token array, primary first" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "zen" "lts"; }
   export -f guided_multi
 
@@ -823,7 +823,7 @@ write_answers() {
 
 @test "_guided_edit_kernel: no pick leaves the kernel untouched" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_multi() { :; }
   export -f guided_multi
 
@@ -836,7 +836,7 @@ write_answers() {
 
 @test "_guided_edit_bootloader: picking grub commits the bootloader" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "grub"; }
   export -f guided_select
 
@@ -846,7 +846,7 @@ write_answers() {
 
 @test "_guided_edit_swap_size: a typed size commits options.swap_size" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "8G"; }
   export -f guided_prompt
 
@@ -856,7 +856,7 @@ write_answers() {
 
 @test "_guided_edit_swap_size: empty input commits nothing" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' ""; }
   export -f guided_prompt
 
@@ -867,7 +867,7 @@ write_answers() {
 
 @test "_guided_edit_ssh: selecting true enables ssh" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "true"; }
   export -f guided_select
 
@@ -879,7 +879,7 @@ write_answers() {
 
 @test "_guided_edit_desktop: multi-select stores the desktop array" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "kde"; }
   export -f guided_multi
 
@@ -889,7 +889,7 @@ write_answers() {
 
 @test "_guided_edit_gpu: vendors store an array" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "amd" "nvidia"; }
   export -f guided_multi
 
@@ -899,7 +899,7 @@ write_answers() {
 
 @test "_guided_edit_gpu: auto stores the scalar and clears any vendors" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "auto" "amd"; }   # auto wins, vendors dropped
   export -f guided_multi
 
@@ -1060,7 +1060,7 @@ write_answers() {
   "options": { "encryption": true }, "filesystem": "zfs" }
 JSONC
   guided_load_replay "$(write_answers 'profile=desktop')"
-  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_STATE="$(config_state_new)"
   _guided_seed_from_profile
   jq -e '.options.encryption == true' <<<"$_GUIDED_STATE"
   jq -e '.filesystem == "zfs"' <<<"$_GUIDED_STATE"

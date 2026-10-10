@@ -8,8 +8,8 @@
 # (ADR 0046). Tier 1 validates this config on the host; Tier 2 installs it in a
 # VM via the config seam.
 #
-# Thin: it seeds the menu-derived launch defaults (cfgstate_seed_defaults), lays
-# the cell's axes over them as overrides, and delegates disk baking to
+# Thin: it seeds the menu-derived launch defaults (config_state_seed_defaults),
+# lays the cell's axes over them as overrides, and delegates disk baking to
 # emit_effective. Pure: JSON in/out, no TTY, no disk writes. Requires
 # INSTALLER_DIR.
 #
@@ -18,12 +18,9 @@
 #   matrix_cell_assemble <cell>  → the device-baked Effective Config
 # =============================================================================
 
-# shellcheck source=../config/state.sh
-declare -F cfgstate_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
-# shellcheck source=../config/seed.sh
-declare -F cfgstate_seed_defaults >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
+# shellcheck source=../config/config-state.sh
+declare -F config_state_new >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-state.sh"
 # shellcheck source=../config/emit.sh
 declare -F emit_effective >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
@@ -65,20 +62,20 @@ matrix_cell_state() {
   imp="$(jq -r '.axes.impermanence // false' <<<"$cell")"
   mode="$(_matrix_cell_mode "$cell")"
 
-  state="$(cfgstate_seed_defaults "$(cfgstate_new)")"
-  state="$(cfgstate_set "$state" filesystem "$(jq -n --arg f "$fs" '$f')")"
-  state="$(cfgstate_set "$state" mode "$(jq -n --arg m "$mode" '$m')")"
-  state="$(cfgstate_set "$state" options.encryption "$enc")"
+  state="$(config_state_seed_defaults "$(config_state_new)")"
+  state="$(config_state_set "$state" filesystem "$(jq -n --arg f "$fs" '$f')")"
+  state="$(config_state_set "$state" mode "$(jq -n --arg m "$mode" '$m')")"
+  state="$(config_state_set "$state" options.encryption "$enc")"
   # impermanence rides the enabled bool; the dataset (rpool/persist) and mount
   # (/persist) default through the accessors, so a zfs root validates as-is.
-  state="$(cfgstate_set "$state" options.impermanence.enabled "$imp")"
+  state="$(config_state_set "$state" options.impermanence.enabled "$imp")"
 
   # multi mode needs the os_pool skeleton (topology + root disk count) so the
   # picker can bake the picked devices onto it.
   if [[ "$mode" == multi ]]; then
     topo="$(jq -r '.axes.topology' <<<"$cell")"
     dcroot="$(jq -r '.axes.disk_count // 2' <<<"$cell")"
-    state="$(cfgstate_set "$state" os_pool "$(jq -c -n \
+    state="$(config_state_set "$state" os_pool "$(jq -c -n \
       --arg t "$topo" --argjson dc "$dcroot" \
       '{pool_name:"rpool", topology:$t, disk_count:$dc}')")"
   fi
@@ -88,7 +85,7 @@ matrix_cell_state() {
   # has no desktop axis, so the seeded default stands untouched.
   desktop="$(jq -c '.axes.desktop // empty' <<<"$cell")"
   if [[ -n "$desktop" ]]; then
-    state="$(cfgstate_set "$state" environment.desktop \
+    state="$(config_state_set "$state" environment.desktop \
       "$(jq -c 'if type=="array" then .
                 elif . == "none" then []
                 else [.] end' <<<"$desktop")")"

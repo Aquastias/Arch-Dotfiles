@@ -13,14 +13,14 @@ setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
 
-  # shellcheck source=../../lib/config/state.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/config-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   # shellcheck source=../../lib/config/history.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/history.sh"
 }
 
 # A Config State carrying one override, used as a recognisable present.
-host() { cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"'; }
+host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
 
 # ── tracer: a fresh history surfaces its seed state, nothing to undo ─────────
 
@@ -38,7 +38,7 @@ host() { cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"'; }
 # ── commit: the new state becomes the present and an undo target appears ─────
 
 @test "hist_commit: the committed state becomes the present, undo now offered" {
-  h="$(hist_new "$(cfgstate_new)")"
+  h="$(hist_new "$(config_state_new)")"
   h="$(hist_commit "$h" "$(host)")"
 
   run hist_present "$h"
@@ -52,7 +52,7 @@ host() { cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"'; }
 # ── undo: the prior present is restored and a redo target appears ────────────
 
 @test "hist_undo: restores the prior present and offers a redo" {
-  h="$(hist_new "$(cfgstate_new)")"
+  h="$(hist_new "$(config_state_new)")"
   h="$(hist_commit "$h" "$(host)")"
   h="$(hist_undo "$h")"
 
@@ -70,7 +70,7 @@ host() { cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"'; }
 # ── redo: the undone present is re-applied ──────────────────────────────────
 
 @test "hist_redo: re-applies the undone present" {
-  h="$(hist_new "$(cfgstate_new)")"
+  h="$(hist_new "$(config_state_new)")"
   h="$(hist_commit "$h" "$(host)")"
   h="$(hist_undo "$h")"
   h="$(hist_redo "$h")"
@@ -89,11 +89,11 @@ host() { cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"'; }
 # ── a fresh edit after an undo abandons the redo stack ──────────────────────
 
 @test "hist_commit: a fresh edit after an undo clears the redo stack" {
-  h="$(hist_new "$(cfgstate_new)")"
+  h="$(hist_new "$(config_state_new)")"
   h="$(hist_commit "$h" "$(host)")"
   h="$(hist_undo "$h")"                      # redo now available
   h="$(hist_commit "$h" \
-        "$(cfgstate_set "$(cfgstate_new)" mode '"mirror"')")"
+        "$(config_state_set "$(config_state_new)" mode '"mirror"')")"
 
   run hist_can_redo "$h"
   [ "$status" -ne 0 ]                        # the abandoned edit is gone
@@ -105,7 +105,7 @@ host() { cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"'; }
 # ── Reset-all is a commit of the fresh baseline, so it is itself undoable ────
 
 @test "hist_undo: Reset-all (commit of the baseline) is undoable" {
-  base="$(cfgstate_new)"
+  base="$(config_state_new)"
   h="$(hist_new "$base")"
   h="$(hist_commit "$h" "$(host)")"          # an operator edit
   h="$(hist_commit "$h" "$base")"            # Reset-all → back to the baseline

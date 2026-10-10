@@ -9,8 +9,8 @@ setup() {
   export CONFIG_FILE
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   # shellcheck source=../../lib/packages/package-list.sh
   source "$BATS_TEST_DIRNAME/../../lib/packages/package-list.sh"
   # shellcheck source=../../lib/config/environment.sh

@@ -89,8 +89,8 @@ _install_render_assignment() {
 
 # _install_pick_assignment <profile_json> — interactive disk resolution for
 # `--profile`: the profile declares the layout, the operator picks only disks
-# (ADR 0036/0037). Emits the assignment JSON for assemble_profile_config. A
-# profile with no layout yet aborts with guidance to use the positional config
+# (ADR 0036/0037). Emits the assignment JSON for profile_loader_assemble_config.
+# A profile with no layout yet aborts with guidance to use the positional config
 # seam. Multi slices the picked disks onto each declared group by disk_count, in
 # declared order (mapping rendered to stderr).
 _install_pick_assignment() {
@@ -260,10 +260,10 @@ print_config_if_asked() {
   export INSTALLER_DIR="${INSTALLER_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
   source "${SCRIPT_DIR}/lib/common.sh"
-  # shellcheck source=lib/config/profile.sh
-  source "${SCRIPT_DIR}/lib/config/profile.sh"
-  validate_profile "$profile_name"
-  load_profile "$profile_name"
+  # shellcheck source=lib/config/profile-loader.sh
+  source "${SCRIPT_DIR}/lib/config/profile-loader.sh"
+  profile_loader_validate "$profile_name"
+  profile_loader_load "$profile_name"
   exit 0
 }
 
@@ -328,20 +328,21 @@ run_profile_front_end() {
   export INSTALLER_DIR="${INSTALLER_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
   source "${SCRIPT_DIR}/lib/common.sh"
-  # shellcheck source=lib/config/profile.sh
-  source "${SCRIPT_DIR}/lib/config/profile.sh"
+  # shellcheck source=lib/config/profile-loader.sh
+  source "${SCRIPT_DIR}/lib/config/profile-loader.sh"
   # shellcheck source=lib/live-medium.sh
   source "${SCRIPT_DIR}/lib/live-medium.sh"
 
-  validate_profile "$profile_name"
+  profile_loader_validate "$profile_name"
   local profile_json assignment effective_config
-  profile_json="$(load_profile "$profile_name")"
+  profile_json="$(profile_loader_load "$profile_name")"
   # Expected failures (no layout, no disks) exit with the picker's own message,
   # no generic abort footer.
   assignment="$(_install_pick_assignment "$profile_json")" || exit "$?"
 
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
-  assemble_profile_config "$profile_name" "$assignment" > "$effective_config"
+  profile_loader_assemble_config "$profile_name" "$assignment" \
+    > "$effective_config"
   positional_args=("$effective_config")
 }
 

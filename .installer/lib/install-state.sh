@@ -96,14 +96,14 @@ _INSTALL_STATE_TEMPLATE='{
 # _install_state_json_array — stdin lines as a compact JSON string array.
 _install_state_json_array() { jq -R . | jq -sc .; }
 
-# _install_state_host_profile_json <profile> — the assembled host profile, or
-# {} when there is none. load_profile prints core-only JSON *and* returns 1
+# _install_state_host_profile_json <profile> — the assembled host profile, or {}
+# when there is none. profile_loader_load prints core-only JSON *and* returns 1
 # when no host profile exists (graceful): capture stdout, ignore the status,
 # fall back to {} only when nothing printed. A `|| printf '{}'` would append a
 # second JSON value, corrupting the --argjson persist payload.
 _install_state_host_profile_json() {
   local host_json
-  host_json="$(load_profile "$1" 2>/dev/null)" || true
+  host_json="$(profile_loader_load "$1" 2>/dev/null)" || true
   printf '%s\n' "${host_json:-{\}}"
 }
 
@@ -121,7 +121,7 @@ _install_state_gpu_json() {
 
 # install_state_write <path> <profile>
 # <profile> is the Host Profile (directory key under hosts/), used only for
-# load_profile to assemble the persist payload. The .hostname field
+# profile_loader_load to assemble the persist payload. The .hostname field
 # written into install-state.json comes from install_config_hostname,
 # which is the machine identity — not the profile name.
 install_state_write() {

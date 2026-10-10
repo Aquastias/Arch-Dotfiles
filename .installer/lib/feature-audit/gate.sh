@@ -16,9 +16,9 @@
 # user's resolved programs, and the post-install Security & Backup Extras.
 fa_selected_programs() {
   local cfg="$1" u
-  [[ "$(type -t load_user_profile)" == function ]] || {
-    # shellcheck source=../config/profile.sh
-    source "$INSTALLER_DIR/lib/config/profile.sh"
+  [[ "$(type -t profile_loader_load_user)" == function ]] || {
+    # shellcheck source=../config/profile-loader.sh
+    source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   }
   [[ "$(type -t runner_resolve_post_install)" == function ]] || {
     # shellcheck source=../profiles/runner.sh
@@ -27,7 +27,7 @@ fa_selected_programs() {
   {
     jq -r '.host_programs[]?' <<<"$cfg"
     for u in $(jq -r '.users[]?' <<<"$cfg"); do
-      load_user_profile "$u" | jq -r '.programs[]?'
+      profile_loader_load_user "$u" | jq -r '.programs[]?'
     done
     runner_resolve_post_install "$(jq -c '.post_install // {}' <<<"$cfg")"
   } | sort -u

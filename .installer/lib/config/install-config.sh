@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/accessors.sh — Install Config Reader (typed accessors)
+# lib/config/install-config.sh — Install Config Reader (typed accessors)
 # =============================================================================
 # Sole owner of Install Config schema defaults. The schema below is the
 # canonical declaration of every regular Install Config field: jq path, type
@@ -11,7 +11,10 @@
 # row — that is the declaration site. The hand-written specials below the
 # schema (notably Kernel Selection) each break the schema mould.
 #
-# Sourced by 03-install.sh after lib/common.sh (which provides config_optional).
+# Requires lib/common.sh (config_optional) already sourced.
+#
+# Used by: 01-bootstrap-zfs.sh, 03-install.sh, lib/feature-audit/manifest.sh,
+# and every install-time lib reading the Install Config.
 # =============================================================================
 
 # shellcheck source=../common.sh
@@ -91,23 +94,24 @@ _INSTALL_CONFIG_SCHEMA=(
 # install_config_get <name> — schema dispatcher for the generated wrappers.
 # Reads the named field according to its schema row and applies the default.
 install_config_get() {
-  local name="$1" spec n p t d v
-  for spec in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    IFS='|' read -r n p t d <<< "$spec"
-    [[ "$n" == "$name" ]] || continue
-    v=""
-    case "$t" in
-    scalar) v="$(config_optional "$p")" ;;
+  local name="$1" schema_row field_name jq_path field_type default_value value
+  for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
+    IFS='|' read -r field_name jq_path field_type default_value \
+      <<< "$schema_row"
+    [[ "$field_name" == "$name" ]] || continue
+    value=""
+    case "$field_type" in
+    scalar) value="$(config_optional "$jq_path")" ;;
     bool)
-      v="$(jsonc_read "$CONFIG_FILE" "$p")"
-      [[ "$v" == "null" ]] && v=""
+      value="$(jsonc_read "$CONFIG_FILE" "$jq_path")"
+      [[ "$value" == "null" ]] && value=""
       ;;
-    array) v="$(_install_config_array "$p")" ;;
+    array) value="$(_install_config_array "$jq_path")" ;;
     esac
-    if [[ -n "$v" ]]; then
-      printf '%s\n' "$v"
-    elif [[ -n "$d" ]]; then
-      printf '%s\n' "$d"
+    if [[ -n "$value" ]]; then
+      printf '%s\n' "$value"
+    elif [[ -n "$default_value" ]]; then
+      printf '%s\n' "$default_value"
     fi
     return
   done
@@ -182,9 +186,9 @@ install_config_gpu() {
 # names the cipher seam: ZFS uses native AES, every other filesystem uses LUKS.
 # An explicit options.encryption_method wins.
 install_config_encryption_method() {
-  local v; v="$(config_optional '.options.encryption_method')"
-  if [[ -n "$v" ]]; then
-    printf '%s\n' "$v"
+  local value; value="$(config_optional '.options.encryption_method')"
+  if [[ -n "$value" ]]; then
+    printf '%s\n' "$value"
   elif [[ "$(install_config_filesystem)" == "zfs" ]]; then
     printf '%s\n' "native"
   else
@@ -201,14 +205,18 @@ install_config_locales() {
   printf '%s\n' "${out:-en_US.UTF-8}"
 }
 
-install_config_locale() { install_config_locales | head -n1; }
+install_config_locale() {
+  install_config_locales | awk 'NR == 1 { print; exit }'
+}
 
 install_config_keymaps() {
   local out; out="$(_install_config_array '.system.keymap')"
   printf '%s\n' "${out:-us}"
 }
 
-install_config_keymap() { install_config_keymaps | head -n1; }
+install_config_keymap() {
+  install_config_keymaps | awk 'NR == 1 { print; exit }'
+}
 
 # Mirror Countries (issue 06) — accepts a single country (string) or a list.
 # Emits one country per line, order preserved, feeding `reflector --country`.
@@ -244,8 +252,8 @@ install_config_multilib() {
 }
 
 # Custom mirror servers (ADR 0072) — operator-supplied `Server = <url>` lines
-# prepended to the reflector-built mirrorlist. One URL per line, order preserved,
-# empty when unset.
+# prepended to the reflector-built mirrorlist. One URL per line, order
+# preserved, empty when unset.
 install_config_mirror_servers() {
   _install_config_array '.options.mirror_servers'
 }
@@ -268,13 +276,13 @@ install_config_custom_repositories() {
 # 'lts' when absent or null. Aborts on any unknown flavour token, so a typo
 # cannot silently install the wrong or no kernel.
 install_config_kernels() {
-  local out tok
+  local out token
   out="$(_install_config_array '.options.kernel')"
   out="${out:-lts}"
-  while IFS= read -r tok; do
-    [[ -n "$tok" ]] || continue
-    kernel_is_valid_token "$tok" || {
-      error "Unknown kernel token in options.kernel: '$tok'.
+  while IFS= read -r token; do
+    [[ -n "$token" ]] || continue
+    kernel_is_valid_token "$token" || {
+      error "Unknown kernel token in options.kernel: '$token'.
   Valid tokens: $(kernel_valid_tokens). See ADR 0024."
       return 1
     }
@@ -285,12 +293,12 @@ install_config_kernels() {
 # Primary Kernel — the first selected token. Back-compat scalar accessor for
 # consumers (initramfs preset, bootloader default) that understand one kernel.
 install_config_kernel() {
-  install_config_kernels | head -n1
+  install_config_kernels | awk 'NR == 1 { print; exit }'
 }
 
 install_config_storage_group_ashift() {
-  local v; v="$(config_optional ".storage_groups[$1].ashift")"
-  printf '%s\n' "${v:-12}"
+  local value; value="$(config_optional ".storage_groups[$1].ashift")"
+  printf '%s\n' "${value:-12}"
 }
 
 # Number of declared storage_groups[] entries (0 when absent).
@@ -306,15 +314,16 @@ install_config_storage_group_name() {
 # Per-group filesystem (ADR 0043) — like the data_pool reader; absent inherits
 # the root `filesystem`.
 install_config_storage_group_filesystem() {
-  local v; v="$(config_optional ".storage_groups[$1].filesystem")"
-  printf '%s\n' "${v:-$(install_config_filesystem)}"
+  local value; value="$(config_optional ".storage_groups[$1].filesystem")"
+  printf '%s\n' "${value:-$(install_config_filesystem)}"
 }
 
 # Per-group encryption (ADR 0043) — independent bool, default false; explicit
 # null check so a stored `false` round-trips (jq gotcha).
 install_config_storage_group_encryption() {
-  local v; v="$(jsonc_read "$CONFIG_FILE" ".storage_groups[$1].encryption")"
-  [[ "$v" == "true" ]] && printf 'true\n' || printf 'false\n'
+  local value
+  value="$(jsonc_read "$CONFIG_FILE" ".storage_groups[$1].encryption")"
+  [[ "$value" == "true" ]] && printf 'true\n' || printf 'false\n'
 }
 
 # Owners access list (pool-owners, ADR 0031) — one token per line, in order; a
@@ -347,23 +356,23 @@ install_config_data_pool_name() {
 
 # Topology at index — defaults to 'stripe'.
 install_config_data_pool_topology() {
-  local v; v="$(config_optional ".data_pools[$1].topology")"
-  printf '%s\n' "${v:-stripe}"
+  local value; value="$(config_optional ".data_pools[$1].topology")"
+  printf '%s\n' "${value:-stripe}"
 }
 
 # Mountpoint at index — defaults to /data/<name>.
 install_config_data_pool_mount() {
-  local v; v="$(config_optional ".data_pools[$1].mount")"
-  if [[ -z "$v" ]]; then
-    v="/data/$(install_config_data_pool_name "$1")"
+  local value; value="$(config_optional ".data_pools[$1].mount")"
+  if [[ -z "$value" ]]; then
+    value="/data/$(install_config_data_pool_name "$1")"
   fi
-  printf '%s\n' "$v"
+  printf '%s\n' "$value"
 }
 
 # Ashift at index — defaults to 12.
 install_config_data_pool_ashift() {
-  local v; v="$(config_optional ".data_pools[$1].ashift")"
-  printf '%s\n' "${v:-12}"
+  local value; value="$(config_optional ".data_pools[$1].ashift")"
+  printf '%s\n' "${value:-12}"
 }
 
 # Disks at index — one device path per line.
@@ -374,16 +383,16 @@ install_config_data_pool_disks() {
 # Per-group filesystem (ADR 0043) — a Standalone Data Pool may pick its own
 # filesystem; absent inherits the root `filesystem`. An explicit value wins.
 install_config_data_pool_filesystem() {
-  local v; v="$(config_optional ".data_pools[$1].filesystem")"
-  printf '%s\n' "${v:-$(install_config_filesystem)}"
+  local value; value="$(config_optional ".data_pools[$1].filesystem")"
+  printf '%s\n' "${value:-$(install_config_filesystem)}"
 }
 
 # Per-group encryption (ADR 0043) — an independent bool, default false. Read raw
 # with an explicit null check so a stored `false` round-trips (a `// false`
 # default cannot distinguish absent from an explicit false — jq gotcha).
 install_config_data_pool_encryption() {
-  local v; v="$(jsonc_read "$CONFIG_FILE" ".data_pools[$1].encryption")"
-  [[ "$v" == "true" ]] && printf 'true\n' || printf 'false\n'
+  local value; value="$(jsonc_read "$CONFIG_FILE" ".data_pools[$1].encryption")"
+  [[ "$value" == "true" ]] && printf 'true\n' || printf 'false\n'
 }
 
 # Any-ZFS predicate (ADR 0043) — `true` when the root OR any data pool / storage
@@ -399,14 +408,14 @@ install_config_any_zfs() {
   [[ "$(install_config_disk_kind)" == "manual" ]] \
     && { printf 'false\n'; return; }
   [[ "$(install_config_filesystem)" == "zfs" ]] && { printf 'true\n'; return; }
-  local n i
-  n="$(install_config_data_pools_count)"
-  for ((i = 0; i < n; i++)); do
+  local count i
+  count="$(install_config_data_pools_count)"
+  for ((i = 0; i < count; i++)); do
     [[ "$(install_config_data_pool_filesystem "$i")" == "zfs" ]] \
       && { printf 'true\n'; return; }
   done
-  n="$(install_config_storage_groups_count)"
-  for ((i = 0; i < n; i++)); do
+  count="$(install_config_storage_groups_count)"
+  for ((i = 0; i < count; i++)); do
     [[ "$(install_config_storage_group_filesystem "$i")" == "zfs" ]] \
       && { printf 'true\n'; return; }
   done
@@ -436,14 +445,15 @@ install_config_partition_device() {
 install_config_partition_mountpoint() {
   config_optional ".disk_config.partitions[$1].mountpoint"
 }
-install_config_partition_fs() {
+install_config_partition_filesystem() {
   config_optional ".disk_config.partitions[$1].fs"
 }
 
 # Format flag — true unless explicitly false (a kept/reused partition).
 install_config_partition_format() {
-  local v; v="$(jsonc_read "$CONFIG_FILE" ".disk_config.partitions[$1].format")"
-  [[ "$v" == "false" ]] && { printf 'false\n'; return; }
+  local value
+  value="$(jsonc_read "$CONFIG_FILE" ".disk_config.partitions[$1].format")"
+  [[ "$value" == "false" ]] && { printf 'false\n'; return; }
   printf 'true\n'
 }
 
@@ -456,9 +466,9 @@ install_config_any_nonzfs_luks() {
   [[ "$(install_config_filesystem)" != "zfs" \
      && "$(install_config_encryption_enabled)" == "true" ]] \
     && { printf 'true\n'; return; }
-  local n i
-  n="$(install_config_data_pools_count)"
-  for ((i = 0; i < n; i++)); do
+  local count i
+  count="$(install_config_data_pools_count)"
+  for ((i = 0; i < count; i++)); do
     [[ "$(install_config_data_pool_filesystem "$i")" != "zfs" \
        && "$(install_config_data_pool_encryption "$i")" == "true" ]] \
       && { printf 'true\n'; return; }
@@ -472,17 +482,18 @@ install_config_any_nonzfs_luks() {
 # filesystem anywhere needs its tools so the group fscks/mounts at boot. Each
 # per-group accessor inherits the root filesystem when the group omits its own.
 install_config_uses_filesystem() {
-  local fs="$1"
-  [[ "$(install_config_filesystem)" == "$fs" ]] && { printf 'true\n'; return; }
-  local n i
-  n="$(install_config_data_pools_count)"
-  for ((i = 0; i < n; i++)); do
-    [[ "$(install_config_data_pool_filesystem "$i")" == "$fs" ]] \
+  local filesystem="$1"
+  [[ "$(install_config_filesystem)" == "$filesystem" ]] \
+    && { printf 'true\n'; return; }
+  local count i
+  count="$(install_config_data_pools_count)"
+  for ((i = 0; i < count; i++)); do
+    [[ "$(install_config_data_pool_filesystem "$i")" == "$filesystem" ]] \
       && { printf 'true\n'; return; }
   done
-  n="$(install_config_storage_groups_count)"
-  for ((i = 0; i < n; i++)); do
-    [[ "$(install_config_storage_group_filesystem "$i")" == "$fs" ]] \
+  count="$(install_config_storage_groups_count)"
+  for ((i = 0; i < count; i++)); do
+    [[ "$(install_config_storage_group_filesystem "$i")" == "$filesystem" ]] \
       && { printf 'true\n'; return; }
   done
   printf 'false\n'

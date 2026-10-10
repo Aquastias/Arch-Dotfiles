@@ -187,7 +187,7 @@ teardown() { rm -rf "$T"; }
   # heredoc on the _retry line would EOF after try one, so later tries would
   # run an empty script and falsely pass. Fail every try and assert each of
   # the 3 attempts saw the same non-empty script.
-  resolve_program() { echo "cat/prog"; }
+  program_registry_resolve() { echo "cat/prog"; }
   arch-chroot() { wc -c >> "$T/sizes"; return 1; }     # consume stdin, fail
   run _runner_programs_install_user_program alice prog yay
   [ "$status" -ne 0 ]                                   # all tries failed
@@ -197,7 +197,7 @@ teardown() { rm -rf "$T"; }
 }
 
 @test "userprog: install_user_program retries the chroot on a blip" {
-  resolve_program() { echo "cat/prog"; }
+  program_registry_resolve() { echo "cat/prog"; }
   echo 0 > "$T/n"
   arch-chroot() {
     local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"

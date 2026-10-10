@@ -15,8 +15,8 @@ setup() {
   error() { echo "ERROR: $*" >&2; exit 1; }
   export -f jsonc_strip jsonc_read config_optional error
 
-  # shellcheck source=../../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

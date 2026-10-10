@@ -15,16 +15,16 @@
 # || return 1` to skip a commit. Pure: JSON in/out, no TTY.
 # =============================================================================
 
-# shellcheck source=./state.sh
-declare -F cfgstate_set >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/state.sh"
+# shellcheck source=./config-state.sh
+declare -F config_state_set >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 
 # edit_set_scalar <state> <path> <str> — a string scalar at a dotted path.
 # rc 1 (unchanged) on empty input.
 edit_set_scalar() {
   local state="$1" path="$2" v="$3"
   [[ -n "$v" ]] || { printf '%s' "$state"; return 1; }
-  cfgstate_set "$state" "$path" "$(jq -n --arg x "$v" '$x')"
+  config_state_set "$state" "$path" "$(jq -n --arg x "$v" '$x')"
 }
 
 # edit_set_bool <state> <path> <true|false> — a JSON bool at a dotted path.
@@ -32,7 +32,7 @@ edit_set_scalar() {
 edit_set_bool() {
   local state="$1" path="$2" v="$3"
   [[ "$v" == "true" || "$v" == "false" ]] || { printf '%s' "$state"; return 1; }
-  cfgstate_set "$state" "$path" "$v"
+  config_state_set "$state" "$path" "$v"
 }
 
 # edit_set_array <state> <path> <val...> — a JSON string array at a dotted path
@@ -40,7 +40,8 @@ edit_set_bool() {
 edit_set_array() {
   local state="$1" path="$2"; shift 2
   (($#)) || { printf '%s' "$state"; return 1; }
-  cfgstate_set "$state" "$path" "$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
+  config_state_set "$state" "$path" \
+    "$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
 }
 
 # edit_set_gpu <state> <val...> — environment.gpu: `auto` is mutually exclusive
@@ -52,9 +53,9 @@ edit_set_gpu() {
   local p
   for p in "$@"; do
     [[ "$p" == "auto" ]] \
-      && { cfgstate_set "$state" environment.gpu '"auto"'; return 0; }
+      && { config_state_set "$state" environment.gpu '"auto"'; return 0; }
   done
-  cfgstate_set "$state" environment.gpu \
+  config_state_set "$state" environment.gpu \
     "$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
 }
 
@@ -131,7 +132,7 @@ edit_add_sysctl_pair() {
 edit_add_mirror_server() {
   local state="$1" url="$2"
   [[ -n "$url" ]] || { printf '%s' "$state"; return 1; }
-  cfgstate_set "$state" options.mirror_servers "$(jq -cn \
+  config_state_set "$state" options.mirror_servers "$(jq -cn \
     --argjson a "$(jq -c '.options.mirror_servers // []' <<<"$state")" \
     --arg v "$url" 'if any($a[]; . == $v) then $a else $a + [$v] end')"
 }
@@ -143,7 +144,7 @@ edit_add_custom_repository() {
   local state="$1" raw="$2"
   local -a rf; read -ra rf <<<"$raw"
   [[ ${#rf[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
-  cfgstate_set "$state" options.custom_repositories "$(jq -cn \
+  config_state_set "$state" options.custom_repositories "$(jq -cn \
     --argjson a "$(jq -c '.options.custom_repositories // []' <<<"$state")" \
     --arg n "${rf[0]}" --arg u "${rf[1]}" \
     --arg c "${rf[2]:-Required}" --arg o "${rf[3]:-TrustedOnly}" \
@@ -157,9 +158,9 @@ edit_add_custom_repository() {
 edit_set_users() {
   local state="$1"; shift
   if (($# == 0)); then
-    cfgstate_unset "$state" users
+    config_state_unset "$state" users
     return 0
   fi
-  cfgstate_set "$state" users "$(printf '%s\n' "$@" | jq -R . | jq -s -c \
+  config_state_set "$state" users "$(printf '%s\n' "$@" | jq -R . | jq -s -c \
     'reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end)')"
 }

@@ -40,7 +40,7 @@ setup() {
 
 # ── AC1: no cell violates the real topology contract / single-disk rules ────
 
-@test "tier1: every distinct root/pool topology passes _validation_topology_for_fs" {
+@test "tier1: every distinct root/pool topology passes _validation_topology_for_filesystem" {
   local cells; cells="$(matrix_tier1_cells)"
 
   # ext4/xfs cells are single-disk only (topology single, disk_count 1).
@@ -51,14 +51,14 @@ setup() {
   # every distinct MULTI (fs,topology) passes the real validator.
   local triple fs topo
   while IFS=$'\t' read -r fs topo; do
-    run _validation_topology_for_fs os_pool "$fs" "$topo"
+    run _validation_topology_for_filesystem os_pool "$fs" "$topo"
     [ "$status" -eq 0 ]
   done < <(jq -r 'select(.axes.mode=="multi")
     | "\(.axes.filesystem)\t\(.axes.topology)"' <<<"$cells" | sort -u)
 
   # every distinct data-pool (fs,topology) passes the real validator.
   while IFS=$'\t' read -r fs topo; do
-    run _validation_topology_for_fs data "$fs" "$topo"
+    run _validation_topology_for_filesystem data "$fs" "$topo"
     [ "$status" -eq 0 ]
   done < <(jq -r 'select(.axes.data_pool != null)
     | "\(.axes.data_pool.filesystem)\t\(.axes.data_pool.topology)"' \
