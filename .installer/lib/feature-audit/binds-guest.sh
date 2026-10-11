@@ -3,8 +3,8 @@
 # lib/feature-audit/binds-guest.sh — guest-side keybind state + effects
 # =============================================================================
 # Staged into the guest and sourced inside the live session (VM Agent Control
-# `exec`). The host sends each bind as real input between a `fa_bstate`
-# before/after pair, then `fa_beval` judges the declared effect from the two
+# `exec`). The host sends each bind as real input between a `feature_audit_binds_state`
+# before/after pair, then `feature_audit_binds_evaluate` judges the declared effect from the two
 # snapshots (ADR 0152). Compositor-aware: niri (`niri msg`), Hyprland
 # (`hyprctl`), KDE (KWin D-Bus + spectacle).
 #
@@ -16,7 +16,7 @@
 
 FA_BIND_CLASS=fa-bind
 
-_fa_comp() {
+_binds_guest_compositor() {
   local c
   for c in niri Hyprland kwin_wayland; do
     pgrep -x "$c" >/dev/null 2>&1 && { echo "$c"; return; }
@@ -24,9 +24,9 @@ _fa_comp() {
   echo none
 }
 
-# _fa_windows — normalized window list JSON: [{id, app, ws, focused, geo}].
-_fa_windows() {
-  case "$(_fa_comp)" in
+# _binds_guest_windows — normalized window list JSON: [{id, app, ws, focused, geo}].
+_binds_guest_windows() {
+  case "$(_binds_guest_compositor)" in
     niri) niri msg -j windows 2>/dev/null | jq -c 'map({id, app: .app_id,
             ws: .workspace_id, focused: .is_focused,
             geo: {f: .is_floating, l: .layout}})' ;;
@@ -35,14 +35,14 @@ _fa_windows() {
             'map({id: .address, app: .class, ws: .workspace.id,
                   focused: (.address == $a),
                   geo: {at, size, floating, fullscreen}})' ;;
-    kwin_wayland) _fa_kwin_windows ;;
+    kwin_wayland) _binds_guest_kwin_windows ;;
     *) echo '[]' ;;
   esac
 }
 
-# _fa_kwin_windows — KWin has no JSON IPC; a one-shot KWin script prints the
+# _binds_guest_kwin_windows — KWin has no JSON IPC; a one-shot KWin script prints the
 # window list to the journal, read back by a marker.
-_fa_kwin_windows() {
+_binds_guest_kwin_windows() {
   local m="fa-kwin-$$-$RANDOM" js
   js="$(mktemp --suffix=.js)"
   cat > "$js" <<JS
@@ -72,9 +72,9 @@ JS
     | grep -o "$m.*" | tail -1 | sed "s/^$m//" | grep . || echo '[]'
 }
 
-# _fa_workspace — {idx, id, count} of the focused output's active workspace.
-_fa_workspace() {
-  case "$(_fa_comp)" in
+# _binds_guest_workspace — {idx, id, count} of the focused output's active workspace.
+_binds_guest_workspace() {
+  case "$(_binds_guest_compositor)" in
     niri) niri msg -j workspaces 2>/dev/null | jq -c '
             (map(select(.is_focused))[0]) as $f
             | {idx: $f.idx, id: $f.id,
@@ -94,9 +94,9 @@ _fa_workspace() {
   esac
 }
 
-_fa_shot_hash() {
+_binds_guest_shot_hash() {
   local f; f="$(mktemp --suffix=.png)"
-  case "$(_fa_comp)" in
+  case "$(_binds_guest_compositor)" in
     kwin_wayland) timeout 15 spectacle -bnf -o "$f" >/dev/null 2>&1 ;;
     *) timeout 10 grim "$f" >/dev/null 2>&1 ;;
   esac
@@ -104,19 +104,19 @@ _fa_shot_hash() {
   rm -f "$f"
 }
 
-_fa_audio() {
+_binds_guest_audio() {
   { wpctl get-volume @DEFAULT_AUDIO_SINK@
     wpctl get-volume @DEFAULT_AUDIO_SOURCE@; } \
     2>/dev/null | tr '\n' ' '
 }
 
-# fa_bstate [home-rel-dir] — snapshot JSON of everything an effect can
+# feature_audit_binds_state [home-rel-dir] — snapshot JSON of everything an effect can
 # observe (the dir is where file-created counts new files).
-fa_bstate() {
+feature_audit_binds_state() {
   local dir="$HOME/${1:-Pictures/Screenshots}"
-  jq -cn --arg comp "$(_fa_comp)" --argjson w "$(_fa_windows)" \
-    --argjson ws "$(_fa_workspace)" --arg shot "$(_fa_shot_hash)" \
-    --arg audio "$(_fa_audio)" \
+  jq -cn --arg comp "$(_binds_guest_compositor)" --argjson w "$(_binds_guest_windows)" \
+    --argjson ws "$(_binds_guest_workspace)" --arg shot "$(_binds_guest_shot_hash)" \
+    --arg audio "$(_binds_guest_audio)" \
     --arg files "$(find "$dir" -type f 2>/dev/null | wc -l)" '
     { comp: $comp, windows: $w, ws: $ws, shot: $shot, audio: $audio,
       files: ($files | tonumber),
@@ -124,16 +124,16 @@ fa_bstate() {
       layout: ($w | map({id, ws, geo}) | tostring) }'
 }
 
-# fa_bsetup <needs> <effect> <arg> — reset to a known scene before a bind: test
+# feature_audit_binds_setup <needs> <effect> <arg> — reset to a known scene before a bind: test
 # windows on the first workspace (+ a stack / floating / 2nd workspace when
 # the bind needs one). Best-effort; the effect check is the judge.
-# _fa_hl <lua> — a Hyprland dispatch. The shipped config is Lua, where
+# _binds_guest_hyprland <lua> — a Hyprland dispatch. The shipped config is Lua, where
 # `hyprctl dispatch` evaluates Lua: legacy dispatcher names fail.
-_fa_hl() { hyprctl dispatch "$1" >/dev/null 2>&1; }
+_binds_guest_hyprland() { hyprctl dispatch "$1" >/dev/null 2>&1; }
 
-fa_bsetup() {
+feature_audit_binds_setup() {
   local needs="$1" effect="$2" arg="${3:-}" comp n want=2 dir=""
-  comp="$(_fa_comp)"
+  comp="$(_binds_guest_compositor)"
   _fa_act() {
     case "$comp" in
       niri) niri msg action "$@" >/dev/null 2>&1 ;;
@@ -145,13 +145,13 @@ fa_bsetup() {
   [[ -n "$dir" && "$comp" == Hyprland && "$want" -lt 3 ]] && want=3
   case "$comp" in
     niri) _fa_act focus-workspace 1 ;;
-    Hyprland) _fa_hl "hl.dsp.focus({ workspace = 1 })" ;;
+    Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = 1 })" ;;
     kwin_wayland) qdbus6 org.kde.KWin /KWin org.kde.KWin.setCurrentDesktop 1 \
       >/dev/null 2>&1 ;;
   esac
   # test windows on the (now current) first workspace only
-  n="$(_fa_windows | jq --arg c "$FA_BIND_CLASS" \
-    --argjson w "$(_fa_workspace | jq .id)" \
+  n="$(_binds_guest_windows | jq --arg c "$FA_BIND_CLASS" \
+    --argjson w "$(_binds_guest_workspace | jq .id)" \
     '[.[] | select(.app == $c and .ws == $w)] | length')"
   while ((n < want)); do
     setsid -f kitty --class "$FA_BIND_CLASS" >/dev/null 2>&1
@@ -162,7 +162,7 @@ fa_bsetup() {
   if [[ "$needs" == *floating* ]]; then
     case "$comp" in
       niri) _fa_act toggle-window-floating ;;
-      Hyprland) _fa_hl 'hl.dsp.window.float({ action = "toggle" })' ;;
+      Hyprland) _binds_guest_hyprland 'hl.dsp.window.float({ action = "toggle" })' ;;
     esac
   fi
   # ws2win: one test window on workspace 2, focus back on 1
@@ -170,14 +170,14 @@ fa_bsetup() {
     case "$comp" in
       niri) _fa_act move-column-to-workspace 2; _fa_act focus-workspace 1 ;;
       Hyprland)
-        _fa_hl "hl.dsp.window.move({ workspace = 2, silent = true })"
-        _fa_hl "hl.dsp.focus({ workspace = 1 })" ;;
+        _binds_guest_hyprland "hl.dsp.window.move({ workspace = 2, silent = true })"
+        _binds_guest_hyprland "hl.dsp.focus({ workspace = 1 })" ;;
     esac
   fi
   if [[ "$needs" == *workspace2* ]]; then
     case "$comp" in
       niri) _fa_act focus-workspace 2 ;;
-      Hyprland) _fa_hl "hl.dsp.focus({ workspace = 2 })" ;;
+      Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = 2 })" ;;
       kwin_wayland) qdbus6 org.kde.KWin /KWin \
         org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
     esac
@@ -188,24 +188,24 @@ fa_bsetup() {
       desktop:*)          # start on workspace/desktop N (grid navigation)
         case "$comp" in
           niri) _fa_act focus-workspace "${tok#desktop:}" ;;
-          Hyprland) _fa_hl "hl.dsp.focus({ workspace = ${tok#desktop:} })" ;;
+          Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = ${tok#desktop:} })" ;;
           kwin_wayland) qdbus6 org.kde.KWin /KWin \
             org.kde.KWin.setCurrentDesktop "${tok#desktop:}" >/dev/null 2>&1 ;;
         esac ;;
       maximized)
-        [[ "$comp" == kwin_wayland ]] && _fa_kwin_run \
+        [[ "$comp" == kwin_wayland ]] && _binds_guest_kwin_run \
           "workspace.activeWindow.setMaximize(true, true);" ;;
       launch:*) setsid -f "${tok#launch:}" >/dev/null 2>&1; sleep 4 ;;
       clip:*) printf '%s' "${tok#clip:}" | wl-copy >/dev/null 2>&1 ;;
     esac
   done
-  [[ -n "$dir" ]] && _fa_focus_for_dir "$comp" "$dir"
+  [[ -n "$dir" ]] && _binds_guest_focus_for_directory "$comp" "$dir"
   # a workspace-N bind must start somewhere else to prove it moved (niri
   # clamps N to the last workspace, so only `1` needs to start further down)
   if [[ "$effect" == workspace && "$arg" == 1 ]]; then
     case "$comp" in
       niri) _fa_act focus-workspace-down ;;
-      Hyprland) _fa_hl "hl.dsp.focus({ workspace = 10 })" ;;
+      Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = 10 })" ;;
       kwin_wayland) qdbus6 org.kde.KWin /KWin \
         org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
     esac
@@ -213,9 +213,9 @@ fa_bsetup() {
   sleep 0.5
 }
 
-# _fa_focus_for_dir <comp> <dir> — focus a test window that HAS a neighbour
+# _binds_guest_focus_for_directory <comp> <dir> — focus a test window that HAS a neighbour
 # in <dir>, so a directional focus/move bind can prove it did something.
-_fa_focus_for_dir() {
+_binds_guest_focus_for_directory() {
   local comp="$1" dir="$2" pick
   case "$comp" in
     niri)
@@ -236,13 +236,13 @@ _fa_focus_for_dir() {
            else (map(select(.size[1] < $H)) | min_by(.at[1])) end)
         | .address // empty')"
       [[ -n "$pick" ]] \
-        && _fa_hl "hl.dsp.focus({ window = \"address:$pick\" })" ;;
-    kwin_wayland) _fa_kwin_arrange "$dir" ;;
+        && _binds_guest_hyprland "hl.dsp.focus({ window = \"address:$pick\" })" ;;
+    kwin_wayland) _binds_guest_kwin_arrange "$dir" ;;
   esac
 }
 
-# _fa_kwin_run <js> — run a one-shot KWin script (no JSON IPC on KDE).
-_fa_kwin_run() {
+# _binds_guest_kwin_run <js> — run a one-shot KWin script (no JSON IPC on KDE).
+_binds_guest_kwin_run() {
   local js id name="fa-kwin-$$-$RANDOM"
   js="$(mktemp --suffix=.js)"
   printf '%s\n' "$1" > "$js"
@@ -256,10 +256,10 @@ _fa_kwin_run() {
   rm -f "$js"
 }
 
-# _fa_kwin_arrange <dir> — tile the two test windows side by side (left/
+# _binds_guest_kwin_arrange <dir> — tile the two test windows side by side (left/
 # right) or stacked (up/down) and focus the one with a neighbour in <dir>.
-_fa_kwin_arrange() {
-  _fa_kwin_run "
+_binds_guest_kwin_arrange() {
+  _binds_guest_kwin_run "
 var ws = workspace.windowList().filter(function (w) {
   return w.resourceClass == '$FA_BIND_CLASS'; });
 if (ws.length >= 2) {
@@ -275,37 +275,37 @@ if (ws.length >= 2) {
 }"
 }
 
-# fa_bbaseline — remember the windows open before the keybind phase, so
+# feature_audit_binds_baseline — remember the windows open before the keybind phase, so
 # teardown can close whatever a bind opened (launchers, task entries, …).
-fa_bbaseline() {
+feature_audit_binds_baseline() {
   mkdir -p /tmp/fa-binds
-  _fa_windows | jq -r '.[].id | tostring' > /tmp/fa-binds/baseline
+  _binds_guest_windows | jq -r '.[].id | tostring' > /tmp/fa-binds/baseline
 }
 
-# fa_bteardown — drop the scene: the test windows (recreated per bind) and
+# feature_audit_binds_teardown — drop the scene: the test windows (recreated per bind) and
 # every window a bind opened since the baseline.
-fa_bteardown() {
+feature_audit_binds_teardown() {
   local comp id
   pkill -f -- "--class $FA_BIND_CLASS" >/dev/null 2>&1 || true
-  comp="$(_fa_comp)"
+  comp="$(_binds_guest_compositor)"
   [[ -f /tmp/fa-binds/baseline ]] || { sleep 0.5; return 0; }
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     case "$comp" in
       niri) niri msg action close-window --id "$id" >/dev/null 2>&1 ;;
-      Hyprland) _fa_hl "hl.dsp.window.close({ window = \"address:$id\" })" ;;
-      kwin_wayland) _fa_kwin_run "workspace.windowList().forEach(
+      Hyprland) _binds_guest_hyprland "hl.dsp.window.close({ window = \"address:$id\" })" ;;
+      kwin_wayland) _binds_guest_kwin_run "workspace.windowList().forEach(
         function (w) { if (w.internalId.toString() == '$id')
           w.closeWindow(); });" ;;
     esac
-  done < <(_fa_windows | jq -r --rawfile b /tmp/fa-binds/baseline '
+  done < <(_binds_guest_windows | jq -r --rawfile b /tmp/fa-binds/baseline '
     ($b | split("\n")) as $k
     | .[] | (.id | tostring) as $i | select($k | index($i) | not) | $i')
   sleep 0.5
 }
 
-# fa_beval <effect> <arg> <before-json> <after-json> — exit 0 iff observed.
-fa_beval() {
+# feature_audit_binds_evaluate <effect> <arg> <before-json> <after-json> — exit 0 iff observed.
+feature_audit_binds_evaluate() {
   local effect="$1" arg="$2" b="$3" a="$4"
   case "$effect" in
     window-opens) jq -e -n --argjson b "$b" --argjson a "$a" --arg r "$arg" '

@@ -60,11 +60,11 @@ main() {
     run)
       # shellcheck source=../lib/feature-audit/live.sh
       source "$INSTALLER_DIR/lib/feature-audit/live.sh"
-      fa_run "$@" ;;
-    check) fa_audit_check ;;
+      feature_audit_run "$@" ;;
+    check) feature_audit_check_variant ;;
     report)
       [[ $# -eq 1 ]] || { usage >&2; exit 2; }
-      fa_report "$1" ;;
+      feature_audit_report "$1" ;;
     --help | -h) usage ;;
     *) usage >&2; exit 2 ;;
   esac

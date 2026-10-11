@@ -20,12 +20,12 @@
 # `{num}` its first number.
 #
 # Public API:
-#   fa_binds_sources                 → registered source ids
-#   fa_binds_parse <src> <file…>     → rows from the given config files
-#   fa_binds_rows <src>              → rows from the shipped config
-#   fa_binds_expect_file <src>       → the source's audit-binds.jsonc path
-#   fa_binds_plan <src> [files… binds-file]  → one JSON object per row
-#   fa_binds_untested <src> [files… binds-file] → rows lacking an expectation
+#   feature_audit_binds_sources                 → registered source ids
+#   feature_audit_binds_parse <src> <file…>     → rows from the given config files
+#   feature_audit_binds_rows <src>              → rows from the shipped config
+#   feature_audit_binds_expect_file <src>       → the source's audit-binds.jsonc path
+#   feature_audit_binds_plan <src> [files… binds-file]  → one JSON object per row
+#   feature_audit_binds_untested <src> [files… binds-file] → rows lacking an expectation
 # =============================================================================
 
 FA_REPO_ROOT="${FA_REPO_ROOT:-$(cd "$INSTALLER_DIR/.." && pwd)}"
@@ -47,24 +47,24 @@ declare -gA FA_BIND_SOURCES=(
 )
 unset _X _P
 
-fa_binds_sources() { printf '%s\n' "${!FA_BIND_SOURCES[@]}" | sort; }
+feature_audit_binds_sources() { printf '%s\n' "${!FA_BIND_SOURCES[@]}" | sort; }
 
-_fa_binds_field() {
+_binds_field() {
   local spec="${FA_BIND_SOURCES[$1]:-}"
   [[ -n "$spec" ]] || return 1
   cut -d'|' -f"$2" <<<"$spec"
 }
 
-fa_binds_session() { _fa_binds_field "$1" 1; }
+feature_audit_binds_session() { _binds_field "$1" 1; }
 
-fa_binds_expect_file() {
+feature_audit_binds_expect_file() {
   printf '%s/%s/audit-binds.jsonc\n' "$FA_REPO_ROOT" \
-    "$(_fa_binds_field "$1" 3)"
+    "$(_binds_field "$1" 3)"
 }
 
-# _fa_binds_files <src> — the shipped config files for a source.
-_fa_binds_files() {
-  local g; g="$(_fa_binds_field "$1" 2)" || return 1
+# _binds_files <src> — the shipped config files for a source.
+_binds_files() {
+  local g; g="$(_binds_field "$1" 2)" || return 1
   if [[ "$g" == find:* ]]; then
     g="${g#find:}"
     find "$FA_REPO_ROOT/${g%%:*}" -name "${g#*:}" -type f | sort
@@ -74,8 +74,8 @@ _fa_binds_files() {
   ls -1 "$FA_REPO_ROOT"/$g 2>/dev/null
 }
 
-# _fa_parse_niri <file…> — KDL `binds { Chord [props] { action; } }` blocks.
-_fa_parse_niri() {
+# _binds_parse_niri <file…> — KDL `binds { Chord [props] { action; } }` blocks.
+_binds_parse_niri() {
   awk '
     function flush() {
       gsub(/[;[:space:]]+$/, "", act); gsub(/^[[:space:]]+/, "", act)
@@ -104,10 +104,10 @@ _fa_parse_niri() {
 }
 
 
-# _fa_parse_hyprland <file…> — Lua `hl.bind(<key expr>, hl.dsp.<disp>(…))`:
+# _binds_parse_hyprland <file…> — Lua `hl.bind(<key expr>, hl.dsp.<disp>(…))`:
 # string locals, `..` concatenation and `for i = a, b do … end` are evaluated
 # (a static read of what the compositor would register).
-_fa_parse_hyprland() {
+_binds_parse_hyprland() {
   awk '
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     function ev(e,   n, p, i, t, o) {
@@ -180,9 +180,9 @@ _fa_parse_hyprland() {
   ' "$@"
 }
 
-# _fa_parse_kde <kglobalshortcutsrc…> — `Action=Active\tAlt,Default,Label`
+# _binds_parse_kde <kglobalshortcutsrc…> — `Action=Active\tAlt,Default,Label`
 # per [component]; every active shortcut (not `none`) is a row.
-_fa_parse_kde() {
+_binds_parse_kde() {
   awk '
     /^\[/ { g = substr($0, 2, length($0) - 2); next }
     /^_k_friendly_name=/ { next }
@@ -200,17 +200,17 @@ _fa_parse_kde() {
   ' "$@"
 }
 
-# _fa_parse_nvim <lua…> — see binds-nvim.awk.
-_fa_parse_nvim() {
+# _binds_parse_nvim <lua…> — see binds-nvim.awk.
+_binds_parse_nvim() {
   local f
   for f in "$@"; do
     awk -f "$INSTALLER_DIR/lib/feature-audit/binds-nvim.awk" "$f"
   done
 }
 
-# _fa_parse_kitty <conf…> — `map <keys> <action>`; kitty_mod is ctrl+shift
+# _binds_parse_kitty <conf…> — `map <keys> <action>`; kitty_mod is ctrl+shift
 # (kitty's default; the curated config does not rebind it).
-_fa_parse_kitty() {
+_binds_parse_kitty() {
   awk '
     /^[ \t]*map[ \t]/ {
       k = $2; sub(/^[ \t]*map[ \t]+[^ \t]+[ \t]+/, "")
@@ -226,9 +226,9 @@ _fa_parse_kitty() {
     }' "$@"
 }
 
-# _fa_parse_zsh <rc…> — explicit `bindkey [-M map] <seq> <widget>` lines
+# _binds_parse_zsh <rc…> — explicit `bindkey [-M map] <seq> <widget>` lines
 # (a bare `bindkey -e/-v` keymap switch is not a bind).
-_fa_parse_zsh() {
+_binds_parse_zsh() {
   awk '
     { sub(/[ \t]+#.*$/, "") }
     /^[ \t]*bindkey[ \t]/ {
@@ -239,38 +239,38 @@ _fa_parse_zsh() {
       printf "zsh\t%s\t%s %s\n", s, m, $(i + 1)
     }' "$@"
 }
-# fa_binds_parse <src> <file…>
-fa_binds_parse() {
+# feature_audit_binds_parse <src> <file…>
+feature_audit_binds_parse() {
   local src="$1"; shift
   case "$src" in
-    niri) _fa_parse_niri "$@" ;;
-    hyprland) _fa_parse_hyprland "$@" ;;
-    kde) _fa_parse_kde "$@" ;;
-    nvim) _fa_parse_nvim "$@" ;;
-    kitty) _fa_parse_kitty "$@" ;;
-    zsh) _fa_parse_zsh "$@" ;;
+    niri) _binds_parse_niri "$@" ;;
+    hyprland) _binds_parse_hyprland "$@" ;;
+    kde) _binds_parse_kde "$@" ;;
+    nvim) _binds_parse_nvim "$@" ;;
+    kitty) _binds_parse_kitty "$@" ;;
+    zsh) _binds_parse_zsh "$@" ;;
     *) echo "feature-audit: no bind parser for '$src'" >&2; return 1 ;;
   esac
 }
 
-fa_binds_rows() {
-  local -a files; mapfile -t files < <(_fa_binds_files "$1")
+feature_audit_binds_rows() {
+  local -a files; mapfile -t files < <(_binds_files "$1")
   if ((${#files[@]} == 0)); then
     echo "feature-audit: no config for '$1'" >&2; return 1
   fi
-  fa_binds_parse "$1" "${files[@]}"
+  feature_audit_binds_parse "$1" "${files[@]}"
 }
 
-# fa_binds_plan <src> [config-file… expectations-file] — the matched plan.
-fa_binds_plan() {
+# feature_audit_binds_plan <src> [config-file… expectations-file] — the matched plan.
+feature_audit_binds_plan() {
   local src="$1"; shift
   local rows exp
   if (($#)); then
     exp="${*: -1}"
-    rows="$(fa_binds_parse "$src" "${@:1:$#-1}")" || return 1
+    rows="$(feature_audit_binds_parse "$src" "${@:1:$#-1}")" || return 1
   else
-    exp="$(fa_binds_expect_file "$src")"
-    rows="$(fa_binds_rows "$src")" || return 1
+    exp="$(feature_audit_binds_expect_file "$src")"
+    rows="$(feature_audit_binds_rows "$src")" || return 1
   fi
   local ej='{"expect":[]}'
   if [[ -f "$exp" ]] && ! ej="$(jsonc_strip "$exp" | jq -c . 2>/dev/null)"; then
@@ -280,18 +280,18 @@ fa_binds_plan() {
     -f "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" <<<"$rows"
 }
 
-fa_binds_untested() {
-  fa_binds_plan "$@" | jq -r 'select(.effect == null)
+feature_audit_binds_untested() {
+  feature_audit_binds_plan "$@" | jq -r 'select(.effect == null)
     | "\(.source)\t\(.chord)\t\(.action)"'
 }
 
-# fa_binds_program_sources <program> — bind sources a program's probe drives.
-fa_binds_program_sources() {
+# feature_audit_binds_program_sources <program> — bind sources a program's probe drives.
+feature_audit_binds_program_sources() {
   local s o
-  for s in $(fa_binds_sources); do
-    o="$(_fa_binds_field "$s" 3)"
+  for s in $(feature_audit_binds_sources); do
+    o="$(_binds_field "$s" 3)"
     [[ "$o" == .installer/programs/*/"$1" \
-       && "$(fa_binds_session "$s")" == - ]] && printf '%s\n' "$s"
+       && "$(feature_audit_binds_session "$s")" == - ]] && printf '%s\n' "$s"
   done
   return 0
 }

@@ -26,7 +26,7 @@ manifest() {
 variant_config() {
   bash -c "source '$INSTALLER_DIR/lib/jsonc.sh'
     source '$INSTALLER_DIR/lib/feature-audit/manifest.sh'
-    INSTALLER_DIR='$INSTALLER_DIR' fa_variant_config '$1'"
+    INSTALLER_DIR='$INSTALLER_DIR' feature_audit_variant_config '$1'"
 }
 
 @test "valid manifest: check exits 0" {
@@ -151,7 +151,7 @@ fake_programs() {
   echo '{"name":"zsh","kind":"user"}' > "$FAKE/programs/system/zsh/config.jsonc"
   echo '{"name":"lact","kind":"host"}' \
     > "$FAKE/programs/system/lact/config.jsonc"
-  echo 'fa_pass x y' > "$FAKE/programs/system/zsh/audit.sh"
+  echo 'feature_audit_pass x y' > "$FAKE/programs/system/zsh/audit.sh"
   export FEATURE_AUDIT_PROGRAMS_DIR="$FAKE/programs"
 }
 
@@ -202,12 +202,12 @@ fake_programs() {
 @test "programs: a desktop environment without audit.sh is a Finding" {
   export FEATURE_AUDIT_CHECKS="programs"
   fake_programs
-  echo 'fa_pass x y' > "$FAKE/programs/system/lact/audit.sh"
+  echo 'feature_audit_pass x y' > "$FAKE/programs/system/lact/audit.sh"
   export FEATURE_AUDIT_EXTRAS_DIR="$FAKE/extras"
   mkdir -p "$FAKE/extras/niri" "$FAKE/extras/kde"
   echo '{}' > "$FAKE/extras/niri/install-niri.jsonc"
   echo '{}' > "$FAKE/extras/kde/install-kde.jsonc"
-  echo 'fa_pass x y' > "$FAKE/extras/kde/audit.sh"
+  echo 'feature_audit_pass x y' > "$FAKE/extras/kde/audit.sh"
   manifest '[{"id":"base"}]'
   run bash "$TOOL" check
   [ "$status" -eq 1 ]
@@ -288,10 +288,10 @@ noise() {
 phases_of() {
   bash -c "source '$INSTALLER_DIR/lib/jsonc.sh'
     source '$INSTALLER_DIR/lib/feature-audit/manifest.sh'
-    INSTALLER_DIR='$INSTALLER_DIR' fa_variant_phases '$1'"
+    INSTALLER_DIR='$INSTALLER_DIR' feature_audit_variant_phases '$1'"
 }
 
-@test "fa_variant_phases: declared list, or every phase when absent" {
+@test "feature_audit_variant_phases: declared list, or every phase when absent" {
   manifest '[{"id":"base"},
     {"id":"limine","patch":{"options":{"bootloader":"limine"}},
      "phases":["boot2","upgrade"]}]'

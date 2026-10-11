@@ -2,11 +2,11 @@
 # Feature Audit probe for cups (ADR 0152; contract: PROGRAM_SPEC.md). A real
 # job goes end to end: the guest's own `ippeveprinter` (shipped with cups)
 # plays an IPP Everywhere printer on localhost, cups drives it driverless.
-fa_require_pkg cups cups || return 0
-fa_as_root || return 0
-fa_check cups-scheduler "cups scheduler running" \
+feature_audit_require_package cups cups || return 0
+feature_audit_as_root || return 0
+feature_audit_check cups-scheduler "cups scheduler running" \
   sh -c 'lpstat -r | grep -q "is running"'
-_fa_cups_print() {
+_probe_cups_print() {
   local pid id rc=1
   # -r off: no DNS-SD (the guest runs no avahi; ippeveprinter asserts)
   ippeveprinter -r off -p 8631 -f text/plain,application/pdf fa-audit \
@@ -27,5 +27,5 @@ _fa_cups_print() {
   kill "$pid" 2>/dev/null
   return "$rc"
 }
-fa_check cups-print "test job completes on an IPP Everywhere printer" \
-  _fa_cups_print
+feature_audit_check cups-print "test job completes on an IPP Everywhere printer" \
+  _probe_cups_print

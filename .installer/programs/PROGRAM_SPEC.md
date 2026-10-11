@@ -325,13 +325,13 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
   FAIL and any stderr are Findings; SKIP is not. Exit code is ignored.
   Check ids are `<program>-<what>`, stable across runs.
 - **Helpers** (`lib/feature-audit/probe-lib.sh`, pre-sourced):
-  `fa_pass/fa_fail/fa_skip`, `fa_check <id> <msg> <cmd…>`,
-  `fa_require_pkg <probe> <pkg> || return 0` (SKIP when the package is
-  absent), `fa_as_root`/`fa_as_user`, `fa_cfg <jq>`, `fa_unit_active`,
-  `fa_no_stderr <cmd…>` (`fa_no_stderr_but <ere> <cmd…>` tolerates one
-  known-benign line), and the Probe Gate: `fa_gate <id> <reason> <cmd…>`
+  `feature_audit_pass/feature_audit_fail/feature_audit_skip`, `feature_audit_check <id> <msg> <cmd…>`,
+  `feature_audit_require_package <probe> <pkg> || return 0` (SKIP when the package is
+  absent), `feature_audit_as_root`/`feature_audit_as_user`, `feature_audit_config <jq>`, `feature_audit_unit_active`,
+  `feature_audit_no_stderr <cmd…>` (`feature_audit_no_stderr_but <ere> <cmd…>` tolerates one
+  known-benign line), and the Probe Gate: `feature_audit_gate <id> <reason> <cmd…>`
   (SKIP with a reason when the variant lacks what the check needs) with
-  `fa_stock` / `fa_curated` / `fa_has_shell` / `fa_host_core` (Host Core
+  `feature_audit_stock` / `feature_audit_curated` / `feature_audit_has_shell` / `feature_audit_host_core` (Host Core
   packages inherited). A program the variant does not
   select is skipped by the runner before its probe runs.
 - **Env:** `FA_USER FA_HOME FA_IS_ROOT FA_ONLINE FA_PHASE FA_SESSION`
@@ -340,7 +340,7 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
   live session's `WAYLAND_DISPLAY`/`DBUS_SESSION_BUS_ADDRESS`.
 - **Depth:** prove behaviour — a service is active *and answers*, a plugin is
   loaded *and does its job*, a config parses with no startup warnings. Real
-  hardware-only parts get `fa_skip` with the reason; the manifest's
+  hardware-only parts get `feature_audit_skip` with the reason; the manifest's
   `unverifiable` list names them.
 - **Timeout:** 600 s per account unless the probe declares
   `# audit-timeout: <sec>` in its header.
@@ -355,9 +355,9 @@ Start from `programs/system/zsh/audit.sh`:
 
 ```bash
 # shellcheck shell=bash
-fa_require_pkg zsh zsh || return 0
-fa_check zsh-startup "interactive zsh starts with no stderr" \
-  fa_no_stderr zsh -i -c exit
+feature_audit_require_package zsh zsh || return 0
+feature_audit_check zsh-startup "interactive zsh starts with no stderr" \
+  feature_audit_no_stderr zsh -i -c exit
 ```
 
 ---

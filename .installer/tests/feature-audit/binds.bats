@@ -12,7 +12,7 @@ setup() {
 }
 
 @test "niri parser: one row per bind, single- and multi-line actions" {
-  run fa_binds_parse niri "$FIX/niri-binds.kdl"
+  run feature_audit_binds_parse niri "$FIX/niri-binds.kdl"
   [ "$status" -eq 0 ]
   [ "$(wc -l <<<"$output")" -eq 5 ]
   grep -qxF $'niri\tMod+Return\tspawn "kitty"' <<<"$output"
@@ -25,7 +25,7 @@ setup() {
 }
 
 @test "niri parser: the shipped config parses to its binds" {
-  run fa_binds_rows niri
+  run feature_audit_binds_rows niri
   [ "$status" -eq 0 ]
   grep -qxF $'niri\tMod+X\tclose-window' <<<"$output"
   [ "$(wc -l <<<"$output")" -gt 100 ]
@@ -39,7 +39,7 @@ setup() {
   { "action": "spawn \"kitty\"", "effect": "window-opens", "arg": "kitty" }
 ] }
 J
-  run fa_binds_plan niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
+  run feature_audit_binds_plan niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
   [ "$status" -eq 0 ]
   jq -e 'select(.chord == "Mod+1") | .effect == "workspace" and .arg == "1"' \
     <<<"$output"
@@ -51,14 +51,14 @@ J
 @test "untested: rows with no expectation are listed" {
   echo '{ "expect": [ { "action": "focus-workspace *", "effect": "workspace",
     "arg": "{arg}" } ] }' > "$BATS_TEST_TMPDIR/b.jsonc"
-  run fa_binds_untested niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
+  run feature_audit_binds_untested niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
   [ "$(wc -l <<<"$output")" -eq 4 ]
   grep -q 'Mod+Return' <<<"$output"
   ! grep -q 'Mod+1' <<<"$output"
 }
 
 @test "hyprland parser: locals, concatenation, for-loops, opts" {
-  run fa_binds_parse hyprland "$FIX/hypr-binds.lua"
+  run feature_audit_binds_parse hyprland "$FIX/hypr-binds.lua"
   [ "$status" -eq 0 ]
   grep -qxF $'hyprland\tSuper+Return\texec_cmd("kitty")' <<<"$output"
   grep -qxF $'hyprland\tSuper+Shift+E\texit()' <<<"$output"
@@ -73,7 +73,7 @@ J
 }
 
 @test "kde parser: every active shortcut of every component, none skipped" {
-  run fa_binds_parse kde "$FIX/kglobalshortcutsrc"
+  run feature_audit_binds_parse kde "$FIX/kglobalshortcutsrc"
   [ "$status" -eq 0 ]
   grep -qxF $'kde\tAlt+F4\tkwin/Window Close' <<<"$output"
   grep -qxF $'kde\tMeta+X\tkwin/Window Close' <<<"$output"
@@ -86,10 +86,10 @@ J
 }
 
 @test "hyprland + kde: shipped configs parse" {
-  run fa_binds_rows hyprland
+  run feature_audit_binds_rows hyprland
   [ "$status" -eq 0 ]
   grep -qxF $'hyprland\tSuper+X\twindow.close()' <<<"$output"
-  run fa_binds_rows kde
+  run feature_audit_binds_rows kde
   [ "$status" -eq 0 ]
   grep -qxF $'kde\tMeta+X\tkwin/Window Close' <<<"$output"
 }
@@ -97,12 +97,12 @@ J
 @test "plan: {num} substitutes the action's first number" {
   echo '{ "expect": [ { "action": "focus({ workspace = *", "effect":
     "workspace", "arg": "{num}" } ] }' > "$BATS_TEST_TMPDIR/b.jsonc"
-  run fa_binds_plan hyprland "$FIX/hypr-binds.lua" "$BATS_TEST_TMPDIR/b.jsonc"
+  run feature_audit_binds_plan hyprland "$FIX/hypr-binds.lua" "$BATS_TEST_TMPDIR/b.jsonc"
   jq -e 'select(.chord == "Super+2") | .arg == "2"' <<<"$output"
 }
 
 @test "nvim parser: map/keymap.set calls and lazy keys specs" {
-  run fa_binds_parse nvim "$FIX/nvim-keys.lua"
+  run feature_audit_binds_parse nvim "$FIX/nvim-keys.lua"
   [ "$status" -eq 0 ]
   grep -qxF $'nvim\t<leader>w\tn Write buffer' <<<"$output"
   grep -qxF $'nvim\t<C-/>\tn,t Toggle terminal' <<<"$output"
@@ -115,14 +115,14 @@ J
 }
 
 @test "program sources: nvim binds are driven by the nvim probe" {
-  run fa_binds_program_sources nvim
+  run feature_audit_binds_program_sources nvim
   [ "$output" = nvim ]
-  run fa_binds_session nvim
+  run feature_audit_binds_session nvim
   [ "$output" = "-" ]
 }
 
 @test "kitty parser: map lines, kitty_mod = Ctrl+Shift" {
-  run fa_binds_parse kitty "$FIX/kitty-keys.conf"
+  run feature_audit_binds_parse kitty "$FIX/kitty-keys.conf"
   [ "$status" -eq 0 ]
   grep -qxF $'kitty\tCtrl+Shift+t\tnew_tab_with_cwd' <<<"$output"
   grep -qxF $'kitty\tCtrl+Alt+enter\tlaunch --cwd=current' <<<"$output"
@@ -130,7 +130,7 @@ J
 }
 
 @test "zsh parser: explicit bindkey lines, not keymap switches" {
-  run fa_binds_parse zsh "$FIX/zshrc"
+  run feature_audit_binds_parse zsh "$FIX/zshrc"
   [ "$status" -eq 0 ]
   grep -qxF $'zsh\t^[[1;5C\tmain forward-word' <<<"$output"
   grep -qxF $'zsh\t^R\tviins history-incremental-search-backward' <<<"$output"
@@ -140,7 +140,7 @@ J
 @test "plan: a source with no binds plans nothing, without error" {
   : > "$BATS_TEST_TMPDIR/empty.zshrc"
   echo '{ "expect": [] }' > "$BATS_TEST_TMPDIR/b.jsonc"
-  run fa_binds_plan zsh "$BATS_TEST_TMPDIR/empty.zshrc" \
+  run feature_audit_binds_plan zsh "$BATS_TEST_TMPDIR/empty.zshrc" \
     "$BATS_TEST_TMPDIR/b.jsonc"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
@@ -159,7 +159,7 @@ L
   { "action": "v Move selection *", "effect": "text-changes" }
 ] }
 J
-  run fa_binds_plan nvim "$BATS_TEST_TMPDIR/k.lua" "$BATS_TEST_TMPDIR/b.jsonc"
+  run feature_audit_binds_plan nvim "$BATS_TEST_TMPDIR/k.lua" "$BATS_TEST_TMPDIR/b.jsonc"
   [ "$status" -eq 0 ]
   jq -e 'select(.action == "n Hover") | .effect == "window-opens"' \
     <<<"$output"

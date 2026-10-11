@@ -17,23 +17,23 @@
 # `…@<user>.err.lines`); program names may hold `-`, never `@`.
 #
 # Public API:
-#   fa_report <run-dir>   → writes findings.jsonl + findings.md; 1 if any
+#   feature_audit_report <run-dir>   → writes findings.jsonl + findings.md; 1 if any
 # =============================================================================
 
 # Phase order for grouping; unknown phases sort last.
 FA_PHASES=(check install boot1 sessions probes-offline probes-online keybinds
            timers boot2 upgrade power)
 
-fa_known_noise_path() {
+feature_audit_known_noise_path() {
   local def="$INSTALLER_DIR/tests/vm/feature-audit/known-noise.jsonc"
   printf '%s\n' "${FEATURE_AUDIT_KNOWN_NOISE:-$def}"
 }
 
-# _fa_noise_tsv — Known Noise as `regex<TAB>source<TAB>phase<TAB>variants`
+# _report_noise_tsv — Known Noise as `regex<TAB>source<TAB>phase<TAB>variants`
 # rows (variants comma-joined; empty = every variant; an array regex is one
 # regex split across lines and concatenated, so the file keeps 80 columns).
-_fa_noise_tsv() {
-  local f; f="$(fa_known_noise_path)"
+_report_noise_tsv() {
+  local f; f="$(feature_audit_known_noise_path)"
   [[ -f "$f" ]] || return 0
   jsonc_strip "$f" | jq -r '.[] | [(.regex | if type == "array"
       then join("") else . end), (.source // ""), (.phase // ""),
@@ -41,9 +41,9 @@ _fa_noise_tsv() {
     | join("\t")'  # not @tsv: it escapes the regexes' backslashes
 }
 
-# _fa_candidates <run-dir> — one aggregated Finding per line (TSV):
+# _report_candidates <run-dir> — one aggregated Finding per line (TSV):
 # phase-rank source program check phases variants count total excerpt logs
-_fa_candidates() {
+_report_candidates() {
   local run="$1" phases; phases="${FA_PHASES[*]}"
   local -a files
   mapfile -t files < <(find "$run" -mindepth 3 -maxdepth 3 -type f \
@@ -184,7 +184,7 @@ _fa_candidates() {
   ' noisef="$FA_NOISE_TSV" "$FA_NOISE_TSV" "${files[@]}"
 }
 
-fa_report() {
+feature_audit_report() {
   local run="${1%/}"
   if [[ ! -d "$run" ]]; then
     echo "feature-audit: no run folder: $run" >&2; return 2
@@ -192,10 +192,10 @@ fa_report() {
   local jsonl="$run/findings.jsonl" md="$run/findings.md"
   rm -f "$jsonl" "$md"
   FA_NOISE_TSV="$(mktemp)"
-  _fa_noise_tsv > "$FA_NOISE_TSV"
+  _report_noise_tsv > "$FA_NOISE_TSV"
   # stable sort: phase rank, then source; first-seen order within a group
-  _fa_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
-    | jq -R -c --arg run "$run" --argjson va "$(_fa_variant_adrs "$run")" '
+  _report_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
+    | jq -R -c --arg run "$run" --argjson va "$(_report_variant_adrs "$run")" '
         split("\t") as $f
         | { phase: ($f[4] | split(",")[0]), phases: ($f[4] | split(",")),
             source: $f[1], program: (if $f[2] == "" then null else $f[2] end),
@@ -211,20 +211,20 @@ fa_report() {
         | ("0" * $w + .) | .[-$w:]))}) | .[]' > "$jsonl"
   rm -f "$FA_NOISE_TSV"
   [[ -s "$jsonl" ]] || : > "$jsonl"
-  _fa_render_md "$jsonl" "$run" > "$md"
+  _report_render_markdown "$jsonl" "$run" > "$md"
   [[ -s "$jsonl" ]] && return 1
   return 0
 }
 
-# _fa_render_md <jsonl> <run-dir> — agent-ready findings list + the
+# _report_render_markdown <jsonl> <run-dir> — agent-ready findings list + the
 # screenshots a script cannot judge (theming), for the fixing agent to view.
-_fa_render_md() {
+_report_render_markdown() {
   local jsonl="$1" run="$2" n; n="$(grep -c . "$jsonl" || true)"
   echo "# Feature Audit findings"
   echo
   if [[ "$n" -eq 0 ]]; then
-    echo "No findings."; _fa_render_skips "$run"
-    _fa_render_visual "$run"; return 0
+    echo "No findings."; _report_render_skips "$run"
+    _report_render_visual "$run"; return 0
   fi
   echo "$n finding(s). Fix each, or propose a Known Noise entry (regex +"
   echo "reason) for maintainer approval. Repro: rerun the variant with"
@@ -244,13 +244,13 @@ _fa_render_md() {
         ) | join("\n"))
       ) | join("\n"))
   ' "$jsonl"
-  _fa_render_skips "$run"
-  _fa_render_visual "$run"
+  _report_render_skips "$run"
+  _report_render_visual "$run"
 }
 
-# _fa_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR 0152)
+# _report_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR 0152)
 # with its reason and variants: never a Finding, but never silent either.
-_fa_render_skips() {
+_report_render_skips() {
   local run="$1"; local -a probes
   mapfile -t probes < <(find "$run" -mindepth 3 -maxdepth 3 -name '*.probe' \
     | sort)
@@ -272,9 +272,9 @@ _fa_render_skips() {
     }' "${probes[@]}"
 }
 
-# _fa_render_visual <run-dir> — screenshots for visual review (theming,
+# _report_render_visual <run-dir> — screenshots for visual review (theming,
 # layout): the fixing agent opens each and judges it.
-_fa_render_visual() {
+_report_render_visual() {
   local run="$1"; local -a shots
   mapfile -t shots < <(find "$run" -name '*.png' | sort)
   ((${#shots[@]})) || return 0
@@ -287,9 +287,9 @@ _fa_render_visual() {
   printf -- '- %s\n' "${shots[@]}"
 }
 
-# _fa_variant_adrs <run-dir> — {variant: [adr…]} from each variant.json, so a
+# _report_variant_adrs <run-dir> — {variant: [adr…]} from each variant.json, so a
 # Finding names the ADRs its variants exist to cover.
-_fa_variant_adrs() {
+_report_variant_adrs() {
   local -a vs
   mapfile -t vs < <(find "$1" -mindepth 2 -maxdepth 2 -name variant.json)
   ((${#vs[@]})) || { echo '{}'; return; }

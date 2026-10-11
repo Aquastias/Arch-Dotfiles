@@ -13,50 +13,50 @@
 # Every variant installs into the same VM name; one VM at a time.
 #
 # Public API:
-#   fa_manifest_path / fa_manifest_json
-#   fa_variant_ids                    → ids in manifest order
-#   fa_variant_json <id>              → the variant object
-#   fa_variant_vm_profile <id>        → VM Profile JSON (vm.sh input)
-#   fa_variant_config <id>            → the resolved Effective Config
-#   fa_validate_config <cfg-json>     → 0 iff validation_check_install_context passes
+#   feature_audit_manifest_path / feature_audit_manifest_json
+#   feature_audit_variant_ids                    → ids in manifest order
+#   feature_audit_variant_json <id>              → the variant object
+#   feature_audit_variant_vm_profile <id>        → VM Profile JSON (vm.sh input)
+#   feature_audit_variant_config <id>            → the resolved Effective Config
+#   feature_audit_validate_config <cfg-json>     → 0 iff validation_check_install_context passes
 # =============================================================================
 
 # committed audit data (manifest, Known Noise), INSTALLER_DIR-relative
 FA_DATA=tests/vm/feature-audit
 
-fa_manifest_path() {
+feature_audit_manifest_path() {
   local def="$INSTALLER_DIR/$FA_DATA/manifest.jsonc"
   printf '%s\n' "${FEATURE_AUDIT_MANIFEST:-$def}"
 }
 
-fa_manifest_json() { jsonc_strip "$(fa_manifest_path)" | jq -c .; }
+feature_audit_manifest_json() { jsonc_strip "$(feature_audit_manifest_path)" | jq -c .; }
 
-fa_variant_ids() { fa_manifest_json | jq -r '.variants[].id'; }
+feature_audit_variant_ids() { feature_audit_manifest_json | jq -r '.variants[].id'; }
 
-fa_variant_json() {
-  fa_manifest_json | jq -ce --arg id "$1" '.variants[] | select(.id == $id)'
+feature_audit_variant_json() {
+  feature_audit_manifest_json | jq -ce --arg id "$1" '.variants[] | select(.id == $id)'
 }
 
 # The phases a variant may declare (install + boot1 always run). Order is
 # the run order.
 FA_VARIANT_PHASES_ALL="sessions probes keybinds timers boot2 upgrade power"
 
-# fa_variant_phases <id> — the variant's Variant Phases (manifest `phases`),
+# feature_audit_variant_phases <id> — the variant's Variant Phases (manifest `phases`),
 # space-separated; every phase when it declares none.
-fa_variant_phases() {
+feature_audit_variant_phases() {
   local v
-  v="$(fa_variant_json "$1")" || return 1
+  v="$(feature_audit_variant_json "$1")" || return 1
   jq -r --arg all "$FA_VARIANT_PHASES_ALL" \
     '(.phases // ($all | split(" "))) | join(" ")' <<<"$v"
 }
 
-# fa_variant_host_core <id> — "true" unless the variant's Host Profile sets
+# feature_audit_variant_host_core <id> — "true" unless the variant's Host Profile sets
 # packages.inherit false (a pure host gets no Host Core packages). The probes
 # read it as the Host Core gate (Probe Gate).
-fa_variant_host_core() {
+feature_audit_variant_host_core() {
   local m v h f
-  m="$(fa_manifest_json)"
-  v="$(fa_variant_json "$1")" || return 1
+  m="$(feature_audit_manifest_json)"
+  v="$(feature_audit_variant_json "$1")" || return 1
   h="$(jq -r --argjson v "$v" '$v.host // .base.host' <<<"$m")"
   [[ "$(type -t profile_loader_directory)" == function ]] || {
     # shellcheck source=../config/profile-loader.sh
@@ -66,13 +66,13 @@ fa_variant_host_core() {
   jsonc_strip "$f" | jq -r '.packages.inherit != false'
 }
 
-# fa_variant_vm_profile <id> — the VM Profile vm.sh provisions. The base and
+# feature_audit_variant_vm_profile <id> — the VM Profile vm.sh provisions. The base and
 # real hosts go through host_profile (the real Profile Loader); a patched
 # variant carries its resolved config inline.
-fa_variant_vm_profile() {
+feature_audit_variant_vm_profile() {
   local id="$1" m v
-  m="$(fa_manifest_json)"
-  v="$(fa_variant_json "$id")" \
+  m="$(feature_audit_manifest_json)"
+  v="$(feature_audit_variant_json "$id")" \
     || { echo "feature-audit: unknown variant '$id'" >&2; return 1; }
   local base
   base="$(jq -c --argjson v "$v" '
@@ -81,7 +81,7 @@ fa_variant_vm_profile() {
       fixtures: (if $v.host then ($v.fixtures // [])
                  else .base.fixtures // [] end) }' <<<"$m")"
   if jq -e '.patch' <<<"$v" >/dev/null; then
-    local cfg; cfg="$(fa_variant_config "$id")" || return 1
+    local cfg; cfg="$(feature_audit_variant_config "$id")" || return 1
     jq -c --argjson c "$cfg" '. + {install: $c}' <<<"$base"
   elif jq -e '.host' <<<"$v" >/dev/null; then
     jq -c --arg h "$(jq -r .host <<<"$v")" \
@@ -92,13 +92,13 @@ fa_variant_vm_profile() {
   fi
 }
 
-# fa_variant_config <id> — the Effective Config the variant installs, resolved
+# feature_audit_variant_config <id> — the Effective Config the variant installs, resolved
 # host-side exactly as vm.sh would (a patch is applied to the loaded base host
 # profile inside the loader seam).
-fa_variant_config() {
+feature_audit_variant_config() {
   local id="$1" m v host patch prof
-  m="$(fa_manifest_json)"
-  v="$(fa_variant_json "$id")" \
+  m="$(feature_audit_manifest_json)"
+  v="$(feature_audit_variant_json "$id")" \
     || { echo "feature-audit: unknown variant '$id'" >&2; return 1; }
   host="$(jq -r '.base.host' <<<"$m")"
   patch="$(jq -c '.patch // empty' <<<"$v")"
@@ -106,7 +106,7 @@ fa_variant_config() {
     prof="$(jq -c --arg h "$host" '
       { name: .vm_name, hardware: .base.hardware, host_profile: $h }' <<<"$m")"
   else
-    local tmp; tmp="$(fa_variant_vm_profile "$id")" || return 1
+    local tmp; tmp="$(feature_audit_variant_vm_profile "$id")" || return 1
     prof="$tmp"
   fi
   (
@@ -125,10 +125,10 @@ fa_variant_config() {
   )
 }
 
-# fa_validate_config <cfg-json> — run the installer's own
+# feature_audit_validate_config <cfg-json> — run the installer's own
 # validation_check_install_context over an Effective Config (block-device probe
 # stubbed: disks are a VM concern), as the Combination Matrix Tier 1 does.
-fa_validate_config() {
+feature_audit_validate_config() {
   local cfg="$1" f
   f="$(mktemp)"
   printf '%s\n' "$cfg" > "$f"

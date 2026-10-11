@@ -15,111 +15,111 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 
 # ── check-level gates (probe lib) ───────────────────────────────────────────
 
-@test "fa_gate: unmet condition prints SKIP with reason, returns 1" {
-  run fa_gate xdg-dirs "needs xdg-user-dirs" false
+@test "feature_audit_gate: unmet condition prints SKIP with reason, returns 1" {
+  run feature_audit_gate xdg-dirs "needs xdg-user-dirs" false
   [ "$status" -eq 1 ]
   [ "$output" = "SKIP xdg-dirs needs xdg-user-dirs" ]
 }
 
-@test "fa_gate: met condition is silent, returns 0" {
-  run fa_gate xdg-dirs "needs xdg-user-dirs" true
+@test "feature_audit_gate: met condition is silent, returns 0" {
+  run feature_audit_gate xdg-dirs "needs xdg-user-dirs" true
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
-@test "fa_stock: true only on a stock environment" {
+@test "feature_audit_stock: true only on a stock environment" {
   write_variant_config '{"environment":{"desktop":["hyprland"],"stock":true}}'
-  run fa_stock; [ "$status" -eq 0 ]
+  run feature_audit_stock; [ "$status" -eq 0 ]
   write_variant_config \
     '{"environment":{"desktop":["hyprland"],"wayland_shell":"noctalia"}}'
-  run fa_stock; [ "$status" -ne 0 ]
+  run feature_audit_stock; [ "$status" -ne 0 ]
 }
 
-@test "fa_has_shell: noctalia or absent (default) yes; none or stock no" {
+@test "feature_audit_has_shell: noctalia or absent (default) yes; none or stock no" {
   write_variant_config '{"environment":{"wayland_shell":"noctalia"}}'
-  run fa_has_shell; [ "$status" -eq 0 ]
+  run feature_audit_has_shell; [ "$status" -eq 0 ]
   write_variant_config '{"environment":{}}'
-  run fa_has_shell; [ "$status" -eq 0 ]
+  run feature_audit_has_shell; [ "$status" -eq 0 ]
   write_variant_config '{"environment":{"wayland_shell":"none"}}'
-  run fa_has_shell; [ "$status" -ne 0 ]
+  run feature_audit_has_shell; [ "$status" -ne 0 ]
   write_variant_config '{"environment":{"stock":true}}'
-  run fa_has_shell; [ "$status" -ne 0 ]
+  run feature_audit_has_shell; [ "$status" -ne 0 ]
 }
 
 # ── program-level gate (host) ───────────────────────────────────────────────
 
-@test "fa_probe_gate_split: unselected program's probe is skipped" {
-  run fa_probe_gate_split $'kitty\nnvim' \
+@test "feature_audit_probe_gate_split: unselected program's probe is skipped" {
+  run feature_audit_probe_gate_split $'kitty\nnvim' \
     /x/programs/system/kitty /x/programs/security/apparmor
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = $'run\t/x/programs/system/kitty' ]
   [ "${lines[1]}" = $'skip\tapparmor' ]
 }
 
-@test "fa_selected_programs: host, user and post-install programs" {
+@test "feature_audit_selected_programs: host, user and post-install programs" {
   local c
   c='{"host_programs":["smartmontools"],"users":[],
       "post_install":{"security":{"apparmor":true}}}'
-  run fa_selected_programs "$c"
+  run feature_audit_selected_programs "$c"
   [ "$status" -eq 0 ]
   [[ "$output" == *smartmontools* ]]
   [[ "$output" == *apparmor* ]]
   c='{"host_programs":[],"users":[],
       "post_install":{"security":{"apparmor":false}}}'
-  run fa_selected_programs "$c"
+  run feature_audit_selected_programs "$c"
   [[ "$output" != *apparmor* ]]
 }
 
 # ── bind gate (host) ────────────────────────────────────────────────────────
 
-@test "fa_bind_gate: stock install skips every bind source" {
-  run fa_bind_gate kde '{"environment":{"desktop":["kde"],"stock":true}}'
+@test "feature_audit_bind_gate: stock install skips every bind source" {
+  run feature_audit_bind_gate kde '{"environment":{"desktop":["kde"],"stock":true}}'
   [ "$status" -eq 0 ]
   [[ "$output" == *stock* ]]
 }
 
-@test "fa_bind_gate: no shell skips niri/Hyprland, not KDE" {
+@test "feature_audit_bind_gate: no shell skips niri/Hyprland, not KDE" {
   local c='{"environment":{"wayland_shell":"none"}}'
-  run fa_bind_gate niri "$c";     [ "$status" -eq 0 ]
-  run fa_bind_gate hyprland "$c"; [ "$status" -eq 0 ]
-  run fa_bind_gate kde "$c";      [ "$status" -ne 0 ]; [ -z "$output" ]
+  run feature_audit_bind_gate niri "$c";     [ "$status" -eq 0 ]
+  run feature_audit_bind_gate hyprland "$c"; [ "$status" -eq 0 ]
+  run feature_audit_bind_gate kde "$c";      [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 
-@test "fa_bind_gate: curated base with a shell runs every session" {
+@test "feature_audit_bind_gate: curated base with a shell runs every session" {
   local c='{"environment":{"wayland_shell":"noctalia"}}'
-  run fa_bind_gate niri "$c"; [ "$status" -ne 0 ]; [ -z "$output" ]
+  run feature_audit_bind_gate niri "$c"; [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 
 # ── stderr judging ──────────────────────────────────────────────────────────
 
-@test "fa_no_stderr_but: only lines matching the ERE are tolerated" {
-  run fa_no_stderr_but 'Notify:' sh -c 'echo "glfw Notify: no server" >&2'
+@test "feature_audit_no_stderr_but: only lines matching the ERE are tolerated" {
+  run feature_audit_no_stderr_but 'Notify:' sh -c 'echo "glfw Notify: no server" >&2'
   [ "$status" -eq 0 ]
-  run fa_no_stderr_but 'Notify:' \
+  run feature_audit_no_stderr_but 'Notify:' \
     sh -c 'echo "glfw Notify: x" >&2; echo "bad config key" >&2'
   [ "$status" -eq 1 ]
   [ "$output" = "bad config key" ]
 }
 
-@test "fa_no_stderr_but: a failing command still fails" {
-  run fa_no_stderr_but 'Notify:' false
+@test "feature_audit_no_stderr_but: a failing command still fails" {
+  run feature_audit_no_stderr_but 'Notify:' false
   [ "$status" -eq 1 ]
 }
 
 # ── Host Core gate ──────────────────────────────────────────────────────────
 
-@test "fa_host_core: true unless the variant opts out of Host Core" {
+@test "feature_audit_host_core: true unless the variant opts out of Host Core" {
   write_variant_config '{}'
-  fa_host_core
+  feature_audit_host_core
   write_variant_config '{"_audit":{"host_core":true}}'
-  fa_host_core
+  feature_audit_host_core
   write_variant_config '{"_audit":{"host_core":false}}'
-  ! fa_host_core
+  ! feature_audit_host_core
 }
 
-@test "fa_variant_host_core: pure hosts don't inherit, the base does" {
+@test "feature_audit_variant_host_core: pure hosts don't inherit, the base does" {
   source "$INSTALLER_DIR/lib/jsonc.sh"
   source "$INSTALLER_DIR/lib/feature-audit/manifest.sh"
-  [ "$(fa_variant_host_core kde-pure)" = false ]
-  [ "$(fa_variant_host_core base)" = true ]
+  [ "$(feature_audit_variant_host_core kde-pure)" = false ]
+  [ "$(feature_audit_variant_host_core base)" = true ]
 }

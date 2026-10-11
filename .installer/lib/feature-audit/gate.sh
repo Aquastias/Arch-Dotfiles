@@ -7,14 +7,14 @@
 # is resolved like the installer does, and unselected probes become SKIPs.
 #
 # Public API:
-#   fa_selected_programs <cfg-json>         → selected program names, sorted
-#   fa_probe_gate_split <selected> <dir…>   → "run<TAB>dir" | "skip<TAB>name"
-#   fa_bind_gate <desktop> <cfg-json>       → skip reason (rc 0) or rc 1
+#   feature_audit_selected_programs <cfg-json>         → selected program names, sorted
+#   feature_audit_probe_gate_split <selected> <dir…>   → "run<TAB>dir" | "skip<TAB>name"
+#   feature_audit_bind_gate <desktop> <cfg-json>       → skip reason (rc 0) or rc 1
 # =============================================================================
 
-# fa_selected_programs <cfg-json> — host programs (incl. toggle-derived), every
+# feature_audit_selected_programs <cfg-json> — host programs (incl. toggle-derived), every
 # user's resolved programs, and the post-install Security & Backup Extras.
-fa_selected_programs() {
+feature_audit_selected_programs() {
   local cfg="$1" u
   [[ "$(type -t profile_loader_load_user)" == function ]] || {
     # shellcheck source=../config/profile-loader.sh
@@ -33,8 +33,8 @@ fa_selected_programs() {
   } | sort -u
 }
 
-# fa_probe_gate_split <selected> <dir…> — <selected> is newline-separated.
-fa_probe_gate_split() {
+# feature_audit_probe_gate_split <selected> <dir…> — <selected> is newline-separated.
+feature_audit_probe_gate_split() {
   local sel=$'\n'"$1"$'\n' d n; shift
   for d in "$@"; do
     n="${d%/}"; n="${n##*/}"
@@ -43,12 +43,12 @@ fa_probe_gate_split() {
   done
 }
 
-# fa_bind_gate <session-desktop> <cfg-json> — why this variant cannot judge
+# feature_audit_bind_gate <session-desktop> <cfg-json> — why this variant cannot judge
 # binds in <session-desktop> (rc 0, reason on stdout), or rc 1 to run them.
 # The bind scenes drive our curated compositor setup: a stock install ships
 # none (ADR 0112), and a shell-less niri/Hyprland is the bare compositor with
 # no seeded config.
-fa_bind_gate() {
+feature_audit_bind_gate() {
   local de="$1" cfg="$2"
   if [[ "$(jq -r '.environment.stock // false' <<<"$cfg")" == true ]]; then
     echo "stock install: our binds are not deployed (ADR 0112)"; return 0

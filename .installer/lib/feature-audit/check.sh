@@ -10,19 +10,19 @@
 # tests can exercise one family against fixture data.
 #
 # Public API:
-#   fa_audit_check   → Finding lines on stdout; 1 if any
+#   feature_audit_check_variant   → Finding lines on stdout; 1 if any
 # =============================================================================
 
-_fa_check_on() {
+_check_on() {
   [[ " ${FEATURE_AUDIT_CHECKS:-$FA_CHECK_FAMILIES} " == *" $1 "* ]]
 }
 
 FA_CHECK_FAMILIES="manifest features programs binds phases noise"
 
-# _fa_check_manifest — every variant resolves to a valid Effective Config.
-_fa_check_manifest() {
+# _check_manifest — every variant resolves to a valid Effective Config.
+_check_manifest() {
   local m id cfg err
-  m="$(fa_manifest_json)" || { echo "manifest: not valid JSONC"; return; }
+  m="$(feature_audit_manifest_json)" || { echo "manifest: not valid JSONC"; return; }
   jq -r '.variants | group_by(.id)[] | select(length > 1) | .[0].id' <<<"$m" \
     | while IFS= read -r id; do echo "manifest: duplicate variant id $id"; done
   jq -r '.unverifiable[]? | select((.reason // "") == "")
@@ -33,11 +33,11 @@ _fa_check_manifest() {
       <<<"$m" >/dev/null; then
       continue   # guided variants resolve in-guest from the menu answers
     fi
-    if ! cfg="$(fa_variant_config "$id" 2>/dev/null)" || [[ -z "$cfg" ]]; then
+    if ! cfg="$(feature_audit_variant_config "$id" 2>/dev/null)" || [[ -z "$cfg" ]]; then
       echo "manifest: variant $id does not resolve"
       continue
     fi
-    if ! err="$(fa_validate_config "$cfg" 2>&1)"; then
+    if ! err="$(feature_audit_validate_config "$cfg" 2>&1)"; then
       echo "manifest: variant $id fails validation: $(head -1 <<<"$err")"
     fi
   done < <(jq -r '.variants | map(.id) | unique[]' <<<"$m")
@@ -48,10 +48,10 @@ _fa_check_manifest() {
 _FA_FEATURE_SKIP='^(system\.|__|sysctl$|users$|options\.(mirror_|'
 _FA_FEATURE_SKIP+='optional_repos|custom_repositories|pacman\.|age_key_url$))'
 
-# _fa_feature_values — every required `path=value`, derived from the menu's
+# _check_feature_values — every required `path=value`, derived from the menu's
 # own fields + option sets (never a hand list): enum → each option, bool →
 # both sides. Storage axes stay with the Combination Matrix (ADR 0046).
-_fa_feature_values() {
+_check_feature_values() {
   (
     # shellcheck source=../config/menu.sh
     source "$INSTALLER_DIR/lib/config/menu.sh"
@@ -74,9 +74,9 @@ _fa_feature_values() {
   )
 }
 
-# _fa_config_has <cfg> <path> <value> <default> — the config (menu default
+# _check_config_has <cfg> <path> <value> <default> — the config (menu default
 # when absent) holds <value> at <path>; arrays match by membership.
-_fa_config_has() {
+_check_config_has() {
   jq -e --arg p "$2" --arg v "$3" --arg d "$4" '
     (getpath($p | split(".")) ) as $x
     | (if $x == null then ($d | split(", ")) else $x end) as $y
@@ -84,15 +84,15 @@ _fa_config_has() {
       else ($y | tostring) == $v end' <<<"$1" >/dev/null 2>&1
 }
 
-# _fa_check_features — every feature value is enabled by some variant, a
+# _check_features — every feature value is enabled by some variant, a
 # guided variant's `covers`, or an `unverifiable` entry.
-_fa_check_features() {
+_check_features() {
   local m id cfg feat def p v
-  m="$(fa_manifest_json)" || return
+  m="$(feature_audit_manifest_json)" || return
   local -a cfgs=()
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
-    cfg="$(fa_variant_config "$id" 2>/dev/null)" && cfgs+=("$cfg")
+    cfg="$(feature_audit_variant_config "$id" 2>/dev/null)" && cfgs+=("$cfg")
   done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$m")
   local covered
   covered="$(jq -r '(.unverifiable[]?.feature),
@@ -102,18 +102,18 @@ _fa_check_features() {
     p="${feat%%=*}"; v="${feat#*=}"
     local hit=0
     for cfg in "${cfgs[@]}"; do
-      _fa_config_has "$cfg" "$p" "$v" "$def" && { hit=1; break; }
+      _check_config_has "$cfg" "$p" "$v" "$def" && { hit=1; break; }
     done
     ((hit)) || echo "coverage: feature $feat is enabled by no variant"
-  done < <(_fa_feature_values)
+  done < <(_check_feature_values)
 }
 
-# _fa_check_programs — every registry program ships an audit probe (its
+# _check_programs — every registry program ships an audit probe (its
 # `audit.sh`), unless the manifest marks `program:<name>` unverifiable.
-_fa_check_programs() {
+_check_programs() {
   local root="${FEATURE_AUDIT_PROGRAMS_DIR:-$INSTALLER_DIR/programs}" d n
   local covered
-  covered="$(fa_manifest_json | jq -r '.unverifiable[]?.feature')"
+  covered="$(feature_audit_manifest_json | jq -r '.unverifiable[]?.feature')"
   for d in "$root"/*/*/; do
     [[ -f "$d/config.jsonc" ]] || continue
     n="${d%/}"; n="${n##*/}"
@@ -132,12 +132,12 @@ _fa_check_programs() {
   done
 }
 
-# _fa_check_binds — every shipped keybind (parsed from the real configs) has
+# _check_binds — every shipped keybind (parsed from the real configs) has
 # a declared, testable expectation.
-_fa_check_binds() {
+_check_binds() {
   local src chord action exp
-  for src in $(fa_binds_sources); do
-    exp="$(fa_binds_expect_file "$src")"
+  for src in $(feature_audit_binds_sources); do
+    exp="$(feature_audit_binds_expect_file "$src")"
     if [[ -f "$exp" ]] && ! jsonc_strip "$exp" | jq -e . >/dev/null 2>&1
     then
       echo "coverage: $src expectations ${exp#"$FA_REPO_ROOT"/} not valid JSONC"
@@ -146,27 +146,27 @@ _fa_check_binds() {
     while IFS=$'\t' read -r _ chord action; do
       [[ -n "$chord" ]] || continue
       echo "coverage: $src bind $chord ($action) has no audit expectation"
-    done < <(fa_binds_untested "$src" 2>&1)
+    done < <(feature_audit_binds_untested "$src" 2>&1)
   done
 }
 
-# _fa_check_phases — Variant Phases name real phases, and skipping never
+# _check_phases — Variant Phases name real phases, and skipping never
 # loses coverage: every phase, every installed desktop's binds and every
 # selected program's probe still run in some variant.
-_fa_check_phases() {
+_check_phases() {
   local m id ph p cfg de
   local root="${FEATURE_AUDIT_PROGRAMS_DIR:-$INSTALLER_DIR/programs}"
-  m="$(fa_manifest_json)" || return
+  m="$(feature_audit_manifest_json)" || return
   local -A ran=() want_de=() bound_de=() want_prog=() probed=()
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
-    ph="$(fa_variant_phases "$id")"
+    ph="$(feature_audit_variant_phases "$id")"
     for p in $ph; do
       [[ " $FA_VARIANT_PHASES_ALL " == *" $p "* ]] \
         || echo "manifest: variant $id declares unknown phase $p"
       ran[$p]=1
     done
-    cfg="$(fa_variant_config "$id" 2>/dev/null)" || continue
+    cfg="$(feature_audit_variant_config "$id" 2>/dev/null)" || continue
     for de in $(jq -r '.environment.desktop // [] | if type == "string"
         then [.] else . end | .[]' <<<"$cfg"); do
       want_de[$de]=1
@@ -178,7 +178,7 @@ _fa_check_phases() {
       compgen -G "$root/*/$p/audit.sh" >/dev/null || continue
       want_prog[$p]=1
       [[ " $ph " == *" probes "* ]] && probed[$p]=1
-    done < <(fa_selected_programs "$cfg" 2>/dev/null)
+    done < <(feature_audit_selected_programs "$cfg" 2>/dev/null)
   done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$m")
   for p in $FA_VARIANT_PHASES_ALL; do
     [[ -n "${ran[$p]:-}" ]] || echo "coverage: phase $p runs in no variant"
@@ -193,13 +193,13 @@ _fa_check_phases() {
   done | sort
 }
 
-# _fa_check_noise — every Known Noise entry has a valid regex and a reason, and
+# _check_noise — every Known Noise entry has a valid regex and a reason, and
 # its optional variants scope names real manifest variants.
-_fa_check_noise() {
+_check_noise() {
   local f m ids re
-  f="$(fa_known_noise_path)"
+  f="$(feature_audit_known_noise_path)"
   [[ -f "$f" ]] || return 0
-  m="$(fa_manifest_json)" || return 0
+  m="$(feature_audit_manifest_json)" || return 0
   ids="$(jq -c '[.variants[].id]' <<<"$m")"
   jsonc_strip "$f" | jq -r --argjson ids "$ids" '
     if type != "array" then "noise: not a JSON array" else .[] |
@@ -221,15 +221,15 @@ _fa_check_noise() {
     | if type == "array" then join("") else . end' 2>/dev/null)
 }
 
-fa_audit_check() {
+feature_audit_check_variant() {
   local out
   out="$(
-    _fa_check_on manifest && _fa_check_manifest
-    _fa_check_on features && _fa_check_features
-    _fa_check_on programs && _fa_check_programs
-    _fa_check_on binds && _fa_check_binds
-    _fa_check_on phases && _fa_check_phases
-    _fa_check_on noise && _fa_check_noise
+    _check_on manifest && _check_manifest
+    _check_on features && _check_features
+    _check_on programs && _check_programs
+    _check_on binds && _check_binds
+    _check_on phases && _check_phases
+    _check_on noise && _check_noise
     true
   )"
   [[ -z "$out" ]] && return 0
