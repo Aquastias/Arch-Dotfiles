@@ -261,6 +261,9 @@ lib/feature-audit/ (directory API `feature_audit_`)
 
 lib/guided/ (directory API `guided_`)
 - `controller.sh`: `_ctl_` → `_controller_` (split first, ticket 15)
+  — split into `controller.sh` + `controller-*.sh` (fields, user-fields,
+  chrome, screen-data, detail, list, enter-users/host/values/pools,
+  history); one `file` rule (`controller*.sh`) puts them on `_controller_`
 - `shell.sh`: `_guided_` → `_guided_shell_` (`_shell_` would read as the
   Shell Stdlib); split into `shell.sh` + `shell-assembly.sh`,
   `shell-options.sh`, `shell-users.sh`, `shell-session.sh` — one `file`

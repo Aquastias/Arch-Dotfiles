@@ -70,3 +70,4 @@ file .installer/programs/**/audit.sh _probe_ _probe_
 file .installer/extras/**/audit*.sh _probe_ _probe_
 file .installer/lib/packages/package-resolver-desktop.sh package_resolver_ _package_resolver_
 file .installer/lib/config/validation-programs.sh validation_ _validation_
+file .installer/lib/guided/controller*.sh guided_ _controller_

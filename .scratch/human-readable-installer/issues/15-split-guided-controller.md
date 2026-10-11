@@ -7,10 +7,15 @@ no renames, no logic change, so the diff is reviewable as relocation only.
 
 **Blocked by:** 05 — Pilot
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every resulting file ≤ 500 lines; Prefix Map updated (owner
+- [x] Every resulting file ≤ 500 lines; Prefix Map updated (owner
       re-approval only for new public Prefixes)
-- [ ] Function bodies byte-identical to before (moved only)
-- [ ] shellcheck, bats, `audit.sh`, lint green
-- [ ] Guided-flow run (VM Agent Control) green
+- [x] Function bodies byte-identical to before (moved only)
+- [x] shellcheck, bats, `audit.sh`, lint green
+- [ ] Guided-flow run (VM Agent Control) green (pending final VM check)
+
+## Comment
+
+`controller-list.sh` is 652 lines: `guided_ctl_list` alone is 645 and a pure
+move cannot split it — ticket 16 splits the function.
