@@ -73,11 +73,11 @@ _harden_boot_selected_kernels() {
     awk '$1 == "linux" { sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
       "$entry_file"
   done 2>/dev/null | sort -u
-  [[ -f "$ROOT/etc/default/grub" ]] &&
-    awk '/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-.*".*/ {
-      sub(/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-/, ""); sub(/"[^"]*$/, "")
-      print
-    }' "$ROOT/etc/default/grub"
+  [[ -f "$ROOT/etc/default/grub" ]] || return 0
+  awk '/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-.*".*/ {
+    sub(/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-/, ""); sub(/"[^"]*$/, "")
+    print
+  }' "$ROOT/etc/default/grub"
 }
 
 # _harden_boot_write_hook <name> <when> <exec> <desc> [extra]
@@ -144,6 +144,7 @@ _harden_boot_drop_fallback() {
     [[ -f "$entry_file" ]] || continue
     grep -q 'fallback' "$entry_file" && rm -f "$entry_file"
   done
+  return 0
 }
 
 _harden_boot_pin_grub_default() {

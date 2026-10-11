@@ -58,3 +58,23 @@ teardown() { rm -rf "$ROOT"; }
   [[ "$output" == *install-warn-hook* ]]
   [[ "$output" != *install-esp-kernel-sync* ]]
 }
+
+# Regression (harden-boot-warn-hook-abort): a systemd-boot root without
+# /etc/default/grub used to abort after "applying: install-warn-hook".
+@test "apply: systemd-boot root without grub defaults writes every hook" {
+  mkdir -p "$ROOT/boot/efi/loader/entries"
+  printf 'title Arch\nlinux /vmlinuz-linux-lts\ninitrd /amd-ucode.img\n' \
+    > "$ROOT/boot/efi/loader/entries/arch.conf"
+  printf 'title fb\nlinux /vmlinuz-linux-lts\ninitrd /x-fallback.img\n' \
+    > "$ROOT/boot/efi/loader/entries/zz-fallback.conf"
+  run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"harden-boot: done."* ]]
+  local hooks="$ROOT/etc/pacman.d/hooks"
+  [ -f "$hooks/93-esp-kernel-sync-preflight.hook" ]
+  [ -f "$hooks/94-esp-kernel-sync.hook" ]
+  [ -f "$hooks/97-stray-kernel-warn.hook" ]
+  [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]
+  # reconcile-microcode dropped the initrd for the absent ucode image
+  ! grep -q 'amd-ucode' "$ROOT/boot/efi/loader/entries/arch.conf"
+}

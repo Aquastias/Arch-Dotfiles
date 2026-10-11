@@ -12,8 +12,14 @@ not a refactor regression. Fix: end the helper with `return 0` (or an
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-triage
+**Status:** done
 
-- [ ] Selected-kernels helper returns 0 when no grub defaults file exists
-- [ ] Apply on a systemd-boot fake root writes all three hooks, rc 0
-- [ ] harden-boot.bats covers apply on a systemd-boot fake root
+- [x] Selected-kernels helper returns 0 when no grub defaults file exists
+- [x] Apply on a systemd-boot fake root writes all three hooks, rc 0
+- [x] harden-boot.bats covers apply on a systemd-boot fake root
+
+## Comments
+
+2026-10-11: fixed — the helper returns 0 without a grub defaults file;
+`_harden_boot_drop_fallback` had the same false-tail abort and now ends with
+`return 0`. Covered by harden-boot.bats ("apply: systemd-boot root …").
