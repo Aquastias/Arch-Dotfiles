@@ -16,8 +16,8 @@ mount -t tmpfs -o size=10m,mode=0700 tmpfs "$RUN_SECRETS"
 export SOPS_AGE_KEY_FILE="$AGE_KEY"
 
 shopt -s nullglob
-for f in "${SOPS_SECRETS_DIR}"/*.json; do
-  name="$(basename "$f" .json)"
-  sops --decrypt "$f" > "${RUN_SECRETS}/${name}.json"
+for secrets_file in "${SOPS_SECRETS_DIR}"/*.json; do
+  name="${secrets_file##*/}"; name="${name%.json}"
+  sops --decrypt "$secrets_file" > "${RUN_SECRETS}/${name}.json"
   chmod 600 "${RUN_SECRETS}/${name}.json"
 done

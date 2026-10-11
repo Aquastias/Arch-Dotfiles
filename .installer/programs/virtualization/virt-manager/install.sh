@@ -71,8 +71,8 @@ DEFAULT_NET_XML="/etc/libvirt/qemu/networks/default.xml"
 DEFAULT_NET_AUTOSTART="/etc/libvirt/qemu/networks/autostart/default.xml"
 if [[ -f /usr/share/libvirt/networks/default.xml ]]; then
   sudo install -d -o root -g root -m 755 \
-    "$(dirname "$DEFAULT_NET_XML")" \
-    "$(dirname "$DEFAULT_NET_AUTOSTART")"
+    "${DEFAULT_NET_XML%/*}" \
+    "${DEFAULT_NET_AUTOSTART%/*}"
   sudo install -o root -g root -m 644 \
     /usr/share/libvirt/networks/default.xml "$DEFAULT_NET_XML"
   sudo ln -sf "$DEFAULT_NET_XML" "$DEFAULT_NET_AUTOSTART"

@@ -67,7 +67,6 @@ local-name	.installer/lib/wipe/progress.sh	progress_line:secs
 local-name	.installer/lib/wipe/progress.sh	progress_pct:pct
 local-name	.installer/lib/wipe/progress.sh	progress_rate:secs
 local-name	.installer/lib/wipe/progress.sh	_progress_si:n
-local-name	.installer/programs/security/sops/scripts/sops-runtime.sh	-:f
 local-name	.installer/tests/audit.sh	-:bl
 local-name	.installer/tests/audit.sh	_check_program:dir
 local-name	.installer/tests/audit.sh	-:de
@@ -901,9 +900,6 @@ tool	.installer/lib/wipe/execute.sh	wipe_one_disk:head
 tool	.installer/lib/wipe/execute.sh	wipe_one_disk:xargs
 tool	.installer/lib/wipe/progress.sh	progress_parse_bytes:tail
 tool	.installer/lib/wipe/progress.sh	progress_parse_bytes:tr
-tool	.installer/programs/security/sops/scripts/sops-runtime.sh	-:basename
-tool	.installer/programs/virtualization/virt-manager/install.sh	-:dirname
-tool	.installer/programs/virtualization/virt-manager/install.sh	-:dirname
 tool	.installer/tests/audit.sh	-:basename
 tool	.installer/tests/audit.sh	-:basename
 tool	.installer/tests/audit.sh	-:basename
