@@ -134,7 +134,7 @@ setup() {
 # ── archzfs_kernel_lts_pin_cleanup: the pin repo must never leak into the
 # target ──────
 
-_write_conf_with_pin() {
+_write_config_with_pin() {
   cat > "$1" <<'CONF'
 [core]
 Include = /etc/pacman.d/mirrorlist
@@ -151,23 +151,23 @@ CONF
 }
 
 @test "cleanup removes the pin repo block, keeps other repos" {
-  local conf; conf="$(mktemp)"
-  _write_conf_with_pin "$conf"
-  run archzfs_kernel_lts_pin_cleanup "$conf"
+  local pacman_config; pacman_config="$(mktemp)"
+  _write_config_with_pin "$pacman_config"
+  run archzfs_kernel_lts_pin_cleanup "$pacman_config"
   [ "$status" -eq 0 ]
-  ! grep -q 'archzfs-lts-pin' "$conf"     # block + comments gone
-  grep -q '^\[core\]' "$conf"             # untouched
-  grep -q '^\[extra\]' "$conf"            # untouched
-  rm -f "$conf"
+  ! grep -q 'archzfs-lts-pin' "$pacman_config"     # block + comments gone
+  grep -q '^\[core\]' "$pacman_config"             # untouched
+  grep -q '^\[extra\]' "$pacman_config"            # untouched
+  rm -f "$pacman_config"
 }
 
 @test "cleanup is idempotent / no-op when the block is absent" {
-  local conf; conf="$(mktemp)"
-  printf '[core]\nInclude = /x\n' > "$conf"
-  run archzfs_kernel_lts_pin_cleanup "$conf"
+  local pacman_config; pacman_config="$(mktemp)"
+  printf '[core]\nInclude = /x\n' > "$pacman_config"
+  run archzfs_kernel_lts_pin_cleanup "$pacman_config"
   [ "$status" -eq 0 ]
-  grep -q '^\[core\]' "$conf"
-  rm -f "$conf"
+  grep -q '^\[core\]' "$pacman_config"
+  rm -f "$pacman_config"
 }
 
 # ── archzfs_kernel_pin_candidates: newest-first, at/below the ceiling (ADR
@@ -190,17 +190,17 @@ CONF
 # ── build_repo: fall back to the closest available compatible version ─────────
 
 @test "build_repo: exact version fetches → pins to it" {
-  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  local repository_directory; repository_directory="$(mktemp -d)"; local conf; conf="$(mktemp)"
   printf '[options]\n' > "$conf"
   _archzfs_kernel_fetch_archive_lts_versions() { printf '6.18.52-1\n'; }
   archive_fetch_package() { : > "$3"; return 0; }   # every fetch succeeds
   repo-add() { return 0; }
   pacman() { return 0; }
   export -f _archzfs_kernel_fetch_archive_lts_versions archive_fetch_package repo-add pacman
-  PACMAN_CONF="$conf" run _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$dir"
+  PACMAN_CONF="$conf" run _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$repository_directory"
   [ "$status" -eq 0 ]
   [ "$output" = "6.18.52-1" ]
-  rm -rf "$dir" "$conf"
+  rm -rf "$repository_directory" "$conf"
 }
 
 @test "build_repo: fetch logs never leak into the captured version (spec)" {
@@ -208,7 +208,7 @@ CONF
   # function's stdout IS the chosen version (captured by
   # archzfs_kernel_lts_pin_prepare with $(...)), so a leak corrupts
   # LTS_PIN_SPECS → pacstrap 'target not found'.
-  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  local repository_directory; repository_directory="$(mktemp -d)"; local conf; conf="$(mktemp)"
   printf '[options]\n' > "$conf"
   _archzfs_kernel_fetch_archive_lts_versions() { printf '6.18.52-1\n'; }
   # Emulate the real fetch: emit an info() line to STDOUT, then create the pkg.
@@ -220,14 +220,14 @@ CONF
   export -f _archzfs_kernel_fetch_archive_lts_versions archive_fetch_package repo-add pacman
   # Capture STDOUT only, exactly as the caller does; stderr (logs) is discarded.
   local chosen
-  chosen="$(PACMAN_CONF="$conf" _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$dir" \
+  chosen="$(PACMAN_CONF="$conf" _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$repository_directory" \
     2>/dev/null)"
   [ "$chosen" = "6.18.52-1" ]                 # clean version, no [INFO] text
-  rm -rf "$dir" "$conf"
+  rm -rf "$repository_directory" "$conf"
 }
 
 @test "build_repo: exact missing → uses closest available compatible" {
-  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  local repository_directory; repository_directory="$(mktemp -d)"; local conf; conf="$(mktemp)"
   printf '[options]\n' > "$conf"
   _archzfs_kernel_fetch_archive_lts_versions() { printf '%s\n' 6.18.50-1 6.18.52-1; }
   # The requested 6.18.52 fails; 6.18.50 (next candidate) succeeds.
@@ -237,24 +237,24 @@ CONF
   repo-add() { return 0; }
   pacman() { return 0; }
   export -f _archzfs_kernel_fetch_archive_lts_versions archive_fetch_package repo-add pacman
-  PACMAN_CONF="$conf" run _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$dir"
+  PACMAN_CONF="$conf" run _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$repository_directory"
   [ "$status" -eq 0 ]
   [ "$output" = "6.18.50-1" ]         # fell back to the closest available
   grep -q '^\[archzfs-lts-pin\]' "$conf"
-  rm -rf "$dir" "$conf"
+  rm -rf "$repository_directory" "$conf"
 }
 
 @test "build_repo: nothing fetchable → non-zero (caller degrades)" {
-  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  local repository_directory; repository_directory="$(mktemp -d)"; local conf; conf="$(mktemp)"
   printf '[options]\n' > "$conf"
   _archzfs_kernel_fetch_archive_lts_versions() { printf '6.18.52-1\n'; }
   archive_fetch_package() { return 1; }   # all fetches fail
   repo-add() { return 0; }; pacman() { return 0; }
   export -f _archzfs_kernel_fetch_archive_lts_versions archive_fetch_package repo-add pacman
-  PACMAN_CONF="$conf" run _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$dir"
+  PACMAN_CONF="$conf" run _archzfs_kernel_lts_pin_build_repository "6.18.52-1" "$repository_directory"
   [ "$status" -ne 0 ]
   [ -z "$output" ]
-  rm -rf "$dir" "$conf"
+  rm -rf "$repository_directory" "$conf"
 }
 
 # ── archzfs_kernel_lts_module_package: prebuilt swap for a pure-lts install

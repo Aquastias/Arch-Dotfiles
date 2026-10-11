@@ -57,16 +57,16 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 }
 
 @test "feature_audit_selected_programs: host, user and post-install programs" {
-  local c
-  c='{"host_programs":["smartmontools"],"users":[],
+  local config
+  config='{"host_programs":["smartmontools"],"users":[],
       "post_install":{"security":{"apparmor":true}}}'
-  run feature_audit_selected_programs "$c"
+  run feature_audit_selected_programs "$config"
   [ "$status" -eq 0 ]
   [[ "$output" == *smartmontools* ]]
   [[ "$output" == *apparmor* ]]
-  c='{"host_programs":[],"users":[],
+  config='{"host_programs":[],"users":[],
       "post_install":{"security":{"apparmor":false}}}'
-  run feature_audit_selected_programs "$c"
+  run feature_audit_selected_programs "$config"
   [[ "$output" != *apparmor* ]]
 }
 
@@ -79,15 +79,15 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 }
 
 @test "feature_audit_bind_gate: no shell skips niri/Hyprland, not KDE" {
-  local c='{"environment":{"wayland_shell":"none"}}'
-  run feature_audit_bind_gate niri "$c";     [ "$status" -eq 0 ]
-  run feature_audit_bind_gate hyprland "$c"; [ "$status" -eq 0 ]
-  run feature_audit_bind_gate kde "$c";      [ "$status" -ne 0 ]; [ -z "$output" ]
+  local config='{"environment":{"wayland_shell":"none"}}'
+  run feature_audit_bind_gate niri "$config";     [ "$status" -eq 0 ]
+  run feature_audit_bind_gate hyprland "$config"; [ "$status" -eq 0 ]
+  run feature_audit_bind_gate kde "$config";      [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 
 @test "feature_audit_bind_gate: curated base with a shell runs every session" {
-  local c='{"environment":{"wayland_shell":"noctalia"}}'
-  run feature_audit_bind_gate niri "$c"; [ "$status" -ne 0 ]; [ -z "$output" ]
+  local config='{"environment":{"wayland_shell":"noctalia"}}'
+  run feature_audit_bind_gate niri "$config"; [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 
 # ── stderr judging ──────────────────────────────────────────────────────────

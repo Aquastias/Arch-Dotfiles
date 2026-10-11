@@ -31,7 +31,7 @@ setup() {
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
-set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
+set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── Custom… seed (skeleton seam) ─────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(datapools): lists OS pool + storage + data pools together" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_list
   echo "$output" | grep -q "OS pool: mirror ×2"
   echo "$output" | grep -q "data (storage): raidz1 ×3"
@@ -60,14 +60,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(datapools): offers both + Add data pool and + Add storage group" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_list
   echo "$output" | grep -q "+ Add data pool"
   echo "$output" | grep -q "+ Add storage group"
 }
 
 @test "enter(datapools): + Add storage group appends data at /data (mirror ×2)" {
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "+ Add storage group"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.storage_groups[0].name' "$GUIDED_STATE_FILE")" = "data" ]
@@ -81,7 +81,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' \
     '{"storage_groups":[{"name":"data","mount":"/data","topology":"raidz1","disk_count":3}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "+ Add storage group"
   [ "$(jq -r '.storage_groups[1].name' "$GUIDED_STATE_FILE")" = "data1" ]
   [ "$(jq -r '.storage_groups[1].mount' "$GUIDED_STATE_FILE")" = "/data1" ]
@@ -92,13 +92,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "custom authoring reconstructs the os-mirror-raidz1 preset exactly" {
   _controller_write_state "$(edit_apply_skeleton '{}' "$(skeleton_custom_seed)")"
   # OS pool → mirror ×2
-  set_nav "$(navigation_to_pool_edit Disks 0 os)"
+  set_navigation "$(navigation_to_pool_edit Disks 0 os)"
   guided_controller_enter "topology: none   (Enter cycles)" >/dev/null
   guided_controller_enter "disks: 1   (Enter cycles 1-8)" >/dev/null
   # + storage group → raidz1 ×3
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   guided_controller_enter "+ Add storage group" >/dev/null
-  set_nav "$(navigation_to_pool_edit Disks 0 storage)"
+  set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   guided_controller_enter "topology: mirror   (Enter cycles)" >/dev/null
   guided_controller_enter "disks: 2   (Enter cycles 1-8)" >/dev/null
 
@@ -110,7 +110,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(datapools): the OS pool row opens the os pool editor" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "OS pool: mirror ×2"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
@@ -119,7 +119,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(datapools): a storage row opens its editor by index" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "data (storage): raidz1 ×3"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
@@ -129,7 +129,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(datapools): a data pool row still opens its editor by index" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "tank0: mirror ×2"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
@@ -142,7 +142,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(pooledit data): shows a mount row defaulting to /<name>" {
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0 data)"
+  set_navigation "$(navigation_to_pool_edit Disks 0 data)"
   run guided_controller_list
   echo "$output" | grep -q "mount: /tank0   (Enter to edit)"
 }
@@ -150,7 +150,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(pooledit data): a set mount is shown verbatim" {
   printf '%s\n' '{"data_pools":[{"name":"tank0","mount":"/srv/x","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0 data)"
+  set_navigation "$(navigation_to_pool_edit Disks 0 data)"
   run guided_controller_list
   echo "$output" | grep -q "mount: /srv/x   (Enter to edit)"
 }
@@ -158,7 +158,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(pooledit data): the mount row opens a text editor" {
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0 data)"
+  set_navigation "$(navigation_to_pool_edit Disks 0 data)"
   run guided_controller_enter "mount: /tank0   (Enter to edit)"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
@@ -169,7 +169,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(text __poolmount__): a typed mount commits to the data pool" {
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_mount Disks 0)"
+  set_navigation "$(navigation_to_pool_mount Disks 0)"
   run guided_controller_enter "" "/srv/media"
   [ "$output" = "render" ]
   [ "$(jq -r '.data_pools[0].mount' "$GUIDED_STATE_FILE")" = "/srv/media" ]
@@ -179,7 +179,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(text __poolmount__): a blank input keeps the default (no mount)" {
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_mount Disks 0)"
+  set_navigation "$(navigation_to_pool_mount Disks 0)"
   run guided_controller_enter "" ""
   [ "$output" = "render" ]
   [ "$(jq -r '.data_pools[0] | has("mount")' "$GUIDED_STATE_FILE")" = "false" ]
@@ -189,7 +189,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # storage mount is display-only — Enter on it is a no-op.
 @test "enter(pooledit storage): the mount row is display-only (noop)" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0 storage)"
+  set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   run guided_controller_enter "mount: /data"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.storage_groups[0].mount' "$GUIDED_STATE_FILE")" = "/data" ]
@@ -198,13 +198,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── Custom… + preset entry flow (AC3, AC4) ───────────────────────────────────
 
 @test "list(values __layout__): custom… appears in the preset picker" {
-  set_nav "$(navigation_to_values Disks __layout__ "layout")"
+  set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_list
   echo "$output" | grep -q "custom…"
 }
 
 @test "enter(values __layout__): custom… seeds a blank multi + opens the editor" {
-  set_nav "$(navigation_to_values Disks __layout__ "layout")"
+  set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_enter "custom…"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
@@ -213,7 +213,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(values __layout__): a multi preset opens the editor, not back-out" {
-  set_nav "$(navigation_to_values Disks __layout__ "layout")"
+  set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_enter "os-mirror"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
@@ -221,7 +221,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(values __layout__): os-mirror-raidz1 opens the editor" {
-  set_nav "$(navigation_to_values Disks __layout__ "layout")"
+  set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_enter "os-mirror-raidz1"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
@@ -229,7 +229,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(values __layout__): single applies and backs out to the category" {
-  set_nav "$(navigation_to_values Disks __layout__ "layout")"
+  set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_enter "single"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]

@@ -11,24 +11,9 @@
 # session file and pulls seatd, so the adapter writes no session file and no
 # DRM pin. The display manager is not its concern (ADR 0069).
 
-setup() {
-  TEST_DIR="$(mktemp -d)"
-  STUB_BIN="$TEST_DIR/bin"
-  mkdir -p "$STUB_BIN"
-
-  PACMAN_LOG="$TEST_DIR/pacman.log"
-  SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
-  GIT_LOG="$TEST_DIR/git.log"
-  SEED="$TEST_DIR/seed"
-  ROOT="$TEST_DIR/root"
-  ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/niri/niri.sh"
-
-  export PACMAN_LOG SYSTEMCTL_LOG GIT_LOG ROOT
-  export NIRI_SEED_ROOT="$SEED"
-  # Default to "no battery" (desktop) so battery gating is deterministic
-  # regardless of the machine running the tests; battery tests override this.
-  export NIRI_BAT_GLOB="$TEST_DIR/nobat/BAT*"
-
+# _write_command_stubs — pacman/systemctl/git stubs on STUB_BIN that log
+# each call (git emulates a sparse-checkout of the Noctalia plugins).
+_write_command_stubs() {
   # pacman stub: `-Qq <pkg>` exits 0 only if <pkg> is in NIRI_QQ (the "installed"
   # set, empty by default) so the bitwarden nodejs check is testable; else logs.
   cat > "$STUB_BIN/pacman" <<'PAC'
@@ -65,8 +50,28 @@ esac
 exit 0
 GIT
   chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/git"
-
   export PATH="$STUB_BIN:$PATH"
+}
+
+setup() {
+  TEST_DIR="$(mktemp -d)"
+  STUB_BIN="$TEST_DIR/bin"
+  mkdir -p "$STUB_BIN"
+
+  PACMAN_LOG="$TEST_DIR/pacman.log"
+  SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
+  GIT_LOG="$TEST_DIR/git.log"
+  SEED="$TEST_DIR/seed"
+  ROOT="$TEST_DIR/root"
+  ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/niri/niri.sh"
+
+  export PACMAN_LOG SYSTEMCTL_LOG GIT_LOG ROOT
+  export NIRI_SEED_ROOT="$SEED"
+  # Default to "no battery" (desktop) so battery gating is deterministic
+  # regardless of the machine running the tests; battery tests override this.
+  export NIRI_BAT_GLOB="$TEST_DIR/nobat/BAT*"
+
+  _write_command_stubs
 
   # Curated-config source (ADR 0095): chroot.sh stages the repo's single-source
   # dotfiles here at install time; the adapter seeds them into /etc/skel.
@@ -104,10 +109,10 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "installs exactly the working-session core" {
   run_niri
   [ "$status" -eq 0 ]
-  local p
-  for p in niri seatd xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
+  local package
+  for package in niri seatd xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
            wl-clipboard; do
-    grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
+    grep -q "$package" "$PACMAN_LOG" || { echo "core missing: $package"; return 1; }
   done
   # Noctalia's own agent serves polkit (ADR 0100); no second agent.
   ! grep -q polkit-kde-agent "$PACMAN_LOG"
@@ -126,9 +131,9 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "curates the packaged niri session into the shared /usr/local dir" {
   run_niri
   [ "$status" -eq 0 ]
-  local s="$ROOT/usr/local/share/wayland-sessions/niri.desktop"
-  [ -L "$s" ]
-  [ "$(readlink "$s")" = "/usr/share/wayland-sessions/niri.desktop" ]
+  local session_file="$ROOT/usr/local/share/wayland-sessions/niri.desktop"
+  [ -L "$session_file" ]
+  [ "$(readlink "$session_file")" = "/usr/share/wayland-sessions/niri.desktop" ]
 }
 
 @test "installs no greeter and enables no display manager (ADR 0069)" {
@@ -168,9 +173,9 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "wayland_shell=noctalia installs the Noctalia work preset" {
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
-  local p
-  for p in noctalia kitty brightnessctl playerctl pcmanfm-qt; do
-    grep -q "$p" "$PACMAN_LOG" || { echo "preset missing: $p"; return 1; }
+  local package
+  for package in noctalia kitty brightnessctl playerctl pcmanfm-qt; do
+    grep -q "$package" "$PACMAN_LOG" || { echo "preset missing: $package"; return 1; }
   done
 }
 
@@ -240,18 +245,18 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 }
 
 @test "cava/cliphist install only when toggled on in install-noctalia.jsonc" {
-  local nj="$TEST_DIR/nj.jsonc"
-  printf '{"cava":true,"cliphist":true}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
+  local noctalia_json="$TEST_DIR/nj.jsonc"
+  printf '{"cava":true,"cliphist":true}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
   grep -q "cava" "$PACMAN_LOG"
   grep -q "cliphist" "$PACMAN_LOG"
 }
 
 @test "cava/cliphist stay out when toggled off" {
-  local nj="$TEST_DIR/nj.jsonc"
-  printf '{"cava":false,"cliphist":false}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
+  local noctalia_json="$TEST_DIR/nj.jsonc"
+  printf '{"cava":false,"cliphist":false}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
   ! grep -qw "cava" "$PACMAN_LOG"
   ! grep -qw "cliphist" "$PACMAN_LOG"
@@ -263,11 +268,11 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
-  local pl
-  for pl in keymap screen-toolkit procmon udiskie ssh-launcher \
+  local plugin
+  for plugin in keymap screen-toolkit procmon udiskie ssh-launcher \
             wallpaper-switcher portctl game-launcher hotspot bookmarks \
             llamanager dns-switcher; do
-    [ -f "$base/$pl/plugin.toml" ] || { echo "not vendored: $pl"; return 1; }
+    [ -f "$base/$plugin/plugin.toml" ] || { echo "not vendored: $plugin"; return 1; }
   done
   # official-repo tool deps installed
   grep -qw "smartmontools" "$PACMAN_LOG"   # drive-health
@@ -284,10 +289,10 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
-  local pl
-  for pl in bitwarden mini-docker system-updater system-monitor color_picker \
+  local plugin
+  for plugin in bitwarden mini-docker system-updater system-monitor color_picker \
             screen_recorder config-swap calculator battery-threshold; do
-    [ ! -e "$base/$pl" ] || { echo "unexpectedly vendored: $pl"; return 1; }
+    [ ! -e "$base/$plugin" ] || { echo "unexpectedly vendored: $plugin"; return 1; }
   done
   # the dropped bitwarden CLI backend and mini-docker's docker never install
   ! grep -qw "bitwarden-cli" "$PACMAN_LOG"
@@ -295,24 +300,24 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 }
 
 @test "a plugin toggled off is not vendored and its unique dep is skipped" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"llamanager":false}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
+  local noctalia_json="$TEST_DIR/nj.jsonc"; printf '{"llamanager":false}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/llamanager" ]
   ! grep -qw "ollama" "$PACMAN_LOG"
 }
 
 @test "a plugin toggled on is vendored and its unique dep installs" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"llamanager":true}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
+  local noctalia_json="$TEST_DIR/nj.jsonc"; printf '{"llamanager":true}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
   [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/llamanager/plugin.toml" ]
   grep -qw "ollama" "$PACMAN_LOG"
 }
 
 @test "all plugin bools off recovers the lean shell (base only)" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"cava":false}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
+  local noctalia_json="$TEST_DIR/nj.jsonc"; printf '{"cava":false}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ ! -d "$base" ] || [ -z "$(ls -A "$base")" ]
@@ -342,23 +347,23 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 }
 
 @test "laptop=true forces the battery pair even without a battery" {
-  local nj="$TEST_DIR/nj.jsonc"
-  printf '{"laptop":true,"battery-widget":true}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
+  local noctalia_json="$TEST_DIR/nj.jsonc"
+  printf '{"laptop":true,"battery-widget":true}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
-  local p="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
-  [ -f "$p/plugin.toml" ]
+  local plugin_directory="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
+  [ -f "$plugin_directory/plugin.toml" ]
 }
 
 @test "laptop=false forces the battery pair off even with a battery" {
   mkdir -p "$TEST_DIR/bat/BAT0"
-  local nj="$TEST_DIR/nj.jsonc"
-  printf '{"laptop":false,"battery-widget":true}\n' > "$nj"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj" \
+  local noctalia_json="$TEST_DIR/nj.jsonc"
+  printf '{"laptop":false,"battery-widget":true}\n' > "$noctalia_json"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json" \
     NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
   [ "$status" -eq 0 ]
-  local p="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
-  [ ! -e "$p" ]
+  local plugin_directory="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
+  [ ! -e "$plugin_directory" ]
 }
 
 # ── Offline resilience (ADR 0093) ────────────────────────────────────────────

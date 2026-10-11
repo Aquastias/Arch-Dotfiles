@@ -100,7 +100,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 /mnt/data ext4
 /mnt/data/sub btrfs"
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | head -1)" = "/mnt/data/sub" ]
+  [ "${output%%$'\n'*}" = "/mnt/data/sub" ]
 }
 
 # ── a busy pool (Audit Run 20261004: greetd/tuned never imported at boot) ────

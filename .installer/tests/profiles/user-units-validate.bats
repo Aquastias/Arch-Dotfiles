@@ -24,12 +24,12 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "every shipped user .service passes structural verify --user" {
   validators_skip_unless systemd-analyze
-  local u found=0
-  while IFS= read -r u; do
+  local unit_file found=0
+  while IFS= read -r unit_file; do
     found=1
-    run validators_verify_user_unit "$u"
+    run validators_verify_user_unit "$unit_file"
     if [ "$status" -ne 0 ]; then
-      echo "verify failed for $u:"; echo "$output"; return 1
+      echo "verify failed for $unit_file:"; echo "$output"; return 1
     fi
   done < <(find "$INSTALLER_DIR/programs" -name '*.service')
   [ "$found" -eq 1 ]   # guard: the glob actually matched units
@@ -38,8 +38,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "regression: a unit with an unknown directive is rejected" {
   validators_skip_unless systemd-analyze
   # Start from a real shipped unit so only the injected fault differs.
-  local src; src="$(find "$INSTALLER_DIR/programs" -name '*.service' | head -1)"
-  cp "$src" "$TEST_DIR/bad.service"
+  local source_unit; source_unit="$(find "$INSTALLER_DIR/programs" -name '*.service' | awk 'NR == 1')"
+  cp "$source_unit" "$TEST_DIR/bad.service"
   printf '\n[Service]\nNotADirective=oops\n' >> "$TEST_DIR/bad.service"
   run validators_verify_user_unit "$TEST_DIR/bad.service"
   [ "$status" -ne 0 ]

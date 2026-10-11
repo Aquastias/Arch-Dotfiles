@@ -98,64 +98,64 @@ write_file() {
 # ── jsonc_append_to_array ─────────────────────────────────────────────────────
 
 @test "jsonc_append_to_array: appends to empty array" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   "persist": {
     "files": []
   }
 }'
-  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
-  grep -qE '"/etc/foo"' "$f"
+  jsonc_append_to_array "$jsonc_file" '.persist.files' '/etc/foo'
+  grep -qE '"/etc/foo"' "$jsonc_file"
 }
 
 @test "jsonc_append_to_array: appends to non-empty array" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   "persist": {
     "files": [
       "/etc/bar"
     ]
   }
 }'
-  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
-  grep -qE '"/etc/bar"' "$f"
-  grep -qE '"/etc/foo"' "$f"
+  jsonc_append_to_array "$jsonc_file" '.persist.files' '/etc/foo'
+  grep -qE '"/etc/bar"' "$jsonc_file"
+  grep -qE '"/etc/foo"' "$jsonc_file"
 }
 
 @test "jsonc_append_to_array: preserves // line comments" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   // top-level comment
   "persist": {
     // inner comment
     "files": []
   }
 }'
-  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
-  grep -qF '// top-level comment' "$f"
-  grep -qF '// inner comment' "$f"
+  jsonc_append_to_array "$jsonc_file" '.persist.files' '/etc/foo'
+  grep -qF '// top-level comment' "$jsonc_file"
+  grep -qF '// inner comment' "$jsonc_file"
 }
 
 @test "jsonc_append_to_array: no-op when value already present" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   "persist": {
     "files": [
       "/etc/foo"
     ]
   }
 }'
-  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
+  jsonc_append_to_array "$jsonc_file" '.persist.files' '/etc/foo'
   # exactly one occurrence
-  local n; n="$(grep -cE '"/etc/foo"' "$f")"
-  [ "$n" -eq 1 ]
+  local match_count; match_count="$(grep -cE '"/etc/foo"' "$jsonc_file")"
+  [ "$match_count" -eq 1 ]
 }
 
 # ── jsonc_remove_from_array ───────────────────────────────────────────────────
 
 @test "jsonc_remove_from_array: removes the value" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   "persist": {
     "files": [
       "/etc/foo",
@@ -163,14 +163,14 @@ write_file() {
     ]
   }
 }'
-  jsonc_remove_from_array "$f" '.persist.files' '/etc/foo'
-  ! grep -qE '"/etc/foo"' "$f"
-  grep -qE '"/etc/bar"' "$f"
+  jsonc_remove_from_array "$jsonc_file" '.persist.files' '/etc/foo'
+  ! grep -qE '"/etc/foo"' "$jsonc_file"
+  grep -qE '"/etc/bar"' "$jsonc_file"
 }
 
 @test "jsonc_remove_from_array: preserves comments" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   // top-level comment
   "persist": {
     "files": [
@@ -178,22 +178,22 @@ write_file() {
     ]
   }
 }'
-  jsonc_remove_from_array "$f" '.persist.files' '/etc/foo'
-  grep -qF '// top-level comment' "$f"
+  jsonc_remove_from_array "$jsonc_file" '.persist.files' '/etc/foo'
+  grep -qF '// top-level comment' "$jsonc_file"
 }
 
 @test "jsonc_remove_from_array: no-op when value absent" {
-  local f="$TEST_DIR/c.jsonc"
-  write_file "$f" '{
+  local jsonc_file="$TEST_DIR/c.jsonc"
+  write_file "$jsonc_file" '{
   "persist": {
     "files": [
       "/etc/bar"
     ]
   }
 }'
-  run jsonc_remove_from_array "$f" '.persist.files' '/etc/foo'
+  run jsonc_remove_from_array "$jsonc_file" '.persist.files' '/etc/foo'
   [ "$status" -eq 0 ]
-  grep -qE '"/etc/bar"' "$f"
+  grep -qE '"/etc/bar"' "$jsonc_file"
 }
 
 # ── inline arrays + missing keys (the real desktop profile's shape) ─────────

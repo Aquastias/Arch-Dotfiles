@@ -26,8 +26,8 @@ teardown() { rm -rf "$ZI"; }
 
 @test "explicit system.timezone wins verbatim, no fetch" {
   export TIMEZONE_FETCH_CMD='echo SHOULD_NOT_RUN'
-  local cfg='{"system":{"timezone":"America/New_York"}}'
-  [ "$(timezone_resolve "$cfg")" = "America/New_York" ]
+  local config='{"system":{"timezone":"America/New_York"}}'
+  [ "$(timezone_resolve "$config")" = "America/New_York" ]
 }
 
 @test "explicit value is returned even if the fetch would differ" {

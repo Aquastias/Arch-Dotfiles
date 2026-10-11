@@ -33,8 +33,8 @@ setup() {
   # …the seeds are still there…
   printf '%s\n' "$full" | grep -qx 'seed-xfs-root'
   # …and full strictly outnumbers smoke.
-  [ "$(printf '%s\n' "$full" | wc -l)" -gt \
-    "$(printf '%s\n' "$smoke" | wc -l)" ]
+  [ "$(printf '%s\n' "$full" | awk 'END { print NR }')" -gt \
+    "$(printf '%s\n' "$smoke" | awk 'END { print NR }')" ]
 }
 
 # ── AC5: per-cell status classification (boot_verify × encryption × exit) ─────
@@ -82,11 +82,11 @@ _rec() {
 }
 
 @test "summary_format: lists all cells; FAIL row has a re-run hint, SKIP≠FAIL" {
-  local recs; recs="$(printf '%s\n' \
+  local records; records="$(printf '%s\n' \
     "$(_rec seed-xfs-root xfs/single/plain firstboot PASS)" \
     "$(_rec t2-zfs-mirror zfs/mirror/plain firstboot FAIL)" \
     "$(_rec seed-btrfs-raid1-enc-multi btrfs/raid1/enc install-only SKIP)")"
-  run matrix_summary_format <<<"$recs"
+  run matrix_summary_format <<<"$records"
   [ "$status" -eq 0 ]
   # every cell id is present
   [[ "$output" == *seed-xfs-root* ]]
@@ -103,15 +103,15 @@ _rec() {
 # ── AC5 (integration): run-all survives a failure; VM launch is a seam ───────
 
 @test "run_all: one failing cell doesn't abort; all run; summary + nonzero" {
-  local tmp="$BATS_TEST_TMPDIR"
+  local test_directory="$BATS_TEST_TMPDIR"
   # a plain cell fixture (the axes the driver reads).
-  _pcell() {
+  _plain_cell() {
     jq -c -n --arg id "$1" --arg fs "$2" '{id:$id, axes:{filesystem:$fs,
       topology:"single", encryption:false, impermanence:false}}'
   }
   # stub selection: three plain cells (real generator not needed here).
   matrix_run_select() {
-    printf '%s\n' "$(_pcell c1 zfs)" "$(_pcell c2 ext4)" "$(_pcell c3 xfs)"
+    printf '%s\n' "$(_plain_cell c1 zfs)" "$(_plain_cell c2 ext4)" "$(_plain_cell c3 xfs)"
   }
   # stub the host-IO seams so the run neither probes nor blocks.
   _driver_preflight()  { return 0; }
@@ -119,12 +119,12 @@ _rec() {
   # stub the per-cell VM launch: record the attempt, fail only c2.
   _driver_run_cell() {
     local id; id="$(jq -r .id <<<"$1")"
-    echo "$id" >>"$tmp/attempts"
+    echo "$id" >>"$test_directory/attempts"
     [[ "$id" == c2 ]] && return 1 || return 0
   }
   run matrix_run_all --smoke
   [ "$status" -ne 0 ]                                  # c2 failed the run
   [[ "$output" == *c1* ]] && [[ "$output" == *c2* ]] && [[ "$output" == *c3* ]]
   [[ "$output" == *"matrix.sh run c2"* ]]        # re-run hint for the fail
-  [ "$(sort -u "$tmp/attempts" | wc -l)" -eq 3 ]      # every cell was attempted
+  [ "$(sort -u "$test_directory/attempts" | awk 'END { print NR }')" -eq 3 ]      # every cell was attempted
 }

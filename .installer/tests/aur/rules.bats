@@ -5,18 +5,18 @@
 
 load ../lib/aur-vet
 
-setup() { aurvet_setup; }
-teardown() { aurvet_teardown; }
+setup() { aur_vet_setup; }
+teardown() { aur_vet_teardown; }
 
 _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 
 @test "rules: every case matches its expected polarity" {
-  local id pol place text dir base fails="" i=0
+  local id pol place text case_directory base fails="" i=0
   while IFS=$'\t' read -r id pol place text; do
     i=$((i + 1))
     base=rulecase; [[ "$place" == pkgbase ]] && base="${text%@*}"
-    dir="$(aurvet_case "$place" "$text" "c$i")"
-    aurvet_hook "$dir" "$base"
+    case_directory="$(aur_vet_case "$place" "$text" "c$i")"
+    aur_vet_hook "$case_directory" "$base"
     if [[ "$pol" == + && "$output" != *" $id "* ]] \
        || [[ "$pol" == - && "$output" == *" $id "* ]]; then
       fails+=$'\n'"  ${id} ${pol} ${place}: ${text}"$'\n'"${output}"
@@ -38,35 +38,35 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 }
 
 @test "rules: the clean rulecase base passes with no findings" {
-  local d; d="$(aurvet_case build true base)"
-  aurvet_hook "$d" rulecase
+  local clone_directory; clone_directory="$(aur_vet_case build true base)"
+  aur_vet_hook "$clone_directory" rulecase
   [ "$status" -eq 0 ]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* \
      && "$output" != *INFO* ]]
 }
 
 @test "rules: Chaos RAT fixture (attacker patch repo + scriptlet) aborts" {
-  aurvet_hook "$(aurvet_clone chaos-rat)"
+  aur_vet_hook "$(aur_vet_clone chaos-rat)"
   [ "$status" -ne 0 ]
   [[ "$output" == *"SUSPICIOUS source-owner .SRCINFO:10"* ]]
   [[ "$output" == *"SUSPICIOUS install-interp chaos-rat.install:2"* ]]
 }
 
 @test "rules: chrome-reupload fixture (interpreter fetch in launcher) aborts" {
-  aurvet_hook "$(aurvet_clone chrome-reupload)"
+  aur_vet_hook "$(aur_vet_clone chrome-reupload)"
   [ "$status" -ne 0 ]
   [[ "$output" == *"CRITICAL script-fetch chrome-reupload.sh:3"* ]]
 }
 
 @test "rules: benign rust fixture passes with info only" {
-  aurvet_hook "$(aurvet_clone rust-benign)"
+  aur_vet_hook "$(aur_vet_clone rust-benign)"
   [ "$status" -eq 0 ]
   [[ "$output" == *"INFO lang-fetch PKGBUILD:16"* ]]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* ]]
 }
 
 @test "rules: benign electron fixture passes with info only" {
-  aurvet_hook "$(aurvet_clone electron-benign)"
+  aur_vet_hook "$(aur_vet_clone electron-benign)"
   [ "$status" -eq 0 ]
   [[ "$output" == *"INFO lockfile-install PKGBUILD:15"* ]]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* ]]
@@ -74,18 +74,18 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 
 # weak-checksums reads whole arrays and counts only real digests.
 @test "rules: a multi-line MD5 array is weak-checksums" {
-  local d; d="$(aurvet_case sums md5 w1)"
-  sed -i "s/^md5sums=('\\(2*\\)')$/md5sums=(\\n  '\\1'\\n)/" "$d/PKGBUILD"
-  grep -q "^md5sums=($" "$d/PKGBUILD"
-  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am ml
-  aurvet_hook "$d" rulecase
+  local clone_directory; clone_directory="$(aur_vet_case sums md5 w1)"
+  sed -i "s/^md5sums=('\\(2*\\)')$/md5sums=(\\n  '\\1'\\n)/" "$clone_directory/PKGBUILD"
+  grep -q "^md5sums=($" "$clone_directory/PKGBUILD"
+  git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -am ml
+  aur_vet_hook "$clone_directory" rulecase
   [[ "$output" == *" weak-checksums "* ]]
 }
 
 @test "rules: a real MD5 beside a SKIP-only sha256 is weak-checksums" {
-  local d; d="$(aurvet_case sums md5 w2)"
-  printf "sha256sums=('SKIP')\n" >> "$d/PKGBUILD"
-  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am skip
-  aurvet_hook "$d" rulecase
+  local clone_directory; clone_directory="$(aur_vet_case sums md5 w2)"
+  printf "sha256sums=('SKIP')\n" >> "$clone_directory/PKGBUILD"
+  git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -am skip
+  aur_vet_hook "$clone_directory" rulecase
   [[ "$output" == *" weak-checksums "* ]]
 }

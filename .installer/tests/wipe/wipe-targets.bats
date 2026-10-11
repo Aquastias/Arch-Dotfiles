@@ -18,17 +18,17 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-write_cfg() { printf '%s\n' "$1" > "$CFG"; }
+write_config() { printf '%s\n' "$1" > "$CFG"; }
 
 @test "single mode: resolves the lone .disk" {
-  write_cfg '{ "disk": "/dev/sda" }'
+  write_config '{ "disk": "/dev/sda" }'
   run wipe_resolve_targets "$CFG"
   [ "$status" -eq 0 ]
   [ "$output" = "/dev/sda" ]
 }
 
 @test "multi mode: resolves os_pool.disks" {
-  write_cfg '{ "os_pool": { "disks": ["/dev/nvme0n1", "/dev/nvme1n1"] } }'
+  write_config '{ "os_pool": { "disks": ["/dev/nvme0n1", "/dev/nvme1n1"] } }'
   run wipe_resolve_targets "$CFG"
   [ "$status" -eq 0 ]
   [[ "$output" == *"/dev/nvme0n1"* ]]
@@ -36,7 +36,7 @@ write_cfg() { printf '%s\n' "$1" > "$CFG"; }
 }
 
 @test "union: os_pool + storage_groups + data_pools disks" {
-  write_cfg '{
+  write_config '{
     "os_pool":        { "disks": ["/dev/nvme0n1"] },
     "storage_groups": [ { "disks": ["/dev/sda", "/dev/sdb"] } ],
     "data_pools":     [ { "name": "tank", "disks": ["/dev/sdc"] } ]
@@ -50,7 +50,7 @@ write_cfg() { printf '%s\n' "$1" > "$CFG"; }
 }
 
 @test "dedup: a disk named in two places appears once" {
-  write_cfg '{
+  write_config '{
     "os_pool":    { "disks": ["/dev/sda"] },
     "data_pools": [ { "name": "tank", "disks": ["/dev/sda"] } ]
   }'
@@ -60,14 +60,14 @@ write_cfg() { printf '%s\n' "$1" > "$CFG"; }
 }
 
 @test "no disks declared: resolves to nothing" {
-  write_cfg '{ "system": { "hostname": "box" } }'
+  write_config '{ "system": { "hostname": "box" } }'
   run wipe_resolve_targets "$CFG"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "manual disk_config: no wipe targets (the hand-drawn table survives)" {
-  write_cfg '{"disk":"/dev/sda","disk_config":{"kind":"manual",
+  write_config '{"disk":"/dev/sda","disk_config":{"kind":"manual",
     "partitions":[{"device":"/dev/sda2","mountpoint":"/","fs":"ext4",
     "format":true}]}}'
   run wipe_resolve_targets "$CFG"

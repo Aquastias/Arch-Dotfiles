@@ -26,9 +26,9 @@ setup() {
 }
 
 @test "navigation_to_pool_edit: carries an explicit group kind" {
-  local p; p="$(navigation_to_pool_edit Disks 2 storage)"
-  [ "$(navigation_get "$p" kind)" = "storage" ]
-  [ "$(navigation_get "$p" index)" = "2" ]
+  local navigation; navigation="$(navigation_to_pool_edit Disks 2 storage)"
+  [ "$(navigation_get "$navigation" kind)" = "storage" ]
+  [ "$(navigation_get "$navigation" index)" = "2" ]
   [ "$(navigation_get "$(navigation_to_pool_edit Disks 0 os)" kind)" = "os" ]
 }
 
@@ -55,33 +55,33 @@ setup() {
 # ── _controller_pool_set: replace the group, leaving siblings untouched ─────────────
 
 @test "_controller_pool_set: os replaces the os_pool" {
-  local g='{"pool_name":"rpool","topology":"raidz1","disk_count":3}'
-  local s; s="$(_controller_pool_set "$STATE" os 0 "$g")"
-  [ "$(jq -r '.os_pool.topology' <<<"$s")" = "raidz1" ]
-  [ "$(jq -r '.data_pools[0].name' <<<"$s")" = "tank0" ]
+  local pool='{"pool_name":"rpool","topology":"raidz1","disk_count":3}'
+  local state; state="$(_controller_pool_set "$STATE" os 0 "$pool")"
+  [ "$(jq -r '.os_pool.topology' <<<"$state")" = "raidz1" ]
+  [ "$(jq -r '.data_pools[0].name' <<<"$state")" = "tank0" ]
 }
 
 @test "_controller_pool_set: data replaces one pool, siblings intact" {
-  local g='{"name":"tank0","topology":"stripe","disk_count":5}'
-  local s; s="$(_controller_pool_set "$STATE" data 0 "$g")"
-  [ "$(jq -r '.data_pools[0].topology' <<<"$s")" = "stripe" ]
-  [ "$(jq -r '.data_pools[1].name' <<<"$s")" = "tank1" ]
+  local pool='{"name":"tank0","topology":"stripe","disk_count":5}'
+  local state; state="$(_controller_pool_set "$STATE" data 0 "$pool")"
+  [ "$(jq -r '.data_pools[0].topology' <<<"$state")" = "stripe" ]
+  [ "$(jq -r '.data_pools[1].name' <<<"$state")" = "tank1" ]
 }
 
 # ── _controller_pool_delete: remove data/storage; os is not removable ─────────────────
 
 @test "_controller_pool_delete: data removes the pool" {
-  local s; s="$(_controller_pool_delete "$STATE" data 0)"
-  [ "$(jq '.data_pools | length' <<<"$s")" = "1" ]
-  [ "$(jq -r '.data_pools[0].name' <<<"$s")" = "tank1" ]
+  local state; state="$(_controller_pool_delete "$STATE" data 0)"
+  [ "$(jq '.data_pools | length' <<<"$state")" = "1" ]
+  [ "$(jq -r '.data_pools[0].name' <<<"$state")" = "tank1" ]
 }
 
 @test "_controller_pool_delete: storage removes the group" {
-  local s; s="$(_controller_pool_delete "$STATE" storage 0)"
-  [ "$(jq '.storage_groups | length' <<<"$s")" = "0" ]
+  local state; state="$(_controller_pool_delete "$STATE" storage 0)"
+  [ "$(jq '.storage_groups | length' <<<"$state")" = "0" ]
 }
 
 @test "_controller_pool_delete: os pool is not removable (no-op)" {
-  local s; s="$(_controller_pool_delete "$STATE" os 0)"
-  [ "$(jq -r '.os_pool.pool_name' <<<"$s")" = "rpool" ]
+  local state; state="$(_controller_pool_delete "$STATE" os 0)"
+  [ "$(jq -r '.os_pool.pool_name' <<<"$state")" = "rpool" ]
 }

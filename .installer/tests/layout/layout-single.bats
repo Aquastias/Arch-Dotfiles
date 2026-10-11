@@ -7,27 +7,9 @@
 # as bash fns appending argv to $CALLS. Assert only on $CALLS plus the
 # published LAYOUT_* state — never on _LAYOUT_IMPL_* internals.
 
-setup() {
-  TEST_DIR="$(mktemp -d)"
-  CONFIG_FILE="$TEST_DIR/install.json"
-  CALLS="$TEST_DIR/calls.log"
-  export CONFIG_FILE CALLS
-  export MOUNT_ROOT="$TEST_DIR/mnt"
-  mkdir -p "$MOUNT_ROOT"
-
-  printf '{"disk":"/dev/sdz"}' >"$CONFIG_FILE"
-
-  # shellcheck source=../../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  # shellcheck source=../../lib/config/install-config.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
-  # shellcheck source=../../lib/zfs/pools.sh
-  source "$BATS_TEST_DIRNAME/../../lib/zfs/pools.sh"
-  # shellcheck source=../../lib/layout/zfs/single.sh
-  source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/single.sh"
-  _LAYOUT_PHASE=1  # simulate validate phase having run
-
-
+# _stub_layout_commands — silence the output helpers and log every
+# external disk/ZFS command to CALLS instead of running it.
+_stub_layout_commands() {
   # Quiet output; error still aborts.
   info()    { :; }
   warn()    { :; }
@@ -51,6 +33,29 @@ setup() {
   zfs()                 { printf 'zfs %s\n'                 "$*" >>"$CALLS"; }
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
   zfs_ram_gib()             { echo 4; }
+}
+
+setup() {
+  TEST_DIR="$(mktemp -d)"
+  CONFIG_FILE="$TEST_DIR/install.json"
+  CALLS="$TEST_DIR/calls.log"
+  export CONFIG_FILE CALLS
+  export MOUNT_ROOT="$TEST_DIR/mnt"
+  mkdir -p "$MOUNT_ROOT"
+
+  printf '{"disk":"/dev/sdz"}' >"$CONFIG_FILE"
+
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/config/install-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
+  # shellcheck source=../../lib/zfs/pools.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/pools.sh"
+  # shellcheck source=../../lib/layout/zfs/single.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/single.sh"
+  _LAYOUT_PHASE=1  # simulate validate phase having run
+
+  _stub_layout_commands
 
   # Stand-in for layout_calculate_single_disk: populates the two pieces of
   # internal state that downstream seams need, without requiring a real block
@@ -120,8 +125,8 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   layout_plan
   layout_partition
   local wipe_line sgdisk_line
-  wipe_line="$(grep -n '^wipefs' "$CALLS" | head -1 | cut -d: -f1)"
-  sgdisk_line="$(grep -n '^sgdisk' "$CALLS" | head -1 | cut -d: -f1)"
+  wipe_line="$(awk '/^wipefs/ { print NR; exit }' "$CALLS")"
+  sgdisk_line="$(awk '/^sgdisk/ { print NR; exit }' "$CALLS")"
   ((wipe_line < sgdisk_line))
 }
 

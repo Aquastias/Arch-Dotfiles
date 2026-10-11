@@ -43,7 +43,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 _decrypt_key_age() {
   local path="$1"
   script -qc "age -d '$path'" /dev/null <<< "${PASSPHRASE}"$'\n' \
-    | sed -n 's/\r$//; /AGE-SECRET-KEY-1/p'
+    | awk '{ sub(/\r$/, "") } /AGE-SECRET-KEY-1/'
 }
 
 # The VM-fixture rule's age recipient (no python): the age1… line after the
@@ -62,10 +62,10 @@ _sops_yaml_test_recipient() {
 _sops_decrypt_with_test_key() {
   local sops_file="$1"
   local key_file="$TEST_DIR/.installer/vm/fixtures/key.age"
-  local priv="$TMP_SOPS/key.txt"
+  local private_key="$TMP_SOPS/key.txt"
   mkdir -p "$TMP_SOPS"
-  _decrypt_key_age "$key_file" > "$priv"
-  SOPS_AGE_KEY_FILE="$priv" sops -d "$sops_file"
+  _decrypt_key_age "$key_file" > "$private_key"
+  SOPS_AGE_KEY_FILE="$private_key" sops -d "$sops_file"
 }
 
 setup_file() { :; }
@@ -77,35 +77,35 @@ setup_file() { :; }
   [ "$status" -eq 0 ]
   [ -s "$TEST_DIR/.installer/vm/fixtures/key.age" ]
 
-  local priv
-  priv="$(_decrypt_key_age "$TEST_DIR/.installer/vm/fixtures/key.age")"
-  [[ "$priv" == AGE-SECRET-KEY-1* ]]
+  local private_key
+  private_key="$(_decrypt_key_age "$TEST_DIR/.installer/vm/fixtures/key.age")"
+  [[ "$private_key" == AGE-SECRET-KEY-1* ]]
 }
 
 @test "regenerate.sh writes the new public key into .sops.yaml test rule" {
   bash "$REGEN"
 
-  local priv pub_from_key pub_in_yaml
-  priv="$(_decrypt_key_age "$TEST_DIR/.installer/vm/fixtures/key.age")"
-  pub_from_key="$(printf '%s\n' "$priv" | age-keygen -y 2>/dev/null)"
-  pub_in_yaml="$(_sops_yaml_test_recipient "$TEST_DIR/.sops.yaml")"
+  local private_key public_from_key public_in_yaml
+  private_key="$(_decrypt_key_age "$TEST_DIR/.installer/vm/fixtures/key.age")"
+  public_from_key="$(printf '%s\n' "$private_key" | age-keygen -y 2>/dev/null)"
+  public_in_yaml="$(_sops_yaml_test_recipient "$TEST_DIR/.sops.yaml")"
 
-  [ -n "$pub_from_key" ]
-  [ "$pub_from_key" = "$pub_in_yaml" ]
+  [ -n "$public_from_key" ]
+  [ "$public_from_key" = "$public_in_yaml" ]
 }
 
 @test "regenerate.sh encrypts both seed secrets.json files round-trippably" {
   TMP_SOPS="$(mktemp -d)"
   bash "$REGEN"
 
-  local host_dec user_dec
-  host_dec="$(_sops_decrypt_with_test_key \
+  local host_decrypted user_decrypted
+  host_decrypted="$(_sops_decrypt_with_test_key \
     "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json")"
-  user_dec="$(_sops_decrypt_with_test_key \
+  user_decrypted="$(_sops_decrypt_with_test_key \
     "$TEST_DIR/.installer/users/vm/test/secrets.json")"
 
-  [[ "$host_dec" == *root_password* ]]
-  [[ "$user_dec" == *ssh_identity_key_type* ]]
+  [[ "$host_decrypted" == *root_password* ]]
+  [[ "$user_decrypted" == *ssh_identity_key_type* ]]
 
   rm -rf "$TMP_SOPS"
 }
@@ -122,13 +122,13 @@ setup_file() { :; }
 
   [ "$pub1" != "$pub2" ]
 
-  local host_dec user_dec
-  host_dec="$(_sops_decrypt_with_test_key \
+  local host_decrypted user_decrypted
+  host_decrypted="$(_sops_decrypt_with_test_key \
     "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json")"
-  user_dec="$(_sops_decrypt_with_test_key \
+  user_decrypted="$(_sops_decrypt_with_test_key \
     "$TEST_DIR/.installer/users/vm/test/secrets.json")"
-  [[ "$host_dec" == *root_password* ]]
-  [[ "$user_dec" == *ssh_identity_key_type* ]]
+  [[ "$host_decrypted" == *root_password* ]]
+  [[ "$user_decrypted" == *ssh_identity_key_type* ]]
 
   rm -rf "$TMP_SOPS"
 }
@@ -136,14 +136,14 @@ setup_file() { :; }
 @test "regenerate.sh re-keys every hosts/vm/*/secrets.json fixture" {
   TMP_SOPS="$(mktemp -d)"
   local extra="$TEST_DIR/.installer/hosts/vm/arch-extra/secrets.json"
-  mkdir -p "$(dirname "$extra")"
+  mkdir -p "${extra%/*}"
   printf '{"root_password":"vmtest"}\n' > "$extra"
 
   bash "$REGEN"
 
-  local dec
-  dec="$(_sops_decrypt_with_test_key "$extra")"
-  [[ "$dec" == *root_password* ]]
+  local decrypted
+  decrypted="$(_sops_decrypt_with_test_key "$extra")"
+  [[ "$decrypted" == *root_password* ]]
 
   rm -rf "$TMP_SOPS"
 }

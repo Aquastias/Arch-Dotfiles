@@ -22,8 +22,8 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 @test "_core_console_capture_loop: re-attaches across drops until the domain halts" {
-  local log="$TEST_DIR/cap.log" cnt="$TEST_DIR/cnt"
-  : > "$log"; echo 0 > "$cnt"
+  local log="$TEST_DIR/cap.log" counter_file="$TEST_DIR/cnt"
+  : > "$log"; echo 0 > "$counter_file"
   VM_NAME="dummy"
 
   # Each stub `script` is one console attach that ends (a dropped PTY); the loop
@@ -31,8 +31,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   script() { printf 'attach\n' >> "$log"; }
   # running for the first two checks, halted on the third.
   _core_vm_running() {
-    local n; n="$(cat "$cnt")"; echo $((n + 1)) > "$cnt"
-    [ "$n" -lt 2 ]
+    local call_count; call_count="$(cat "$counter_file")"; echo $((call_count + 1)) > "$counter_file"
+    [ "$call_count" -lt 2 ]
   }
 
   _core_console_capture_loop "$log"

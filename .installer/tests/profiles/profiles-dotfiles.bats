@@ -30,9 +30,9 @@ teardown() { rm -rf "$TEST_DIR"; }
   [[ "$output" == *'chmod 0644 "$CLONE_SCRIPT"'* ]]
   # chmod must come BEFORE the su that runs it as the user.
   local chmod_ln su_ln
-  chmod_ln="$(grep -n 'chmod 0644' <<<"$output" | head -1 | cut -d: -f1)"
-  su_ln="$(grep -n 'su - "\$USER_NAME" -c "bash' <<<"$output" | head -1 \
-    | cut -d: -f1)"
+  chmod_ln="$(awk '/chmod 0644/ { print NR; exit }' <<<"$output")"
+  su_ln="$(awk 'index($0, "su - \"$USER_NAME\" -c \"bash") { print NR; exit }' \
+    <<<"$output")"
   [ -n "$chmod_ln" ] && [ -n "$su_ln" ] && [ "$chmod_ln" -lt "$su_ln" ]
 }
 

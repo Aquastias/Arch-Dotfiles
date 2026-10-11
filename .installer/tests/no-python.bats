@@ -6,8 +6,8 @@
 
 CHECK="$BATS_TEST_DIRNAME/no-python.sh"
 
-# mk_repo: cd into a fresh git repo. Write fixture files, then call check_repo.
-mk_repo() {
+# make_repository: cd into a fresh git repo. Write fixture files, then call check_repo.
+make_repository() {
   REPO="$(mktemp -d)"
   cd "$REPO"
   git init -q
@@ -26,7 +26,7 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 }
 
 @test "catches a committed .py file" {
-  mk_repo
+  make_repository
   printf 'x=1\n' > tool.py
   check_repo
   [ "$status" -ne 0 ]
@@ -34,7 +34,7 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 }
 
 @test "catches a python shebang" {
-  mk_repo
+  make_repository
   printf '#!/usr/bin/env python3\n' > run
   chmod +x run
   check_repo
@@ -43,7 +43,7 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 }
 
 @test "catches an inline python invocation in a shell script" {
-  mk_repo
+  make_repository
   printf '#!/bin/bash\npython3 -m http.server\n' > s.sh
   check_repo
   [ "$status" -ne 0 ]
@@ -51,14 +51,14 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 }
 
 @test "catches pip and uv invocations" {
-  mk_repo
+  make_repository
   printf '#!/bin/bash\npip install x\nuv run y\n' > s.sh
   check_repo
   [ "$status" -ne 0 ]
 }
 
 @test "allows a jq def look-alike (regression: picker.sh)" {
-  mk_repo
+  make_repository
   cat > s.sh <<'EOF'
 #!/bin/bash
 jq -n 'def assign($k): .[$k] // [] end; {} | assign("a")'
@@ -68,7 +68,7 @@ EOF
 }
 
 @test "allows python package names as pacman args" {
-  mk_repo
+  make_repository
   printf '#!/bin/bash\npacman -S python-pip python-pygments python-debugpy\n' \
     > s.sh
   check_repo
@@ -76,7 +76,7 @@ EOF
 }
 
 @test "allows python named only in a comment" {
-  mk_repo
+  make_repository
   printf '#!/bin/bash\n# replaces python3 -m http.server (no python here)\n' \
     > s.sh
   check_repo
@@ -84,7 +84,7 @@ EOF
 }
 
 @test "the no-python-ok pragma exempts a line" {
-  mk_repo
+  make_repository
   printf '#!/bin/bash\npython3 gen  # no-python-ok: doc generator stub\n' > s.sh
   check_repo
   [ "$status" -eq 0 ]

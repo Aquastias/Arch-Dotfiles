@@ -15,17 +15,17 @@ setup() {
 }
 
 # Helper: extract a key=value field from the emitted plan.
-dc_field() { grep -E "^$1=" | cut -d= -f2-; }
+datacrypt_field() { KEY="$1" awk 'index($0, ENVIRON["KEY"] "=") == 1 { print substr($0, length(ENVIRON["KEY"]) + 2) }'; }
 
 # ── tracer: an unencrypted group emits an empty plan (false round-trips) ─────
 
 @test "crypto: encryption=false emits an all-empty plan" {
   run layout_data_group_crypto false ext4 tank ABCD
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | dc_field mapper)"      = "" ]
-  [ "$(printf '%s\n' "$output" | dc_field keyfile)"     = "" ]
-  [ "$(printf '%s\n' "$output" | dc_field crypttab)"    = "" ]
-  [ "$(printf '%s\n' "$output" | dc_field zfs_keyload)" = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field mapper)"      = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field keyfile)"     = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field crypttab)"    = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field zfs_keyload)" = "" ]
 }
 
 # ── encrypted LUKS group (ext4): keyfile on root + crypttab auto-open ────────
@@ -33,12 +33,12 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 @test "crypto: encrypted ext4 emits keyfile + mapper + crypttab, no zfs load" {
   run layout_data_group_crypto true ext4 tank ABCD
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | dc_field mapper)"  = "crypttank" ]
-  [ "$(printf '%s\n' "$output" | dc_field keyfile)" \
+  [ "$(printf '%s\n' "$output" | datacrypt_field mapper)"  = "crypttank" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field keyfile)" \
       = "/etc/cryptsetup-keys.d/tank.key" ]
-  [ "$(printf '%s\n' "$output" | dc_field crypttab)" \
+  [ "$(printf '%s\n' "$output" | datacrypt_field crypttab)" \
       = "crypttank  UUID=ABCD  /etc/cryptsetup-keys.d/tank.key  luks" ]
-  [ "$(printf '%s\n' "$output" | dc_field zfs_keyload)" = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field zfs_keyload)" = "" ]
 }
 
 # Every non-zfs filesystem is LUKS (PRD): btrfs takes the crypttab path, not the
@@ -46,9 +46,9 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 @test "crypto: encrypted btrfs is LUKS (crypttab, not zfs_keyload)" {
   run layout_data_group_crypto true btrfs vault FEED
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | dc_field crypttab)" \
+  [ "$(printf '%s\n' "$output" | datacrypt_field crypttab)" \
       = "cryptvault  UUID=FEED  /etc/cryptsetup-keys.d/vault.key  luks" ]
-  [ "$(printf '%s\n' "$output" | dc_field zfs_keyload)" = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field zfs_keyload)" = "" ]
 }
 
 # ── encrypted zfs group: key-load options on the pool, no crypttab/mapper ────
@@ -56,10 +56,10 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 @test "crypto: encrypted zfs emits zfs_keyload + keyfile, no crypttab/mapper" {
   run layout_data_group_crypto true zfs tank UNUSED
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | dc_field keyfile)" \
+  [ "$(printf '%s\n' "$output" | datacrypt_field keyfile)" \
       = "/etc/cryptsetup-keys.d/tank.key" ]
-  [ "$(printf '%s\n' "$output" | dc_field zfs_keyload)" \
+  [ "$(printf '%s\n' "$output" | datacrypt_field zfs_keyload)" \
       = "-O encryption=aes-256-gcm -O keyformat=raw -O keylocation=file:///etc/cryptsetup-keys.d/tank.key" ]
-  [ "$(printf '%s\n' "$output" | dc_field mapper)"   = "" ]
-  [ "$(printf '%s\n' "$output" | dc_field crypttab)" = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field mapper)"   = "" ]
+  [ "$(printf '%s\n' "$output" | datacrypt_field crypttab)" = "" ]
 }

@@ -6,9 +6,9 @@ runs strict: any violation anywhere fails. ADR 0153 status → implemented.
 
 **Blocked by:** 06–21 (every area ticket)
 
-**Status:** ready-for-agent
+**Status:** done (VM install + guided run pending)
 
-- [ ] Test helpers/bats renamed; `@test` titles left free text
-- [ ] Baseline removed; lint strict; suite green
+- [x] Test helpers/bats renamed; `@test` titles left free text
+- [x] Baseline removed; lint strict; suite green
 - [ ] Full VM install + guided-flow run green
-- [ ] ADR 0153 status updated
+- [x] ADR 0153 status updated

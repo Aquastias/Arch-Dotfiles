@@ -86,17 +86,17 @@ write_config() {
 @test "environment_resolve is idempotent: second call produces identical state" {
   write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
   environment_resolve
-  local d1="${ENVIRONMENT_DESKTOP[*]}"
-  local g1="${ENVIRONMENT_GPU[*]}"
+  local first_desktops="${ENVIRONMENT_DESKTOP[*]}"
+  local first_gpus="${ENVIRONMENT_GPU[*]}"
   local gp1="${GPU_PACMAN_PACKAGES[*]}"
   local gr1="${GPU_PARU_PACKAGES[*]}"
-  local a1="${AUDIO_PACKAGES[*]}"
+  local first_audio="${AUDIO_PACKAGES[*]}"
   environment_resolve
-  [ "${ENVIRONMENT_DESKTOP[*]}" = "$d1" ]
-  [ "${ENVIRONMENT_GPU[*]}" = "$g1" ]
+  [ "${ENVIRONMENT_DESKTOP[*]}" = "$first_desktops" ]
+  [ "${ENVIRONMENT_GPU[*]}" = "$first_gpus" ]
   [ "${GPU_PACMAN_PACKAGES[*]}" = "$gp1" ]
   [ "${GPU_PARU_PACKAGES[*]}" = "$gr1" ]
-  [ "${AUDIO_PACKAGES[*]}" = "$a1" ]
+  [ "${AUDIO_PACKAGES[*]}" = "$first_audio" ]
 }
 
 @test "display_manager auto resolves to sddm when kde present (with hyprland)" {

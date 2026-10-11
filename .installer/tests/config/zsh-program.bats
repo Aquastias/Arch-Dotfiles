@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # system/zsh program + zsh Theme Template (ADR 0128 pattern). Static seam like
-# pi-agent.bats / noctalia-stow.bats: assert the COMMITTED program definition,
+# pi-agent.bats / noctalia-stow-*.bats: assert the COMMITTED program definition,
 # payload, config fixes, and Noctalia wiring without running an install.
 
 setup() {
@@ -38,9 +38,9 @@ setup() {
   [[ "${lines[1]}" == trap* ]]
   # packages via the AUR helper; nvm is repo (extra), git-extras is the only AUR
   grep -q '${AUR_HELPER} -S --noconfirm --needed' "$INSTALL"
-  for p in eza zoxide fzf pv age python-pygments pkgfile ttf-meslo-nerd nvm \
+  for package in eza zoxide fzf pv age python-pygments pkgfile ttf-meslo-nerd nvm \
            git-extras; do
-    grep -q "$p" "$INSTALL"
+    grep -q "$package" "$INSTALL"
   done
   grep -q 'sudo pkgfile -u' "$INSTALL"
   # user programs don't get system_services enabled by the runner, so the
@@ -67,10 +67,10 @@ setup() {
 
 @test "home/ is the single zsh source: no repo-root twins remain" {
   [ -d "$HOMESEED" ]
-  for f in .zshrc .zshenv .zprofile .zlogin .zlogout .zsh_aliases \
+  for dotfile in .zshrc .zshenv .zprofile .zlogin .zlogout .zsh_aliases \
            .p10k.zsh .zsh; do
-    [ -e "$HOMESEED/$f" ]
-    [ -z "$(git -C "$REPO" ls-files -- "$f")" ]
+    [ -e "$HOMESEED/$dotfile" ]
+    [ -z "$(git -C "$REPO" ls-files -- "$dotfile")" ]
   done
   # the generated theme dir is NOT bundled (seeded separately, gitignored)
   [ ! -e "$HOMESEED/.zsh/themes" ]
@@ -179,14 +179,14 @@ setup() {
   # config.toml declares the templates; their input files must reach /etc/skel
   # on a non-stowing box or Noctalia can't render them (live-follow no-ops).
   local chroot="$REPO/.installer/lib/chroot.sh"
-  local skel="$REPO/.installer/lib/chroot/noctalia-skeleton.sh"
+  local skeleton_script="$REPO/.installer/lib/chroot/noctalia-skeleton.sh"
   # staged into the curated dir for both wlroots adapters (niri + hyprland)
   # by the shared curated-payload helper
   grep -q '_chroot_stage_curated_compositor niri ' "$chroot"
   grep -q '_chroot_stage_curated_compositor hyprland ' "$chroot"
   grep -q 'noctalia/templates' "$chroot"
   # seeded curated -> /etc/skel by the preset's skel module
-  grep -q 'noctalia/templates' "$skel"
+  grep -q 'noctalia/templates' "$skeleton_script"
 }
 
 @test "eza follows ANSI-16 via an EZA_COLORS export (no hex)" {

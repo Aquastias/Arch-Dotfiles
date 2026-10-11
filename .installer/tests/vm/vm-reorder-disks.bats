@@ -31,27 +31,30 @@ XML
 # Returns the source file backing a given target dev, post-transform. source and
 # target sit on one line, so grab the file= on the line carrying this dev=.
 # Quote-agnostic (virsh emits single quotes; the too-few fixture uses double).
-_src_for() {
-  printf '%s' "$1" | grep -E "dev=['\"]$2['\"]" | head -1 \
-    | grep -oE "file=['\"][^'\"]*['\"]" | head -1 \
-    | sed -E "s/file=['\"]//; s/['\"]$//"
+_source_for() {
+  printf '%s' "$1" | DEVICE="$2" awk '
+    $0 ~ ("dev=[\047\"]" ENVIRON["DEVICE"] "[\047\"]") {
+      if (match($0, /file=[\047"][^\047"]*[\047"]/))
+        print substr($0, RSTART + 6, RLENGTH - 7)
+      exit
+    }'
 }
 
 @test "reorder: OS disk (sda) keeps its backing file" {
   out="$(_domain_xml | "$SCRIPT")"
-  [ "$(_src_for "$out" sda)" = "/img/disk0.qcow2" ]
+  [ "$(_source_for "$out" sda)" = "/img/disk0.qcow2" ]
 }
 
 @test "reorder: data disks' backing files are reversed" {
   out="$(_domain_xml | "$SCRIPT")"
-  [ "$(_src_for "$out" sdb)" = "/img/disk3.qcow2" ]
-  [ "$(_src_for "$out" sdc)" = "/img/disk2.qcow2" ]
-  [ "$(_src_for "$out" sdd)" = "/img/disk1.qcow2" ]
+  [ "$(_source_for "$out" sdb)" = "/img/disk3.qcow2" ]
+  [ "$(_source_for "$out" sdc)" = "/img/disk2.qcow2" ]
+  [ "$(_source_for "$out" sdd)" = "/img/disk1.qcow2" ]
 }
 
 @test "reorder: the cdrom is left untouched" {
   out="$(_domain_xml | "$SCRIPT")"
-  [ "$(_src_for "$out" sde)" = "/img/install.iso" ]
+  [ "$(_source_for "$out" sde)" = "/img/install.iso" ]
 }
 
 @test "reorder: a domain with too few data disks is unchanged" {
@@ -60,6 +63,6 @@ _src_for() {
     <disk device="disk"><source file="/b"/><target dev="sdb"/></disk>
   </devices></domain>'
   out="$(printf '%s' "$small" | "$SCRIPT")"
-  [ "$(_src_for "$out" sda)" = "/a" ]
-  [ "$(_src_for "$out" sdb)" = "/b" ]
+  [ "$(_source_for "$out" sda)" = "/a" ]
+  [ "$(_source_for "$out" sdb)" = "/b" ]
 }

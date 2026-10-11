@@ -36,17 +36,17 @@ _matrix_tier1_cell() {
 # Echoes nothing on success; the caller asserts via `run`.
 _matrix_validate_cell() {
   local cell="$1"
-  local cfg; cfg="$(mktemp "${BATS_TEST_TMPDIR}/cell.XXXXXX.jsonc")"
-  matrix_cell_assemble "$cell" > "$cfg"
-  export CONFIG_FILE="$cfg"
+  local config_file; config_file="$(mktemp "${BATS_TEST_TMPDIR}/cell.XXXXXX.jsonc")"
+  matrix_cell_assemble "$cell" > "$config_file"
+  export CONFIG_FILE="$config_file"
 
-  local m
-  for m in lib/common.sh lib/config/categorized-list.sh \
+  local module
+  for module in lib/common.sh lib/config/categorized-list.sh \
     lib/config/post-install.sh lib/config/install-config.sh \
     lib/config/lifecycle.sh lib/config/program-registry.sh lib/config/profile-loader.sh \
     lib/layout/dispatch.sh lib/packages/package-list.sh lib/profiles/runner.sh \
     lib/config/validation.sh; do
-    source "$INSTALLER_DIR/$m"
+    source "$INSTALLER_DIR/$module"
   done
 
   lifecycle_load_config >/dev/null 2>&1

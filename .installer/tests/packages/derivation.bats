@@ -27,14 +27,14 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 write_config() { printf '%s\n' "$1" >"$CONFIG_FILE"; }
-res_src() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort -u; }
+resolved_from_source() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort -u; }
 
 # ── unit: base ──────────────────────────────────────────────────────────────
 
 @test "base_packages: the unconditional 18-package set" {
   run base_packages
   [ "$status" -eq 0 ]
-  [ "$(base_packages | sort -u | wc -l)" -eq 18 ]
+  [ "$(base_packages | sort -u | awk 'END { print NR }')" -eq 18 ]
   base_packages | grep -qx base
   base_packages | grep -qx base-devel
   base_packages | grep -qx stow
@@ -59,7 +59,7 @@ res_src() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3
 # ── unit: audio ─────────────────────────────────────────────────────────────
 
 @test "audio_packages: the PipeWire stack" {
-  [ "$(audio_packages | wc -l)" -eq 8 ]
+  [ "$(audio_packages | awk 'END { print NR }')" -eq 8 ]
   audio_packages | grep -qx pipewire
   audio_packages | grep -qx libpulse
   audio_packages | grep -qx rtkit
@@ -78,43 +78,43 @@ res_src() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3
 # ── drift guard: the shared names reach BOTH callers ─────────────────────────
 
 @test "drift: base set — module == resolver base == in package_list_collect" {
-  local cfg='{"users":[],"options":{"kernel":"lts"}}'
-  write_config "$cfg"
+  local config='{"users":[],"options":{"kernel":"lts"}}'
+  write_config "$config"
   # query side is exactly the module
-  diff <(base_packages | sort -u) <(res_src "$cfg" base)
+  diff <(base_packages | sort -u) <(resolved_from_source "$config" base)
   # install side contains every base name
-  local out p; out="$(package_list_collect)"
-  while IFS= read -r p; do grep -qx "$p" <<<"$out"; done < <(base_packages)
+  local out package; out="$(package_list_collect)"
+  while IFS= read -r package; do grep -qx "$package" <<<"$out"; done < <(base_packages)
 }
 
 @test "drift: gpu (amd) — module == resolver == install globals" {
-  local cfg='{"users":[],"options":{"kernel":"lts"},
+  local config='{"users":[],"options":{"kernel":"lts"},
     "environment":{"desktop":["kde"],"gpu":"amd"}}'
-  write_config "$cfg"
-  diff <(gpu_vendor_packages amd | tr ' ' '\n' | sort -u) <(res_src "$cfg" gpu)
+  write_config "$config"
+  diff <(printf '%s\n' $(gpu_vendor_packages amd) | sort -u) <(resolved_from_source "$config" gpu)
   environment_resolve
-  diff <(gpu_vendor_packages amd | tr ' ' '\n' | sort -u) \
+  diff <(printf '%s\n' $(gpu_vendor_packages amd) | sort -u) \
        <(printf '%s\n' "${GPU_PACMAN_PACKAGES[@]}" | sort -u)
 }
 
 @test "drift: audio — module == resolver == install globals (desktop present)" {
-  local cfg='{"users":[],"options":{"kernel":"lts"},
+  local config='{"users":[],"options":{"kernel":"lts"},
     "environment":{"desktop":["kde"],"gpu":"amd"}}'
-  write_config "$cfg"
-  diff <(audio_packages | sort -u) <(res_src "$cfg" audio)
+  write_config "$config"
+  diff <(audio_packages | sort -u) <(resolved_from_source "$config" audio)
   environment_resolve
   diff <(audio_packages | sort -u) \
        <(printf '%s\n' "${AUDIO_PACKAGES[@]}" | sort -u)
 }
 
 @test "drift: zfs userland — module names reach resolver and install" {
-  local cfg='{"users":[],"options":{"kernel":"lts"},"filesystem":"zfs"}'
-  write_config "$cfg"
-  local p out
+  local config='{"users":[],"options":{"kernel":"lts"},"filesystem":"zfs"}'
+  write_config "$config"
+  local package out
   out="$(package_list_collect)"
-  while IFS= read -r p; do
-    [[ -n "$p" ]] || continue
-    grep -qx "$p" <<<"$out"
-    res_src "$cfg" zfs | grep -qx "$p"
-  done < <(filesystem_userland_packages zfs | tr ' ' '\n')
+  while IFS= read -r package; do
+    [[ -n "$package" ]] || continue
+    grep -qx "$package" <<<"$out"
+    resolved_from_source "$config" zfs | grep -qx "$package"
+  done < <(printf '%s\n' $(filesystem_userland_packages zfs))
 }

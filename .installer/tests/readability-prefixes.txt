@@ -10,6 +10,8 @@ exempt-file .installer/vm/vm.sh
 exempt-file .installer/vm/vm-agent.sh
 exempt-file .installer/tests/*.sh
 exempt-file .installer/tests/vm/*.sh
+exempt-file .installer/tests/*-helpers.bash
+exempt-file .installer/tests/**/*-helpers.bash
 exempt-file .installer/programs/**/scripts/*.sh
 
 # Stdlibs: the base vocabulary (info, confirm, parent_directory).

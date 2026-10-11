@@ -35,7 +35,7 @@ JSONC
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
-set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
+set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── top screen: the Profiles row leads, set off by its own divider ──────────
 
@@ -65,7 +65,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── profiles screen: lists the installable profiles + Back ──────────────────
 
 @test "list(profiles): Reset row leads, then desktop + laptop, then Back" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_list
   [ "${lines[0]}" = "↺ Reset to blank" ]   # ADR 0063: leads the picker
   [ "${lines[1]}" = "desktop" ]
@@ -76,14 +76,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(profiles): a fresh repo shows only the Reset row + Back" {
   rm -rf "$INSTALLER_DIR/hosts/desktop" "$INSTALLER_DIR/hosts/laptop"
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_list
   [ "${lines[0]}" = "↺ Reset to blank" ]
   echo "$output" | grep -q "← Back"
 }
 
 @test "back(profiles): Esc/Back returns to the top screen" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
@@ -92,7 +92,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── preview pane: a deep tree of the resolved machine (ADR 0063) ─────────────
 
 @test "preview(profiles): shows a deep tree of the resolved machine" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_preview desktop
   echo "$output" | grep -q "eterniox"             # hostname (resolved)
   echo "$output" | grep -q "encryption: on"       # options incl. encryption
@@ -104,16 +104,16 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "preview(profiles): expands a user to shell·groups" {
-  local d; d="$TEST_DIR/os4"
-  mkdir -p "$d/hosts"/{core,box} "$d/users"/{core,alice}
-  printf '{}\n' > "$d/hosts/core/profile.jsonc"
-  printf '{}\n' > "$d/users/core/profile.jsonc"
+  local installer_directory; installer_directory="$TEST_DIR/os4"
+  mkdir -p "$installer_directory/hosts"/{core,box} "$installer_directory/users"/{core,alice}
+  printf '{}\n' > "$installer_directory/hosts/core/profile.jsonc"
+  printf '{}\n' > "$installer_directory/users/core/profile.jsonc"
   printf '{"system":{"hostname":"box"},"users":["alice"]}\n' \
-    > "$d/hosts/box/profile.jsonc"
+    > "$installer_directory/hosts/box/profile.jsonc"
   printf '{"shell":"/bin/fish","groups":["wheel","docker"]}\n' \
-    > "$d/users/alice/profile.jsonc"
-  export INSTALLER_DIR="$d"
-  set_nav '{"screen":"profiles"}'
+    > "$installer_directory/users/alice/profile.jsonc"
+  export INSTALLER_DIR="$installer_directory"
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_preview box
   echo "$output" | grep -q "alice"
   echo "$output" | grep -q "/bin/fish"
@@ -121,24 +121,24 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "preview(profiles): resolves over Host Core, not the raw delta" {
-  local d; d="$TEST_DIR/os5"
-  mkdir -p "$d/hosts"/{core,box}
-  printf '{"options":{"bootloader":"grub"}}\n' > "$d/hosts/core/profile.jsonc"
-  printf '{"system":{"hostname":"box"}}\n' > "$d/hosts/box/profile.jsonc"
-  export INSTALLER_DIR="$d"
-  set_nav '{"screen":"profiles"}'
+  local installer_directory; installer_directory="$TEST_DIR/os5"
+  mkdir -p "$installer_directory/hosts"/{core,box}
+  printf '{"options":{"bootloader":"grub"}}\n' > "$installer_directory/hosts/core/profile.jsonc"
+  printf '{"system":{"hostname":"box"}}\n' > "$installer_directory/hosts/box/profile.jsonc"
+  export INSTALLER_DIR="$installer_directory"
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_preview box
   echo "$output" | grep -q "bootloader: grub"     # inherited from Host Core
 }
 
 @test "preview(profiles): rows stay clean — only the name (no inline hint)" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_list
   echo "$output" | grep -qx "desktop"             # name only, no hostname hint
 }
 
 @test "preview(profiles): Back + Reset row preview nothing" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_preview "← Back"
   [ -z "$output" ]
   run guided_controller_preview "↺ Reset to blank"
@@ -148,7 +148,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── ↺ Reset to blank: confirm-gated, undoable full session reset (ADR 0063) ──
 
 @test "enter(profiles): Reset row drills to the confirm screen" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_enter "↺ Reset to blank"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "newhost" ]
@@ -156,7 +156,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(newhost): Back cancels to the picker, session intact" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
-  set_nav '{"screen":"newhost"}'
+  set_navigation '{"screen":"newhost"}'
   run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
@@ -178,7 +178,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' '{"users":{"alice":{"password":"p"}}}' > "$GUIDED_SECRETS_FILE"
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
 
-  set_nav '{"screen":"newhost"}'
+  set_navigation '{"screen":"newhost"}'
   run guided_controller_enter "Yes — discard session work and start blank"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
@@ -199,7 +199,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' '{"users":{"alice":{"password":"p"}}}' > "$GUIDED_SECRETS_FILE"
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
 
-  set_nav '{"screen":"newhost"}'
+  set_navigation '{"screen":"newhost"}'
   guided_controller_enter "Yes — discard session work and start blank" >/dev/null
 
   run guided_controller_key ctrl-z
@@ -212,7 +212,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── seed-on-pick: the chosen profile populates the Config State ──────────────
 
 @test "enter(profiles): picking a profile seeds the state + returns to top" {
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_enter desktop
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
@@ -223,7 +223,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(profiles): a prior edit survives unless the profile overrides it" {
   printf '%s\n' '{"system":{"keymap":"de"}}' > "$GUIDED_STATE_FILE"
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   guided_controller_enter desktop >/dev/null
   jq -e '.system.keymap == "de"' "$GUIDED_STATE_FILE"        # kept
   jq -e '.system.hostname == "eterniox"' "$GUIDED_STATE_FILE" # merged
@@ -231,7 +231,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(profiles): an unreadable profile warns without touching state" {
   printf '%s\n' '{"seed":"me"}' > "$GUIDED_STATE_FILE"
-  set_nav '{"screen":"profiles"}'
+  set_navigation '{"screen":"profiles"}'
   run guided_controller_enter ghost
   [[ "$output" == notice* ]]
   jq -e '.seed == "me"' "$GUIDED_STATE_FILE"                 # untouched
@@ -245,19 +245,19 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # produces one install through every front-end.
 
 @test "seeding resolves the profile over Host Core, not the raw delta" {
-  local d; d="$TEST_DIR/os2"
-  mkdir -p "$d/hosts"/{core,desktop}
-  cat > "$d/hosts/core/profile.jsonc" <<'JSON'
+  local installer_directory; installer_directory="$TEST_DIR/os2"
+  mkdir -p "$installer_directory/hosts"/{core,desktop}
+  cat > "$installer_directory/hosts/core/profile.jsonc" <<'JSON'
 {"host_programs":["cups"],
  "packages":{"repo":{"shell":["htop"]}},"sysctl":{"vm.swappiness":10}}
 JSON
-  cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
+  cat > "$installer_directory/hosts/desktop/profile.jsonc" <<'JSON'
 {"host_programs":["grub"],"packages":{"repo":{"virt":["qemu-full"]}}}
 JSON
-  export INSTALLER_DIR="$d"
+  export INSTALLER_DIR="$installer_directory"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
-  set_nav "$(navigation_to_profiles)"
+  set_navigation "$(navigation_to_profiles)"
   run guided_controller_enter "desktop"
   [ "$status" -eq 0 ]
 
@@ -269,18 +269,18 @@ JSON
 }
 
 @test "a seeded profile matches profile_loader_load exactly" {
-  local d; d="$TEST_DIR/os3"
-  mkdir -p "$d/hosts"/{core,desktop}
-  cat > "$d/hosts/core/profile.jsonc" <<'JSON'
+  local installer_directory; installer_directory="$TEST_DIR/os3"
+  mkdir -p "$installer_directory/hosts"/{core,desktop}
+  cat > "$installer_directory/hosts/core/profile.jsonc" <<'JSON'
 {"host_programs":["cups"],"packages":{"repo":{"shell":["htop"]}}}
 JSON
-  cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
+  cat > "$installer_directory/hosts/desktop/profile.jsonc" <<'JSON'
 {"host_programs":["grub"],"options":{"kernel":["zen"]}}
 JSON
-  export INSTALLER_DIR="$d"
+  export INSTALLER_DIR="$installer_directory"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
-  set_nav "$(navigation_to_profiles)"
+  set_navigation "$(navigation_to_profiles)"
   guided_controller_enter "desktop" >/dev/null
 
   source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"

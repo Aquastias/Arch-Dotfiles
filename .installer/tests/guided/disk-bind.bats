@@ -31,7 +31,7 @@ setup() {
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
-set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
+set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── device-mode detection (AC1) ──────────────────────────────────────────────
 
@@ -48,45 +48,45 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "_controller_free_disks: all enumerated disks when nothing bound" {
   run _controller_free_disks '{}'
-  [ "$(echo "$output" | wc -l)" -eq 3 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 3 ]
 }
 
 @test "_controller_free_disks: excludes a disk bound to a data pool" {
-  local s
-  s='{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"]}]}'
-  run _controller_free_disks "$s"
+  local state
+  state='{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"]}]}'
+  run _controller_free_disks "$state"
   ! echo "$output" | grep -q "nvme-Disk_One"
   echo "$output" | grep -q "nvme-Disk_Two"
 }
 
 @test "_controller_free_disks: excludes a disk bound to the os_pool (cross-group)" {
-  local s='{"os_pool":{"devices":["'"$BY_ID"'/ata-Disk_Three"]}}'
-  run _controller_free_disks "$s"
+  local state='{"os_pool":{"devices":["'"$BY_ID"'/ata-Disk_Three"]}}'
+  run _controller_free_disks "$state"
   ! echo "$output" | grep -q "ata-Disk_Three"
-  [ "$(echo "$output" | wc -l)" -eq 2 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 2 ]
 }
 
 # ── bind toggle + derived disk_count (AC2) ───────────────────────────────────
 
 @test "_controller_pool_toggle_disk: binds a disk, disk_count derives to 1" {
-  local g; g="$(_controller_pool_toggle_disk '{"name":"tank0"}' /dev/disk/by-id/x)"
-  [ "$(jq -r '.devices[0]' <<<"$g")" = "/dev/disk/by-id/x" ]
-  [ "$(jq -r '.disk_count' <<<"$g")" = "1" ]
+  local pool; pool="$(_controller_pool_toggle_disk '{"name":"tank0"}' /dev/disk/by-id/x)"
+  [ "$(jq -r '.devices[0]' <<<"$pool")" = "/dev/disk/by-id/x" ]
+  [ "$(jq -r '.disk_count' <<<"$pool")" = "1" ]
 }
 
 @test "_controller_pool_toggle_disk: toggling a bound disk unbinds it, count 0" {
-  local g='{"name":"tank0","devices":["/dev/disk/by-id/x"],"disk_count":1}'
-  g="$(_controller_pool_toggle_disk "$g" /dev/disk/by-id/x)"
-  [ "$(jq -c '.devices' <<<"$g")" = "[]" ]
-  [ "$(jq -r '.disk_count' <<<"$g")" = "0" ]
+  local pool='{"name":"tank0","devices":["/dev/disk/by-id/x"],"disk_count":1}'
+  pool="$(_controller_pool_toggle_disk "$pool" /dev/disk/by-id/x)"
+  [ "$(jq -c '.devices' <<<"$pool")" = "[]" ]
+  [ "$(jq -r '.disk_count' <<<"$pool")" = "0" ]
 }
 
 # ── filesystem-pin trim (AC5) ────────────────────────────────────────────────
 
 @test "_controller_pool_normalise_filesystem: ext4 trims bound devices to the first" {
-  local s='{"data_pools":[{"name":"t","devices":["/d/a","/d/b","/d/c"],
+  local state='{"data_pools":[{"name":"t","devices":["/d/a","/d/b","/d/c"],
             "disk_count":3}]}'
-  run _controller_pool_normalise_filesystem "$s" 0 ext4
+  run _controller_pool_normalise_filesystem "$state" 0 ext4
   [ "$(jq -c '.data_pools[0].devices' <<<"$output")" = '["/d/a"]' ]
   [ "$(jq -r '.data_pools[0].disk_count' <<<"$output")" = "1" ]
 }
@@ -119,7 +119,7 @@ STUB
   printf '%s\n' \
     '{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"]}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_disks Disks 0 data)"
+  set_navigation "$(navigation_to_pool_disks Disks 0 data)"
   run guided_controller_list
   echo "$output" | grep -q '^\[x\] nvme-Disk_One'
   echo "$output" | grep -q '^\[ \] nvme-Disk_Two'
@@ -128,7 +128,7 @@ STUB
 
 @test "enter(pooldisks): toggling a free disk binds it (refresh)" {
   printf '%s\n' '{"data_pools":[{"name":"tank0"}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_disks Disks 0 data)"
+  set_navigation "$(navigation_to_pool_disks Disks 0 data)"
   run guided_controller_enter "[ ] nvme-Disk_Two"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].devices[0]' "$GUIDED_STATE_FILE")" \
@@ -138,7 +138,7 @@ STUB
 
 @test "enter(pooldisks): a '<size> <model> · <tail>' label binds by its tail" {
   printf '%s\n' '{"data_pools":[{"name":"tank0"}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_disks Disks 0 data)"
+  set_navigation "$(navigation_to_pool_disks Disks 0 data)"
   run guided_controller_enter "[ ] 512G Foo SSD 980 · nvme-Disk_Two"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].devices[0]' "$GUIDED_STATE_FILE")" \
@@ -146,7 +146,7 @@ STUB
 }
 
 @test "enter(pooldisks): ← Back returns to the pool editor (render)" {
-  set_nav "$(navigation_to_pool_disks Disks 0 data)"
+  set_navigation "$(navigation_to_pool_disks Disks 0 data)"
   run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
@@ -159,7 +159,7 @@ STUB
   GUIDED_DEVICE_MODE=1
   printf '%s\n' '{"data_pools":[{"name":"tank0","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0)"
+  set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "disks: 0 bound   (Enter to edit)"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooldisks" ]
@@ -169,7 +169,7 @@ STUB
   printf '%s\n' \
     '{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"],
       "disk_count":1}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0)"
+  set_navigation "$(navigation_to_pool_edit Disks 0)"
   GUIDED_DEVICE_MODE=1 run guided_controller_list
   echo "$output" | grep -q "disks: 1 bound"
   GUIDED_DEVICE_MODE=0 run guided_controller_list
@@ -180,7 +180,7 @@ STUB
   GUIDED_DEVICE_MODE=0
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror",
     "disk_count":2}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_pool_edit Disks 0)"
+  set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "disks: 2   (Enter cycles 1-8)"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]

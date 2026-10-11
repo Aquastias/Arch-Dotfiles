@@ -175,9 +175,9 @@ setup() {
     "os_pool":{"pool_name":"rpool","topology":"none","disk_count":1},
     "data_pools":[{"name":"tank0","topology":"stripe","disk_count":1},
                   {"name":"tank1","topology":"mirror","disk_count":2}]}'
-  local asg
-  asg="$(picker_build_assignment "$profile" /dev/a /dev/b /dev/c /dev/d)"
-  run picker_assign_disks "$profile" "$asg"
+  local assignment
+  assignment="$(picker_build_assignment "$profile" /dev/a /dev/b /dev/c /dev/d)"
+  run picker_assign_disks "$profile" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.os_pool.disks == ["/dev/a"]'
   echo "$output" | jq -e '.data_pools[0].disks == ["/dev/b"]'

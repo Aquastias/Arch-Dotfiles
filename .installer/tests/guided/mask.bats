@@ -8,8 +8,8 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/guided/mask.sh"; }
 
 B='•'   # the bullet
 
-buffer() { guided_mask_apply "$1" "$2" | head -1; }
-display() { guided_mask_apply "$1" "$2" | tail -1; }
+buffer() { guided_mask_apply "$1" "$2" | awk 'NR == 1'; }
+display() { guided_mask_apply "$1" "$2" | awk 'END { print }'; }
 
 @test "append one char to an empty buffer" {
   [ "$(buffer '' 's')" = "s" ]
@@ -43,12 +43,12 @@ display() { guided_mask_apply "$1" "$2" | tail -1; }
 }
 
 @test "typing a full secret one char at a time reconstructs it" {
-  local buf='' q ch disp
-  for ch in s 3 c r e t; do
-    q="${disp:-}${ch}"
-    buf="$(guided_mask_apply "$buf" "$q" | head -1)"
-    disp="$(guided_mask_apply "$buf" "$q" | tail -1)"
+  local buffer='' query character disp
+  for character in s 3 c r e t; do
+    query="${disp:-}${character}"
+    buffer="$(guided_mask_apply "$buffer" "$query" | awk 'NR == 1')"
+    disp="$(guided_mask_apply "$buffer" "$query" | awk 'END { print }')"
   done
-  [ "$buf" = "s3cret" ]
+  [ "$buffer" = "s3cret" ]
   [ "${#disp}" -eq 6 ]
 }

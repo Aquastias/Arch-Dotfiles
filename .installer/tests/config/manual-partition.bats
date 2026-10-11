@@ -101,8 +101,8 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 # ── Proceed-only guard ──────────────────────────────────────────────────────
 
 @test "kind_active: true when disk_config.kind is manual" {
-  local s; s="$(config_state_set "$(config_state_new)" disk_config.kind '"manual"')"
-  run manual_partition_kind_active "$s"
+  local state; state="$(config_state_set "$(config_state_new)" disk_config.kind '"manual"')"
+  run manual_partition_kind_active "$state"
   [ "$status" -eq 0 ]
 }
 
@@ -176,19 +176,19 @@ LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
 }
 
 @test "row_label: renders device, mountpoint, fs and keep/format" {
-  local r
-  r="$(manual_partition_row_label \
+  local row
+  row="$(manual_partition_row_label \
     '{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}')"
-  [[ "$r" == *"/dev/sda2"* ]]
-  [[ "$r" == *"/"* ]]
-  [[ "$r" == *"ext4"* ]]
-  [[ "$r" == *"[format]"* ]]
+  [[ "$row" == *"/dev/sda2"* ]]
+  [[ "$row" == *"/"* ]]
+  [[ "$row" == *"ext4"* ]]
+  [[ "$row" == *"[format]"* ]]
 }
 
 @test "row_label: an unassigned kept partition reads clearly" {
-  local r
-  r="$(manual_partition_row_label \
+  local row
+  row="$(manual_partition_row_label \
     '{"device":"/dev/sda9","mountpoint":"","fs":"","format":false}')"
-  [[ "$r" == *"(unassigned)"* ]]
-  [[ "$r" == *"[keep]"* ]]
+  [[ "$row" == *"(unassigned)"* ]]
+  [[ "$row" == *"[keep]"* ]]
 }

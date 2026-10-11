@@ -23,8 +23,8 @@ Installer code must read without decoding ([ADR 0153]): no abbreviations (`pw`,
 `main()` outlines each entry script, files ≤ 500 lines, functions
 ≤ ~50 lines / ≤ 3 nesting, one tool per job (jq JSON, awk text,
 grep filter — no `cut`/`tr`/`head`/…, `sed` only `-i`). Enforced by
-`.installer/tests/readability.sh` as a ratchet: new violations fail, the
-baseline only shrinks. See `docs/agents/readability.md`.
+`.installer/tests/readability.sh`, strictly: any violation fails. See
+`docs/agents/readability.md`.
 
 ### Arch Wiki grounding
 

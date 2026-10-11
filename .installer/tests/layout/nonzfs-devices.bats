@@ -23,7 +23,7 @@ setup() {
 }
 
 # Helper: extract a key=value field from the emitted plan.
-dev_field() { grep -E "^$1=" | cut -d= -f2-; }
+dev_field() { KEY="$1" awk 'index($0, ENVIRON["KEY"] "=") == 1 { print substr($0, length(ENVIRON["KEY"]) + 2) }'; }
 
 # ── tracer: plaintext, with swap → bare partitions off the plan's slots ─────
 

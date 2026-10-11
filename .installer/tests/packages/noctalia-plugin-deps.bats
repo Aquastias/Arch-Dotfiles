@@ -10,9 +10,9 @@ setup() {
   # Regression (Audit Run 20260929): gamer-mode / battery-power-management
   # pulled power-profiles-daemon, which conflicts with the tuned backend's
   # tuned-ppd and overrides `profile: none` (ADR 0080).
-  local pl
-  for pl in gamer-mode battery-power-management; do
-    run noctalia_plugin_deps "$pl"
+  local plugin
+  for plugin in gamer-mode battery-power-management; do
+    run noctalia_plugin_deps "$plugin"
     [[ "$output" != *power-profiles-daemon* ]]
     [[ "$output" != *tuned* ]]
   done

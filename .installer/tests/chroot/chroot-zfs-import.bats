@@ -80,10 +80,10 @@ UNIT
   sample_unit > "$root/usr/lib/systemd/system/zfs-import-cache.service"
   run zfs_import_write_settle_overrides "$root"
   [ "$status" -eq 0 ]
-  local dst="$root/etc/systemd/system/zfs-import-cache.service"
-  [ -f "$dst" ]
-  ! grep -q 'systemd-udev-settle' "$dst"
-  grep -q '^ExecStart=' "$dst"          # full unit, not a drop-in
+  local unit_file="$root/etc/systemd/system/zfs-import-cache.service"
+  [ -f "$unit_file" ]
+  ! grep -q 'systemd-udev-settle' "$unit_file"
+  grep -q '^ExecStart=' "$unit_file"          # full unit, not a drop-in
 }
 
 @test "write_settle_overrides: writes scan too when shipped" {
@@ -121,10 +121,10 @@ UNIT
 @test "load_key_template: loads the instance key before zfs-mount.service" {
   local root="$BATS_TEST_TMPDIR/root"
   zfs_import_write_load_key_template "$root"
-  local u="$root/etc/systemd/system/zfs-load-key@.service"
-  grep -q '^ExecStart=/usr/bin/zfs load-key %i' "$u"
-  grep -q '^Before=zfs-mount.service' "$u"
-  grep -q '^WantedBy=zfs-mount.service' "$u"
+  local unit_file="$root/etc/systemd/system/zfs-load-key@.service"
+  grep -q '^ExecStart=/usr/bin/zfs load-key %i' "$unit_file"
+  grep -q '^Before=zfs-mount.service' "$unit_file"
+  grep -q '^WantedBy=zfs-mount.service' "$unit_file"
 }
 
 # ── zfs_import_write_list_cache (zfs-mount-generator cache, correct columns) ─────────
@@ -137,37 +137,39 @@ UNIT
 CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid,nbmand,encroot,keylocation,org.openzfs.systemd:requires,org.openzfs.systemd:requires-mounts-for,org.openzfs.systemd:before,org.openzfs.systemd:after,org.openzfs.systemd:wanted-by,org.openzfs.systemd:required-by,org.openzfs.systemd:nofail,org.openzfs.systemd:ignore'
 
 @test "list_cache: passes zfs the canonical 20-column -o property set" {
-  local dir="$BATS_TEST_TMPDIR/cache"
+  local cache_directory="$BATS_TEST_TMPDIR/cache"
   # Stub zfs: record the -o argument, emit a fake cache line to stdout.
   zfs() {
-    local prev=""
-    for a in "$@"; do
-      [[ "$prev" == "-o" ]] && printf '%s' "$a" > "$BATS_TEST_TMPDIR/cols"
-      prev="$a"
+    local previous_argument=""
+    for argument in "$@"; do
+      [[ "$previous_argument" == "-o" ]] && printf '%s' "$argument" > "$BATS_TEST_TMPDIR/cols"
+      previous_argument="$argument"
     done
     printf 'rpool\t/\toff\n'
   }
-  zfs_import_write_list_cache rpool "$dir"
+  zfs_import_write_list_cache rpool "$cache_directory"
   [ "$(cat "$BATS_TEST_TMPDIR/cols")" = "$CANON_COLS" ]
 }
 
 @test "list_cache: writes the cache file named for the pool" {
-  local dir="$BATS_TEST_TMPDIR/cache"
+  local cache_directory="$BATS_TEST_TMPDIR/cache"
   zfs() { printf 'rpool\t/\toff\n'; }
-  zfs_import_write_list_cache rpool "$dir"
-  [ -f "$dir/rpool" ]
+  zfs_import_write_list_cache rpool "$cache_directory"
+  [ -f "$cache_directory/rpool" ]
 }
 
 # no-shell 20261007: `zfs mount -a` aborted once in libzfs (a parallel-mount
 # race); a retry mounts what the crash left unmounted
 @test "mount_restart_dropin: zfs-mount retries on failure, bounded" {
-  local r="$BATS_TEST_TMPDIR/root"
-  zfs_import_write_mount_restart_dropin "$r"
-  local f="$r/etc/systemd/system/zfs-mount.service.d/10-restart.conf"
-  grep -qx 'Restart=on-failure' "$f"
-  grep -qx 'RestartSec=2' "$f"
-  grep -qx 'StartLimitBurst=3' "$f"
-  sed -n '/^\[Unit\]/,/^\[/p' "$f" | grep -q '^StartLimitBurst='
+  local root_directory="$BATS_TEST_TMPDIR/root"
+  zfs_import_write_mount_restart_dropin "$root_directory"
+  local dropin_file="$root_directory/etc/systemd/system/zfs-mount.service.d/10-restart.conf"
+  grep -qx 'Restart=on-failure' "$dropin_file"
+  grep -qx 'RestartSec=2' "$dropin_file"
+  grep -qx 'StartLimitBurst=3' "$dropin_file"
+  awk '/^\[Unit\]/ { inside = 1; print; next }
+       inside { print; if (/^\[/) inside = 0 }' "$dropin_file" \
+    | grep -q '^StartLimitBurst='
 }
 
 @test "configure enables the zfs-mount restart drop-in" {

@@ -366,7 +366,7 @@ bootloader, GPU drivers, audio, filesystem tools, ZFS/LUKS userland, login
 shells, the Plasma shell, KDE applications (+ apps_extra, plugins, AUR), the
 niri shell, the Noctalia preset, the display manager (`sddm` / `greetd` /
 `greetd-tuigreet`, keyed on the resolved `display_manager`; `sddm-kcm` stays
-with the KDE set — ADR 0069), Security & Backup Extras, the toggle-derived
+with the KDE set — [ADR 0069]), Security & Backup Extras, the toggle-derived
 printing/bluetooth/power daemons, mirrors, the Font Catalog, and
 secrets-activated `sops` — one ordered source table
 (`_PACKAGE_RESOLVER_SOURCES`) that also names the menu category driving each.
@@ -830,9 +830,10 @@ a core tool or a bash builtin).
 
 ### Readability Lint
 `.installer/tests/readability.sh` — checks the Readability Rules,
-Tool Tiers, and linked ADR mentions in docs. Works as a ratchet against the
-**Readability Baseline**: the list of violations that existed when the
-lint landed. New violations fail; the baseline may only shrink.
+Tool Tiers, and linked ADR mentions in docs. Strict: any violation fails.
+(It began as a ratchet against the **Readability Baseline** — the list of
+violations that existed when the lint landed — which shrank to zero and
+was removed.)
 _Avoid_: style check, linter (unqualified)
 
 ### Program Install Script

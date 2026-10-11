@@ -4,8 +4,8 @@
 
 load ../lib/aur-vet
 
-setup() { aurvet_setup; }
-teardown() { aurvet_teardown; }
+setup() { aur_vet_setup; }
+teardown() { aur_vet_teardown; }
 
 @test "indicators: every row has a known kind, campaign and source" {
   local bad
@@ -28,7 +28,7 @@ teardown() { aurvet_teardown; }
 
 @test "indicators: a missing data file fails closed (exit 2)" {
   rm "$AUR_VET_DATA/indicators.tsv"
-  aurvet_hook "$(aurvet_clone atomic-arch)"
+  aur_vet_hook "$(aur_vet_clone atomic-arch)"
   [ "$status" -eq 2 ]
 }
 
@@ -36,7 +36,7 @@ teardown() { aurvet_teardown; }
   mkdir -p "$T/bin"
   printf '#!/bin/sh\necho curl >> "%s/called"\nexit 1\n' "$T" > "$T/bin/curl"
   chmod +x "$T/bin/curl"
-  PATH="$T/bin:$PATH" aurvet_hook "$(aurvet_clone electron-benign)"
+  PATH="$T/bin:$PATH" aur_vet_hook "$(aur_vet_clone electron-benign)"
   [ ! -e "$T/called" ]
 }
 
@@ -47,14 +47,14 @@ _refresh() {
 }
 
 @test "refresh: appends new names tagged with their source, keeps the rest" {
-  local before; before="$(wc -l < "$AUR_VET_DATA/indicators.tsv")"
+  local before; before="$(awk 'END { print NR }' "$AUR_VET_DATA/indicators.tsv")"
   _refresh
   [ "$status" -eq 0 ]
   grep -qx $'pkgbase\tnew-evil-pkg\tatomic-arch\tarch-md' \
     "$AUR_VET_DATA/indicators.tsv"
   grep -qx $'npm\tfresh-npm-payload\tatomic-arch\tlenucksi' \
     "$AUR_VET_DATA/indicators.tsv"
-  [ "$(wc -l < "$AUR_VET_DATA/indicators.tsv")" -eq $((before + 2)) ]
+  [ "$(awk 'END { print NR }' "$AUR_VET_DATA/indicators.tsv")" -eq $((before + 2)) ]
   [[ "$output" == *"added 2"* ]]
 }
 

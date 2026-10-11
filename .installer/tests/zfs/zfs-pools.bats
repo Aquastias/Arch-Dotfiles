@@ -82,15 +82,15 @@ write_config() {
 # by-partuuid tier to an empty dir so the host's real one never leaks in.
 # Echoes the by-id dir.
 _fake_byid() {
-  local dir="$TEST_DIR/by-id"
-  mkdir -p "$dir" "$TEST_DIR/dev" "$TEST_DIR/empty"
+  local by_id_directory="$TEST_DIR/by-id"
+  mkdir -p "$by_id_directory" "$TEST_DIR/dev" "$TEST_DIR/empty"
   ZFS_BYPARTUUID_DIR="$TEST_DIR/empty"
   : > "$TEST_DIR/dev/sdb1"
   : > "$TEST_DIR/dev/sdc1"
-  ln -sf "$TEST_DIR/dev/sdb1" "$dir/ata-FAKE_DISK_B-part1"
-  ln -sf "$TEST_DIR/dev/sdb1" "$dir/wwn-0xb-part1"
-  ln -sf "$TEST_DIR/dev/sdc1" "$dir/ata-FAKE_DISK_C-part1"
-  printf '%s' "$dir"
+  ln -sf "$TEST_DIR/dev/sdb1" "$by_id_directory/ata-FAKE_DISK_B-part1"
+  ln -sf "$TEST_DIR/dev/sdb1" "$by_id_directory/wwn-0xb-part1"
+  ln -sf "$TEST_DIR/dev/sdc1" "$by_id_directory/ata-FAKE_DISK_C-part1"
+  printf '%s' "$by_id_directory"
 }
 
 @test "_pools_stable_partition_path: maps a kernel part to its by-id symlink" {

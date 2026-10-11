@@ -29,33 +29,33 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
 # ── AC2: the verify block matches the oracle table ──────────────────────────
 
 @test "verify: plain cell → first-boot sentinel only" {
-  local v; v="$(matrix_cell_verify \
+  local verify; verify="$(matrix_cell_verify \
     "$(_cell '{"encryption":false,"impermanence":false}')")"
-  echo "$v" | jq -e '.boot == true and (has("rollback") | not)'
+  echo "$verify" | jq -e '.boot == true and (has("rollback") | not)'
   [ "$(matrix_cell_boot_verify \
     "$(_cell '{"encryption":false,"impermanence":false}')")" = true ]
 }
 
 @test "verify: impermanent cell → boot + rollback (two-boot proof)" {
-  local v; v="$(matrix_cell_verify \
+  local verify; verify="$(matrix_cell_verify \
     "$(_cell '{"encryption":false,"impermanence":true}')")"
-  echo "$v" | jq -e '.boot == true and .rollback == true'
+  echo "$verify" | jq -e '.boot == true and .rollback == true'
 }
 
 @test "verify: encrypted cell boot-verifies (issue 07 oracle flip)" {
   # The Console Answerer supplies the passphrase over serial, so encrypted is
   # no longer install-only — it gets the first-boot sentinel like its peer.
-  local c='{"encryption":true,"impermanence":false}'
-  echo "$(matrix_cell_verify "$(_cell "$c")")" \
+  local cell='{"encryption":true,"impermanence":false}'
+  echo "$(matrix_cell_verify "$(_cell "$cell")")" \
     | jq -e '.boot == true and (has("rollback") | not)'
-  [ "$(matrix_cell_boot_verify "$(_cell "$c")")" = true ]
+  [ "$(matrix_cell_boot_verify "$(_cell "$cell")")" = true ]
 }
 
 @test "verify: encrypted impermanent → boot + rollback (two-boot proof)" {
-  local c='{"encryption":true,"impermanence":true}'
-  echo "$(matrix_cell_verify "$(_cell "$c")")" \
+  local cell='{"encryption":true,"impermanence":true}'
+  echo "$(matrix_cell_verify "$(_cell "$cell")")" \
     | jq -e '.boot == true and .rollback == true'
-  [ "$(matrix_cell_boot_verify "$(_cell "$c")")" = true ]
+  [ "$(matrix_cell_boot_verify "$(_cell "$cell")")" = true ]
 }
 
 @test "verify: gpu≠auto cell → install-only (driver install, no boot-verify)" {
@@ -82,10 +82,10 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
   local cell
   cell="$(_cell '{"filesystem":"zfs","mode":"single","topology":"single",
     "disk_count":2,"encryption":false,"impermanence":true,"data_pool":null}')"
-  local p; p="$(matrix_cell_synthesize "$cell")"
-  echo "$p" | jq -e '(.hardware.disks | length) == 2'
-  echo "$p" | jq -e '.hardware.disks | all(. == 40)'  # proven-installable size
-  echo "$p" | jq -e '.verify.rollback == true'
-  echo "$p" | jq -e '.timeouts.install == 2700'
-  echo "$p" | jq -e '.install | type == "object"'
+  local profile; profile="$(matrix_cell_synthesize "$cell")"
+  echo "$profile" | jq -e '(.hardware.disks | length) == 2'
+  echo "$profile" | jq -e '.hardware.disks | all(. == 40)'  # proven-installable size
+  echo "$profile" | jq -e '.verify.rollback == true'
+  echo "$profile" | jq -e '.timeouts.install == 2700'
+  echo "$profile" | jq -e '.install | type == "object"'
 }

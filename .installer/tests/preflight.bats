@@ -8,16 +8,16 @@ setup() {
   # pacman/… are absent unless a test creates them. Symlink the handful of
   # coreutils the module + assertions still need into the sandbox first.
   ORIG_PATH="$PATH"
-  local u
-  for u in chmod cat tr rm; do ln -s "$(command -v "$u")" "$BIN/$u"; done
+  local utility
+  for utility in chmod cat awk rm; do ln -s "$(command -v "$utility")" "$BIN/$utility"; done
   PATH="$BIN"
   # Record what the pacman seam was asked to install, then materialise those
   # packages' commands so the post-install verify passes (a real pacman would).
   PACMAN_LOG="$BIN/.pacman-args"
   _preflight_pacman() {
     printf '%s\n' "$@" >"$PACMAN_LOG"
-    local p
-    for p in "$@"; do _install_pkg "$p"; done
+    local package
+    for package in "$@"; do _install_package "$package"; done
   }
 }
 
@@ -42,7 +42,7 @@ _make_tool() { printf '#!/bin/sh\n' >"$BIN/$1"; chmod +x "$BIN/$1"; }
 }
 
 # Map a package name back to the command(s) it delivers, for the pacman stub.
-_install_pkg() {
+_install_package() {
   case "$1" in
     gptfdisk)             _make_tool sgdisk ;;
     dosfstools)           _make_tool mkfs.fat ;;
@@ -75,7 +75,7 @@ _install_pkg() {
   _make_tool pacman
   run preflight_ensure_host_tools sgdisk:gptfdisk mkfs.fat:dosfstools
   [ "$status" -eq 0 ]
-  [ "$(tr '\n' ' ' <"$PACMAN_LOG")" = "gptfdisk dosfstools " ]
+  [ "$(awk '{ printf "%s ", $0 }' "$PACMAN_LOG")" = "gptfdisk dosfstools " ]
 }
 
 @test "only the missing subset is installed" {
@@ -83,7 +83,7 @@ _install_pkg() {
   _make_tool sgdisk               # gptfdisk already present
   run preflight_ensure_host_tools jq sgdisk:gptfdisk cryptsetup
   [ "$status" -eq 0 ]
-  [ "$(tr '\n' ' ' <"$PACMAN_LOG")" = "jq cryptsetup " ]
+  [ "$(awk '{ printf "%s ", $0 }' "$PACMAN_LOG")" = "jq cryptsetup " ]
 }
 
 @test "no pacman (not a live medium): hard error names packages, no install" {

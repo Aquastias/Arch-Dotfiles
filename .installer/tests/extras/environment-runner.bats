@@ -39,20 +39,20 @@ _state() {
 JSON
 }
 
-make_de_stub() {
-  local de="$1"
-  mkdir -p "$EXTRAS_DIR/desktop/$de"
-  printf '#!/usr/bin/env bash\necho "%s" >> "$STUB_LOG"\n' "$de" \
-    > "$EXTRAS_DIR/desktop/$de/$de.sh"
-  chmod +x "$EXTRAS_DIR/desktop/$de/$de.sh"
+make_desktop_stub() {
+  local desktop="$1"
+  mkdir -p "$EXTRAS_DIR/desktop/$desktop"
+  printf '#!/usr/bin/env bash\necho "%s" >> "$STUB_LOG"\n' "$desktop" \
+    > "$EXTRAS_DIR/desktop/$desktop/$desktop.sh"
+  chmod +x "$EXTRAS_DIR/desktop/$desktop/$desktop.sh"
 }
 
-make_dm_stub() {
-  local dm="$1"
-  mkdir -p "$EXTRAS_DIR/dm/$dm"
-  printf '#!/usr/bin/env bash\necho "dm:%s" >> "$STUB_LOG"\n' "$dm" \
-    > "$EXTRAS_DIR/dm/$dm/$dm.sh"
-  chmod +x "$EXTRAS_DIR/dm/$dm/$dm.sh"
+make_display_manager_stub() {
+  local display_manager="$1"
+  mkdir -p "$EXTRAS_DIR/dm/$display_manager"
+  printf '#!/usr/bin/env bash\necho "dm:%s" >> "$STUB_LOG"\n' "$display_manager" \
+    > "$EXTRAS_DIR/dm/$display_manager/$display_manager.sh"
+  chmod +x "$EXTRAS_DIR/dm/$display_manager/$display_manager.sh"
 }
 
 # ── runner dispatch ───────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ make_dm_stub() {
 }
 
 @test "single DE in ENVIRONMENT_DESKTOP invokes that adapter" {
-  make_de_stub kde
+  make_desktop_stub kde
   run env ENVIRONMENT_DESKTOP="kde" STATE="$STATE_FILE" \
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
@@ -73,8 +73,8 @@ make_dm_stub() {
 }
 
 @test "multiple DEs invoke all adapters in order" {
-  make_de_stub kde
-  make_de_stub stub-de
+  make_desktop_stub kde
+  make_desktop_stub stub-de
   run env ENVIRONMENT_DESKTOP="kde stub-de" STATE="$STATE_FILE" \
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
@@ -91,8 +91,8 @@ make_dm_stub() {
 # ── display manager dispatch (ADR 0069) ────────────────────────────────────
 
 @test "resolved DISPLAY_MANAGER dispatches its adapter" {
-  make_de_stub kde
-  make_dm_stub sddm
+  make_desktop_stub kde
+  make_display_manager_stub sddm
   run env ENVIRONMENT_DESKTOP="kde" DISPLAY_MANAGER="sddm" STATE="$STATE_FILE" \
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
@@ -100,9 +100,9 @@ make_dm_stub() {
 }
 
 @test "the DM adapter runs after every desktop adapter" {
-  make_de_stub kde
-  make_de_stub hyprland
-  make_dm_stub greetd
+  make_desktop_stub kde
+  make_desktop_stub hyprland
+  make_display_manager_stub greetd
   run env ENVIRONMENT_DESKTOP="kde hyprland" DISPLAY_MANAGER="greetd" \
     STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
@@ -110,8 +110,8 @@ make_dm_stub() {
 }
 
 @test "DISPLAY_MANAGER=none dispatches no DM adapter" {
-  make_de_stub kde
-  make_dm_stub sddm
+  make_desktop_stub kde
+  make_display_manager_stub sddm
   run env ENVIRONMENT_DESKTOP="kde" DISPLAY_MANAGER="none" STATE="$STATE_FILE" \
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
@@ -119,8 +119,8 @@ make_dm_stub() {
 }
 
 @test "unset DISPLAY_MANAGER dispatches no DM adapter" {
-  make_de_stub kde
-  make_dm_stub sddm
+  make_desktop_stub kde
+  make_display_manager_stub sddm
   run env ENVIRONMENT_DESKTOP="kde" STATE="$STATE_FILE" \
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
@@ -128,7 +128,7 @@ make_dm_stub() {
 }
 
 @test "unknown DISPLAY_MANAGER exits non-zero with a clear error" {
-  make_de_stub kde
+  make_desktop_stub kde
   run env ENVIRONMENT_DESKTOP="kde" DISPLAY_MANAGER="lightdm" \
     STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -ne 0 ]

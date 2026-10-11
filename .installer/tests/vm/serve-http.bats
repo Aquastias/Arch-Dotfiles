@@ -11,7 +11,7 @@ teardown() { rm -rf "$T"; }
 
 @test "a symlink is served with its target's length (repo-add's .db)" {
   # Audit Run 20261004: audit-aur.db → .db.tar.gz arrived truncated
-  head -c 5000 /dev/zero > "$T/r.db.tar.gz"
+  : > "$T/r.db.tar.gz"; truncate -s 5000 "$T/r.db.tar.gz"
   ln -s r.db.tar.gz "$T/r.db"
   printf 'GET /r.db HTTP/1.0\r\n\r\n' \
     | SERVE_DIR="$T" bash "$S" --handle > "$T/resp"

@@ -33,9 +33,9 @@ setup() {
   local root="$BATS_TEST_TMPDIR/root"
   run udisks_write_zfs_ignore_rule "$root"
   [ "$status" -eq 0 ]
-  local f
-  f="$(find "$root/etc/udev/rules.d" -name '*.rules' 2>/dev/null | head -1)"
-  [ -f "$f" ]
-  grep -q 'zfs_member' "$f"
-  grep -q 'UDISKS_IGNORE}="1"' "$f"
+  local rule_file
+  rule_file="$(find "$root/etc/udev/rules.d" -name '*.rules' 2>/dev/null | awk 'NR == 1')"
+  [ -f "$rule_file" ]
+  grep -q 'zfs_member' "$rule_file"
+  grep -q 'UDISKS_IGNORE}="1"' "$rule_file"
 }

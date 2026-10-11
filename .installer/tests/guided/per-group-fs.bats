@@ -35,15 +35,15 @@ setup() {
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
-set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
+set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # Author a zfs root + one ext4 data group entirely through the pool editor, then
 # validate the assembled config. With an empty baseline the authored Config State
 # IS the Effective Config, so we validate it directly.
 @test "AC4: a guided-authored zfs-root + encrypted ext4 data group validates" {
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   guided_controller_enter "+ Add data pool" >/dev/null      # tank0: zfs stripe ×1
-  set_nav "$(navigation_to_pool_edit Disks 0)"
+  set_navigation "$(navigation_to_pool_edit Disks 0)"
   guided_controller_enter "filesystem: zfs   (Enter cycles)"   >/dev/null  # → btrfs
   guided_controller_enter "filesystem: btrfs   (Enter cycles)" >/dev/null  # → ext4 (pins)
   guided_controller_enter "encryption: false   (Enter toggles)" >/dev/null # → true
@@ -64,9 +64,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # A btrfs group authored with native raid also validates (raid1 is legal btrfs).
 @test "AC4: a guided-authored btrfs raid1 data group validates" {
-  set_nav "$(navigation_to_data_pools Disks)"
+  set_navigation "$(navigation_to_data_pools Disks)"
   guided_controller_enter "+ Add data pool" >/dev/null      # tank0: zfs stripe ×1
-  set_nav "$(navigation_to_pool_edit Disks 0)"
+  set_navigation "$(navigation_to_pool_edit Disks 0)"
   guided_controller_enter "filesystem: zfs   (Enter cycles)" >/dev/null    # → btrfs (topo→single)
   guided_controller_enter "topology: single   (Enter cycles)" >/dev/null   # → raid0
   guided_controller_enter "topology: raid0   (Enter cycles)"  >/dev/null   # → raid1

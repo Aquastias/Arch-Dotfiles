@@ -43,17 +43,17 @@ STUB
 teardown() { rm -rf "$TEST_DIR"; }
 
 @test "kills the user's gpg daemons and sweeps install-time dotlocks" {
-  local kd="$FAKE_HOME/.gnupg/public-keys.d"
-  mkdir -p "$kd"
-  : > "$kd/pubring.db"
-  : > "$kd/pubring.db.lock"
-  : > "$kd/.#lk0x00007fe068000c60.archiso.1470"
+  local keybox_directory="$FAKE_HOME/.gnupg/public-keys.d"
+  mkdir -p "$keybox_directory"
+  : > "$keybox_directory/pubring.db"
+  : > "$keybox_directory/pubring.db.lock"
+  : > "$keybox_directory/.#lk0x00007fe068000c60.archiso.1470"
   run runner_quiesce_gpg aquastias
   [ "$status" -eq 0 ]
   grep -q '^- aquastias -c gpgconf --kill all$' "$SU_LOG"
-  [ ! -e "$kd/pubring.db.lock" ]
-  [ ! -e "$kd/.#lk0x00007fe068000c60.archiso.1470" ]
-  [ -f "$kd/pubring.db" ]                    # the keyring itself stays
+  [ ! -e "$keybox_directory/pubring.db.lock" ]
+  [ ! -e "$keybox_directory/.#lk0x00007fe068000c60.archiso.1470" ]
+  [ -f "$keybox_directory/pubring.db" ]                    # the keyring itself stays
 }
 
 @test "no-op when the user never ran gpg" {
@@ -63,7 +63,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "runner_run_profiles quiesces gpg before revoking the temp sudo" {
-  local R="$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
-  grep -A1 'runner_quiesce_gpg "\$user"' "$R" \
+  local runner_script="$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
+  grep -A1 'runner_quiesce_gpg "\$user"' "$runner_script" \
     | grep -q 'runner_revoke_temporary_sudo'
 }

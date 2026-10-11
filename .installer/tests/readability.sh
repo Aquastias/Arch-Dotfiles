@@ -4,19 +4,15 @@
 # *.bash, *.bats under .installer/, minus program home/ payloads) and reports
 # each violation as `rule: file:line: detail`.
 #
-# A ratchet, not a wall: the Readability Baseline lists the violations that
-# existed when the lint landed. A violation absent from the baseline fails; a
-# baseline entry no longer violated fails too (delete it), so the baseline only
-# shrinks. Baseline keys are `rule<TAB>file<TAB>symbol` — no line numbers, so
-# unrelated edits never churn it; a key repeated N times allows N violations.
+# Strict: any violation fails. (The Readability Baseline ratchet that eased
+# the lint in reached zero and was retired with ADR 0153's last ticket.)
 #
 # Docs: every `ADR NNNN` in tracked Markdown (minus .scratch/, vendored
 # .agents/skills/, program payloads) must be a link (readability-adr-links.awk).
 #
-# Usage: readability.sh [--list | --write-baseline | --fix-adr-links]
-#   (none)            check against the baseline
-#   --list            print every violation, ignore the baseline
-#   --write-baseline  regenerate the baseline from the current tree
+# Usage: readability.sh [--list | --fix-adr-links]
+#   (none)            fail on any violation
+#   --list            print every violation, never fail
 #   --fix-adr-links   link every ADR mention in the docs, in place
 # Escape hatch: a line containing `readability-ok` is exempt (on a function's
 # opening line it exempts the whole-function rules too).
@@ -30,14 +26,12 @@ ADR_LINKER="$TESTS_DIR/readability-adr-links.awk"
 
 cd "$(git rev-parse --show-toplevel)"
 
-BASELINE="${READABILITY_BASELINE:-.installer/tests/readability-baseline.txt}"
 PREFIX_RULES=".installer/tests/readability-prefixes.txt"
 [[ -f "$PREFIX_RULES" ]] || PREFIX_RULES=""
 
 mode="check"
 case "${1:-}" in
   --list) mode="list" ;;
-  --write-baseline) mode="write" ;;
   --fix-adr-links) mode="fix-adr-links" ;;
   "") ;;
   *)
@@ -106,40 +100,10 @@ case "$mode" in
     done < <(linked_docs)
     exit 0
     ;;
-  write)
-    violations | awk -F'\t' '{ print $1 "\t" $2 "\t" $4 }' | sort > "$BASELINE"
-    exit 0
-    ;;
 esac
 
-# Multiset difference: each baseline key absorbs one matching violation.
-# Unabsorbed violations are new; unused baseline keys are stale.
-status=0
-report="$(
-  violations | awk -F'\t' -v baseline="$BASELINE" '
-    BEGIN {
-      while ((getline row < baseline) > 0) {
-        if (row != "") allowed[row]++
-      }
-    }
-    {
-      key = $1 "\t" $2 "\t" $4
-      if (allowed[key] > 0) { allowed[key]--; next }
-      printf "%s: %s:%s: %s\n", $1, $2, $3, $5
-    }
-    END {
-      for (key in allowed) {
-        for (count = allowed[key]; count > 0; count--) {
-          split(key, part, "\t")
-          printf "stale-baseline: %s %s %s (fixed - delete it)\n", \
-            part[1], part[2], part[3]
-        }
-      }
-    }
-  '
-)"
-if [[ -n "$report" ]]; then
-  printf "%s\n" "$report" | sort | awk '{ print "readability: " $0 }' >&2
-  status=1
-fi
-exit "$status"
+report="$(violations \
+  | awk -F'\t' '{ printf "%s: %s:%s: %s\n", $1, $2, $3, $5 }')"
+[[ -z "$report" ]] && exit 0
+printf "%s\n" "$report" | sort | awk '{ print "readability: " $0 }' >&2
+exit 1

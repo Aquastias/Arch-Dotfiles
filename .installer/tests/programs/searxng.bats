@@ -52,8 +52,8 @@ setup() {
   # default.target start pulled before the link was up; waiting in the unit
   # would hold the user manager's startup (and a login) instead
   ! grep -q 'WantedBy=default.target' "$Q/searxng.container"
-  local t="$S/home/.config/systemd/user/searxng.timer"
-  grep -qx 'OnStartupSec=30' "$t"
-  grep -qx 'WantedBy=timers.target' "$t"
+  local timer_file="$S/home/.config/systemd/user/searxng.timer"
+  grep -qx 'OnStartupSec=30' "$timer_file"
+  grep -qx 'WantedBy=timers.target' "$timer_file"
   grep -q 'timers.target.wants/searxng.timer' "$S/install.sh"
 }

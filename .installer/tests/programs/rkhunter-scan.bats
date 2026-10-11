@@ -17,10 +17,14 @@ case "\$1" in
 esac
 STUB
   chmod +x "$T/bin/rkhunter"
-  local S=rkhunter_scan.sh
-  sed -e "s|/usr/local/lib/shell-stdlib.sh|$T/stdlib.sh|" \
-    -e "s|SYSTEM_LOG=\"/var/log/rkhunter.log\"|SYSTEM_LOG=\"$T/log\"|" \
-    "$BATS_TEST_DIRNAME/../../programs/security/rkhunter/scripts/${S}" \
+  local scan_script=rkhunter_scan.sh
+  STDLIB="$T/stdlib.sh" LOG_PATH="$T/log" awk '{
+      sub(/\/usr\/local\/lib\/shell-stdlib.sh/, ENVIRON["STDLIB"])
+      sub(/SYSTEM_LOG="\/var\/log\/rkhunter.log"/,
+        "SYSTEM_LOG=\"" ENVIRON["LOG_PATH"] "\"")
+      print
+    }' \
+    "$BATS_TEST_DIRNAME/../../programs/security/rkhunter/scripts/${scan_script}" \
     > "$T/scan.sh"
 }
 
@@ -47,8 +51,8 @@ teardown() { rm -rf "$T"; }
 @test "a failed desktop notification never fails the scan" {
   # Audit Run 20261004: from the timer SUDO_USER is unset, the stdlib
   # notifier returns 1, and set -e killed a scan that had already run
-  local n="send_user_notification()"
-  sed -i "s|$n { :; }|$n { return 1; }|" \
+  local notify_signature="send_user_notification()"
+  sed -i "s|$notify_signature { :; }|$notify_signature { return 1; }|" \
     "$T/stdlib.sh"
   UPDATE_RC=0 PATH="$T/bin:$PATH" run bash "$T/scan.sh"
   [ "$status" -eq 0 ]
@@ -61,9 +65,9 @@ teardown() { rm -rf "$T"; }
   printf '%s\n' '#!/bin/sh' \
     "echo 'c1 953 sddm seat0 1809 greeter tty2 no -'" > "$T/bin/loginctl"
   chmod +x "$T/bin/loginctl"
-  local n='send_user_notification()'
-  local r="$n { echo \"to=\${SUDO_USER:-}\" >> '$T/notify'; }"
-  sed -i "s|$n { :; }|$r|" \
+  local notify_signature='send_user_notification()'
+  local notify_stub="$notify_signature { echo \"to=\${SUDO_USER:-}\" >> '$T/notify'; }"
+  sed -i "s|$notify_signature { :; }|$notify_stub|" \
     "$T/stdlib.sh"
   UPDATE_RC=0 PATH="$T/bin:$PATH" run env -u SUDO_USER bash "$T/scan.sh"
   [ "$status" -eq 0 ]

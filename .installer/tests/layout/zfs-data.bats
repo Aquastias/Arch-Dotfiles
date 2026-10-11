@@ -15,30 +15,30 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/data.sh"
 }
 
-dk_field() { grep -E "^$1=" | cut -d= -f2-; }
+data_pool_field() { KEY="$1" awk 'index($0, ENVIRON["KEY"] "=") == 1 { print substr($0, length(ENVIRON["KEY"]) + 2) }'; }
 
 # ── layout_zfs_data_pool_encryption_options (pure) ────────────────────────────────────────────
 
 @test "enc-opts: plaintext selects empty keyfile + empty opts" {
   run layout_zfs_data_pool_encryption_options false tank0
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | dk_field keyfile)" = "" ]
-  [ "$(printf '%s\n' "$output" | dk_field opts)"    = "" ]
+  [ "$(printf '%s\n' "$output" | data_pool_field keyfile)" = "" ]
+  [ "$(printf '%s\n' "$output" | data_pool_field opts)"    = "" ]
 }
 
 @test "enc-opts: encrypted selects keyfile-on-root + file:// opts" {
   run layout_zfs_data_pool_encryption_options true tank0
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | dk_field keyfile)" \
+  [ "$(printf '%s\n' "$output" | data_pool_field keyfile)" \
       = "/etc/cryptsetup-keys.d/tank0.key" ]
-  [ "$(printf '%s\n' "$output" | dk_field opts)" \
+  [ "$(printf '%s\n' "$output" | data_pool_field opts)" \
       = "-O encryption=aes-256-gcm -O keyformat=raw -O keylocation=file:///etc/cryptsetup-keys.d/tank0.key" ]
 }
 
 @test "enc-opts: encrypted opts never use keylocation=prompt" {
   run layout_zfs_data_pool_encryption_options true vault
   [ "$status" -eq 0 ]
-  [[ "$(printf '%s\n' "$output" | dk_field opts)" != *"keylocation=prompt"* ]]
+  [[ "$(printf '%s\n' "$output" | data_pool_field opts)" != *"keylocation=prompt"* ]]
 }
 
 # ── data_formatter_create_group (disk-touching; primitives mocked) ─────────────────────

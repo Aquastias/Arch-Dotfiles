@@ -21,7 +21,9 @@
 # =============================================================================
 set -uo pipefail
 
-AGENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../vm" && pwd)/vm-agent.sh"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+AGENT="$(cd "${script_path%/*}/../../vm" && pwd)/vm-agent.sh"
 sel=(--profile desktop/combined)
 (($#)) && sel=("$@")
 

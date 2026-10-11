@@ -57,7 +57,7 @@ _run_pkglist() { PATH="$BIN" run bash "$T/os/tools/install-pkglist.sh" h; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"vetting needs paru"* ]]
   grep -qx "yay --repo -S --needed -" "$CALLED.args"
-  [ "$(wc -l < "$CALLED.args")" -eq 1 ]      # no AUR pass ran
+  [ "$(awk 'END { print NR }' "$CALLED.args")" -eq 1 ]      # no AUR pass ran
 }
 
 @test "install-pkglist: under yay with no AUR list, succeeds repo-only" {

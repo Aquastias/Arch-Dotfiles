@@ -10,9 +10,9 @@ setup() {
 
 @test "configure.sh runs gpu.sh before initcpio.sh" {
   local gpu_ln initcpio_ln
-  gpu_ln="$(grep -n 'lib-chroot/gpu.sh' "$CONFIGURE" | head -1 | cut -d: -f1)"
-  initcpio_ln="$(grep -n 'lib-chroot/initcpio.sh' "$CONFIGURE" \
-    | head -1 | cut -d: -f1)"
+  gpu_ln="$(awk '/lib-chroot\/gpu.sh/ { print NR; exit }' "$CONFIGURE")"
+  initcpio_ln="$(awk '/lib-chroot\/initcpio.sh/ { print NR; exit }' \
+    "$CONFIGURE")"
   [ -n "$gpu_ln" ]
   [ -n "$initcpio_ln" ]
   [ "$gpu_ln" -lt "$initcpio_ln" ]

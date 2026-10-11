@@ -49,16 +49,16 @@ setup() {
   [ "$status" -ne 0 ]  # no ext4/xfs cell breaks single-disk
 
   # every distinct MULTI (fs,topology) passes the real validator.
-  local triple fs topo
-  while IFS=$'\t' read -r fs topo; do
-    run _validation_topology_for_filesystem os_pool "$fs" "$topo"
+  local triple pool_filesystem pool_topology
+  while IFS=$'\t' read -r pool_filesystem pool_topology; do
+    run _validation_topology_for_filesystem os_pool "$pool_filesystem" "$pool_topology"
     [ "$status" -eq 0 ]
   done < <(jq -r 'select(.axes.mode=="multi")
     | "\(.axes.filesystem)\t\(.axes.topology)"' <<<"$cells" | sort -u)
 
   # every distinct data-pool (fs,topology) passes the real validator.
-  while IFS=$'\t' read -r fs topo; do
-    run _validation_topology_for_filesystem data "$fs" "$topo"
+  while IFS=$'\t' read -r pool_filesystem pool_topology; do
+    run _validation_topology_for_filesystem data "$pool_filesystem" "$pool_topology"
     [ "$status" -eq 0 ]
   done < <(jq -r 'select(.axes.data_pool != null)
     | "\(.axes.data_pool.filesystem)\t\(.axes.data_pool.topology)"' \
@@ -89,11 +89,11 @@ setup() {
 
   # recompute the expected size from the menu-derived factors (independently of
   # the nested generator loop).
-  local fs roots=0 pools expected=0 multis imps
-  pools="$(_generator_data_pool_specs | wc -l)"
-  for fs in $(_generator_root_filesystems); do
-    multis=$(( 1 + $(_generator_multi_topologies "$fs" | wc -l) ))  # single + multi
-    imps=$(_generator_impermanence_values "$fs" | wc -l)
+  local filesystem roots=0 pools expected=0 multis imps
+  pools="$(_generator_data_pool_specs | awk 'END { print NR }')"
+  for filesystem in $(_generator_root_filesystems); do
+    multis=$(( 1 + $(_generator_multi_topologies "$filesystem" | awk 'END { print NR }') ))  # single + multi
+    imps=$(_generator_impermanence_values "$filesystem" | awk 'END { print NR }')
     roots=$(( roots + multis * 2 * imps ))                       # × enc(2)
   done
   expected=$(( roots * pools ))
@@ -125,7 +125,7 @@ setup() {
 
 @test "tier2: every scalar axis value appears in some cell" {
   local cells; cells="$(matrix_tier2_cells 0)"
-  local axis val
+  local axis value
   _has() { echo "$cells" | jq -e --arg a "$1" --argjson v "$2" \
     'select(.axes[$a] == $v)' >/dev/null; }
   _has kernel '"lts"';    _has kernel '"zen"'
@@ -138,19 +138,19 @@ setup() {
 # ── AC6: Tier-2 is deterministic for a fixed seed ───────────────────────────
 
 @test "tier2: identical seed yields byte-identical output" {
-  local a b
-  a="$(matrix_tier2_cells 5)"
-  b="$(matrix_tier2_cells 5)"
-  [ "$a" = "$b" ]
+  local first_run second_run
+  first_run="$(matrix_tier2_cells 5)"
+  second_run="$(matrix_tier2_cells 5)"
+  [ "$first_run" = "$second_run" ]
 }
 
 # ── AC1 (Tier-2): no pairwise cell pairs a filesystem with an unreachable topology
 
 @test "tier2: no cell violates filesystem↔topology reachability" {
   local cells; cells="$(matrix_tier2_cells 0)"
-  local fs topo allowed
-  while IFS=$'\t' read -r fs topo; do
-    allowed=" single $(_generator_multi_topologies "$fs" | tr '\n' ' ') "
-    [[ "$allowed" == *" $topo "* ]] || { echo "bad: $fs/$topo"; false; }
+  local filesystem topology allowed
+  while IFS=$'\t' read -r filesystem topology; do
+    allowed=" single $(_generator_multi_topologies "$filesystem" | awk '{ printf "%s ", $0 }') "
+    [[ "$allowed" == *" $topology "* ]] || { echo "bad: $filesystem/$topology"; false; }
   done < <(jq -r '"\(.axes.filesystem)\t\(.axes.topology)"' <<<"$cells" | sort -u)
 }

@@ -42,11 +42,11 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── picker_enum_disks ─────────────────────────────────────────────────────────
 
 # Helpers: fake a by-id tree where each symlink points at a /dev/<base> node.
-mk_by_id() {
+make_by_id() {
   local link="$1" base="$2"
   ln -sf "../../$base" "$BY_ID/$link"
 }
-mk_dev() {
+make_device() {
   : > "$DEV_ROOT/$1"
 }
 
@@ -56,17 +56,17 @@ setup_disk_fixture() {
   mkdir -p "$BY_ID"
   export DEV_ROOT BY_ID PICKER_BY_ID_DIR="$BY_ID"
   # Two real disks
-  mk_dev sda; mk_dev sda1; mk_dev sda2
-  mk_dev sdb; mk_dev sdb1
+  make_device sda; make_device sda1; make_device sda2
+  make_device sdb; make_device sdb1
   # Live USB
-  mk_dev sdz; mk_dev sdz1
-  mk_by_id "ata-Samsung_SSD_980_PRO_S1"     sda
-  mk_by_id "ata-Samsung_SSD_980_PRO_S1-part1" sda1
-  mk_by_id "ata-Samsung_SSD_980_PRO_S1-part2" sda2
-  mk_by_id "nvme-WD_Black_SN850_X2"         sdb
-  mk_by_id "nvme-WD_Black_SN850_X2-part1"   sdb1
-  mk_by_id "usb-Kingston_DT_Live"           sdz
-  mk_by_id "usb-Kingston_DT_Live-part1"     sdz1
+  make_device sdz; make_device sdz1
+  make_by_id "ata-Samsung_SSD_980_PRO_S1"     sda
+  make_by_id "ata-Samsung_SSD_980_PRO_S1-part1" sda1
+  make_by_id "ata-Samsung_SSD_980_PRO_S1-part2" sda2
+  make_by_id "nvme-WD_Black_SN850_X2"         sdb
+  make_by_id "nvme-WD_Black_SN850_X2-part1"   sdb1
+  make_by_id "usb-Kingston_DT_Live"           sdz
+  make_by_id "usb-Kingston_DT_Live-part1"     sdz1
 }
 
 # One canonical row per whole disk: partition aliases dropped, live medium
@@ -84,7 +84,7 @@ $BY_ID/nvme-WD_Black_SN850_X2"
   setup_disk_fixture
   run picker_enum_disks ""
   [ "$status" -eq 0 ]
-  count="$(echo "$output" | wc -l)"
+  count="$(awk 'END { print NR }' <<<"$output")"
   # sda, sdb, sdz — three whole disks, no partitions.
   [ "$count" -eq 3 ]
 }
@@ -106,14 +106,14 @@ $BY_ID/nvme-WD_Black_SN850_X2"
   BY_ID="$DEV_ROOT/disk/by-id"
   mkdir -p "$BY_ID"
   export DEV_ROOT BY_ID PICKER_BY_ID_DIR="$BY_ID"
-  mk_dev sda; mk_dev sda1
-  mk_dev nvme0n1; mk_dev nvme0n1p1
-  mk_by_id "ata-Samsung_SSD_980_PRO_S1"       sda
-  mk_by_id "wwn-0x5002538e00000001"           sda
-  mk_by_id "ata-Samsung_SSD_980_PRO_S1-part1" sda1
-  mk_by_id "nvme-WD_Black_SN850_X2"           nvme0n1
-  mk_by_id "nvme-eui.0123456789abcdef"        nvme0n1
-  mk_by_id "nvme-WD_Black_SN850_X2-part1"     nvme0n1p1
+  make_device sda; make_device sda1
+  make_device nvme0n1; make_device nvme0n1p1
+  make_by_id "ata-Samsung_SSD_980_PRO_S1"       sda
+  make_by_id "wwn-0x5002538e00000001"           sda
+  make_by_id "ata-Samsung_SSD_980_PRO_S1-part1" sda1
+  make_by_id "nvme-WD_Black_SN850_X2"           nvme0n1
+  make_by_id "nvme-eui.0123456789abcdef"        nvme0n1
+  make_by_id "nvme-WD_Black_SN850_X2-part1"     nvme0n1p1
 
   run picker_enum_disks ""
   [ "$status" -eq 0 ]
@@ -168,12 +168,12 @@ STUB
 }
 
 _stub_smartctl() {
-  local ec="$1" out="${2:-}"
+  local exit_code="$1" out="${2:-}"
   printf '%s\n' "$out" > "$TEST_DIR/smartctl.out"
   cat > "$TEST_DIR/bin/smartctl" <<STUB
 #!/usr/bin/env bash
 cat "\$TEST_DIR/smartctl.out"
-exit $ec
+exit $exit_code
 STUB
   chmod +x "$TEST_DIR/bin/smartctl"
 }

@@ -5,10 +5,10 @@
 
 @test "aur_audit: on for the desktop VM profile, off elsewhere" {
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
-  local f on=""
-  while IFS= read -r f; do
-    [[ "$(jsonc_strip "$f" | jq -r '.verify.aur_audit // false')" == true ]] \
-      && on+=" ${f#"$BATS_TEST_DIRNAME/profiles/"}"
+  local profile_file on=""
+  while IFS= read -r profile_file; do
+    [[ "$(jsonc_strip "$profile_file" | jq -r '.verify.aur_audit // false')" == true ]] \
+      && on+=" ${profile_file#"$BATS_TEST_DIRNAME/profiles/"}"
   done < <(find "$BATS_TEST_DIRNAME/profiles" -name '*.jsonc' | sort)
   [ "$on" = " env/kde.jsonc" ] || { echo "aur_audit on in:$on"; return 1; }
 }

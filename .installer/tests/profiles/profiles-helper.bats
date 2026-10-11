@@ -24,9 +24,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 # A fake command that fails its first N invocations then succeeds. State lives
 # in a file so it survives across the separate process the command runs in.
 _flaky() {
-  local fail_n="$1" counter="$2"
-  local n; n="$(cat "$counter")"; n=$((n + 1)); printf '%s' "$n" > "$counter"
-  (( n > fail_n ))
+  local failure_count="$1" counter="$2"
+  local call_count; call_count="$(cat "$counter")"; call_count=$((call_count + 1)); printf '%s' "$call_count" > "$counter"
+  (( call_count > failure_count ))
 }
 
 # Records each sleep duration into SLEEPS_FILE, never actually sleeps.
@@ -89,8 +89,8 @@ _record_sleep() { printf '%s\n' "$1" >> "$SLEEPS_FILE"; }
 # Put fake helper executables on an isolated PATH.
 _stub_helpers() {
   local bin="$TEST_DIR/bin"; mkdir -p "$bin"
-  local h
-  for h in "$@"; do printf '#!/bin/sh\n' > "$bin/$h"; chmod +x "$bin/$h"; done
+  local helper
+  for helper in "$@"; do printf '#!/bin/sh\n' > "$bin/$helper"; chmod +x "$bin/$helper"; done
   PATH="$bin"
 }
 

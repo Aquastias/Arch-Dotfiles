@@ -16,13 +16,13 @@ setup() {
   FSTAB="$TEST_DIR/fstab"
 
   error() { echo "ERROR: $*" >&2; return 1; }
-  local l="$BATS_TEST_DIRNAME/../.."
+  local installer_directory="$BATS_TEST_DIRNAME/../.."
   # shellcheck source=../../lib/chroot.sh
-  source "$l/lib/chroot.sh"
+  source "$installer_directory/lib/chroot.sh"
   # shellcheck source=../../lib/layout/btrfs/subvol.sh
-  source "$l/lib/layout/btrfs/subvol.sh"
+  source "$installer_directory/lib/layout/btrfs/subvol.sh"
   # shellcheck source=../../lib/layout/nonzfs/data.sh
-  source "$l/lib/layout/nonzfs/data.sh"
+  source "$installer_directory/lib/layout/nonzfs/data.sh"
 
   U1=aaaaaaaa-0000-0000-0000-000000000001
   U2=bbbbbbbb-0000-0000-0000-000000000002

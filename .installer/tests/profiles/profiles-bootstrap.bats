@@ -30,19 +30,19 @@ teardown() { rm -rf "$T"; }
 @test "ladder: rung 1 (paru source) wins → resolves paru" {
   _runner_aur_detect_user_helper() { return 1; }        # nothing installed yet
   _runner_aur_bootstrap_rung() { [[ "$2" == paru ]]; }  # only paru succeeds
-  local h st
-  h="$(runner_bootstrap_helper alice 2>/dev/null)"; st=$?
-  [ "$st" -eq 0 ]
-  [ "$h" = paru ]
+  local helper status_code
+  helper="$(runner_bootstrap_helper alice 2>/dev/null)"; status_code=$?
+  [ "$status_code" -eq 0 ]
+  [ "$helper" = paru ]
 }
 
 @test "ladder: paru fails, paru-bin wins → resolves paru" {
   _runner_aur_detect_user_helper() { return 1; }
   _runner_aur_bootstrap_rung() { [[ "$2" == paru-bin ]]; }
-  local h st
-  h="$(runner_bootstrap_helper alice 2>/dev/null)"; st=$?
-  [ "$st" -eq 0 ]
-  [ "$h" = paru ]
+  local helper status_code
+  helper="$(runner_bootstrap_helper alice 2>/dev/null)"; status_code=$?
+  [ "$status_code" -eq 0 ]
+  [ "$helper" = paru ]
 }
 
 @test "ladder: chatty rung build output never leaks into the helper name" {
@@ -56,19 +56,19 @@ teardown() { rm -rf "$T"; }
     printf "   Finished \`release\` profile [optimized] target(s) in 2m\n"
     [[ "$2" == paru ]]
   }
-  local h st
-  h="$(runner_bootstrap_helper alice 2>/dev/null)"; st=$?
-  [ "$st" -eq 0 ]
-  [ "$h" = paru ]        # exactly the name, no build chatter
+  local helper_name status_code
+  helper_name="$(runner_bootstrap_helper alice 2>/dev/null)"; status_code=$?
+  [ "$status_code" -eq 0 ]
+  [ "$helper_name" = paru ]        # exactly the name, no build chatter
 }
 
 @test "ladder: only yay-bin succeeds → resolves yay" {
   _runner_aur_detect_user_helper() { return 1; }
   _runner_aur_bootstrap_rung() { [[ "$2" == yay-bin ]]; }
-  local h st
-  h="$(runner_bootstrap_helper alice 2>/dev/null)"; st=$?
-  [ "$st" -eq 0 ]
-  [ "$h" = yay ]
+  local helper status_code
+  helper="$(runner_bootstrap_helper alice 2>/dev/null)"; status_code=$?
+  [ "$status_code" -eq 0 ]
+  [ "$helper" = yay ]
 }
 
 @test "ladder: all rungs fail → aborts non-zero" {
@@ -84,16 +84,16 @@ teardown() { rm -rf "$T"; }
   _runner_aur_bootstrap_rung() { printf '%s\n' "$2" >> "$T/order"; return 1; }
   run runner_bootstrap_helper alice
   # Each rung retried 3x; collapse to first-seen order.
-  [ "$(awk '!seen[$0]++' "$T/order" | paste -sd, -)" = "paru,paru-bin,yay-bin" ]
+  [ "$(awk '!seen[$0]++ { joined = joined (joined == "" ? "" : ",") $0 } END { print joined }' "$T/order")" = "paru,paru-bin,yay-bin" ]
 }
 
 @test "ladder: skips bootstrap when a helper already exists" {
   _runner_aur_detect_user_helper() { echo paru; }   # already installed
   _runner_aur_bootstrap_rung() { echo ran >> "$T/rung"; return 0; }
-  local h st
-  h="$(runner_bootstrap_helper alice 2>/dev/null)"; st=$?
-  [ "$st" -eq 0 ]
-  [ "$h" = paru ]
+  local helper status_code
+  helper="$(runner_bootstrap_helper alice 2>/dev/null)"; status_code=$?
+  [ "$status_code" -eq 0 ]
+  [ "$helper" = paru ]
   [ ! -f "$T/rung" ]           # no rung executed
 }
 
@@ -104,10 +104,10 @@ teardown() { rm -rf "$T"; }
   _runner_aur_detect_user_helper() { return 1; }
   _runner_aur_bootstrap_rung() { [[ "$2" != paru ]]; }   # source rung fails
   _runner_aur_helper_runs() { [[ "$2" == yay ]]; }       # paru-bin is broken
-  local h st
-  h="$(runner_bootstrap_helper alice 2>/dev/null)"; st=$?
-  [ "$st" -eq 0 ]
-  [ "$h" = yay ]
+  local helper status_code
+  helper="$(runner_bootstrap_helper alice 2>/dev/null)"; status_code=$?
+  [ "$status_code" -eq 0 ]
+  [ "$helper" = yay ]
 }
 
 @test "rung build env: source paru builds without LTO, few jobs" {
@@ -142,8 +142,8 @@ teardown() { rm -rf "$T"; }
   # kind of aur.archlinux.org/rpc blip that used to abort the whole install.
   echo 0 > "$T/n"
   arch-chroot() {
-    local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"
-    (( n >= 2 ))                                        # succeed on 3rd try
+    local call_count; call_count=$(< "$T/n"); echo $((call_count + 1)) > "$T/n"
+    (( call_count >= 2 ))                                        # succeed on 3rd try
   }
   run runner_aur_install alice paru pkg1
   [ "$status" -eq 0 ]
@@ -188,20 +188,20 @@ teardown() { rm -rf "$T"; }
   # run an empty script and falsely pass. Fail every try and assert each of
   # the 3 attempts saw the same non-empty script.
   program_registry_resolve() { echo "cat/prog"; }
-  arch-chroot() { wc -c >> "$T/sizes"; return 1; }     # consume stdin, fail
+  arch-chroot() { LC_ALL=C awk '{ bytes += length($0) + 1 } END { print bytes + 0 }' >> "$T/sizes"; return 1; }     # consume stdin, fail
   run _runner_programs_install_user_program alice prog yay
   [ "$status" -ne 0 ]                                   # all tries failed
-  [ "$(wc -l < "$T/sizes")" -eq 3 ]                     # ran 3 times
-  [ "$(sort -u "$T/sizes" | wc -l)" -eq 1 ]             # every try identical...
-  [ "$(sort -u "$T/sizes" | tr -d ' ')" -gt 0 ]         # ...and non-empty
+  [ "$(awk 'END { print NR }' "$T/sizes")" -eq 3 ]                     # ran 3 times
+  [ "$(sort -u "$T/sizes" | awk 'END { print NR }')" -eq 1 ]             # every try identical...
+  [ "$(sort -u "$T/sizes")" -gt 0 ]         # ...and non-empty
 }
 
 @test "userprog: install_user_program retries the chroot on a blip" {
   program_registry_resolve() { echo "cat/prog"; }
   echo 0 > "$T/n"
   arch-chroot() {
-    local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"
-    (( n >= 2 ))                                        # succeed on 3rd try
+    local call_count; call_count=$(< "$T/n"); echo $((call_count + 1)) > "$T/n"
+    (( call_count >= 2 ))                                        # succeed on 3rd try
   }
   run _runner_programs_install_user_program alice prog yay
   [ "$status" -eq 0 ]

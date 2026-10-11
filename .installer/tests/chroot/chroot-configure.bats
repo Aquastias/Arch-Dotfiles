@@ -30,9 +30,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
 
 @test "uses .root_password from the SOPS host secret (.secrets.host)" {
-  local host_sec="$TEST_DIR/host-secrets.json"
-  printf '{"root_password":"s3cr3t"}\n' > "$host_sec"
-  printf '{"secrets":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
+  local host_secrets="$TEST_DIR/host-secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' > "$host_secrets"
+  printf '{"secrets":{"host":"%s"}}\n' "$host_secrets" > "$(STATE)"
 
   run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$status" -eq 0 ]
@@ -40,18 +40,18 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
 }
 
 @test "uses .root_password from the no-SOPS guided seam (.guided_passwords.host)" {
-  local host_sec="$TEST_DIR/host-secrets.json"
-  printf '{"root_password":"guided"}\n' > "$host_sec"
-  printf '{"guided_passwords":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
+  local host_secrets="$TEST_DIR/host-secrets.json"
+  printf '{"root_password":"guided"}\n' > "$host_secrets"
+  printf '{"guided_passwords":{"host":"%s"}}\n' "$host_secrets" > "$(STATE)"
 
   run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "guided" ]
 }
 
 @test "falls back to the collected value when the secret lacks root_password" {
-  local host_sec="$TEST_DIR/host-secrets.json"
-  printf '{"other_field":"value"}\n' > "$host_sec"
-  printf '{"secrets":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
+  local host_secrets="$TEST_DIR/host-secrets.json"
+  printf '{"other_field":"value"}\n' > "$host_secrets"
+  printf '{"secrets":{"host":"%s"}}\n' "$host_secrets" > "$(STATE)"
 
   run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "collected" ]
@@ -81,9 +81,9 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
   zpool() {
     [ "$1" = set ] || return 0
     shift
-    local kv="$1"; shift
+    local cachefile_option="$1"; shift
     [ "$#" -eq 1 ] || return 2
-    printf 'cache:%s\n' "$1" >> "${kv#cachefile=}"
+    printf 'cache:%s\n' "$1" >> "${cachefile_option#cachefile=}"
   }
   export -f zpool
 

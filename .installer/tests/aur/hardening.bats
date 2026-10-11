@@ -4,29 +4,29 @@
 
 load ../lib/aur-vet
 
-setup() { aurvet_setup; }
-teardown() { aurvet_teardown; }
+setup() { aur_vet_setup; }
+teardown() { aur_vet_teardown; }
 
 @test "hardening: a non-numeric RPC time is an error, never arithmetic" {
   local marker="$T/pwned"
-  aurvet_rpc electron-benign FirstSubmitted="\"a[\$(touch $marker)]\""
-  aurvet_hook "$(aurvet_clone electron-benign)"
+  aur_vet_rpc electron-benign FirstSubmitted="\"a[\$(touch $marker)]\""
+  aur_vet_hook "$(aur_vet_clone electron-benign)"
   [ "$status" -eq 2 ]
   [ ! -e "$marker" ]
   [[ "$output" == *"malformed"* ]]
 }
 
 @test "hardening: a hostile .SRCINFO pkgname never reaches the RPC URL" {
-  local d; d="$(aurvet_clone electron-benign)"
-  sed -i 's/^pkgname = .*/pkgname = x{a,b}\&arg[]=evil#/' "$d/.SRCINFO"
-  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am name
+  local clone_directory; clone_directory="$(aur_vet_clone electron-benign)"
+  sed -i 's/^pkgname = .*/pkgname = x{a,b}\&arg[]=evil#/' "$clone_directory/.SRCINFO"
+  git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -am name
   mkdir -p "$T/bin"
   printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> "%s/curl.args"\nexit 7\n' "$T" \
     > "$T/bin/curl"
   chmod +x "$T/bin/curl"
   unset AUR_VET_RPC_FIXTURE_DIR
   export PATH="$T/bin:$PATH"
-  AURVET_NO_RPC=1 aurvet_hook "$d"
+  AURVET_NO_RPC=1 aur_vet_hook "$clone_directory"
   [ -s "$T/curl.args" ]
   [ "$status" -ne 0 ]
   [ -z "$(grep evil "$T/curl.args")" ]   # the hostile name never went out
@@ -34,10 +34,10 @@ teardown() { aurvet_teardown; }
 }
 
 @test "hardening: a backslash in a file name reaches the engine intact" {
-  local d; d="$(aurvet_case srcinfo 'source = fix\t.patch' h1)"
-  printf '%s\n' '--- a' > "$d/fix\\t.patch"
-  git -C "$d" add -A
-  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -m src
-  aurvet_hook "$d" rulecase
+  local clone_directory; clone_directory="$(aur_vet_case srcinfo 'source = fix\t.patch' h1)"
+  printf '%s\n' '--- a' > "$clone_directory/fix\\t.patch"
+  git -C "$clone_directory" add -A
+  git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -m src
+  aur_vet_hook "$clone_directory" rulecase
   [[ "$output" != *"missing-ref"* ]]
 }

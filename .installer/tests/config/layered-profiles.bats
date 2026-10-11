@@ -29,9 +29,9 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # ── the committed profiles resolve ──────────────────────────────────────────
 
 @test "core, desktop and laptop all resolve without error" {
-  local h
-  for h in desktop laptop; do
-    run profile_loader_load "$h"
+  local host
+  for host in desktop laptop; do
+    run profile_loader_load "$host"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e . >/dev/null
   done
@@ -47,29 +47,29 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # so desktop's repo set equals core's exactly (every core package survives, and
 # desktop adds none of its own).
 @test "desktop resolves to core's repo set with no delta of its own" {
-  local desk core
-  desk="$(repo_of desktop)"; core="$(core_repo)"
-  local p
-  while IFS= read -r p; do
-    grep -qx "$p" <<<"$desk" || { echo "core package missing: $p"; return 1; }
+  local desktop_packages core
+  desktop_packages="$(repo_of desktop)"; core="$(core_repo)"
+  local package
+  while IFS= read -r package; do
+    grep -qx "$package" <<<"$desktop_packages" || { echo "core package missing: $package"; return 1; }
   done <<<"$core"
-  [ "$(printf '%s\n' "$desk" | sort -u)" = "$(printf '%s\n' "$core" | sort -u)" ]
+  [ "$(printf '%s\n' "$desktop_packages" | sort -u)" = "$(printf '%s\n' "$core" | sort -u)" ]
 }
 
 @test "desktop's delta packages land in the resolved set" {
-  local desk; desk="$(repo_of desktop)"
-  local p
-  for p in qemu-full libguestfs virt-viewer lutris wine tectonic dnsmasq; do
-    grep -qx "$p" <<<"$desk" || { echo "missing desktop delta: $p"; return 1; }
+  local desktop_packages; desktop_packages="$(repo_of desktop)"
+  local package
+  for package in qemu-full libguestfs virt-viewer lutris wine tectonic dnsmasq; do
+    grep -qx "$package" <<<"$desktop_packages" || { echo "missing desktop delta: $package"; return 1; }
   done
 }
 
 @test "core packages reach both machines" {
-  local p h
-  for h in desktop laptop; do
-    local pkgs; pkgs="$(repo_of "$h")"
-    for p in firefox steam htop gimp vlc; do
-      grep -qx "$p" <<<"$pkgs" || { echo "$h missing core pkg: $p"; return 1; }
+  local package host
+  for host in desktop laptop; do
+    local packages; packages="$(repo_of "$host")"
+    for package in firefox steam htop gimp vlc; do
+      grep -qx "$package" <<<"$packages" || { echo "$host missing core pkg: $package"; return 1; }
     done
   done
 }
@@ -77,38 +77,38 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # aur lives entirely in core now too (ADR 0114): runelite moved from desktop's
 # delta into Host Core, so both machines get it.
 @test "aur resolves from core on both machines (no desktop-only delta)" {
-  local d l
-  d="$(aur_of desktop)"; l="$(aur_of laptop)"
-  local p
+  local desktop_aur laptop_aur
+  desktop_aur="$(aur_of desktop)"; laptop_aur="$(aur_of laptop)"
+  local package
   # ttf-ms-fonts left the core AUR list for the options.fonts Font Catalog (ADR
   # 0080) — it is routed to the paru pass by the font resolver, not packages.aur.
-  for p in rar zen-browser-bin runelite; do
-    grep -qx "$p" <<<"$d" || { echo "desktop missing core aur: $p"; return 1; }
-    grep -qx "$p" <<<"$l" || { echo "laptop missing core aur: $p"; return 1; }
+  for package in rar zen-browser-bin runelite; do
+    grep -qx "$package" <<<"$desktop_aur" || { echo "desktop missing core aur: $package"; return 1; }
+    grep -qx "$package" <<<"$laptop_aur" || { echo "laptop missing core aur: $package"; return 1; }
   done
 }
 
 # ── no Program name appears in any package list ─────────────────────────────
 
 @test "no Program name appears in any committed package list" {
-  local h pkgs p
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h"; aur_of "$h")"
-    while IFS= read -r p; do
-      [[ -n "$p" ]] || continue
-      [ "$(program_registry_kind "$p")" = "none" ] \
-        || { echo "$h: '$p' is a Program, not a package"; return 1; }
-    done <<<"$pkgs"
+  local host packages package
+  for host in desktop laptop; do
+    packages="$(repo_of "$host"; aur_of "$host")"
+    while IFS= read -r package; do
+      [[ -n "$package" ]] || continue
+      [ "$(program_registry_kind "$package")" = "none" ] \
+        || { echo "$host: '$package' is a Program, not a package"; return 1; }
+    done <<<"$packages"
   done
 }
 
 # The three live violations the curation removed.
 @test "docker, virt-manager and teamspeak3 are gone from both hosts" {
-  local h p
-  for h in desktop laptop; do
-    local pkgs; pkgs="$(repo_of "$h"; aur_of "$h")"
-    for p in docker docker-compose virt-manager teamspeak3; do
-      ! grep -qx "$p" <<<"$pkgs" || { echo "$h still declares $p"; return 1; }
+  local host package
+  for host in desktop laptop; do
+    local packages; packages="$(repo_of "$host"; aur_of "$host")"
+    for package in docker docker-compose virt-manager teamspeak3; do
+      ! grep -qx "$package" <<<"$packages" || { echo "$host still declares $package"; return 1; }
     done
   done
 }
@@ -116,49 +116,49 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # ── nothing declared duplicates a derived set ───────────────────────────────
 
 @test "no declared package duplicates the Base Package List" {
-  local h p pkgs
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h")"
-    for p in base base-devel linux-firmware networkmanager openssh cronie \
+  local host package packages
+  for host in desktop laptop; do
+    packages="$(repo_of "$host")"
+    for package in base base-devel linux-firmware networkmanager openssh cronie \
              efibootmgr dosfstools vim git sudo rsync jq pacman-contrib \
              man-db man-pages texinfo stow; do
-      ! grep -qx "$p" <<<"$pkgs" \
-        || { echo "$h re-declares base package: $p"; return 1; }
+      ! grep -qx "$package" <<<"$packages" \
+        || { echo "$host re-declares base package: $package"; return 1; }
     done
   done
 }
 
 @test "no declared package duplicates the derived audio set" {
-  local h p pkgs
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h")"
-    for p in pipewire pipewire-pulse pipewire-alsa wireplumber \
+  local host package packages
+  for host in desktop laptop; do
+    packages="$(repo_of "$host")"
+    for package in pipewire pipewire-pulse pipewire-alsa wireplumber \
              gst-plugin-pipewire pipewire-jack libpulse; do
-      ! grep -qx "$p" <<<"$pkgs" \
-        || { echo "$h re-declares derived audio package: $p"; return 1; }
+      ! grep -qx "$package" <<<"$packages" \
+        || { echo "$host re-declares derived audio package: $package"; return 1; }
     done
   done
 }
 
 @test "no declared package duplicates a derived filesystem tool or shell" {
-  local h p pkgs
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h")"
-    for p in btrfs-progs xfsprogs zsh; do
-      ! grep -qx "$p" <<<"$pkgs" \
-        || { echo "$h re-declares derived package: $p"; return 1; }
+  local host package packages
+  for host in desktop laptop; do
+    packages="$(repo_of "$host")"
+    for package in btrfs-progs xfsprogs zsh; do
+      ! grep -qx "$package" <<<"$packages" \
+        || { echo "$host re-declares derived package: $package"; return 1; }
     done
   done
 }
 
 @test "no declared package duplicates a KDE-adapter package" {
-  local h p pkgs
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h")"
-    for p in papirus-icon-theme qt5-wayland qt6-wayland xdg-utils sddm-kcm \
+  local host package packages
+  for host in desktop laptop; do
+    packages="$(repo_of "$host")"
+    for package in papirus-icon-theme qt5-wayland qt6-wayland xdg-utils sddm-kcm \
              konsole dolphin ark okular kate; do
-      ! grep -qx "$p" <<<"$pkgs" \
-        || { echo "$h re-declares DE-adapter package: $p"; return 1; }
+      ! grep -qx "$package" <<<"$packages" \
+        || { echo "$host re-declares DE-adapter package: $package"; return 1; }
     done
   done
 }
@@ -166,10 +166,10 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # ── everything CURATION.md marked drop is gone ──────────────────────────────
 
 @test "every dropped package is absent from every committed profile" {
-  local h p pkgs
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h"; aur_of "$h"; core_repo)"
-    for p in zram-generator uwsm nftables iptables wireless_tools less zed \
+  local host package packages
+  for host in desktop laptop; do
+    packages="$(repo_of "$host"; aur_of "$host"; core_repo)"
+    for package in zram-generator uwsm nftables iptables wireless_tools less zed \
              flatpak libavif qemu-base vde2 cpio zinit qt6ct-kde \
              btop-theme-catppuccin catppuccin-cursors-mocha \
              catppuccin-gtk-theme-mocha catppuccin-sddm-theme-mocha \
@@ -177,25 +177,25 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
              catppuccin-konsole-colorscheme-mocha-git \
              papirus-folders-catppuccin-git \
              plymouth-theme-catppuccin-mocha-git; do
-      ! grep -qx "$p" <<<"$pkgs" || { echo "$h still declares $p"; return 1; }
+      ! grep -qx "$package" <<<"$packages" || { echo "$host still declares $package"; return 1; }
     done
   done
 }
 
 @test "no catppuccin package survives anywhere" {
-  local h
-  for h in core desktop laptop; do
-    ! grep -q "catppuccin" "$INSTALLER_DIR/hosts/$h/profile.jsonc" \
-      || { echo "$h still declares a catppuccin package"; return 1; }
+  local host
+  for host in core desktop laptop; do
+    ! grep -q "catppuccin" "$INSTALLER_DIR/hosts/$host/profile.jsonc" \
+      || { echo "$host still declares a catppuccin package"; return 1; }
   done
 }
 
 # ── the VM fixtures resolve lean ────────────────────────────────────────────
 
 @test "the VM fixtures inherit no packages from Host Core" {
-  local h
-  for h in arch-data arch-kde arch-secure; do
-    run profile_loader_load "$h"
+  local host
+  for host in arch-data arch-kde arch-secure; do
+    run profile_loader_load "$host"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e '(.packages.repo // {}) == {}'
     echo "$output" | jq -e '(.packages.aur // {}) == {}'
@@ -203,12 +203,12 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 }
 
 @test "the VM fixtures pull in no workstation userland" {
-  local h p pkgs
-  for h in arch-data arch-kde arch-secure; do
-    pkgs="$(repo_of "$h")"
-    for p in steam firefox gimp discord wine lutris kitty; do
-      ! grep -qx "$p" <<<"$pkgs" \
-        || { echo "$h pulled workstation package: $p"; return 1; }
+  local host package packages
+  for host in arch-data arch-kde arch-secure; do
+    packages="$(repo_of "$host")"
+    for package in steam firefox gimp discord wine lutris kitty; do
+      ! grep -qx "$package" <<<"$packages" \
+        || { echo "$host pulled workstation package: $package"; return 1; }
     done
   done
 }
@@ -218,9 +218,9 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 # toggle-derived and injected at assembly, so the loaded profile inherits no
 # system programs from core here.
 @test "the VM fixtures still inherit Host Core's sysctl" {
-  local h
-  for h in arch-data arch-kde arch-secure; do
-    run profile_loader_load "$h"
+  local host
+  for host in arch-data arch-kde arch-secure; do
+    run profile_loader_load "$host"
     echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
     echo "$output" | jq -e '.host_programs | index("cups") | not'
   done
@@ -234,14 +234,14 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[]'; }
 
 @test "promoted base host programs resolve into host_programs, not packages" {
-  local h p pkgs hp
-  for h in desktop laptop; do
-    pkgs="$(repo_of "$h")"; hp="$(host_programs_of "$h")"
-    for p in ccache fwupd lact smartmontools; do
-      grep -qx "$p" <<<"$hp" \
-        || { echo "$h missing host program: $p"; return 1; }
-      ! grep -qx "$p" <<<"$pkgs" \
-        || { echo "$h still declares $p as a package"; return 1; }
+  local host package packages host_programs
+  for host in desktop laptop; do
+    packages="$(repo_of "$host")"; host_programs="$(host_programs_of "$host")"
+    for package in ccache fwupd lact smartmontools; do
+      grep -qx "$package" <<<"$host_programs" \
+        || { echo "$host missing host program: $package"; return 1; }
+      ! grep -qx "$package" <<<"$packages" \
+        || { echo "$host still declares $package as a package"; return 1; }
     done
   done
 }
@@ -250,12 +250,12 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
 # (ADR 0089), so every bare profile (the lean VM fixtures AND minimal) opts out
 # of the base host programs in one place — no per-profile exclude list.
 @test "the inherit:false profiles inherit no host_programs from Host Core" {
-  local h p hp
-  for h in arch-data arch-kde arch-secure minimal; do
-    hp="$(host_programs_of "$h")"
-    for p in ccache fwupd lact smartmontools; do
-      ! grep -qx "$p" <<<"$hp" \
-        || { echo "$h wrongly inherited host program: $p"; return 1; }
+  local host package host_programs
+  for host in arch-data arch-kde arch-secure minimal; do
+    host_programs="$(host_programs_of "$host")"
+    for package in ccache fwupd lact smartmontools; do
+      ! grep -qx "$package" <<<"$host_programs" \
+        || { echo "$host wrongly inherited host program: $package"; return 1; }
     done
   done
 }
@@ -271,9 +271,9 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
 }
 
 @test "the throwaway test users exclude User Core's programs" {
-  local u
-  for u in test data; do
-    run profile_loader_load_user "$u"
+  local user
+  for user in test data; do
+    run profile_loader_load_user "$user"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e '.programs | index("docker") | not'
     echo "$output" | jq -e '.programs | index("virt-manager") | not'
@@ -293,9 +293,9 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
 }
 
 @test "the control keys never reach a resolved profile" {
-  local h
-  for h in desktop laptop arch-kde; do
-    run profile_loader_load "$h"
+  local host
+  for host in desktop laptop arch-kde; do
+    run profile_loader_load "$host"
     echo "$output" | jq -e '(.packages // {}) | has("inherit") | not'
     echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
     echo "$output" | jq -e 'has("host_programs_exclude") | not'

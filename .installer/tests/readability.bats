@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Gate for the Readability Rules (ADR 0153, docs/agents/readability.md).
 # The headline test runs the Readability Lint against THIS repo and asserts it
-# is clean against the Readability Baseline; the rest build throwaway git repos
+# is clean (the lint is strict); the rest build throwaway git repos
 # to prove each rule catches / allows the right thing.
 
 CHECK="$BATS_TEST_DIRNAME/readability.sh"
@@ -24,7 +24,7 @@ check_repo() {
 }
 teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 
-@test "this repo is clean against the Readability Baseline" {
+@test "this repo passes the strict Readability Lint" {
   run bash "$CHECK"
   [ "$status" -eq 0 ]
 }
@@ -195,46 +195,6 @@ assign_keys() {
   jq -n 'def assign($k): .[$k] // [] end; {} | assign("a")'
 }
 SH
-  check_repo
-  [ "$status" -eq 0 ]
-}
-
-@test "a baselined violation passes" {
-  make_repo
-  printf 'pick_first() {\n  head -n 1\n}\n' > .installer/a.sh
-  printf 'tool\t.installer/a.sh\tpick_first:head\n' \
-    > .installer/tests/readability-baseline.txt
-  check_repo
-  [ "$status" -eq 0 ]
-}
-
-@test "a new violation beside a baselined one fails" {
-  make_repo
-  printf 'pick_first() {\n  head -n 1\n  head -n 2\n}\n' > .installer/a.sh
-  printf 'tool\t.installer/a.sh\tpick_first:head\n' \
-    > .installer/tests/readability-baseline.txt
-  check_repo
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"tool: .installer/a.sh:"* ]]
-}
-
-@test "a stale baseline entry fails" {
-  make_repo
-  printf 'pick_first() {\n  true\n}\n' > .installer/a.sh
-  printf 'tool\t.installer/a.sh\tpick_first:head\n' \
-    > .installer/tests/readability-baseline.txt
-  check_repo
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"stale-baseline: tool .installer/a.sh pick_first:head"* ]]
-}
-
-@test "--write-baseline records current violations" {
-  make_repo
-  printf 'pick_first() {\n  head -n 1\n}\n' > .installer/a.sh
-  check_repo --write-baseline
-  [ "$status" -eq 0 ]
-  grep -q $'tool\t.installer/a.sh\tpick_first:head' \
-    .installer/tests/readability-baseline.txt
   check_repo
   [ "$status" -eq 0 ]
 }

@@ -306,12 +306,12 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 }
 
 @test "the resolver is deterministic for the same inputs" {
-  local a b
-  a="$(resolve '{"packages":{"repo":{"cli":["htop"]}},"users":["x"]}' \
+  local first_result second_result
+  first_result="$(resolve '{"packages":{"repo":{"cli":["htop"]}},"users":["x"]}' \
                '{"packages":{"repo":{"cli":["fzf"]}}}')"
-  b="$(resolve '{"packages":{"repo":{"cli":["htop"]}},"users":["x"]}' \
+  second_result="$(resolve '{"packages":{"repo":{"cli":["htop"]}},"users":["x"]}' \
                '{"packages":{"repo":{"cli":["fzf"]}}}')"
-  [ "$a" = "$b" ]
+  [ "$first_result" = "$second_result" ]
 }
 
 @test "layer_resolver_resolve folds N layers left to right" {

@@ -95,15 +95,15 @@ manual" ]
 }
 
 @test "apply: a locked field (encryption) is a no-op while manual" {
-  local s; s="$(manual_state)"
-  run _controller_apply_enum "$s" options.encryption true
+  local state; state="$(manual_state)"
+  run _controller_apply_enum "$state" options.encryption true
   [ "$status" -ne 0 ]
   echo "$output" | jq -e '.options.encryption == null'
 }
 
 @test "apply: the locked esp-size text field is a no-op while manual" {
-  local s; s="$(manual_state)"
-  run _controller_apply_text "$s" options.esp_size 4G
+  local state; state="$(manual_state)"
+  run _controller_apply_text "$state" options.esp_size 4G
   [ "$status" -ne 0 ]
   echo "$output" | jq -e '(.options.esp_size // null) == null'
 }
@@ -132,10 +132,10 @@ manual" ]
   jq -e '.disk_config.kind == "auto"' "$GUIDED_STATE_FILE"
 }
 
-nav_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"; }
+navigate_to_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"; }
 
 @test "editor: the Partitions row opens the assignment table" {
-  nav_disks
+  navigate_to_disks
   printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
   run _controller_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
   [ "$status" -eq 0 ] && [ "$output" = "render" ]
@@ -160,14 +160,14 @@ nav_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDE
   [ "$output" = "cfdisk" ]
 }
 
-part_nav() {
+partition_navigation() {
   printf '%s\n' \
     '{"screen":"partedit","category":"Disks","device":"/dev/sda3"}' \
     > "$GUIDED_NAV_FILE"
 }
 
 @test "partedit: Enter cycles the mountpoint" {
-  part_nav
+  partition_navigation
   printf '%s\n' \
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"","fs":"","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
@@ -177,7 +177,7 @@ part_nav() {
 }
 
 @test "partedit: Enter cycles the filesystem through supported values only" {
-  part_nav
+  partition_navigation
   printf '%s\n' \
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
@@ -186,7 +186,7 @@ part_nav() {
 }
 
 @test "partedit: Enter toggles format" {
-  part_nav
+  partition_navigation
   printf '%s\n' \
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
@@ -225,10 +225,10 @@ part_nav() {
 @test "toggle off is non-destructive: a prior override survives" {
   # An override set before manual persists through manual→auto (Config State
   # is non-destructive; the toggle only writes disk_config.kind).
-  local s
-  s="$(config_state_set "$(config_state_new)" filesystem '"btrfs"')"
-  s="$(_controller_apply_enum "$s" disk_config.kind manual)"
-  s="$(_controller_apply_enum "$s" disk_config.kind auto)"
-  echo "$s" | jq -e '.filesystem == "btrfs"'
-  echo "$s" | jq -e '.disk_config.kind == "auto"'
+  local state
+  state="$(config_state_set "$(config_state_new)" filesystem '"btrfs"')"
+  state="$(_controller_apply_enum "$state" disk_config.kind manual)"
+  state="$(_controller_apply_enum "$state" disk_config.kind auto)"
+  echo "$state" | jq -e '.filesystem == "btrfs"'
+  echo "$state" | jq -e '.disk_config.kind == "auto"'
 }

@@ -69,10 +69,10 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
 }
 
 @test "apply: toggling zfs snapshots is a no-op without ZFS" {
-  local st='{"filesystem":"ext4"}'
-  run _controller_apply_enum "$st" "$SNAP" false
+  local state='{"filesystem":"ext4"}'
+  run _controller_apply_enum "$state" "$SNAP" false
   [ "$status" -eq 1 ]
-  [ "$output" = "$st" ]
+  [ "$output" = "$state" ]
 }
 
 @test "apply: toggling zfs snapshots works on a zfs install" {

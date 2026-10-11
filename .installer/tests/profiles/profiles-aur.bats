@@ -24,9 +24,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # Write an adapter install-<de>.jsonc with the given JSON body.
 _adapter() {
-  local de="$1" body="$2"
-  mkdir -p "$INSTALLER_DIR/extras/desktop/${de}"
-  printf '%s\n' "$body" > "$INSTALLER_DIR/extras/desktop/${de}/install-${de}.jsonc"
+  local desktop="$1" body="$2"
+  mkdir -p "$INSTALLER_DIR/extras/desktop/${desktop}"
+  printf '%s\n' "$body" > "$INSTALLER_DIR/extras/desktop/${desktop}/install-${desktop}.jsonc"
 }
 
 @test "adapter-declared AUR package appears in the resolved set" {
@@ -82,8 +82,8 @@ _adapter() {
 # ── shipped adapter aur fields ──────────────────────────────────────────────
 
 @test "shipped install-kde.jsonc has an aur field" {
-  local f="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
-  jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
+  local adapter_file="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  jsonc_strip "$adapter_file" | jq -e 'has("aur")' >/dev/null
 }
 
 # ── qt6ct-kde: fleet theming dep on every DE adapter (App Theming Bridge) ────
@@ -94,12 +94,12 @@ _adapter() {
 
 @test "qt6ct-kde resolves under kde, niri and hyprland (ADR 0102)" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # the shipped adapters
-  local de
-  for de in kde niri hyprland; do
-    run _runner_resolve_aur '{}' "$de"
+  local desktop
+  for desktop in kde niri hyprland; do
+    run _runner_resolve_aur '{}' "$desktop"
     [ "$status" -eq 0 ]
     grep -qx "qt6ct-kde" <<< "$output" \
-      || { echo "qt6ct-kde missing under $de"; return 1; }
+      || { echo "qt6ct-kde missing under $desktop"; return 1; }
   done
 }
 
@@ -111,9 +111,9 @@ _adapter() {
 }
 
 @test "qt6ct-kde is no longer declared in any host packages.aur" {
-  local h
-  for h in core desktop laptop; do
-    ! grep -q '"qt6ct-kde"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+  local host
+  for host in core desktop laptop; do
+    ! grep -q '"qt6ct-kde"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
   done
 }
 
@@ -125,9 +125,9 @@ _adapter() {
 }
 
 @test "octopi is no longer declared in any host packages.aur" {
-  local h
-  for h in core desktop laptop; do
-    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+  local host
+  for host in core desktop laptop; do
+    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
   done
 }
 
@@ -138,12 +138,12 @@ _adapter() {
 
 @test "bibata-cursor-git resolves under kde, niri and hyprland (ADR 0098)" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # the shipped adapters
-  local de
-  for de in kde niri hyprland; do
-    run _runner_resolve_aur '{}' "$de"
+  local desktop
+  for desktop in kde niri hyprland; do
+    run _runner_resolve_aur '{}' "$desktop"
     [ "$status" -eq 0 ]
     grep -qx "bibata-cursor-git" <<< "$output" \
-      || { echo "bibata missing under $de"; return 1; }
+      || { echo "bibata missing under $desktop"; return 1; }
   done
 }
 
@@ -160,10 +160,10 @@ _adapter() {
 # already covers gaming, so the AUR runtime is dropped from every host.
 
 @test "steam-native-runtime is not declared in any host packages.aur" {
-  local h
-  for h in core desktop laptop; do
+  local host
+  for host in core desktop laptop; do
     ! grep -q '"steam-native-runtime"' \
-      "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+      "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
   done
 }
 
@@ -171,8 +171,8 @@ _adapter() {
 # the hosts inherit it rather than each declaring it.
 @test "repo steam is declared once, in Host Core" {
   grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
-  local h
-  for h in desktop laptop; do
-    ! grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+  local host
+  for host in desktop laptop; do
+    ! grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
   done
 }

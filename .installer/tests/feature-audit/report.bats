@@ -20,9 +20,9 @@ setup() {
 
 # art <variant> <phase> <file> <content...> — write one collected artifact.
 art() {
-  local v="$1" p="$2" f="$3"; shift 3
-  mkdir -p "$RUN/$v/$p"
-  printf '%s\n' "$@" > "$RUN/$v/$p/$f"
+  local variant="$1" phase="$2" file_name="$3"; shift 3
+  mkdir -p "$RUN/$variant/$phase"
+  printf '%s\n' "$@" > "$RUN/$variant/$phase/$file_name"
 }
 
 report() { run bash "$TOOL" report "$RUN"; }
@@ -46,7 +46,7 @@ jsonl() { cat "$RUN/findings.jsonl"; }
     "[INFO]  0 packages to remove"
   report
   [ "$status" -ne 0 ]
-  [ "$(jsonl | wc -l)" -eq 3 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 3 ]
   jsonl | jq -e 'select(.excerpt == "[WARN]  mirror slow")' >/dev/null
   jsonl | jq -e 'select(.excerpt == "[ERROR] zpool create failed")' >/dev/null
   jsonl | jq -e 'select(.phase == "install" and .source == "installer")' \
@@ -58,14 +58,14 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art base boot1 coredumps.lines "Mon 2026-09-28 10:00 1234 SIGSEGV /usr/bin/f"
   report
   [ "$status" -ne 0 ]
-  [ "$(jsonl | wc -l)" -eq 2 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
 }
 
 @test ".probe source: only FAIL lines are findings, with program" {
   art base probes-offline probe-zsh@aquastias.probe \
     "PASS zsh-starts ok" "SKIP zsh-x n/a" "FAIL zsh-plugins autosuggest missing"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.program == "zsh" and .check == "zsh-plugins"
     and .source == "probe"' >/dev/null
 }
@@ -75,7 +75,7 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art base probes-offline probe-power-profiles-daemon@aquastias.err.lines \
     "boom"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.program == "power-profiles-daemon"
     and .source == "probe-stderr" and (.logs | length) == 2' >/dev/null
 }
@@ -100,7 +100,7 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art grub boot1 journal-system.lines \
     "Sep 29 11:22:33 arch-audit foo[977]: bad thing"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.variants == ["base","grub"] and (.logs | length) == 2' \
     >/dev/null
 }
@@ -129,7 +129,7 @@ EOF
     "Sep 29 10:00:01 h a[1]: scoped"
   art base boot2 journal-system.lines "Sep 29 10:00:01 h a[1]: scoped"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.phase == "boot2"' >/dev/null
 }
 
@@ -137,10 +137,10 @@ EOF
   art base upgrade journal-system.lines "Sep 29 10:00:01 h a[1]: late"
   art base install installer.log "[ERROR] early"
   report
-  local i u
-  i="$(grep -n '^## install' "$RUN/findings.md" | cut -d: -f1)"
-  u="$(grep -n '^## upgrade' "$RUN/findings.md" | cut -d: -f1)"
-  [ -n "$i" ] && [ -n "$u" ] && [ "$i" -lt "$u" ]
+  local install_line upgrade_line
+  install_line="$(awk '/^## install/ { print NR }' "$RUN/findings.md")"
+  upgrade_line="$(awk '/^## upgrade/ { print NR }' "$RUN/findings.md")"
+  [ -n "$install_line" ] && [ -n "$upgrade_line" ] && [ "$install_line" -lt "$upgrade_line" ]
   grep -q '^### installer' "$RUN/findings.md"
   grep -q 'F001' "$RUN/findings.md"
 }
@@ -148,7 +148,7 @@ EOF
 @test "report is re-runnable: stale outputs are replaced, not appended" {
   art base install installer.log "[ERROR] early"
   report; report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
 }
 
 @test "missing run folder is a usage error" {
@@ -160,7 +160,7 @@ EOF
   art base sessions-hyprland hyprland.log "[LOG] ok" "[ERR] shader compile" \
     "[CRITICAL] oops" "[INFO] all good"
   report
-  [ "$(jsonl | wc -l)" -eq 2 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
 }
 
 @test "per-desktop session phases group under sessions order" {
@@ -168,7 +168,7 @@ EOF
   art base sessions-kde journal.lines "Sep 29 10:00:01 h b[1]: kde"
   art base boot1 journal.lines "Sep 29 10:00:01 h c[1]: early"
   report
-  jsonl | jq -r .phase | tr '\n' ' ' | grep -q '^boot1 sessions-kde upgrade $'
+  [ "$(jsonl | jq -r .phase | awk '{ printf "%s ", $0 }')" = 'boot1 sessions-kde upgrade ' ]
 }
 
 @test "screenshots are listed in a visual-review section" {
@@ -194,7 +194,7 @@ EOF
   art base probes-online probe-nvim@aquastias.probe \
     "PASS nvim-treesitter ok" "FAIL nvim-lsp broken"
   report
-  [ "$(jsonl | wc -l)" -eq 2 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
   jsonl | jq -e 'select(.source == "runtime-fetch")
     | .program == "nvim" and .check == "nvim-treesitter"
       and (.excerpt | contains("parser download failed"))' >/dev/null
@@ -209,7 +209,7 @@ EOF
     "installing libgpg-error..." \
     "error: failed to prepare transaction"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.excerpt == "error: failed to prepare transaction"' >/dev/null
 }
 
@@ -238,7 +238,7 @@ EOF
     '                                    Qt depends on a UTF-8 locale.' \
     '                                    See the locale(1) manual'
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.excerpt | startswith("spectacle")' >/dev/null
 }
 
@@ -247,14 +247,14 @@ EOF
     '[  1.2] (sd-umoun: Failed to unmount /run/shutdown/mounts/a3f9c01e: busy' \
     '[  3.4] (sd-umoun: Failed to unmount /run/shutdown/mounts/9bd4e2ff7a: busy'
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
 }
 
 @test "dedup keeps hex-free words distinct (no false merge)" {
   art base boot1 journal.lines 'x: failed to load facade' \
     'x: failed to load decade'
   report
-  [ "$(jsonl | wc -l)" -eq 2 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
 }
 
 @test "installer log: pacman 'is up to date -- skipping' is not a finding" {
@@ -266,19 +266,23 @@ EOF
 }
 
 @test "ids stay unique past 999 and match between md and jsonl" {
-  local -a l=(); local i w
+  local -a lines=() letters=(g h i j k l m n o p); local i digit w
   # distinct names that survive normalisation: digits spelled as g..p
   for ((i = 0; i < 1001; i++)); do
-    w="$(tr 0-9 g-p <<<"$i")"; l+=("unit-$w failed")
+    w=""
+    for ((digit = 0; digit < ${#i}; digit++)); do
+      w+="${letters[${i:digit:1}]}"
+    done
+    lines+=("unit-$w failed")
   done
-  art base boot1 journal.lines "${l[@]}"
+  art base boot1 journal.lines "${lines[@]}"
   report
-  local n; n="$(jsonl | wc -l)"
-  [ "$n" -gt 999 ]
-  [ "$(jsonl | jq -r .id | sort -u | wc -l)" -eq "$n" ]
+  local count; count="$(jsonl | awk 'END { print NR }')"
+  [ "$count" -gt 999 ]
+  [ "$(jsonl | jq -r .id | sort -u | awk 'END { print NR }')" -eq "$count" ]
   jsonl | jq -e 'select(.id == "F0001")' >/dev/null
-  [ "$(grep -o '^- \*\*F[0-9]*\*\*' "$RUN/findings.md" | sort -u | wc -l)" \
-    -eq "$n" ]
+  [ "$(grep -o '^- \*\*F[0-9]*\*\*' "$RUN/findings.md" | sort -u | awk 'END { print NR }')" \
+    -eq "$count" ]
 }
 
 @test "known noise scoped to variants mutes only there" {
@@ -289,7 +293,7 @@ EOF2
   art hyprland-pure sessions-hyprland hyprland.lines "No config file found"
   art base sessions-hyprland hyprland.lines "No config file found"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.variants == ["base"]' >/dev/null
 }
 
@@ -298,7 +302,7 @@ EOF2
     "SKIP apparmor-selected not selected in this variant (Probe Gate)"
   art base probes-offline probe-zsh@aquastias.probe "FAIL zsh-x broken"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   grep -q '^## Skipped checks' "$RUN/findings.md"
   grep -q 'apparmor-selected.*not selected in this variant.*base' \
     "$RUN/findings.md"
@@ -331,7 +335,7 @@ EOF2
   art base boot1 journal.lines "alpha[1]: one thing" "beta: two things" \
     "gamma: failed"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e '.excerpt | startswith("gamma")' >/dev/null
 }
 
@@ -347,7 +351,7 @@ EOF2
     "installing zfs-utils..." \
     "[WARN]  later, outside the attempt"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e 'select(.excerpt == "[WARN]  later, outside the attempt")' \
     >/dev/null
 }
@@ -358,6 +362,6 @@ EOF2
     "[RETRY] attempt 1/2 of pacstrap returned 1; trying again" \
     "[ATTEMPT] 2/2 pacstrap" "error: two"
   report
-  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e 'select(.excerpt == "error: two")' >/dev/null
 }

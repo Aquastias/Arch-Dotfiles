@@ -24,9 +24,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── _runner_users_resolve_secrets ────────────────────────────────────────────
 
 @test "returns chroot path and stages file when user secrets present" {
-  local host_sec="$TEST_DIR/alice-secrets.json"
-  printf '{"password":"s3cr3t"}\n' > "$host_sec"
-  printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_sec" \
+  local host_secrets="$TEST_DIR/alice-secrets.json"
+  printf '{"password":"s3cr3t"}\n' > "$host_secrets"
+  printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_secrets" \
     > "$MOUNT_ROOT/install-state.json"
 
   run _runner_users_resolve_secrets "alice"
@@ -46,9 +46,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── no-SOPS guided seam: .guided_passwords.users is read too (issue 07) ──────
 
 @test "stages user secrets from .guided_passwords.users (no SOPS)" {
-  local usr_sec="$TEST_DIR/alice-secrets.json"
-  printf '{"password":"12345"}\n' > "$usr_sec"
-  printf '{"guided_passwords":{"users":{"alice":"%s"}}}\n' "$usr_sec" \
+  local user_secrets="$TEST_DIR/alice-secrets.json"
+  printf '{"password":"12345"}\n' > "$user_secrets"
+  printf '{"guided_passwords":{"users":{"alice":"%s"}}}\n' "$user_secrets" \
     > "$MOUNT_ROOT/install-state.json"
 
   run _runner_users_resolve_secrets "alice"
@@ -147,9 +147,9 @@ _setup_archroot_capture() {
 
 @test "runner_create_user passes secrets path as 5th arg when present" {
   _setup_archroot_capture
-  local host_sec="$TEST_DIR/alice-secrets.json"
-  printf '{"password":"s3cr3t"}\n' > "$host_sec"
-  printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_sec" \
+  local host_secrets="$TEST_DIR/alice-secrets.json"
+  printf '{"password":"s3cr3t"}\n' > "$host_secrets"
+  printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_secrets" \
     > "$MOUNT_ROOT/install-state.json"
 
   runner_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
@@ -163,7 +163,7 @@ _setup_archroot_capture() {
 
   runner_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
   # last arg should be the default password, not a path
-  local last_arg
-  last_arg="$(tail -1 "$TEST_DIR/archroot_args")"
-  [ "$last_arg" = "$_RUNNER_DEFAULT_PASSWORD" ]
+  local last_argument
+  last_argument="$(awk 'END { print }' "$TEST_DIR/archroot_args")"
+  [ "$last_argument" = "$_RUNNER_DEFAULT_PASSWORD" ]
 }

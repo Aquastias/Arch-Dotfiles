@@ -44,12 +44,12 @@ EOF
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
+write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 # ── defaults: on flags uncommented/appended, off flags left commented ────────
 
 @test "apply: defaults enable Color/Verbose/ILoveCandy, keep NoProgressBar off" {
-  write_cfg '{}'
+  write_config '{}'
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'Color' "$CONF"
@@ -64,7 +64,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # ── untouched: SigLevel, includes, CheckSpace, repo sections stay verbatim ───
 
 @test "apply: leaves SigLevel, Include, CheckSpace and repo sections untouched" {
-  write_cfg '{}'
+  write_config '{}'
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qxF 'SigLevel    = Required DatabaseOptional' "$CONF"
@@ -76,7 +76,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # ── off toggles are authoritative: a shipped-on flag gets commented out ───────
 
 @test "apply: color=false comments Color, ilovecandy=false drops ILoveCandy" {
-  write_cfg '{"options":{"pacman":{"color":false,"ilovecandy":false}}}'
+  write_config '{"options":{"pacman":{"color":false,"ilovecandy":false}}}'
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx '#Color' "$CONF"
@@ -85,7 +85,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 }
 
 @test "apply: no_progress_bar=true uncomments the shipped #NoProgressBar" {
-  write_cfg '{"options":{"pacman":{"no_progress_bar":true}}}'
+  write_config '{"options":{"pacman":{"no_progress_bar":true}}}'
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'NoProgressBar' "$CONF"
@@ -95,7 +95,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # ── the numeric value is set to the operator's choice ────────────────────────
 
 @test "apply: parallel_downloads=10 sets ParallelDownloads = 10" {
-  write_cfg '{"options":{"pacman":{"parallel_downloads":10}}}'
+  write_config '{"options":{"pacman":{"parallel_downloads":10}}}'
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'ParallelDownloads = 10' "$CONF"
@@ -105,7 +105,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # ── DisableDownloadTimeout on appends the flag ───────────────────────────────
 
 @test "apply: disable_download_timeout=true adds the flag" {
-  write_cfg '{"options":{"pacman":{"disable_download_timeout":true}}}'
+  write_config '{"options":{"pacman":{"disable_download_timeout":true}}}'
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'DisableDownloadTimeout' "$CONF"
@@ -114,7 +114,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # ── idempotent: a second run converges to the same file ──────────────────────
 
 @test "apply: running twice yields an identical file" {
-  write_cfg '{"options":{"pacman":{"color":true,"ilovecandy":true,
+  write_config '{"options":{"pacman":{"color":true,"ilovecandy":true,
     "no_progress_bar":false,"parallel_downloads":8}}}'
   pacman_config_apply_options "$CONF"
   cp "$CONF" "$TEST_DIR/after-first"
@@ -125,7 +125,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # ── a missing conf is a no-op, not a failure ─────────────────────────────────
 
 @test "apply: a missing pacman.conf is a no-op" {
-  write_cfg '{}'
+  write_config '{}'
   run pacman_config_apply_options "$TEST_DIR/does-not-exist.conf"
   [ "$status" -eq 0 ]
 }

@@ -37,7 +37,7 @@ validators_skip_unless() {
 _validators_verify_isolated() {
   local unit="$1"; shift
   local base iso status
-  base="$(basename "$unit")"
+  base="${unit##*/}"
   iso="$(mktemp -d)"
   cp "$unit" "$iso/$base"
   chmod 0644 "$iso/$base"
@@ -81,10 +81,10 @@ validators_verify_user_unit() {
 # green everywhere and runs for real where the hooks are present.
 validators_skip_unless_hooks_installable() {
   local hooks="${1//HOOKS=(/}"; hooks="${hooks//)/}"
-  local h
-  for h in $hooks; do
-    [[ -f "/usr/lib/initcpio/install/$h" ]] \
-      || skip "initcpio hook '$h' not installed on host"
+  local hook
+  for hook in $hooks; do
+    [[ -f "/usr/lib/initcpio/install/$hook" ]] \
+      || skip "initcpio hook '$hook' not installed on host"
   done
 }
 
@@ -102,27 +102,27 @@ validators_mkinitcpio_build() {
 # and no real mountpoint repeated. Prints the first violation; returns non-zero
 # on any. Reads the fstab at <file>.
 validators_fstab_lint() {
-  local file="$1" mp fs dump pass extra line
+  local file="$1" mountpoint filesystem dump pass extra line
   local -A seen=()
   while IFS= read -r line; do
     [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
     # fields: <device> <mountpoint> <fstype> <options> <dump> <pass>; device
     # and options are not linted here, so read them into the throwaway `_`.
-    read -r _ mp fs _ dump pass extra <<<"$line"
+    read -r _ mountpoint filesystem _ dump pass extra <<<"$line"
     if [[ -z "$pass" || -n "$extra" ]]; then
       echo "fstab: line needs exactly 6 fields: $line"; return 1
     fi
-    if [[ "$mp" != /* && "$mp" != none && "$mp" != swap ]]; then
-      echo "fstab: implausible mountpoint '$mp': $line"; return 1
+    if [[ "$mountpoint" != /* && "$mountpoint" != none && "$mountpoint" != swap ]]; then
+      echo "fstab: implausible mountpoint '$mountpoint': $line"; return 1
     fi
-    [[ "$fs" == *[!a-zA-Z0-9._-]* || -z "$fs" ]] && {
-      echo "fstab: bad fstype '$fs': $line"; return 1; }
+    [[ "$filesystem" == *[!a-zA-Z0-9._-]* || -z "$filesystem" ]] && {
+      echo "fstab: bad fstype '$filesystem': $line"; return 1; }
     [[ "$dump" == [01] ]] || { echo "fstab: dump not 0/1: $line"; return 1; }
     [[ "$pass" == [012] ]] || { echo "fstab: pass not 0/1/2: $line"; return 1; }
-    if [[ "$mp" == /* ]]; then
-      [[ -n "${seen[$mp]:-}" ]] && {
-        echo "fstab: duplicate mountpoint '$mp'"; return 1; }
-      seen[$mp]=1
+    if [[ "$mountpoint" == /* ]]; then
+      [[ -n "${seen[$mountpoint]:-}" ]] && {
+        echo "fstab: duplicate mountpoint '$mountpoint'"; return 1; }
+      seen[$mountpoint]=1
     fi
   done < "$file"
   return 0

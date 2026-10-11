@@ -6,7 +6,7 @@
 load ../lib/aur-vet
 
 setup() {
-  aurvet_setup
+  aur_vet_setup
   REPO="$T/repo"; mkdir -p "$REPO"
   printf '# header\nold-pkg\tskip-checksum\tkeep\n' > "$REPO/allow.tsv"
   # A fake sudo that models privilege: the store dir is writable only while
@@ -19,12 +19,12 @@ exit \$rc
 SH
   chmod +x "$T/bin/sudo"
 }
-teardown() { chmod -R u+w "$T" 2>/dev/null || true; aurvet_teardown; }
+teardown() { chmod -R u+w "$T" 2>/dev/null || true; aur_vet_teardown; }
 
 @test "store: an always-answer without sudo fails cleanly, writes nothing" {
   chmod u-w "$AUR_VET_STORE"
   AUR_VET_SUDO="$T/missing-sudo" \
-    aurvet_hook_answer "$(aurvet_clone chaos-rat)" a
+    aur_vet_hook_answer "$(aur_vet_clone chaos-rat)" a
   [ "$status" -eq 2 ]
   [[ "$output" == *"allowlist not writable"* ]]
   [ ! -s "$AUR_VET_STORE/allow.tsv" ]
@@ -33,7 +33,7 @@ teardown() { chmod -R u+w "$T" 2>/dev/null || true; aurvet_teardown; }
 @test "store: with sudo an always-answer writes the root-owned store" {
   chmod u-w "$AUR_VET_STORE"
   AUR_VET_SUDO="$T/bin/sudo" \
-    aurvet_hook_answer "$(aurvet_clone chaos-rat)" a
+    aur_vet_hook_answer "$(aur_vet_clone chaos-rat)" a
   [ "$status" -eq 0 ]
   grep -q $'^chaos-rat\tinstall-interp\t' "$AUR_VET_STORE/allow.tsv"
 }
@@ -43,7 +43,7 @@ teardown() { chmod -R u+w "$T" 2>/dev/null || true; aurvet_teardown; }
     > "$AUR_VET_STORE/allow.tsv"
   run "$AUR_VET_SRC/aur-vet" export "$REPO"
   [ "$status" -eq 0 ]
-  head -1 "$REPO/allow.tsv" | grep -qx '# header'
+  [ "$(awk 'NR == 1 { print; exit }' "$REPO/allow.tsv")" = '# header' ]
   grep -qx $'old-pkg\tskip-checksum\tkeep' "$REPO/allow.tsv"
   grep -qx $'chaos-rat\tinstall-interp\treviewed 2026-09-28' "$REPO/allow.tsv"
 }

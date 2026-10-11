@@ -15,7 +15,7 @@ setup() {
 }
 
 # Helper: extract a key=value field from the plan output.
-plan_field() { grep -E "^$1=" | cut -d= -f2; }
+plan_field() { KEY="$1" awk -F= '$1 == ENVIRON["KEY"] { print $2 }'; }
 
 # ── tracer: ESP + swap + root(remainder) ────────────────────────────────────
 

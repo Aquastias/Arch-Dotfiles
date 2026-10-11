@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# security/clamav program. Static seam like nvim-program.bats: assert the
+# security/clamav program. Static seam like nvim-program-*.bats: assert the
 # COMMITTED install.sh, no install run. First-boot ordering per the Arch Wiki
 # ClamAV page: freshclam must seed the signature DB before clamd first starts —
 # clamav-daemon.service skips itself (ConditionPathExistsGlob on main/daily)
@@ -21,19 +21,19 @@ _joined() {
 }
 
 # _line <regex> — first line number in install.sh matching <regex>.
-_line() { grep -nE "$1" "$INSTALL" | head -1 | cut -d: -f1; }
+_line() { PATTERN="$1" awk '$0 ~ ENVIRON["PATTERN"] { print NR; exit }' "$INSTALL"; }
 
 @test "clamav install seeds the signature DB with freshclam" {
   grep -qE '^[^#]*sudo freshclam' "$INSTALL"
 }
 
 @test "clamav install runs freshclam before enabling clamav-daemon" {
-  local f e
-  f="$(_line '^[^#]*sudo freshclam')"
-  e="$(_line 'systemctl enable clamav-daemon')"
-  [ -n "$f" ]
-  [ -n "$e" ]
-  (( f < e ))
+  local freshclam_line enable_line
+  freshclam_line="$(_line '^[^#]*sudo freshclam')"
+  enable_line="$(_line 'systemctl enable clamav-daemon')"
+  [ -n "$freshclam_line" ]
+  [ -n "$enable_line" ]
+  (( freshclam_line < enable_line ))
 }
 
 @test "clamav install tolerates a failed freshclam (CDN/offline)" {

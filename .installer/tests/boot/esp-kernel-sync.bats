@@ -20,7 +20,7 @@ teardown() { rm -rf "$ESP" "$BOOT"; }
 
 # Write a loader entry: _entry <name> <vmlinuz> <initrd>...
 _entry() {
-  local f="$ESP/loader/entries/$1.conf" kernel="$2"
+  local entry_file="$ESP/loader/entries/$1.conf" kernel="$2"
   shift 2
   {
     echo "title   test"
@@ -28,10 +28,13 @@ _entry() {
     local i
     for i in "$@"; do echo "initrd  /$i"; done
     echo "options root=ZFS=rpool/ROOT/arch rw"
-  } >"$f"
+  } >"$entry_file"
 }
 
 in_output() { grep -qxF "$1" <<<"$output"; }
+
+# zero_file <bytes> <path> — a <bytes>-long file of zeros.
+zero_file() { : >"$2"; truncate -s "$1" "$2"; }
 
 @test "planner emits entry-referenced files and excludes a stray kernel" {
   _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
@@ -170,9 +173,9 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 
 @test "needed_bytes = sum of planned file sizes plus the largest (headroom)" {
   _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
-  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
-  head -c 50 /dev/zero >"$BOOT/intel-ucode.img"
-  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  zero_file 100 "$BOOT/vmlinuz-linux-lts"
+  zero_file 50 "$BOOT/intel-ucode.img"
+  zero_file 200 "$BOOT/initramfs-linux-lts.img"
   run esp_kernel_sync_needed_bytes "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   [ "$output" -eq 550 ] # 100 + 50 + 200, plus 200 (largest) for temp+rename
@@ -180,8 +183,8 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 
 @test "space_ok: ample free passes, tight free fails" {
   _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
-  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
-  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  zero_file 100 "$BOOT/vmlinuz-linux-lts"
+  zero_file 200 "$BOOT/initramfs-linux-lts.img"
   # needed = 100 + 200 + 200 (largest) = 500; ESP empty -> present = 0
   run esp_kernel_sync_space_ok "$ESP" "$BOOT" 1000
   [ "$status" -eq 0 ]
@@ -191,10 +194,10 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 
 @test "present_bytes = sizes of planned files already on the ESP" {
   _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
-  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
-  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  zero_file 100 "$BOOT/vmlinuz-linux-lts"
+  zero_file 200 "$BOOT/initramfs-linux-lts.img"
   # only the initramfs already exists on the ESP (the vmlinuz is new)
-  head -c 200 /dev/zero >"$ESP/initramfs-linux-lts.img"
+  zero_file 200 "$ESP/initramfs-linux-lts.img"
   run esp_kernel_sync_present_bytes "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   [ "$output" -eq 200 ]
@@ -202,11 +205,11 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 
 @test "space_ok: a populated ESP does not false-abort a re-sync" {
   _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
-  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
-  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  zero_file 100 "$BOOT/vmlinuz-linux-lts"
+  zero_file 200 "$BOOT/initramfs-linux-lts.img"
   # steady state: the same images are already on the ESP (present = 300)
-  head -c 100 /dev/zero >"$ESP/vmlinuz-linux-lts"
-  head -c 200 /dev/zero >"$ESP/initramfs-linux-lts.img"
+  zero_file 100 "$ESP/vmlinuz-linux-lts"
+  zero_file 200 "$ESP/initramfs-linux-lts.img"
   # needed = 500; free + present >= needed  =>  free >= 200.
   # 250 used to fail the old free-only check (250 < 500); now it passes.
   run esp_kernel_sync_space_ok "$ESP" "$BOOT" 250
@@ -233,22 +236,22 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 }
 
 @test "script_ok: requires a #! shebang and the executable bit" {
-  local s="$BOOT/sync.sh"
-  printf '#!/usr/bin/env bash\necho hi\n' >"$s"
-  chmod +x "$s"
-  run esp_kernel_sync_script_ok "$s"
+  local script_file="$BOOT/sync.sh"
+  printf '#!/usr/bin/env bash\necho hi\n' >"$script_file"
+  chmod +x "$script_file"
+  run esp_kernel_sync_script_ok "$script_file"
   [ "$status" -eq 0 ]
 
   # no shebang -> would ENOEXEC under execv -> rejected
-  printf '# not a shebang\necho hi\n' >"$s"
-  chmod +x "$s"
-  run esp_kernel_sync_script_ok "$s"
+  printf '# not a shebang\necho hi\n' >"$script_file"
+  chmod +x "$script_file"
+  run esp_kernel_sync_script_ok "$script_file"
   [ "$status" -ne 0 ]
 
   # shebang present but not executable -> rejected
-  printf '#!/usr/bin/env bash\n' >"$s"
-  chmod -x "$s"
-  run esp_kernel_sync_script_ok "$s"
+  printf '#!/usr/bin/env bash\n' >"$script_file"
+  chmod -x "$script_file"
+  run esp_kernel_sync_script_ok "$script_file"
   [ "$status" -ne 0 ]
 }
 

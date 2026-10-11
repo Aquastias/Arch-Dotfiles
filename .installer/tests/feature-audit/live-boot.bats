@@ -120,7 +120,7 @@ teardown() { rm -rf "$T"; }
   feature_audit_agent() { SECONDS=$((SECONDS + 20)); echo x >> "$T/calls"; return 1; }
   sleep() { :; }
   feature_audit_wait_until 30 'false'
-  [ "$(wc -l < "$T/calls")" -le 2 ]
+  [ "$(awk 'END { print NR }' "$T/calls")" -le 2 ]
 }
 
 @test "feature_audit_await_new_boot: unknown old id waits for the guest to go down" {
@@ -173,14 +173,14 @@ teardown() { rm -rf "$T"; }
 }
 
 @test "hung-task fold: one kernel report becomes one line, others untouched" {
-  local k='Oct 04 02:40:08 h kernel:'
+  local kernel_prefix='Oct 04 02:40:08 h kernel:'
   printf '%s\n' \
-    "$k INFO: task noctalia:1881 blocked for more than 122 seconds." \
-    "$k       Tainted: P OE 6.18.54-2-lts #1" "$k Call Trace:" \
-    "$k  <TASK>" "$k  virtio_gpu_queue_ctrl_sgs+0x135/0x300 [virtio_gpu]" \
-    "$k  </TASK>" 'Oct 04 02:41:00 h sshd[1]: unrelated warning' > "$T/j"
+    "$kernel_prefix INFO: task noctalia:1881 blocked for more than 122 seconds." \
+    "$kernel_prefix       Tainted: P OE 6.18.54-2-lts #1" "$kernel_prefix Call Trace:" \
+    "$kernel_prefix  <TASK>" "$kernel_prefix  virtio_gpu_queue_ctrl_sgs+0x135/0x300 [virtio_gpu]" \
+    "$kernel_prefix  </TASK>" 'Oct 04 02:41:00 h sshd[1]: unrelated warning' > "$T/j"
   awk "$_FA_FOLD_HUNG_TASKS" "$T/j" > "$T/out"
-  [ "$(wc -l < "$T/out")" -eq 2 ]
+  [ "$(awk 'END { print NR }' "$T/out")" -eq 2 ]
   grep -q 'INFO: task noctalia.*virtio_gpu_queue_ctrl_sgs' "$T/out"
   grep -qx 'Oct 04 02:41:00 h sshd\[1\]: unrelated warning' "$T/out"
 }
@@ -258,7 +258,7 @@ teardown() { rm -rf "$T"; }
   feature_audit_agent() { [[ "$*" == *reset-failed* ]] && echo reset >> "$T/seq"
     return 0; }
   feature_audit_phase_probes "$T/v" '{}'
-  [ "$(paste -sd' ' "$T/seq")" = "run probes-offline collect probes-offline \
+  [ "$(awk '{ joined = joined (NR > 1 ? " " : "") $0 } END { print joined }' "$T/seq")" = "run probes-offline collect probes-offline \
 reset run probes-online collect probes-online" ]
 }
 

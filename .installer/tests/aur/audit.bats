@@ -6,7 +6,7 @@
 load ../lib/aur-vet
 
 setup() {
-  aurvet_setup
+  aur_vet_setup
   export AUR_VET_AUDIT_ROOT="$T/root"
   mkdir -p "$AUR_VET_AUDIT_ROOT/home/alice" "$AUR_VET_AUDIT_ROOT/root" "$T/bin"
   printf '#!/bin/sh\nprintf "%%s\\n" %s\n' "${FOREIGN:-paru yay-bin}" \
@@ -14,7 +14,7 @@ setup() {
   chmod +x "$T/bin/pacman"
   export PATH="$T/bin:$PATH"
 }
-teardown() { aurvet_teardown; }
+teardown() { aur_vet_teardown; }
 
 _foreign() {
   printf '#!/bin/sh\nprintf "%%s\\n" %s\n' "$*" > "$T/bin/pacman"
@@ -42,11 +42,11 @@ _audit() { run "$AUR_VET_SRC/aur-vet" audit; }
 }
 
 @test "audit: a campaign npm package in the npm cache index fails" {
-  local idx="$AUR_VET_AUDIT_ROOT/root/.npm/_cacache/index-v5/ab/cd"
-  mkdir -p "$idx"
+  local index_entry="$AUR_VET_AUDIT_ROOT/root/.npm/_cacache/index-v5/ab/cd"
+  mkdir -p "$index_entry"
   printf '{"key":"make-fetch-happen:request-cache:%s"}\n' \
     "https://registry.npmjs.org/atomic-lockfile/-/atomic-lockfile-1.4.2.tgz" \
-    > "$idx/entry"
+    > "$index_entry/entry"
   _audit
   [ "$status" -eq 1 ]
   [[ "$output" == *"atomic-lockfile"* ]]

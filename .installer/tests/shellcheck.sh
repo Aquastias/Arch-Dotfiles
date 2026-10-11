@@ -8,7 +8,9 @@
 
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 INSTALLER_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 if ! command -v shellcheck >/dev/null 2>&1; then
@@ -18,20 +20,20 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 SHELLCHECK="$(command -v shellcheck)"
 
-declare -a SHELLCHECK_ARGS
-SHELLCHECK_ARGS=("$@")
+declare -a SHELLCHECK_ARGUMENTS
+SHELLCHECK_ARGUMENTS=("$@")
 
 declare -a TARGETS=()
-while IFS= read -r -d '' f; do
-  TARGETS+=("$f")
+while IFS= read -r -d '' command_file; do
+  TARGETS+=("$command_file")
 done < <(find "$INSTALLER_DIR" -type f -name '*.sh' \
   ! -path "${BASH_SOURCE[0]}" \
   ! -path "${SCRIPT_DIR}/bats/*" \
   -print0 | sort -z)
 # PATH executables carry no .sh (conventions.md) — list them explicitly.
 _PATH_CMDS=("$INSTALLER_DIR/aur/aur-vet")
-for f in "${_PATH_CMDS[@]}"; do
-  [[ -f "$f" ]] && TARGETS+=("$f")
+for command_file in "${_PATH_CMDS[@]}"; do
+  [[ -f "$command_file" ]] && TARGETS+=("$command_file")
 done
 
 if ((${#TARGETS[@]} == 0)); then
@@ -41,11 +43,11 @@ fi
 
 echo "[shellcheck.sh] Using ${SHELLCHECK}"
 echo "[shellcheck.sh] Checking ${#TARGETS[@]} file(s) under ${INSTALLER_DIR}"
-for f in "${TARGETS[@]}"; do
-  printf '  - %s\n' "${f#"${INSTALLER_DIR}/"}"
+for command_file in "${TARGETS[@]}"; do
+  printf '  - %s\n' "${command_file#"${INSTALLER_DIR}/"}"
 done
 echo ""
 
-"$SHELLCHECK" -x -P SCRIPTDIR "${SHELLCHECK_ARGS[@]}" "${TARGETS[@]}"
+"$SHELLCHECK" -x -P SCRIPTDIR "${SHELLCHECK_ARGUMENTS[@]}" "${TARGETS[@]}"
 echo ""
 echo "[shellcheck.sh] All checked files are clean."

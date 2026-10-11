@@ -5,7 +5,7 @@
 # install. Config is decoupled from install (ADR 0134): the Runner's Config
 # Apply pass copies home/, so install.sh installs the package only.
 # The Noctalia live-follow wiring (config.toml, template input) is asserted in
-# noctalia-stow.bats.
+# noctalia-stow-*.bats.
 
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."       # .installer/tests/config → repo root

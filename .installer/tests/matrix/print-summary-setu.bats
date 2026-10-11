@@ -37,12 +37,12 @@ _base_cells() {
 # stdin is /dev/null so the trailing confirmation read returns instead of
 # hanging; the summary body renders in full before it.
 _summary_unbound() {
-  local cell cfg
+  local cell config
   cell="$(matrix_tier1_cells | jq -c --arg id "$1" 'select(.id == $id)')"
-  cfg="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
-  matrix_cell_assemble "$cell" > "$cfg"
+  config="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
+  matrix_cell_assemble "$cell" > "$config"
   (
-    export CONFIG_FILE="$cfg"
+    export CONFIG_FILE="$config"
     source "$INSTALLER_DIR/lib/common.sh"
     source "$INSTALLER_DIR/lib/config/categorized-list.sh"
     source "$INSTALLER_DIR/lib/config/install-config.sh"
@@ -76,12 +76,12 @@ _summary_unbound() {
 # `set -u`
 # too — not just the accessors in isolation.
 @test "lifecycle_print_summary is set-u-clean for the none+leftover branch" {
-  local cell cfg
+  local cell config
   cell="$(matrix_tier1_cells | jq -c 'select(.id == "zfs-mirror-plain")')"
-  cfg="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
-  matrix_cell_assemble "$cell" > "$cfg"
+  config="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
+  matrix_cell_assemble "$cell" > "$config"
   run bash -uc "
-    export INSTALLER_DIR='$INSTALLER_DIR' SCRIPT_DIR='$INSTALLER_DIR' CONFIG_FILE='$cfg'
+    export INSTALLER_DIR='$INSTALLER_DIR' SCRIPT_DIR='$INSTALLER_DIR' CONFIG_FILE='$config'
     source '$INSTALLER_DIR/lib/common.sh'
     source '$INSTALLER_DIR/lib/config/categorized-list.sh'
     source '$INSTALLER_DIR/lib/config/install-config.sh'

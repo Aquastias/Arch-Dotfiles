@@ -17,11 +17,11 @@ teardown() { rm -f "$CONF"; }
   lts_hold_set "$CONF" 1
   grep -q '^IgnorePkg = linux-lts linux-lts-headers  # archzfs-lts-hold$' "$CONF"
   # placed within [options], before [core]
-  local opt core
-  opt=$(grep -n '^\[options\]' "$CONF" | cut -d: -f1)
-  core=$(grep -n '^\[core\]' "$CONF" | cut -d: -f1)
-  local ign; ign=$(grep -n 'archzfs-lts-hold' "$CONF" | cut -d: -f1)
-  [ "$opt" -lt "$ign" ]; [ "$ign" -lt "$core" ]
+  local options_line core
+  options_line=$(awk '/^\[options\]/ { print NR }' "$CONF")
+  core=$(awk '/^\[core\]/ { print NR }' "$CONF")
+  local ign; ign=$(awk '/archzfs-lts-hold/ { print NR }' "$CONF")
+  [ "$options_line" -lt "$ign" ]; [ "$ign" -lt "$core" ]
 }
 
 @test "hold=0 removes the marked line, leaves the rest" {

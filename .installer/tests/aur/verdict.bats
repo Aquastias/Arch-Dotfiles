@@ -5,89 +5,89 @@
 
 load ../lib/aur-vet
 
-setup() { aurvet_setup; }
-teardown() { aurvet_teardown; }
+setup() { aur_vet_setup; }
+teardown() { aur_vet_teardown; }
 
 _allow_rows() { grep -vE '^[[:space:]]*(#|$)' "$AUR_VET_STORE/allow.tsv" \
   2>/dev/null || true; }
 
 @test "verdict: a clean package passes unattended with no pin store" {
   command rm -f "$AUR_VET_STORE/vetted.tsv"
-  local d; d="$(aurvet_clone electron-benign)"
-  aurvet_hook "$d"
+  local clone_directory; clone_directory="$(aur_vet_clone electron-benign)"
+  aur_vet_hook "$clone_directory"
   [ "$status" -eq 0 ]
   [[ "$output" == *"PASS"* ]]
   [ ! -e "$AUR_VET_STORE/vetted.tsv" ]
 }
 
 @test "verdict: a clean package that changed passes with no review" {
-  local d; d="$(aurvet_clone electron-benign)"
-  aurvet_commit "$d" PKGBUILD 's/^pkgdesc=.*/pkgdesc="Changed description"/'
-  aurvet_hook "$d"
+  local clone_directory; clone_directory="$(aur_vet_clone electron-benign)"
+  aur_vet_commit "$clone_directory" PKGBUILD 's/^pkgdesc=.*/pkgdesc="Changed description"/'
+  aur_vet_hook "$clone_directory"
   [ "$status" -eq 0 ]
 }
 
 @test "verdict: a critical finding aborts" {
-  aurvet_hook "$(aurvet_clone atomic-arch)"
+  aur_vet_hook "$(aur_vet_clone atomic-arch)"
   [ "$status" -eq 1 ]
   [[ "$output" == *"critical findings always abort"* ]]
 }
 
 @test "verdict: a suspicious finding aborts unattended and names the rule" {
-  aurvet_hook "$(aurvet_clone chaos-rat)"
+  aur_vet_hook "$(aur_vet_clone chaos-rat)"
   [ "$status" -eq 1 ]
   [[ "$output" == *"install-interp"* ]]
   [ -z "$(_allow_rows)" ]
 }
 
 @test "verdict: suspicious + answer n aborts and stores nothing" {
-  aurvet_hook_answer "$(aurvet_clone chaos-rat)" n
+  aur_vet_hook_answer "$(aur_vet_clone chaos-rat)" n
   [ "$status" -eq 1 ]
   [ -z "$(_allow_rows)" ]
 }
 
 @test "verdict: suspicious + answer y builds once and stores nothing" {
-  local d; d="$(aurvet_clone chaos-rat)"
-  aurvet_hook_answer "$d" y
+  local clone_directory; clone_directory="$(aur_vet_clone chaos-rat)"
+  aur_vet_hook_answer "$clone_directory" y
   [ "$status" -eq 0 ]
   [ -z "$(_allow_rows)" ]
-  aurvet_hook "$d"
+  aur_vet_hook "$clone_directory"
   [ "$status" -eq 1 ]
 }
 
 @test "verdict: suspicious + answer a allowlists package + rule, no commit" {
-  local d; d="$(aurvet_clone chaos-rat)"
-  aurvet_hook_answer "$d" a
+  local clone_directory; clone_directory="$(aur_vet_clone chaos-rat)"
+  aur_vet_hook_answer "$clone_directory" a
   [ "$status" -eq 0 ]
   run _allow_rows
   [[ "$output" == *$'chaos-rat\tinstall-interp\t'* ]]
   [[ "$output" == *$'chaos-rat\tsource-owner\t'* ]]
-  [[ "$output" != *"$(git -C "$d" rev-parse HEAD)"* ]]
+  [[ "$output" != *"$(git -C "$clone_directory" rev-parse HEAD)"* ]]
 }
 
 @test "verdict: an allowlisted rule still applies after the package changes" {
-  local d; d="$(aurvet_clone chaos-rat)"
+  local clone_directory; clone_directory="$(aur_vet_clone chaos-rat)"
   printf 'chaos-rat\t%s\treviewed\n' source-owner install-interp \
     >> "$AUR_VET_STORE/allow.tsv"
-  aurvet_hook "$d"
+  aur_vet_hook "$clone_directory"
   [ "$status" -eq 0 ]
-  aurvet_commit "$d" PKGBUILD 's/^pkgdesc="Fixture"/pkgdesc="Fixture 2"/'
-  aurvet_hook "$d"
+  aur_vet_commit "$clone_directory" PKGBUILD 's/^pkgdesc="Fixture"/pkgdesc="Fixture 2"/'
+  aur_vet_hook "$clone_directory"
   [ "$status" -eq 0 ]
 }
 
 @test "verdict: an allowlist row for another package does not apply" {
   printf 'other\t%s\treviewed\n' source-owner install-interp \
     >> "$AUR_VET_STORE/allow.tsv"
-  aurvet_hook "$(aurvet_clone chaos-rat)"
+  aur_vet_hook "$(aur_vet_clone chaos-rat)"
   [ "$status" -eq 1 ]
 }
 
 @test "verdict: there is no bypass flag or environment toggle" {
-  local d; d="$(aurvet_clone chaos-rat)"
-  run bash -c 'cd "$1" && "$2" --no-vet' _ "$d" "$AUR_VET_SRC/aur-vet"
+  local clone_directory; clone_directory="$(aur_vet_clone chaos-rat)"
+  run bash -c 'cd "$1" && "$2" --no-vet' _ "$clone_directory" "$AUR_VET_SRC/aur-vet"
   [ "$status" -eq 2 ]
-  AUR_VET=off AUR_VET_OFF=1 AUR_VET_SKIP=1 aurvet_hook "$d"
+  AUR_VET=off AUR_VET_OFF=1 AUR_VET_SKIP=1 aur_vet_hook "$clone_directory"
   [ "$status" -eq 1 ]
 }
 

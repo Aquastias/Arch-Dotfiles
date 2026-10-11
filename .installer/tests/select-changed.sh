@@ -26,7 +26,9 @@ _SELECT_CHANGED_SOURCED=1
 _FAST_CORE_TOKENS=(
   config guided layout zfs wipe
   chroot/mount-unit-validate.bats chroot/initcpio-validate.bats
-  chroot/fstab-lint.bats chroot/chroot-impermanence.bats
+  chroot/fstab-lint.bats chroot/chroot-impermanence-units.bats
+  chroot/chroot-impermanence-btrfs-and-hooks.bats
+  chroot/chroot-impermanence-boot-services.bats
   profiles/user-units-validate.bats impermanence-common.bats
   lib/validators.bats sops.bats
   live-medium.bats wipe-probe.bats wipe-live-medium.bats
@@ -82,13 +84,13 @@ _changed_root_map() {
     .installer/tests/readability.sh \
     | .installer/tests/readability-scan.awk \
     | .installer/tests/readability-adr-links.awk \
-    | .installer/tests/readability-prefixes.txt \
-    | .installer/tests/readability-baseline.txt) echo "readability.bats" ;;
+    | .installer/tests/readability-prefixes.txt) echo "readability.bats" ;;
     .installer/tools/explain-packages.sh) echo "explain-packages.bats" ;;
     .installer/tools/fetch-iso.sh) echo "fetch-iso.bats" ;;
     .installer/tools/feature-audit.sh) echo "feature-audit" ;;
     .installer/tools/harden-boot.sh) echo "harden-boot.bats" ;;
-    .installer/tools/impermanence.sh) echo "impermanence-tool.bats" ;;
+    .installer/tools/impermanence.sh)
+      echo "impermanence-tool-verbs.bats impermanence-tool-apply-defaults.bats" ;;
     .installer/tools/install-pkglist.sh)
       echo "install-pkglist.bats pkglist-profile.bats" ;;
     .installer/tools/save-pkglist.sh) echo "pkglist-profile.bats" ;;
@@ -105,21 +107,21 @@ _changed_root_map() {
 # _changed_map_one <path> — print target tokens for one changed path, or return
 # non-zero if unmapped (caller then widens to --full).
 _changed_map_one() {
-  local p="${1#./}" d
+  local path="${1#./}" directory
   # A changed test file targets itself (path relative to tests/).
-  case "$p" in
-    .installer/tests/*.bats) printf '%s\n' "${p#.installer/tests/}"; return 0 ;;
+  case "$path" in
+    .installer/tests/*.bats) printf '%s\n' "${path#.installer/tests/}"; return 0 ;;
   esac
   # Mirrored source subdir: .installer/lib/<d>/ or .installer/<d>/ → tests/<d>.
-  for d in "${_MIRRORED_DIRS[@]}"; do
-    case "$p" in
-      .installer/lib/"$d"/*|.installer/"$d"/*) printf '%s\n' "$d"; return 0 ;;
+  for directory in "${_MIRRORED_DIRS[@]}"; do
+    case "$path" in
+      .installer/lib/"$directory"/*|.installer/"$directory"/*) printf '%s\n' "$directory"; return 0 ;;
     esac
   done
   # Root/tools explicit map.
-  local tokens; if tokens="$(_changed_root_map "$p")"; then
-    local -a _toks; read -ra _toks <<<"$tokens"
-    printf '%s\n' "${_toks[@]}"; return 0
+  local tokens; if tokens="$(_changed_root_map "$path")"; then
+    local -a token_list; read -ra token_list <<<"$tokens"
+    printf '%s\n' "${token_list[@]}"; return 0
   fi
   return 1
 }
@@ -127,21 +129,21 @@ _changed_map_one() {
 # select_changed_targets <changed-path>... — print `--full` or the sorted-unique
 # union of change-derived targets and the Install-Correctness Core.
 select_changed_targets() {
-  local p tok; local -A want=()
-  for p in "$@"; do
-    p="${p#./}"
-    [[ -n "$p" ]] || continue
+  local path token; local -A want=()
+  for path in "$@"; do
+    path="${path#./}"
+    [[ -n "$path" ]] || continue
     # Only .installer/ paths are test-relevant. Anything else (repo-root
     # dotfiles, docs/, .scratch/, editor dirs — often untracked) is ignored,
     # NOT treated as unmapped, so it never forces a full run.
-    [[ "$p" == .installer/* ]] || continue
-    if _changed_is_broad_blast "$p"; then echo "--full"; return 0; fi
-    local mapped; if mapped="$(_changed_map_one "$p")"; then
-      for tok in $mapped; do want[$tok]=1; done
+    [[ "$path" == .installer/* ]] || continue
+    if _changed_is_broad_blast "$path"; then echo "--full"; return 0; fi
+    local mapped; if mapped="$(_changed_map_one "$path")"; then
+      for token in $mapped; do want[$token]=1; done
     else
       echo "--full"; return 0   # unmapped → fail-safe
     fi
   done
-  for tok in "${_FAST_CORE_TOKENS[@]}"; do want[$tok]=1; done
+  for token in "${_FAST_CORE_TOKENS[@]}"; do want[$token]=1; done
   printf '%s\n' "${!want[@]}" | sort
 }

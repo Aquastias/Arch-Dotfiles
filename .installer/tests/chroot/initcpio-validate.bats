@@ -37,18 +37,18 @@ setup() {
  "persist":{"directories":[],"files":[]}}
 JSON
 
-  local l="$BATS_TEST_DIRNAME/../.."
+  local installer_directory="$BATS_TEST_DIRNAME/../.."
   # Real adapter hook builders (layout_nonzfs_hooks / layout_btrfs_hooks).
   # shellcheck source=../../lib/layout/nonzfs/boot.sh
-  source "$l/lib/layout/nonzfs/boot.sh"
+  source "$installer_directory/lib/layout/nonzfs/boot.sh"
   # shellcheck source=../../lib/layout/btrfs/boot.sh
-  source "$l/lib/layout/btrfs/boot.sh"
+  source "$installer_directory/lib/layout/btrfs/boot.sh"
   # Real chroot generator (_initcpio_hooks_line), side effects off.
-  INITCPIO_LIB_ONLY=1 source "$l/lib/chroot/initcpio.sh"
+  INITCPIO_LIB_ONLY=1 source "$installer_directory/lib/chroot/initcpio.sh"
 
   # Resolve modconf→kmod exactly as the generator does on this host.
   [[ -e /usr/lib/initcpio/hooks/kmod ]] && KMOD=true || KMOD=false
-  # Fixed conf path (initcpio.sh enables `set -u`; _assemble_conf writes here
+  # Fixed conf path (initcpio.sh enables `set -u`; _assemble_config writes here
   # from inside a command-substitution subshell, so the path — not a global set
   # in the subshell — is what the parent reads).
   CONF="$TEST_DIR/mkinitcpio.conf"
@@ -57,7 +57,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # Assemble the real mkinitcpio.conf the installer would write for an adapter's
 # HOOKS list, echo the HOOKS=(...) line, and leave the conf at $CONF.
-_assemble_conf() {  # $1 = adapter HOOKS string
+_assemble_config() {  # $1 = adapter HOOKS string
   local line; line="$(_initcpio_hooks_line "$1" "$KMOD")"
   printf 'MODULES=()\nBINARIES=()\nFILES=()\n%s\n' "$line" > "$CONF"
   printf '%s\n' "$line"
@@ -69,7 +69,7 @@ _assemble_conf() {  # $1 = adapter HOOKS string
 # scripts, else build for real and assert mkinitcpio found every hook.
 _build_ok() {  # $1 = adapter HOOKS string
   validators_skip_unless mkinitcpio
-  local line; line="$(_assemble_conf "$1")"
+  local line; line="$(_assemble_config "$1")"
   validators_skip_unless_hooks_installable "$line"
   run validators_mkinitcpio_build "$CONF"
   [ "$status" -eq 0 ]
@@ -110,11 +110,11 @@ _build_ok() {  # $1 = adapter HOOKS string
 # pivot end-to-end. The regression gives that invariant teeth.
 
 @test "generator preserves encrypt/block before filesystems end-to-end" {
-  local line; line="$(_assemble_conf "$(layout_nonzfs_hooks encrypted)")"
+  local line; line="$(_assemble_config "$(layout_nonzfs_hooks encrypted)")"
   [[ "$line" =~ block.*encrypt.*filesystems ]]
 }
 
 @test "regression: a scrambled generator line (filesystems first) is caught" {
-  local line; line="$(_assemble_conf "base filesystems block")"
+  local line; line="$(_assemble_config "base filesystems block")"
   [[ ! "$line" =~ block.*filesystems ]]
 }

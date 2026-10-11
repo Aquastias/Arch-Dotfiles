@@ -67,8 +67,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   echo 0 > "$TEST_DIR/n"
   pacman() { echo "pacman $*" >> "$CALLS"
     if [[ "$*" == "-S --noconfirm --needed dkms zfs-dkms zfs-utils" ]]; then
-      local n; n=$(($(cat "$TEST_DIR/n") + 1)); echo $n > "$TEST_DIR/n"
-      ((n >= 3)); return; fi; }
+      local attempt; attempt=$(($(cat "$TEST_DIR/n") + 1)); echo $attempt > "$TEST_DIR/n"
+      ((attempt >= 3)); return; fi; }
   sleep() { :; }
   zfs_install_dkms 7.0.3-arch1-1 >/dev/null
   [ "$(cat "$TEST_DIR/n")" -eq 3 ]

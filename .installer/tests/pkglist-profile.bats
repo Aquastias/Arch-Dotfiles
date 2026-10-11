@@ -12,8 +12,8 @@ setup() {
   cp "$BATS_TEST_DIRNAME/../tools/save-pkglist.sh" "$T/os/tools/"
   cp "$BATS_TEST_DIRNAME/../tools/install-pkglist.sh" "$T/os/tools/"
   cp "$BATS_TEST_DIRNAME/../lib/aur-helper.sh" "$T/os/lib/"
-  for h in desktop laptop core; do
-    printf '{}\n' > "$T/os/hosts/$h/profile.jsonc"
+  for host in desktop laptop core; do
+    printf '{}\n' > "$T/os/hosts/$host/profile.jsonc"
   done
   printf '{}\n' > "$T/os/hosts/vm/arch-kde/profile.jsonc"
 

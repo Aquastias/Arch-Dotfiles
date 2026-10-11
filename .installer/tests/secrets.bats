@@ -40,7 +40,7 @@ _load_and_persist() {
 
 
 _write_age_stub() {
-  local ec="${1:-0}"
+  local exit_code="${1:-0}"
   {
     printf '#!/usr/bin/env bash\n'
     printf 'output=""; input=""; skip_next=0\n'
@@ -56,23 +56,23 @@ _write_age_stub() {
     printf \
   '             *) input="$arg" ;; esac\n'
     printf 'done\n'
-    if [[ $ec -eq 0 ]]; then
+    if [[ $exit_code -eq 0 ]]; then
       printf '[[ -n "$output" ]] && cat "$input" > "$output" || cat "$input"\n'
     fi
-    printf 'exit %d\n' "$ec"
+    printf 'exit %d\n' "$exit_code"
   } > "$TEST_DIR/bin/age"
   chmod +x "$TEST_DIR/bin/age"
 }
 
 _write_sops_stub() {
-  local ec="${1:-0}"
+  local exit_code="${1:-0}"
   {
     printf '#!/usr/bin/env bash\n'
     printf 'for arg; do input="$arg"; done\n'
-    if [[ $ec -eq 0 ]]; then
+    if [[ $exit_code -eq 0 ]]; then
       printf 'cat "$input"\n'
     fi
-    printf 'exit %d\n' "$ec"
+    printf 'exit %d\n' "$exit_code"
   } > "$TEST_DIR/bin/sops"
   chmod +x "$TEST_DIR/bin/sops"
 }
@@ -171,12 +171,12 @@ _write_sops_stub() {
 
   secrets_load "myhostname"
   [ -f "$TEST_DIR/mount_called" ]
-  local tmpfs_dir="$_SECRETS_TMPFS"
-  [ -d "$tmpfs_dir" ]
+  local tmpfs_directory="$_SECRETS_TMPFS"
+  [ -d "$tmpfs_directory" ]
 
   secrets_cleanup
   [ -f "$TEST_DIR/umount_called" ]
-  [ ! -d "$tmpfs_dir" ]
+  [ ! -d "$tmpfs_directory" ]
   [ -z "$_SECRETS_TMPFS" ]
 }
 
@@ -188,8 +188,8 @@ _write_lsblk_stub() {
 }
 
 _write_curl_stub() {
-  local ec="${1:-0}"
-  local src="${2:-}"
+  local exit_code="${1:-0}"
+  local source_file="${2:-}"
   {
     printf '#!/usr/bin/env bash\n'
     printf 'output=""; skip_next=0\n'
@@ -200,10 +200,10 @@ _write_curl_stub() {
   '    output="$arg"; skip_next=0; continue\n  fi\n'
     printf '  case "$arg" in -o) skip_next=1 ;; esac\n'
     printf 'done\n'
-    if [[ $ec -eq 0 && -n "$src" ]]; then
-      printf 'cp "%s" "$output"\n' "$src"
+    if [[ $exit_code -eq 0 && -n "$source_file" ]]; then
+      printf 'cp "%s" "$output"\n' "$source_file"
     fi
-    printf 'exit %d\n' "$ec"
+    printf 'exit %d\n' "$exit_code"
   } > "$TEST_DIR/bin/curl"
   chmod +x "$TEST_DIR/bin/curl"
 }

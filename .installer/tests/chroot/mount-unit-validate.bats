@@ -27,11 +27,11 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "every curated file/dir generates a systemd-valid .mount unit" {
   validators_skip_unless systemd-analyze
-  local target esc
+  local target escaped_path
   for target in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
     impermanence_common_write_mount_unit "$target" "$UNITS"
-    esc="$(systemd-escape --path "$target")"
-    run validators_verify_unit "$UNITS/$esc.mount"
+    escaped_path="$(systemd-escape --path "$target")"
+    run validators_verify_unit "$UNITS/$escaped_path.mount"
     if [ "$status" -ne 0 ]; then
       echo "verify failed for $target:"; echo "$output"; return 1
     fi
@@ -44,8 +44,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "a dotted path (/etc/tmpfiles.d) verifies clean" {
   validators_skip_unless systemd-analyze
   impermanence_common_write_mount_unit /etc/tmpfiles.d "$UNITS"
-  local esc; esc="$(systemd-escape --path /etc/tmpfiles.d)"
-  run validators_verify_unit "$UNITS/$esc.mount"
+  local escaped_path; escaped_path="$(systemd-escape --path /etc/tmpfiles.d)"
+  run validators_verify_unit "$UNITS/$escaped_path.mount"
   [ "$status" -eq 0 ]
 }
 

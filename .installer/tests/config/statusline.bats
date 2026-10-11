@@ -84,15 +84,15 @@ fixture() { # $1 ctx% $2 hit $3 r5% $4 add $5 del
 
 @test "dirty working tree shows a dot; clean tree does not" {
   export HOME="$HOME_SUB" SANDBOX_RUNTIME=1
-  local g="$BATS_TEST_TMPDIR/repo"
-  mkdir -p "$g"; git -C "$g" init -q
-  git -C "$g" config user.email t@t; git -C "$g" config user.name t
-  echo a >"$g/a"; git -C "$g" add a; git -C "$g" commit -qm init
-  local fx; fx="$(fixture 38 0.94 42 120 30)"
-  run bash -c "cd '$g'; printf '%s' '$fx' | bash '$SL'"
+  local repository="$BATS_TEST_TMPDIR/repo"
+  mkdir -p "$repository"; git -C "$repository" init -q
+  git -C "$repository" config user.email t@t; git -C "$repository" config user.name t
+  echo a >"$repository/a"; git -C "$repository" add a; git -C "$repository" commit -qm init
+  local fixture_json; fixture_json="$(fixture 38 0.94 42 120 30)"
+  run bash -c "cd '$repository'; printf '%s' '$fixture_json' | bash '$SL'"
   ! echo "$output" | grep -q '●'
-  echo b >>"$g/a"
-  run bash -c "cd '$g'; printf '%s' '$fx' | bash '$SL'"
+  echo b >>"$repository/a"
+  run bash -c "cd '$repository'; printf '%s' '$fixture_json' | bash '$SL'"
   echo "$output" | grep -q '●'
 }
 
@@ -101,12 +101,12 @@ fixture() { # $1 ctx% $2 hit $3 r5% $4 add $5 del
   # A stub PATH with only the tools the statusline needs — no ccusage, whether
   # or not the host has it installed.
   local bin="$BATS_TEST_TMPDIR/bin"; mkdir -p "$bin"
-  for t in bash jq git date awk stat grep cut tr id head cat mkdir mv; do
-    ln -sf "$(command -v "$t")" "$bin/$t"
+  for tool in bash jq git date awk stat grep cut tr id head cat mkdir mv; do
+    ln -sf "$(command -v "$tool")" "$bin/$tool"
   done
-  local fx; fx="$(fixture 38 0.94 42 120 30)"
+  local fixture_json; fixture_json="$(fixture 38 0.94 42 120 30)"
   run env -i HOME="$HOME_SUB" SANDBOX_RUNTIME=1 PATH="$bin" \
-    bash -c "printf '%s' '$fx' | bash '$SL'"
+    bash -c "printf '%s' '$fixture_json' | bash '$SL'"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q '5h 42%'
   ! echo "$output" | grep -q '🔥'

@@ -5,14 +5,17 @@
 # script was installed under /usr/local/lib/rkhunter/, so the timer failed.
 
 @test "program units exec only /usr/local paths their install.sh installs" {
-  local root="$BATS_TEST_DIRNAME/../../programs" unit prog path bad=""
+  local root="$BATS_TEST_DIRNAME/../../programs" unit program path bad=""
   for unit in "$root"/*/*/services/*.service; do
     [[ -f "$unit" ]] || continue
-    prog="${unit%/services/*}"
+    program="${unit%/services/*}"
     while IFS= read -r path; do
-      grep -qF -- "$path" "$prog/install.sh" \
+      grep -qF -- "$path" "$program/install.sh" \
         || bad+="${unit#"$root"/}: $path"$'\n'
-    done < <(sed -nE 's/^Exec[A-Za-z]*=[-@+!:]*(\/usr\/local\/[^ ]+).*/\1/p' \
+    done < <(awk 'match($0, /^Exec[A-Za-z]*=[-@+!:]*\/usr\/local\/[^ ]+/) {
+               $0 = substr($0, RSTART, RLENGTH)
+               sub(/^Exec[A-Za-z]*=[-@+!:]*/, ""); print
+             }' \
                "$unit")
   done
   [[ -z "$bad" ]] || { printf '%s' "$bad"; false; }

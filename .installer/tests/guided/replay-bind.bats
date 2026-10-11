@@ -33,7 +33,7 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 write_answers() {
-  local f="$TEST_DIR/answers"; printf '%s\n' "$@" > "$f"; printf '%s' "$f"
+  local answers_file="$TEST_DIR/answers"; printf '%s\n' "$@" > "$answers_file"; printf '%s' "$answers_file"
 }
 
 # ── device injection into the Config State (AC1) ─────────────────────────────

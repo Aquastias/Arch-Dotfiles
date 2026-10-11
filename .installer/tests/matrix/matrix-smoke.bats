@@ -55,21 +55,21 @@ setup() {
 }
 
 @test "smoke: runs every curated cell; a failure doesn't abort; nonzero exit" {
-  local tmp="$BATS_TEST_TMPDIR"
-  _pcell() {
+  local test_directory="$BATS_TEST_TMPDIR"
+  _plain_cell() {
     jq -c -n --arg id "$1" '{id:$id, axes:{filesystem:"zfs",
       topology:"single", encryption:false, impermanence:false}}'
   }
   # stub selection → four plain cells (real generator not needed here).
   matrix_smoke_cells() {
-    printf '%s\n' "$(_pcell zfs-single-plain)" "$(_pcell zfs-mirror-plain)" \
-      "$(_pcell zfs-single-plain-imp)" "$(_pcell zfs-single-enc)"
+    printf '%s\n' "$(_plain_cell zfs-single-plain)" "$(_plain_cell zfs-mirror-plain)" \
+      "$(_plain_cell zfs-single-plain-imp)" "$(_plain_cell zfs-single-enc)"
   }
   _driver_preflight()  { return 0; }
   _driver_guard_gate() { return 0; }
   _driver_run_cell() {
     local id; id="$(jq -r .id <<<"$1")"
-    echo "$id" >>"$tmp/attempts"
+    echo "$id" >>"$test_directory/attempts"
     [[ "$id" == zfs-mirror-plain ]] && return 1 || return 0   # one fails
   }
   run matrix_smoke
@@ -79,5 +79,5 @@ setup() {
   [[ "$output" == *zfs-single-plain-imp* ]]
   [[ "$output" == *zfs-single-enc* ]]
   [[ "$output" == *"matrix.sh run zfs-mirror-plain"* ]]  # re-run hint on fail
-  [ "$(sort -u "$tmp/attempts" | wc -l)" -eq 4 ]         # all four attempted
+  [ "$(sort -u "$test_directory/attempts" | awk 'END { print NR }')" -eq 4 ]         # all four attempted
 }

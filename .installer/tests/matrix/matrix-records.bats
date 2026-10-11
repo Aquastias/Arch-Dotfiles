@@ -15,14 +15,14 @@ setup() {
 # ── AC1/AC2: the coverage summary is sectioned + deterministic ───────────────
 
 @test "coverage: sectioned (axes/exclusions/counts), topology on one line" {
-  local s; s="$(matrix_coverage_summary)"
-  printf '%s\n' "$s" | grep -qx '\[axes\]'
-  printf '%s\n' "$s" | grep -qx '\[exclusions\]'
-  printf '%s\n' "$s" | grep -qx '\[counts\]'
+  local summary; summary="$(matrix_coverage_summary)"
+  printf '%s\n' "$summary" | grep -qx '\[axes\]'
+  printf '%s\n' "$summary" | grep -qx '\[exclusions\]'
+  printf '%s\n' "$summary" | grep -qx '\[counts\]'
   # topology values live on a single sorted line (AC4 shape)
-  local topo; topo="$(printf '%s\n' "$s" | grep -E '^topology: ')"
-  [ -n "$topo" ]
-  [[ "$topo" == *single* && "$topo" == *raidz2* && "$topo" == *mirror* ]]
+  local topology; topology="$(printf '%s\n' "$summary" | grep -E '^topology: ')"
+  [ -n "$topology" ]
+  [[ "$topology" == *single* && "$topology" == *raidz2* && "$topology" == *mirror* ]]
 }
 
 @test "coverage: byte-identical across runs for the same seed" {
@@ -31,22 +31,22 @@ setup() {
 }
 
 @test "coverage: counts equal the actually generated sets" {
-  local s; s="$(matrix_coverage_summary 0)"
-  local t1 t2 t2p t2s
-  t1="$(printf '%s\n' "$s" | sed -n 's/^tier1: //p')"
-  t2="$(printf '%s\n' "$s" | sed -n 's/^tier2-total: //p')"
-  t2p="$(printf '%s\n' "$s" | sed -n 's/^tier2-pairwise: //p')"
-  t2s="$(printf '%s\n' "$s" | sed -n 's/^tier2-seeds: //p')"
-  [ "$t1" -eq "$(matrix_tier1_cells | grep -c .)" ]
-  [ "$t2" -eq "$(matrix_tier2_cells 0 | grep -c .)" ]
-  [ "$((t2p + t2s))" -eq "$t2" ]          # breakdown sums to the total
-  [ "$t2s" -gt 0 ]                        # the pinned seeds are counted
+  local summary; summary="$(matrix_coverage_summary 0)"
+  local tier1 tier2 tier2_pairwise tier2_seeds
+  tier1="$(printf '%s\n' "$summary" | awk 'sub(/^tier1: /, "")')"
+  tier2="$(printf '%s\n' "$summary" | awk 'sub(/^tier2-total: /, "")')"
+  tier2_pairwise="$(printf '%s\n' "$summary" | awk 'sub(/^tier2-pairwise: /, "")')"
+  tier2_seeds="$(printf '%s\n' "$summary" | awk 'sub(/^tier2-seeds: /, "")')"
+  [ "$tier1" -eq "$(matrix_tier1_cells | grep -c .)" ]
+  [ "$tier2" -eq "$(matrix_tier2_cells 0 | grep -c .)" ]
+  [ "$((tier2_pairwise + tier2_seeds))" -eq "$tier2" ]          # breakdown sums to the total
+  [ "$tier2_seeds" -gt 0 ]                        # the pinned seeds are counted
 }
 
 # ── AC4: a dropped topology value is a one-line summary change, not a wall ────
 
 # extract the [axes] section (between its header and the blank line).
-_axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
+_axes_section() { printf '%s\n' "$1" | awk '/^\[axes\]$/, /^$/'; }
 
 @test "coverage: dropping a topology value → one [axes] line changes" {
   local full reduced
@@ -58,9 +58,9 @@ _axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
   }
   reduced="$(matrix_coverage_summary 0)"
   # only the topology line differs in [axes]: diff shows one < and one >.
-  local n; n="$(diff <(_axes_section "$full") <(_axes_section "$reduced") \
+  local changed_lines; changed_lines="$(diff <(_axes_section "$full") <(_axes_section "$reduced") \
     | grep -cE '^[<>]')"
-  [ "$n" -eq 2 ]
+  [ "$changed_lines" -eq 2 ]
   printf '%s\n' "$full"    | grep -E '^topology: ' | grep -q raidz2
   printf '%s\n' "$reduced" | grep -E '^topology: ' | grep -qv raidz2
 }
@@ -68,14 +68,14 @@ _axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
 # ── the manifest is the Tier-2 set, one cell per line, sorted by id ──────────
 
 @test "manifest: cells carry id + axes and are sorted by id" {
-  local m; m="$(matrix_manifest 0)"
-  [ "$(printf '%s\n' "$m" | grep -c .)" -gt 1 ]
+  local manifest; manifest="$(matrix_manifest 0)"
+  [ "$(printf '%s\n' "$manifest" | grep -c .)" -gt 1 ]
   while IFS= read -r c; do
     echo "$c" | jq -e '.id and (.axes | type == "object")'
-  done <<<"$m"
+  done <<<"$manifest"
   # ids are in a stable, deterministic order for clean diffs (jq unique_by
   # sorts by codepoint; compare with byte-order sort, not locale collation).
-  local ids; ids="$(printf '%s\n' "$m" | jq -r '.id')"
+  local ids; ids="$(printf '%s\n' "$manifest" | jq -r '.id')"
   [ "$ids" = "$(printf '%s\n' "$ids" | LC_ALL=C sort)" ]
 }
 

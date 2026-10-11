@@ -23,7 +23,7 @@ setup() {
   # ADR 0136 amended ADR 0132: nvim is no longer excluded/rose-pine. It has its
   # own Neovim Theme Template (default off, static Catppuccin Mocha Sapphire),
   # served from the dev/nvim program — no repo-root .config/nvim remains.
-  local CS="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/plugins"
+  local plugins_directory="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/plugins"
   [ ! -e "$REPO/.config/nvim" ]
-  grep -rq 'catppuccin' "$CS"
+  grep -rq 'catppuccin' "$plugins_directory"
 }

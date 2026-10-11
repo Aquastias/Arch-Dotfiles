@@ -61,8 +61,8 @@ teardown() { rm -rf "$FIXROOT"; }
   [ "$(locale_parts_compose sr_RS@latin UTF-8)" == "sr_RS.UTF-8@latin" ]
   [ "$(locale_parts_compose en_US "")" == "en_US" ]
   # round-trip: recomposing a decomposed locale is identity
-  local l="de_DE.ISO-8859-1"
-  [ "$(locale_parts_compose "$(locale_parts_language "$l")" "$(locale_parts_encoding "$l")")" == "$l" ]
+  local locale="de_DE.ISO-8859-1"
+  [ "$(locale_parts_compose "$(locale_parts_language "$locale")" "$(locale_parts_encoding "$locale")")" == "$locale" ]
 }
 
 # ── languages / encodings from a fixture SUPPORTED (ADR 0076) ───────────────
@@ -96,7 +96,7 @@ teardown() { rm -rf "$FIXROOT"; }
   : > "$FIXROOT/usr/share/kbd/consolefonts/Lat2-Terminus16.psfu.gz"
   run locale_source_console_fonts
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | wc -l)" -eq 3 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 3 ]
   echo "$output" | grep -qx "default8x16"
   echo "$output" | grep -qx "ter-116n"
   echo "$output" | grep -qx "Lat2-Terminus16"

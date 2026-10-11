@@ -14,7 +14,7 @@ setup() {
 @test "niri parser: one row per bind, single- and multi-line actions" {
   run feature_audit_binds_parse niri "$FIX/niri-binds.kdl"
   [ "$status" -eq 0 ]
-  [ "$(wc -l <<<"$output")" -eq 5 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 5 ]
   grep -qxF $'niri\tMod+Return\tspawn "kitty"' <<<"$output"
   grep -qxF $'niri\tMod+D\tspawn-sh "noctalia msg panel-toggle launcher"' \
     <<<"$output"
@@ -28,7 +28,7 @@ setup() {
   run feature_audit_binds_rows niri
   [ "$status" -eq 0 ]
   grep -qxF $'niri\tMod+X\tclose-window' <<<"$output"
-  [ "$(wc -l <<<"$output")" -gt 100 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -gt 100 ]
 }
 
 @test "plan: chord match wins over action glob; {arg} substitutes" {
@@ -52,7 +52,7 @@ J
   echo '{ "expect": [ { "action": "focus-workspace *", "effect": "workspace",
     "arg": "{arg}" } ] }' > "$BATS_TEST_TMPDIR/b.jsonc"
   run feature_audit_binds_untested niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
-  [ "$(wc -l <<<"$output")" -eq 4 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 4 ]
   grep -q 'Mod+Return' <<<"$output"
   ! grep -q 'Mod+1' <<<"$output"
 }
@@ -69,7 +69,7 @@ J
   grep -qxF $'hyprland\tSuper+mouse:272\twindow.drag()' <<<"$output"
   grep -qxF $'hyprland\tXF86AudioMute\texec_cmd("wpctl mute")' \
     <<<"$output"
-  [ "$(wc -l <<<"$output")" -eq 8 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 8 ]
 }
 
 @test "kde parser: every active shortcut of every component, none skipped" {
@@ -82,7 +82,7 @@ J
   grep -qxF $'kde\tMeta+=\tkwin/view_zoom_in' <<<"$output"
   grep -qxF $'kde\tMeta\tplasmashell/activate application launcher' <<<"$output"
   ! grep -q 'Cycle Overview' <<<"$output"
-  [ "$(wc -l <<<"$output")" -eq 7 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 7 ]
 }
 
 @test "hyprland + kde: shipped configs parse" {
@@ -111,7 +111,7 @@ J
   grep -qxF $'nvim\ts\tn,x Flash' <<<"$output"
   # a dynamically built lhs is left to the live keymap dump
   ! grep -q $'\t<leader>\t' <<<"$output"
-  [ "$(wc -l <<<"$output")" -eq 5 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 5 ]
 }
 
 @test "program sources: nvim binds are driven by the nvim probe" {
@@ -126,7 +126,7 @@ J
   [ "$status" -eq 0 ]
   grep -qxF $'kitty\tCtrl+Shift+t\tnew_tab_with_cwd' <<<"$output"
   grep -qxF $'kitty\tCtrl+Alt+enter\tlaunch --cwd=current' <<<"$output"
-  [ "$(wc -l <<<"$output")" -eq 2 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 2 ]
 }
 
 @test "zsh parser: explicit bindkey lines, not keymap switches" {
@@ -134,7 +134,7 @@ J
   [ "$status" -eq 0 ]
   grep -qxF $'zsh\t^[[1;5C\tmain forward-word' <<<"$output"
   grep -qxF $'zsh\t^R\tviins history-incremental-search-backward' <<<"$output"
-  [ "$(wc -l <<<"$output")" -eq 2 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 2 ]
 }
 
 @test "plan: a source with no binds plans nothing, without error" {

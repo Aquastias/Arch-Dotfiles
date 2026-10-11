@@ -72,7 +72,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
   grep -qx 'vt = 2' "$CONF"
-  local d="$ROOT/etc/systemd/system/greetd.service.d/10-vt2.conf"
-  grep -qx 'Conflicts=getty@tty2.service' "$d"
-  grep -qx 'After=getty@tty2.service' "$d"
+  local dropin_file="$ROOT/etc/systemd/system/greetd.service.d/10-vt2.conf"
+  grep -qx 'Conflicts=getty@tty2.service' "$dropin_file"
+  grep -qx 'After=getty@tty2.service' "$dropin_file"
 }

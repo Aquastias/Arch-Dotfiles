@@ -45,8 +45,9 @@ while IFS= read -r f; do
   while IFS= read -r hit; do
     [[ -n "$hit" ]] && emit "Python invocation: $f:$hit"
   done < <(
-    awk '/no-python-ok/{print ""; next} {print}' "$f" \
-      | sed 's/[[:space:]]#.*$//; s/^[[:space:]]*#.*$//' \
+    awk '/no-python-ok/ { print ""; next }
+         { sub(/[[:space:]]#.*$/, ""); sub(/^[[:space:]]*#.*$/, ""); print }' \
+        "$f" \
       | grep -nE "$inv" || true
   )
 done < <(

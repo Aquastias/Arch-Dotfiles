@@ -4,7 +4,7 @@
 # laptop persistent-root) that load and validate clean against the closed
 # schema. Behaviour under test: the
 # effective config the loader produces + profile_loader_validate's verdict — never how
-# the profile file is laid out. Prior art: profile-loader.bats.
+# the profile file is laid out. Prior art: profile-loader-*.bats.
 
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."

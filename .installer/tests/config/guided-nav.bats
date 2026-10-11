@@ -11,23 +11,23 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"; }
 }
 
 @test "navigation_to_category: enters a category, screen + category set" {
-  local n; n="$(navigation_to_category Disks)"
-  [ "$(navigation_screen "$n")" = "category" ]
-  [ "$(navigation_get "$n" category)" = "Disks" ]
+  local navigation; navigation="$(navigation_to_category Disks)"
+  [ "$(navigation_screen "$navigation")" = "category" ]
+  [ "$(navigation_get "$navigation" category)" = "Disks" ]
 }
 
 @test "navigation_to_values: carries category, field, label" {
-  local n; n="$(navigation_to_values Disks options.encryption encryption)"
-  [ "$(navigation_screen "$n")" = "values" ]
-  [ "$(navigation_get "$n" category)" = "Disks" ]
-  [ "$(navigation_get "$n" field)" = "options.encryption" ]
-  [ "$(navigation_get "$n" label)" = "encryption" ]
+  local navigation; navigation="$(navigation_to_values Disks options.encryption encryption)"
+  [ "$(navigation_screen "$navigation")" = "values" ]
+  [ "$(navigation_get "$navigation" category)" = "Disks" ]
+  [ "$(navigation_get "$navigation" field)" = "options.encryption" ]
+  [ "$(navigation_get "$navigation" label)" = "encryption" ]
 }
 
 @test "navigation_to_text: carries category, field, label" {
-  local n; n="$(navigation_to_text System system.hostname hostname)"
-  [ "$(navigation_screen "$n")" = "text" ]
-  [ "$(navigation_get "$n" field)" = "system.hostname" ]
+  local navigation; navigation="$(navigation_to_text System system.hostname hostname)"
+  [ "$(navigation_screen "$navigation")" = "text" ]
+  [ "$(navigation_get "$navigation" field)" = "system.hostname" ]
 }
 
 @test "navigation_get: absent key is empty" {
@@ -35,15 +35,15 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"; }
 }
 
 @test "navigation_back: values → its category" {
-  local n; n="$(navigation_back "$(navigation_to_values Disks options.swap swap)")"
-  [ "$(navigation_screen "$n")" = "category" ]
-  [ "$(navigation_get "$n" category)" = "Disks" ]
+  local navigation; navigation="$(navigation_back "$(navigation_to_values Disks options.swap swap)")"
+  [ "$(navigation_screen "$navigation")" = "category" ]
+  [ "$(navigation_get "$navigation" category)" = "Disks" ]
 }
 
 @test "navigation_back: text → its category" {
-  local n; n="$(navigation_back "$(navigation_to_text System system.hostname hostname)")"
-  [ "$(navigation_screen "$n")" = "category" ]
-  [ "$(navigation_get "$n" category)" = "System" ]
+  local navigation; navigation="$(navigation_back "$(navigation_to_text System system.hostname hostname)")"
+  [ "$(navigation_screen "$navigation")" = "category" ]
+  [ "$(navigation_get "$navigation" category)" = "System" ]
 }
 
 @test "navigation_back: category → top" {
@@ -55,14 +55,14 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"; }
 }
 
 @test "navigation_to_data_pools: enters the data-pools editor, back → category" {
-  local n; n="$(navigation_to_data_pools Disks)"
-  [ "$(navigation_screen "$n")" = "datapools" ]
-  [ "$(navigation_screen "$(navigation_back "$n")")" = "category" ]
+  local navigation; navigation="$(navigation_to_data_pools Disks)"
+  [ "$(navigation_screen "$navigation")" = "datapools" ]
+  [ "$(navigation_screen "$(navigation_back "$navigation")")" = "category" ]
 }
 
 @test "navigation_to_pool_edit: carries the index, back → datapools" {
-  local p; p="$(navigation_to_pool_edit Disks 1)"
-  [ "$(navigation_screen "$p")" = "pooledit" ]
-  [ "$(navigation_get "$p" index)" = "1" ]
-  [ "$(navigation_screen "$(navigation_back "$p")")" = "datapools" ]
+  local navigation; navigation="$(navigation_to_pool_edit Disks 1)"
+  [ "$(navigation_screen "$navigation")" = "pooledit" ]
+  [ "$(navigation_get "$navigation" index)" = "1" ]
+  [ "$(navigation_screen "$(navigation_back "$navigation")")" = "datapools" ]
 }

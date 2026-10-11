@@ -26,8 +26,8 @@ setup() {
 @test "install.sh installs claude-code + sandbox/gh/ccusage/npm deps" {
   [ -x "$INSTALL" ]
   grep -qE '\$\{AUR_HELPER\} -S --noconfirm --needed' "$INSTALL"
-  for p in claude-code bubblewrap socat github-cli ccusage npm; do
-    grep -q "$p" "$INSTALL"
+  for package in claude-code bubblewrap socat github-cli ccusage npm; do
+    grep -q "$package" "$INSTALL"
   done
 }
 
@@ -48,44 +48,44 @@ setup() {
 # ── seeded settings: the pinned keys (ADR 0133) ──────────────────────────────
 
 @test "seeded settings.json pins the decided keys" {
-  local s="$HOMESEED/settings.json"
-  [ -f "$s" ]
-  [ "$(jq -r '.model' "$s")" = "claude-opus-5-5" ]
-  [ "$(jq -r '.fallbackModel[0]' "$s")" = "claude-sonnet-5" ]
-  [ "$(jq -r '.promptCacheTtl' "$s")" = "3600" ]
-  [ "$(jq -r '.permissions.defaultMode' "$s")" = "auto" ]
-  [ "$(jq -r '.permissions.disableBypassPermissionsMode' "$s")" = "disable" ]
-  [ "$(jq -r '.skipAutoPermissionPrompt' "$s")" = "true" ]
-  [ "$(jq -r '.attribution.commit' "$s")" = "" ]
-  [ "$(jq -r '.attribution.pr' "$s")" = "" ]
-  [ "$(jq -r '.attribution.sessionUrl' "$s")" = "false" ]
-  [ "$(jq -r '.sandbox.failIfUnavailable' "$s")" = "true" ]
+  local settings_file="$HOMESEED/settings.json"
+  [ -f "$settings_file" ]
+  [ "$(jq -r '.model' "$settings_file")" = "claude-opus-5-5" ]
+  [ "$(jq -r '.fallbackModel[0]' "$settings_file")" = "claude-sonnet-5" ]
+  [ "$(jq -r '.promptCacheTtl' "$settings_file")" = "3600" ]
+  [ "$(jq -r '.permissions.defaultMode' "$settings_file")" = "auto" ]
+  [ "$(jq -r '.permissions.disableBypassPermissionsMode' "$settings_file")" = "disable" ]
+  [ "$(jq -r '.skipAutoPermissionPrompt' "$settings_file")" = "true" ]
+  [ "$(jq -r '.attribution.commit' "$settings_file")" = "" ]
+  [ "$(jq -r '.attribution.pr' "$settings_file")" = "" ]
+  [ "$(jq -r '.attribution.sessionUrl' "$settings_file")" = "false" ]
+  [ "$(jq -r '.sandbox.failIfUnavailable' "$settings_file")" = "true" ]
   jq -e '.sandbox.network.allowUnixSockets
-    | index("/run/libvirt/libvirt-sock")' "$s" >/dev/null
-  [ "$(jq -r '.cleanupPeriodDays' "$s")" = "30" ]
-  [ "$(jq -r '.autoUpdatesChannel' "$s")" = "stable" ]
+    | index("/run/libvirt/libvirt-sock")' "$settings_file" >/dev/null
+  [ "$(jq -r '.cleanupPeriodDays' "$settings_file")" = "30" ]
+  [ "$(jq -r '.autoUpdatesChannel' "$settings_file")" = "stable" ]
 }
 
 # ── curated feature set: unused tooling off, current Opus (ADR 0142) ──────────
 
 @test "seeded settings.json curates the feature set (ADR 0142)" {
-  local s="$HOMESEED/settings.json"
-  [ "$(jq -r '.effortLevel' "$s")" = "medium" ]
-  [ "$(jq -r '.disableClaudeAiConnectors' "$s")" = "true" ]
-  [ "$(jq -r '.disableRemoteControl' "$s")" = "true" ]
-  [ "$(jq -r '.enableArtifact' "$s")" = "false" ]
-  [ "$(jq -r '.disableWorkflows' "$s")" = "true" ]
-  [ "$(jq -r '.syncClaudeAiSkills' "$s")" = "false" ]
-  [ "$(jq -r '.syncClaudeAiPlugins' "$s")" = "false" ]
-  [ "$(jq -r '.env.DISABLE_TELEMETRY' "$s")" = "1" ]
-  [ "$(jq -r '.env.DISABLE_ERROR_REPORTING' "$s")" = "1" ]
+  local settings_file="$HOMESEED/settings.json"
+  [ "$(jq -r '.effortLevel' "$settings_file")" = "medium" ]
+  [ "$(jq -r '.disableClaudeAiConnectors' "$settings_file")" = "true" ]
+  [ "$(jq -r '.disableRemoteControl' "$settings_file")" = "true" ]
+  [ "$(jq -r '.enableArtifact' "$settings_file")" = "false" ]
+  [ "$(jq -r '.disableWorkflows' "$settings_file")" = "true" ]
+  [ "$(jq -r '.syncClaudeAiSkills' "$settings_file")" = "false" ]
+  [ "$(jq -r '.syncClaudeAiPlugins' "$settings_file")" = "false" ]
+  [ "$(jq -r '.env.DISABLE_TELEMETRY' "$settings_file")" = "1" ]
+  [ "$(jq -r '.env.DISABLE_ERROR_REPORTING' "$settings_file")" = "1" ]
 }
 
 # ── single source under the program home/ (ADR 0134) ─────────────────────────
 
 @test "home/.claude is the single source: the 3 files live here, +x preserved" {
-  for f in settings.json CLAUDE.md scripts/statusline.sh; do
-    [ -f "$HOMESEED/$f" ]
+  for seed_file in settings.json CLAUDE.md scripts/statusline.sh; do
+    [ -f "$HOMESEED/$seed_file" ]
   done
   [ -x "$HOMESEED/scripts/statusline.sh" ]
 }

@@ -142,18 +142,18 @@ effective() {
   # Isolate printing from the other toggle-derived programs (ADR 0080).
   state="$(config_state_set "$state" options.bluetooth.enabled 'false')"
   state="$(config_state_set "$state" options.power.profile '"none"')"
-  local asgn='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+  local assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   # default on → cups injected alongside the authored core program; reflector is
   # always injected by Mirrors (ADR 0089)
-  run emit_effective "$(effective "$state")" "$asgn"
+  run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs == ["grub","cups","reflector"]'
 
   # turned off → cups absent, the authored core program untouched; reflector
   # still lands (state-independent)
   local off; off="$(config_state_set "$state" options.printing.enabled 'false')"
-  run emit_effective "$(effective "$off")" "$asgn"
+  run emit_effective "$(effective "$off")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs == ["grub","reflector"]'
 }
@@ -176,11 +176,11 @@ effective() {
   shown="$(jq -cS '{packages, sysctl}' <<<"$view")"
   installed="$(jq -cS '{packages, sysctl}' <<<"$output")"
   [ "$shown" = "$installed" ]
-  local shown_sp installed_sp
-  shown_sp="$(jq -cS '.host_programs' <<<"$view")"
-  installed_sp="$(jq -cS \
+  local shown_programs installed_programs
+  shown_programs="$(jq -cS '.host_programs' <<<"$view")"
+  installed_programs="$(jq -cS \
     '(.host_programs - ["cups","reflector"])' <<<"$output")"
-  [ "$shown_sp" = "$installed_sp" ]
+  [ "$shown_programs" = "$installed_programs" ]
 }
 
 # Deselecting a core-inherited entry must actually deselect it — the old emit
@@ -209,11 +209,11 @@ effective() {
 @test "emit_core_delta: drops what Host Core already provides" {
   local core='{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
                "packages":{"repo":{"shell":["htop","fzf"]}}}'
-  local eff='{"host_programs":["cups","grub"],
+  local effective='{"host_programs":["cups","grub"],
               "sysctl":{"vm.swappiness":10},
               "packages":{"repo":{"shell":["htop","fzf","btop"]}},
               "system":{"hostname":"eterniox"}}'
-  run emit_core_delta "$eff" "$core"
+  run emit_core_delta "$effective" "$core"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs == ["grub"]'
   echo "$output" | jq -e '.packages.repo.shell == ["btop"]'
@@ -242,14 +242,14 @@ effective() {
   source "$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh"
   local core='{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
                "packages":{"repo":{"shell":["htop","fzf"]}}}'
-  local eff='{"host_programs":["cups","grub"],
+  local effective='{"host_programs":["cups","grub"],
               "sysctl":{"vm.swappiness":10},
               "packages":{"repo":{"shell":["htop","fzf","btop"]}},
               "options":{"kernel":["zen"]}}'
   local delta round
-  delta="$(emit_core_delta "$eff" "$core")"
+  delta="$(emit_core_delta "$effective" "$core")"
   round="$(layer_resolver_resolve host "$core" "$delta")"
-  [ "$(jq -cS . <<<"$round")" = "$(jq -cS . <<<"$eff")" ]
+  [ "$(jq -cS . <<<"$round")" = "$(jq -cS . <<<"$effective")" ]
 }
 
 @test "Save writes a delta: core's packages are not baked into the profile" {

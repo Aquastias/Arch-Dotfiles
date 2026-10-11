@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # dev/vscodium program — the VSCodium Config, opt-in parity twin of the Neovim
-# Config (ADR 0148). Static seam like nvim-program.bats: assert the COMMITTED
+# Config (ADR 0148). Static seam like nvim-program-*.bats: assert the COMMITTED
 # program, its single-source home/ settings and the extension list — no install
 # run. Config Apply places home/ (ADR 0134); install.sh installs the package +
 # extensions only.
@@ -85,7 +85,7 @@ ext_ids() { data_rows "$EXTS"; }
 }
 
 @test "extension list has no duplicates (case-insensitive)" {
-  [ -z "$(ext_ids | tr 'A-Z' 'a-z' | sort | uniq -d)" ]
+  [ -z "$(ext_ids | awk '{ print tolower($0) }' | sort | awk 'seen[$0]++ == 1')" ]
 }
 
 @test "the list carries VSCodeVim and the catppuccin theme + icons" {
@@ -209,7 +209,7 @@ coverage_keys() {
 
 # Formatter name (Registry) → the VSCodium extension that formats with it.
 # Independent of the settings: this is the ADR 0148 parity contract.
-fmt_ext() {
+formatter_extension() {
   case "$1" in
   stylua) echo JohnnyMorganz.stylua ;;
   ruff_format) echo charliermarsh.ruff ;;
@@ -237,13 +237,13 @@ vsc_lang() {
 }
 
 @test "each Registry formatter is the VSCodium default for its filetypes" {
-  local ft fmt want got
+  local filetype formatter want got
   run registry_formatters
   [ "${#lines[@]}" -ge 15 ]
-  while read -r ft fmt; do
-    want="$(fmt_ext "$fmt")"
-    got="$(setting ".\"[$(vsc_lang "$ft")]\".\"editor.defaultFormatter\"" | jq -r .)"
-    [ "$got" = "$want" ] || { echo "$ft: want $want got $got"; false; }
+  while read -r filetype formatter; do
+    want="$(formatter_extension "$formatter")"
+    got="$(setting ".\"[$(vsc_lang "$filetype")]\".\"editor.defaultFormatter\"" | jq -r .)"
+    [ "$got" = "$want" ] || { echo "$filetype: want $want got $got"; false; }
   done < <(registry_formatters)
 }
 
@@ -256,10 +256,10 @@ vsc_lang() {
 # nvim's manual-only formatters (format_on_save = false, ADR 0151) skip save
 # in VSCodium too.
 @test "manual-only formatters skip format on save in both editors" {
-  local ft
-  for ft in shellscript kdl toml; do
-    [ "$(setting ".\"[$ft]\".\"editor.formatOnSave\"")" = false ] \
-      || { echo "$ft formats on save"; false; }
+  local filetype
+  for filetype in shellscript kdl toml; do
+    [ "$(setting ".\"[$filetype]\".\"editor.formatOnSave\"")" = false ] \
+      || { echo "$filetype formats on save"; false; }
   done
   [ "$(grep -c "format_on_save = false" "$LANGS")" -eq 3 ]
 }
@@ -269,16 +269,16 @@ vsc_lang() {
 # rust-analyzer, zig ← zls), or be installed by dev/nvim (phpactor,
 # php-codesniffer).
 @test "toolchain path settings point at Host Core system binaries" {
-  local key path pkg
-  while read -r key path pkg; do
+  local key path package
+  while read -r key path package; do
     got="$(setting ".$key" | jq -r 'if type == "array" then .[0] else . end')"
     [ "$got" = "$path" ] || { echo "$key: want $path got $got"; false; }
-    if [[ "$pkg" == @nvim:* ]]; then
-      grep -q "needed ${pkg#@nvim:}" \
+    if [[ "$package" == @nvim:* ]]; then
+      grep -q "needed ${package#@nvim:}" \
         "$REPO/.installer/programs/dev/nvim/install.sh"
     else
-      grep -q "\"$pkg\"" "$HOSTCORE" \
-        || { echo "$pkg not in Host Core"; false; }
+      grep -q "\"$package\"" "$HOSTCORE" \
+        || { echo "$package not in Host Core"; false; }
     fi
   done <<'EOF_'
 "rust-analyzer.server.path" /usr/bin/rust-analyzer rust-analyzer
@@ -314,10 +314,10 @@ EOF_
 # bind <setting> <keys…> → the first command bound to that key sequence (or
 # its `after` keys, space-joined). `SPC` stands for the space key.
 bind() {
-  local s="$1"; shift
-  local before; before="$(printf '%s\n' "$@" | sed 's/^SPC$/ /' | jq -R . \
+  local settings="$1"; shift
+  local before; before="$(printf '%s\n' "$@" | awk '{ sub(/^SPC$/, " "); print }' | jq -R . \
     | jq -sc .)"
-  setting ".\"$s\"" | jq -r --argjson b "$before" '
+  setting ".\"$settings\"" | jq -r --argjson b "$before" '
     [ .[] | select(.before == $b) ][0]
     | if . == null then "UNBOUND"
       elif .commands then (.commands[0] | if type == "object"
@@ -479,9 +479,9 @@ V=vim.visualModeKeyBindingsNonRecursive
 @test "window nav <C-h/j/k/l> are native chords, normal mode + lists only" {
   # Native (keybindings.json), not VSCodeVim, so they also leave the explorer
   # and lists; like nvim, off in insert/visual and in the terminal (an input).
-  local key cmd w="!inputFocus || editorTextFocus && vim.mode == 'Normal'"
-  while read -r key cmd; do
-    jsonc_strip "$KEYS" | jq -e --arg k "$key" --arg c "$cmd" --arg w "$w" \
+  local key command when="!inputFocus || editorTextFocus && vim.mode == 'Normal'"
+  while read -r key command; do
+    jsonc_strip "$KEYS" | jq -e --arg k "$key" --arg c "$command" --arg w "$when" \
       'any(.[]; .key == $k and .command == $c and .when == $w)'
   done <<'EOF_'
 ctrl+h workbench.action.navigateLeft

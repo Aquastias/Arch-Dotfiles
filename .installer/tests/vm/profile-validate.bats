@@ -18,7 +18,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # A real host directory (unified profile.jsonc), for the host_profile
 # reference rules — the validator only checks the host directory exists.
-mk_host() {
+make_host() {
   mkdir -p "$HOSTS_DIR/$1"
   : > "$HOSTS_DIR/$1/profile.jsonc"
 }
@@ -67,7 +67,7 @@ JSONC
 }
 
 @test "profile_validate: two install sources (host_profile + install) → reject" {
-  mk_host arch-kde
+  make_host arch-kde
   profile='{ "name": "x",
              "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
              "host_profile": "arch-kde",
@@ -108,7 +108,7 @@ JSONC
 }
 
 @test "profile_validate: host_profile referencing an existing host → accepted" {
-  mk_host arch-kde
+  make_host arch-kde
   profile='{ "name": "x",
              "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
              "host_profile": "arch-kde" }'

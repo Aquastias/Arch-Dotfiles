@@ -1,44 +1,9 @@
 #!/usr/bin/env bats
-# Seam B (ADR 0094/0095): the curated Noctalia/niri config is the single-source
-# stow-ready payload at the repo root — the operator may stow it, and the niri
-# adapter seeds a copy into /etc/skel (ADR 0095). These tests read the COMMITTED
-# payload and assert its shape:
-# required keys/values present, host-bound/orphan content absent, scripts
-# shaped, and — the drift guard — that config.toml's enabled list mirrors the
-# vendored shared core set (noctalia_core_plugins), so the two cannot drift.
+# Tests: config.toml and theming (split from noctalia-stow.bats;
+# shared setup in noctalia-stow-helpers.bash)
 
-setup() {
-  REPO="$BATS_TEST_DIRNAME/../../.."      # .installer/tests/config → repo root
-  CT="$REPO/.config/noctalia/config.toml"
-  KDL="$REPO/.config/niri/config.kdl"
-  HC="$REPO/.config/hypr/hyprland.lua"
-  # Split config (ADR 0107): the entry file is a manifest of `include` lines;
-  # settings live in these conf.d/ part-files, asserted where each construct now
-  # lives.
-  NENV="$REPO/.config/niri/conf.d/environment.kdl"
-  NAPP="$REPO/.config/niri/conf.d/appearance.kdl"
-  NAUTO="$REPO/.config/niri/conf.d/autostart.kdl"
-  NBIND="$REPO/.config/niri/conf.d/keybinds.kdl"
-  HENV="$REPO/.config/hypr/conf.d/environment.lua"
-  HAUTO="$REPO/.config/hypr/conf.d/autostart.lua"
-  HBIND="$REPO/.config/hypr/conf.d/keybinds.lua"
-  CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
-  ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
-  BRIDGE="$REPO/.local/bin/noctalia-theme-bridge"
-  NOCTALIA_SH="$BATS_TEST_DIRNAME/../../lib/packages/noctalia.sh"
-  PRESET="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-preset.sh"
-  # The preset seeds /etc/skel through its sibling noctalia-skeleton.sh.
-  SKEL="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-skeleton.sh"
-  CHROOT="$BATS_TEST_DIRNAME/../../lib/chroot.sh"
-  QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
-  QT6CT_COLORS="$REPO/.config/qt6ct/colors"
-  # kitty config is single-source under its program home/ (ADR 0134).
-  KHOME="$REPO/.installer/programs/system/kitty/home/.config/kitty"
-  KITTY="$KHOME/kitty.conf"
-  KTPL="$REPO/.config/noctalia/templates/kitty.conf"
-  KTHEMES="$KHOME/themes"
-  XDGDIRS="$REPO/.local/bin/noctalia-xdg-user-dirs"
-}
+load noctalia-stow-helpers
+
 
 # ── config.toml: required look ───────────────────────────────────────────────
 
@@ -67,11 +32,11 @@ setup() {
 
 @test "config.toml registers Noctalia's own polkit agent (ADR 0100)" {
   # Off by default upstream; the wlroots sessions have no other agent.
-  sed -n '/^\[shell\]/,/^\[/p' "$CT" | grep -q '^polkit_agent = true'
+  toml_table shell "$CT" | grep -q '^polkit_agent = true'
 }
 
 @test "config.toml pins Noctalia's clipboard keep-alive (ADR 0147)" {
-  sed -n '/^\[shell\]/,/^\[/p' "$CT" \
+  toml_table shell "$CT" \
     | grep -q '^clipboard_keep_from_closed_apps = true'
 }
 
@@ -117,6 +82,7 @@ setup() {
   ! grep -qF '!= *" kde "*' "$PRESET" "$SKEL"
 }
 
+
 # ── config.toml: host-bound / dead content excluded ──────────────────────────
 
 @test "config.toml carries no host-bound or orphan state" {
@@ -134,6 +100,7 @@ setup() {
   ! grep -q 'mini-docker' "$CT"
   ! grep -q 'system-updater' "$CT"
 }
+
 
 # ── niri glue + helper scripts ───────────────────────────────────────────────
 
@@ -179,6 +146,7 @@ setup() {
   grep -Eq 'hotkey-overlay[[:space:]]*\{' "$NAPP"
   grep -q 'skip-at-startup' "$NAPP"
 }
+
 
 # ── shared Bibata cursor default (ADR 0098) ──────────────────────────────────
 
@@ -227,29 +195,29 @@ setup() {
 # shell (and its ScreenSaver/Notifications names) froze. The one-shot reads
 # the vendored ids from disk and only ever calls `enable`.
 @test "the plugin-enable one-shot enables vendored ids without plugins list" {
-  local t="$BATS_TEST_TMPDIR"
-  mkdir -p "$t/bin" "$t/data/noctalia/plugins/a" "$t/data/noctalia/plugins/b"
-  printf 'id = "x/a"\nname = "A"\n' > "$t/data/noctalia/plugins/a/plugin.toml"
-  printf '  id="y/b"\n' > "$t/data/noctalia/plugins/b/plugin.toml"
+  local test_directory="$BATS_TEST_TMPDIR"
+  mkdir -p "$test_directory/bin" "$test_directory/data/noctalia/plugins/a" "$test_directory/data/noctalia/plugins/b"
+  printf 'id = "x/a"\nname = "A"\n' > "$test_directory/data/noctalia/plugins/a/plugin.toml"
+  printf '  id="y/b"\n' > "$test_directory/data/noctalia/plugins/b/plugin.toml"
   # stub: not running for the first call, then logs every msg
-  cat > "$t/bin/noctalia" <<EOF
+  cat > "$test_directory/bin/noctalia" <<EOF
 #!/bin/sh
-echo "\$*" >> "$t/calls"
-[ -f "$t/up" ] && exit 0
-: > "$t/up"; echo "error: noctalia is not running" >&2; exit 1
+echo "\$*" >> "$test_directory/calls"
+[ -f "$test_directory/up" ] && exit 0
+: > "$test_directory/up"; echo "error: noctalia is not running" >&2; exit 1
 EOF
-  cat > "$t/bin/sleep" <<'EOF'
+  cat > "$test_directory/bin/sleep" <<'EOF'
 #!/bin/sh
 EOF
-  chmod +x "$t/bin/noctalia" "$t/bin/sleep"
-  PATH="$t/bin:$PATH" XDG_DATA_HOME="$t/data" XDG_STATE_HOME="$t/state" \
+  chmod +x "$test_directory/bin/noctalia" "$test_directory/bin/sleep"
+  PATH="$test_directory/bin:$PATH" XDG_DATA_HOME="$test_directory/data" XDG_STATE_HOME="$test_directory/state" \
     run "$ENABLE"
   [ "$status" -eq 0 ]
-  run grep -c 'plugins list' "$t/calls"
+  run grep -c 'plugins list' "$test_directory/calls"
   [ "$output" = 0 ]
-  grep -qx 'msg plugins enable x/a' "$t/calls"
-  grep -qx 'msg plugins enable y/b' "$t/calls"
-  [ -f "$t/state/noctalia/installer-plugins-enabled" ]
+  grep -qx 'msg plugins enable x/a' "$test_directory/calls"
+  grep -qx 'msg plugins enable y/b' "$test_directory/calls"
+  [ -f "$test_directory/state/noctalia/installer-plugins-enabled" ]
 }
 
 # Live Theme Bridge (ADR 0116): the runtime half of the App Theming Bridge —
@@ -272,6 +240,7 @@ EOF
   grep -q 'noctalia-theme-bridge' "$HAUTO"
 }
 
+
 # ── drift guard ──────────────────────────────────────────────────────────────
 
 # config.toml's enabled ids (author/name) reduced to their bare plugin names
@@ -284,7 +253,8 @@ EOF
 @test "config.toml enabled list mirrors the shared core plugin set" {
   local enabled core
   enabled="$(awk '/^enabled = \[/{f=1;next} f&&/^\]/{f=0} f' "$CT" \
-    | grep -oE '"[^"]+"' | tr -d '"' | sed 's#.*/##' | sort)"
+    | grep -oE '"[^"]+"' | awk '{ gsub(/"/, ""); sub(/.*\//, ""); print }' \
+    | sort)"
   core="$( (set +u; source "$NOCTALIA_SH"; noctalia_core_plugins) | sort)"
   [ -n "$enabled" ]
   [ "$enabled" = "$core" ]
@@ -297,6 +267,7 @@ EOF
 @test "config.toml carries no compositor-specific slice widget or id" {
   ! grep -qE '(niri|hypr)-' "$CT"
 }
+
 
 # ── App Theming Bridge: GTK/Qt apps follow Noctalia (ADR 0102/0104) ──────────
 # GTK settings.ini are SEEDED by the shared preset, never stowed (ADR 0104):
@@ -423,6 +394,7 @@ EOF
   grep -q 'hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")' "$HENV"
 }
 
+
 # ── Kitty Theme Template: kitty follows Noctalia (ADR 0130) ──────────────────
 # A USER template, NOT the builtin kitty template — the builtin's apply.sh
 # rewrites kitty.conf and would clobber the stow symlink. kitty.conf includes
@@ -477,21 +449,4 @@ EOF
   # both compositors export the hide-decorations override
   grep -q 'KITTY_DECORATIONS "hide_window_decorations yes"' "$NENV"
   grep -q 'KITTY_DECORATIONS", "hide_window_decorations yes"' "$HENV"
-}
-
-# ── Wayland Session XDG Dirs: generate XDG dirs + ~/Projects (ADR 0131) ──────
-# niri/Hyprland don't run /etc/xdg/autostart, so xdg-user-dirs-update never
-# fires as it does under Plasma. A seeded noctalia-xdg-user-dirs script, called
-# from the compositor autostart at login, closes the gap for all users.
-
-@test "noctalia-xdg-user-dirs updates dirs + Projects (ADR 0131)" {
-  [ -x "$XDGDIRS" ]
-  grep -q 'xdg-user-dirs-update' "$XDGDIRS"          # standard set
-  grep -q 'mkdir -p "$HOME/Projects"' "$XDGDIRS"     # the non-standard folder
-  grep -q 'XDG_PROJECTS_DIR' "$XDGDIRS"              # declared for resolvers
-}
-
-@test "both compositors autostart the XDG-dirs generator (ADR 0131)" {
-  grep -q 'noctalia-xdg-user-dirs' "$NAUTO"
-  grep -q 'noctalia-xdg-user-dirs' "$HAUTO"
 }

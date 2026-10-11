@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Pi coding agent (ADR 0127/0128). Static seam mirroring noctalia-stow.bats:
+# Pi coding agent (ADR 0127/0128). Static seam mirroring noctalia-stow-*.bats:
 # assert the COMMITTED payload + program definition + package/profile wiring,
 # without running an install. Ticket 01 scope: install + base config seeded +
 # stow-ready + auth gitignored + packages/profile wired.
@@ -87,9 +87,9 @@ setup() {
 @test "the full mattpocock skill set is vendored under .agents/skills" {
   [ -d "$SKILLS" ]
   # "all of them" — a generous floor so a partial vendor is caught
-  [ "$(find "$SKILLS" -name SKILL.md | wc -l)" -ge 30 ]
-  for s in tdd research code-review diagnosing-bugs domain-modeling wizard; do
-    [ -f "$SKILLS/$s/SKILL.md" ]
+  [ "$(find "$SKILLS" -name SKILL.md | awk 'END { print NR }')" -ge 30 ]
+  for skill in tdd research code-review diagnosing-bugs domain-modeling wizard; do
+    [ -f "$SKILLS/$skill/SKILL.md" ]
   done
 }
 
@@ -103,7 +103,7 @@ setup() {
   grep -q '"source": "mattpocock/skills"' "$LOCK"
   # one lock entry per vendored SKILL.md
   [ "$(grep -c '"computedHash":' "$LOCK")" \
-      -eq "$(find "$SKILLS" -name SKILL.md | wc -l)" ]
+      -eq "$(find "$SKILLS" -name SKILL.md | awk 'END { print NR }')" ]
 }
 
 @test "pi auto-discovers ~/.agents/skills — settings declares no skills key" {
@@ -119,19 +119,19 @@ setup() {
 }
 
 @test "web-search.json routes SearXNG-first with a DuckDuckGo fallback" {
-  local f="$ASEED/web-search.json"
-  [ -f "$f" ]
-  grep -q '"searxngBaseUrl": "http://127.0.0.1:8080"' "$f"
-  grep -q '"searxng"' "$f"
-  grep -q '"duckduckgo"' "$f"
+  local seed_file="$ASEED/web-search.json"
+  [ -f "$seed_file" ]
+  grep -q '"searxngBaseUrl": "http://127.0.0.1:8080"' "$seed_file"
+  grep -q '"searxng"' "$seed_file"
+  grep -q '"duckduckgo"' "$seed_file"
 }
 
 @test "starter mcp.json is a valid mcpServers shape with no committed secret" {
-  local f="$ASEED/mcp.json"
-  [ -f "$f" ]
-  grep -q '"mcpServers"' "$f"
+  local seed_file="$ASEED/mcp.json"
+  [ -f "$seed_file" ]
+  grep -q '"mcpServers"' "$seed_file"
   # no raw API keys baked in — secrets, if any, use ${VAR} interpolation
-  run grep -qiE '(key|token|secret)" *: *"[^$"]' "$f"
+  run grep -qiE '(key|token|secret)" *: *"[^$"]' "$seed_file"
   [ "$status" -ne 0 ]
 }
 
@@ -142,15 +142,15 @@ setup() {
 }
 
 @test "noctalia.json seeded: Mocha Sapphire, 53+ tokens (ADR 0109)" {
-  local f="$ASEED/themes/noctalia.json"
-  [ -f "$f" ]
-  grep -q '"name": "noctalia"' "$f"
-  grep -q '"sapphire": "#74c7ec"' "$f"          # the accent var
-  grep -q '"accent": "sapphire"' "$f"           # accent bound to sapphire
-  grep -q '"thinkingHigh": "red"' "$f"          # default thinking level border
-  grep -q '"bashMode":' "$f"                    # a late-section token
+  local seed_file="$ASEED/themes/noctalia.json"
+  [ -f "$seed_file" ]
+  grep -q '"name": "noctalia"' "$seed_file"
+  grep -q '"sapphire": "#74c7ec"' "$seed_file"          # the accent var
+  grep -q '"accent": "sapphire"' "$seed_file"           # accent bound to sapphire
+  grep -q '"thinkingHigh": "red"' "$seed_file"          # default thinking level border
+  grep -q '"bashMode":' "$seed_file"                    # a late-section token
   # pi requires all 53 colour tokens — assert a generous floor
-  [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$f")" -ge 53 ]
+  [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$seed_file")" -ge 53 ]
 }
 
 @test "the theme default lives under the program home/, repo-root .pi retired" {

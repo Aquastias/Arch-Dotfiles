@@ -35,7 +35,7 @@ teardown() {
   ENVIRONMENT_DESKTOP=("kde")
   _environment_resolve_audio
   local count
-  count=$(echo "${AUDIO_PACKAGES[*]}" | tr ' ' '\n' | grep -c "^pipewire$")
+  count=$(printf '%s\n' "${AUDIO_PACKAGES[@]}" | grep -c "^pipewire$")
   [ "$count" -eq 1 ]
 }
 
@@ -50,6 +50,6 @@ teardown() {
   _environment_resolve_audio
   _environment_resolve_audio
   local count
-  count=$(echo "${AUDIO_PACKAGES[*]}" | tr ' ' '\n' | grep -c "^pipewire$")
+  count=$(printf '%s\n' "${AUDIO_PACKAGES[@]}" | grep -c "^pipewire$")
   [ "$count" -eq 1 ]
 }

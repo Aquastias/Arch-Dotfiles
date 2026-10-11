@@ -26,29 +26,29 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # Echoes the dst basename for each entry in a named manifest array.
 _staged_basenames() {
-  local -n _arr="$1"
-  local entry src dst
-  for entry in "${_arr[@]}"; do
-    IFS='|' read -r src dst <<< "$entry"
-    basename "$dst"
+  local -n staged_entries="$1"
+  local entry source_path destination_path
+  for entry in "${staged_entries[@]}"; do
+    IFS='|' read -r source_path destination_path <<< "$entry"
+    printf '%s\n' "${destination_path##*/}"
   done
 }
 
 # ── every manifest src exists (catches a moved/renamed lib file) ─────────────
 
 @test "every _CHROOT_STAGE_LIBCHROOT src exists in the repo" {
-  local entry src dst
+  local entry source_path destination_path
   for entry in "${_CHROOT_STAGE_LIBCHROOT[@]}"; do
-    IFS='|' read -r src dst <<< "$entry"
-    [ -f "$INSTALLER_DIR/$src" ] || { echo "missing src: $src"; false; }
+    IFS='|' read -r source_path destination_path <<< "$entry"
+    [ -f "$INSTALLER_DIR/$source_path" ] || { echo "missing src: $source_path"; false; }
   done
 }
 
 @test "every _CHROOT_STAGE_EXTRAS_LIB src exists in the repo" {
-  local entry src dst
+  local entry source_path destination_path
   for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
-    IFS='|' read -r src dst <<< "$entry"
-    [ -f "$INSTALLER_DIR/$src" ] || { echo "missing src: $src"; false; }
+    IFS='|' read -r source_path destination_path <<< "$entry"
+    [ -f "$INSTALLER_DIR/$source_path" ] || { echo "missing src: $source_path"; false; }
   done
 }
 
@@ -79,18 +79,18 @@ _staged_basenames() {
   local staged
   staged="$(_staged_basenames _CHROOT_STAGE_LIBCHROOT)"
 
-  local refs name
-  refs="$(grep -rhoE '_LIB_DIR[}]?/[a-z0-9][a-z0-9-]*\.sh' \
-    "$INSTALLER_DIR"/lib/chroot/*.sh | sed -E 's#.*/##' | sort -u)"
+  local references name
+  references="$(grep -rhoE '_LIB_DIR[}]?/[a-z0-9][a-z0-9-]*\.sh' \
+    "$INSTALLER_DIR"/lib/chroot/*.sh | awk '{ sub(/.*\//, ""); print }' | sort -u)"
 
-  [ -n "$refs" ]  # sanity: the grep found references
+  [ -n "$references" ]  # sanity: the grep found references
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     # A file that actually lives in lib/chroot/ is staged by the cp -r tree.
     [[ -f "$INSTALLER_DIR/lib/chroot/$name" ]] && continue
     grep -qxF "$name" <<< "$staged" \
       || { echo "sourced sibling not staged: $name"; false; }
-  done <<< "$refs"
+  done <<< "$references"
 }
 
 # ── lockstep: lib/ files sourced by extras/**/*.sh ⊆ the extras-lib manifest ──
@@ -102,22 +102,22 @@ _staged_basenames() {
 # gap that let the re-added hyprland.sh source lib/chroot/gpu.sh unstaged.
 
 @test "every lib/ file sourced by extras/**/*.sh is in _CHROOT_STAGE_EXTRAS_LIB" {
-  local staged_dsts entry src dst
+  local staged_dsts entry source_path destination_path
   staged_dsts=""
   for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
-    IFS='|' read -r src dst <<< "$entry"
-    staged_dsts+="${dst}"$'\n'
+    IFS='|' read -r source_path destination_path <<< "$entry"
+    staged_dsts+="${destination_path}"$'\n'
   done
 
-  local refs path
-  refs="$(grep -rhoE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh' "$INSTALLER_DIR"/extras \
-    2>/dev/null | sed -E 's#.*\.\./\.\./\.\./lib/##' | sort -u)"
+  local references path
+  references="$(grep -rhoE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh' "$INSTALLER_DIR"/extras \
+    2>/dev/null | awk '{ sub(/.*\.\.\/\.\.\/\.\.\/lib\//, ""); print }' | sort -u)"
 
-  [ -n "$refs" ]  # sanity: the grep found extras→lib sources
+  [ -n "$references" ]  # sanity: the grep found extras→lib sources
   while IFS= read -r path; do
     [[ -n "$path" ]] || continue
     grep -qxF "$path" <<< "$staged_dsts" \
       || { echo "extras sources lib/$path — not in _CHROOT_STAGE_EXTRAS_LIB"; \
            false; }
-  done <<< "$refs"
+  done <<< "$references"
 }

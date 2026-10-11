@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for .installer/vm/lib/profile.sh — VM Profile resolution (deep, pure).
-# Prior art: tests/config/profile-loader.bats (profile_loader_load +
+# Prior art: tests/config/profile-loader-*.bats (profile_loader_load +
 # profile_loader_assemble_config), tests/config/install-config.bats.
 
 setup() {

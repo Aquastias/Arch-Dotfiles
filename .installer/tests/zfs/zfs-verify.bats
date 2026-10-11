@@ -25,12 +25,12 @@ teardown() { rm -rf "$TEST_DIR"; }
 # Create a kernel dir with a pkgbase marker and, optionally, a built zfs module.
 #   _kernel <kver> <pkgbase> <has_module:0|1>
 _kernel() {
-  local kver="$1" pkgbase="$2" has="$3"
-  mkdir -p "$MODULES/$kver"
-  echo "$pkgbase" > "$MODULES/$kver/pkgbase"
+  local kernel_version="$1" pkgbase="$2" has="$3"
+  mkdir -p "$MODULES/$kernel_version"
+  echo "$pkgbase" > "$MODULES/$kernel_version/pkgbase"
   if [[ "$has" == 1 ]]; then
-    mkdir -p "$MODULES/$kver/updates/dkms"
-    : > "$MODULES/$kver/updates/dkms/zfs.ko.zst"
+    mkdir -p "$MODULES/$kernel_version/updates/dkms"
+    : > "$MODULES/$kernel_version/updates/dkms/zfs.ko.zst"
   fi
 }
 

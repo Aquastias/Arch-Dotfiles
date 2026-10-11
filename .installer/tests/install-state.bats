@@ -1,56 +1,8 @@
 #!/usr/bin/env bats
 # Tests for lib/install-state.sh — host↔chroot wire format.
 
-setup() {
-  TEST_DIR="$(mktemp -d)"
-  STATE="$TEST_DIR/install-state.json"
-  # shellcheck source=../lib/install-state.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-state.sh"
-  # shellcheck source=../lib/config/profile-loader.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/profile-loader.sh"
-  FIXTURES="$BATS_TEST_DIRNAME/fixtures"
-}
+load install-state-helpers
 
-teardown() { rm -rf "$TEST_DIR"; }
-
-# Full valid state covering every schema field.
-valid_state() {
-  cat <<'JSON' > "$STATE"
-{
-  "hostname": "h", "timezone": "UTC",
-  "locale": "en_US.UTF-8", "locales": ["en_US.UTF-8"],
-  "keymap": "us", "keymaps": ["us"],
-  "console_font": "default8x16",
-  "kernel": "lts", "kernels": ["lts"],
-  "bootloader": "systemd-boot",
-  "root_shell": "/bin/bash",
-  "filesystem": "zfs",
-  "ssh": { "enabled": false },
-  "rpool": "rpool",
-  "root_cmdline": "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
-  "hooks": "base udev autodetect modconf block keyboard zfs filesystems",
-  "gpu": ["amd", "nvidia"],
-  "display_manager": "sddm",
-  "swap": true, "esp_count": 1,
-  "zswap": { "enabled": true, "compressor": "zstd", "max_pool_percent": 20 },
-  "impermanence": { "enabled": false, "dataset": "rpool/persist",
-                    "mount": "/persist" },
-  "persist":      { "directories": [], "files": [] }
-}
-JSON
-}
-
-drop_field() {
-  local path="$1" tmp
-  tmp="$(mktemp)"
-  jq "del($path)" "$STATE" > "$tmp" && mv "$tmp" "$STATE"
-}
-
-set_field() {
-  local path="$1" value="$2" tmp
-  tmp="$(mktemp)"
-  jq "$path = $value" "$STATE" > "$tmp" && mv "$tmp" "$STATE"
-}
 
 # ── install_state_load: scalar ───────────────────────────────────────────────
 
@@ -59,6 +11,7 @@ set_field() {
   install_state_load "$STATE"
   [ "$HOSTNAME" = "h" ]
 }
+
 
 # ── root filesystem (issue 08) ───────────────────────────────────────────────
 # The Chroot Configuration Modules are filesystem-blind; the only discriminator
@@ -70,6 +23,7 @@ set_field() {
   install_state_load "$STATE"
   [ "$FILESYSTEM" = "btrfs" ]
 }
+
 
 # ── install_state_load: array ────────────────────────────────────────────────
 
@@ -87,6 +41,7 @@ set_field() {
   install_state_load "$STATE"
   [ "${#PERSIST_DIRECTORIES[@]}" -eq 0 ]
 }
+
 
 # ── locale/keymap arrays (issue 04) ──────────────────────────────────────────
 # Element 0 is the default; the rest are extra generated locales / available
@@ -109,6 +64,7 @@ set_field() {
   [ "${KEYMAPS[0]}" = "us" ]
   [ "${KEYMAPS[1]}" = "de" ]
 }
+
 
 # ── gpu array (ADR 0053) ─────────────────────────────────────────────────────
 # The resolved GPU vendor list (auto → detected vendors) is threaded to the
@@ -156,6 +112,7 @@ set_field() {
   [ "$(jq -r '.keymaps[0]'     "$STATE")" = "us" ]
 }
 
+
 # ── options.ssh.enabled (issue 05) ───────────────────────────────────────────
 
 @test "install_state_load: SSH_ENABLED from .ssh.enabled" {
@@ -185,6 +142,7 @@ set_field() {
   [ "$(jq -r '.ssh.enabled'        "$STATE")" = "false" ]
 }
 
+
 # ── install_state_load: missing field is an error ────────────────────────────
 
 @test "install_state_load: returns 1 + names field when scalar missing" {
@@ -211,6 +169,7 @@ set_field() {
   [[ "$output" == *".persist.directories"* ]]
 }
 
+
 # ── install_state_load: missing file ─────────────────────────────────────────
 
 @test "install_state_load: returns 1 + names path when file missing" {
@@ -220,37 +179,8 @@ set_field() {
   [[ "$output" == *"does-not-exist.json"* ]]
 }
 
-# ── install_state_write ──────────────────────────────────────────────────────
 
-setup_writer_globals() {
-  install_config_hostname()             { echo "${MOCK_HOSTNAME:-host-a}"; }
-  install_config_timezone()             { echo "UTC"; }
-  install_config_locale()               { echo "en_US.UTF-8"; }
-  install_config_locales()              { echo "en_US.UTF-8"; }
-  install_config_keymap()               { echo "us"; }
-  install_config_keymaps()              { echo "us"; }
-  install_config_console_font()         { echo "default8x16"; }
-  install_config_kernel()               { echo "lts"; }
-  install_config_bootloader()           { echo "systemd-boot"; }
-  install_config_root_shell()          { echo "${MOCK_ROOT_SHELL:-/bin/bash}"; }
-  install_config_filesystem()           { echo "${MOCK_FILESYSTEM:-zfs}"; }
-  install_config_ssh_enabled()          { echo "false"; }
-  install_config_swap_enabled()         { echo "true"; }
-  install_config_zswap_enabled()        { echo "true"; }
-  install_config_zswap_compressor()     { echo "zstd"; }
-  install_config_zswap_max_pool_percent() { echo "20"; }
-  install_config_impermanence_enabled() { echo "false"; }
-  install_config_impermanence_dataset() { echo "rpool/persist"; }
-  install_config_impermanence_mount()   { echo "/persist"; }
-  install_config_apparmor_enabled()     { echo "${MOCK_APPARMOR:-true}"; }
-  LAYOUT_OS_POOL_NAME="rpool"
-  LAYOUT_ROOT_CMDLINE="root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id"
-  LAYOUT_HOOKS="base udev autodetect modconf block keyboard zfs filesystems"
-  LAYOUT_ESP_PARTS=(/dev/nvme0n1p1)
-  ENVIRONMENT_GPU=(amd nvidia)
-  ENVIRONMENT_DISPLAY_MANAGER="sddm"
-  export INSTALLER_DIR="$FIXTURES"
-}
+# ── install_state_write ──────────────────────────────────────────────────────
 
 @test "install_state_write: emits .display_manager from ENVIRONMENT_DISPLAY_MANAGER" {
   setup_writer_globals
@@ -359,6 +289,7 @@ setup_writer_globals() {
   [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
 }
 
+
 # ── round-trip ───────────────────────────────────────────────────────────────
 
 @test "round-trip: write then load — every schema field intact" {
@@ -396,6 +327,7 @@ setup_writer_globals() {
   [ "$DISPLAY_MANAGER"           = "sddm" ]
 }
 
+
 # ── install_state_update ─────────────────────────────────────────────────────
 
 @test "install_state_update: replaces scalar at existing path" {
@@ -423,6 +355,7 @@ setup_writer_globals() {
   [ "$(jq -r .timezone     "$STATE")" = "UTC" ]
   [ "$(jq -r '.ssh.enabled' "$STATE")" = "false" ]
 }
+
 
 # ── credential resolution (.secrets / .guided_passwords) ─────────────────────
 
@@ -476,6 +409,7 @@ setup_writer_globals() {
   run install_state_credential_path "$STATE" bogus
   [ "$status" -ne 0 ]
 }
+
 
 # ── SOPS activation gate (only .secrets.*, never .guided_passwords.*) ─────────
 

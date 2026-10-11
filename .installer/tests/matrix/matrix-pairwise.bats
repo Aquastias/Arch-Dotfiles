@@ -16,9 +16,9 @@ setup() {
 # _covered <rows> <axisA> <valA> <axisB> <valB> — 0 iff some row assigns both.
 # valA/valB are JSON tokens ("zfs" / false / 2).
 _covered() {
-  local rows="$1" ka="$2" va="$3" kb="$4" vb="$5"
+  local rows="$1" first_key="$2" first_value="$3" kb="$4" second_value="$5"
   jq -e -n --argjson rows "[$(printf '%s' "$rows" | jq -s '.')]" \
-    --arg ka "$ka" --argjson va "$va" --arg kb "$kb" --argjson vb "$vb" \
+    --arg ka "$first_key" --argjson va "$first_value" --arg kb "$kb" --argjson vb "$second_value" \
     '$rows[0] | any(.[]; .[$ka] == $va and .[$kb] == $vb)' >/dev/null
 }
 
@@ -45,14 +45,14 @@ _covered() {
   axes='{"a":["x","y"],"b":["p","q"],"c":[1,2]}'
   run matrix_pairwise "$axes" '[]' 0
   [ "$status" -eq 0 ]
-  local va vb pa pb
+  local first_value second_value first_pair second_pair
   # a×b, a×c, b×c — all four combos of each must appear
-  for pa in '"x"' '"y"'; do for pb in '"p"' '"q"'; do
-    _covered "$output" a "$pa" b "$pb"; done; done
-  for pa in '"x"' '"y"'; do for pb in 1 2; do
-    _covered "$output" a "$pa" c "$pb"; done; done
-  for pa in '"p"' '"q"'; do for pb in 1 2; do
-    _covered "$output" b "$pa" c "$pb"; done; done
+  for first_pair in '"x"' '"y"'; do for second_pair in '"p"' '"q"'; do
+    _covered "$output" a "$first_pair" b "$second_pair"; done; done
+  for first_pair in '"x"' '"y"'; do for second_pair in 1 2; do
+    _covered "$output" a "$first_pair" c "$second_pair"; done; done
+  for first_pair in '"p"' '"q"'; do for second_pair in 1 2; do
+    _covered "$output" b "$first_pair" c "$second_pair"; done; done
 }
 
 # ── a constraint-excluded pair never appears ────────────────────────────────

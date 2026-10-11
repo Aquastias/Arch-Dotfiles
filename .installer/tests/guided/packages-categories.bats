@@ -1,47 +1,14 @@
 #!/usr/bin/env bats
-# The guided Packages screen + read-only derived section (ADR 0058).
-#
-# packages.repo/aur had no menu representation at all: seeding a profile
-# carried its whole package payload into Config State where the operator could
-# neither see nor deselect it. The screen mirrors the Categorized List shape
-# the JSONC already uses — slot → category → package toggles — with three-state
-# provenance reusing the existing override dot.
+# Tests: package categories (split from packages.bats;
+# shared setup in packages-helpers.bash)
 
-setup() {
-  TEST_DIR="$(mktemp -d)"
-  export GUIDED_STATE_FILE="$TEST_DIR/state.json"
-  export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
-  export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
-  export INSTALLER_DIR="$TEST_DIR"
+load packages-helpers
 
-  mkdir -p "$INSTALLER_DIR/hosts/core" "$INSTALLER_DIR/users/core"
-  cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSON'
-{"users":[],"host_programs":["cups"],
- "packages":{"repo":{"shell":["htop","fzf"],"media":["vlc"]},
-             "aur":{"misc":["brave-bin"]}}}
-JSON
-  printf '{"shell":"/bin/zsh"}\n' > "$INSTALLER_DIR/users/core/profile.jsonc"
-
-  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
-
-  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
-  config_state_seed_defaults "$(config_state_new)" > "$GUIDED_BASELINE_FILE"
-  printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
-}
-teardown() { rm -rf "$TEST_DIR"; }
-
-set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
-state()   { cat "$GUIDED_STATE_FILE"; }
 
 # ── the Packages category drills repo / aur / derived ───────────────────────
 
 @test "Packages category lists repo, aur and derived with counts" {
-  set_nav "$(navigation_to_category Packages)"
+  set_navigation "$(navigation_to_category Packages)"
   run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qE '^repo ▸ 3 packages'
@@ -50,7 +17,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 }
 
 @test "Enter on repo drills to its category list with counts" {
-  set_nav "$(navigation_to_category Packages)"
+  set_navigation "$(navigation_to_category Packages)"
   run guided_controller_enter "repo ▸ 3 packages"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
@@ -62,24 +29,25 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 }
 
 @test "aur drills the same way" {
-  set_nav "$(navigation_to_package_category Packages aur)"
+  set_navigation "$(navigation_to_package_category Packages aur)"
   run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "misc ▸ 1"
 }
 
 @test "Enter on a category drills to its package toggles" {
-  set_nav "$(navigation_to_package_category Packages repo)"
+  set_navigation "$(navigation_to_package_category Packages repo)"
   run guided_controller_enter "shell ▸ 2"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgs" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" pkgcat)" = "shell" ]
 }
 
+
 # ── three-state provenance ──────────────────────────────────────────────────
 
 @test "an inherited package renders checked with NO override dot" {
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_list
   echo "$output" | grep -qx "\[x\] htop"
   echo "$output" | grep -qx "\[x\] fzf"
@@ -89,14 +57,14 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "a package added this session renders checked WITH a dot" {
   printf '%s\n' '{"packages":{"repo":{"shell":["ripgrep"]}}}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_list
   echo "$output" | grep -qx "\[x\] ripgrep  ●"
   echo "$output" | grep -qx "\[x\] htop"      # still inherited, no dot
 }
 
 @test "unchecking an inherited package writes an exclude entry" {
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_enter "[x] htop"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.packages.exclude' "$GUIDED_STATE_FILE")" = '["htop"]' ]
@@ -104,7 +72,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 
 @test "an excluded package renders unchecked WITH a dot" {
   printf '%s\n' '{"packages":{"exclude":["htop"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_list
   echo "$output" | grep -qx "\[ \] htop  ●"
   echo "$output" | grep -qx "\[x\] fzf"
@@ -112,7 +80,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 
 @test "re-checking an excluded package removes the exclusion" {
   printf '%s\n' '{"packages":{"exclude":["htop"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_enter "[ ] htop  ●"
   [ "$output" = "refresh" ]
   jq -e '(.packages.exclude // []) | index("htop") | not' "$GUIDED_STATE_FILE"
@@ -121,7 +89,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "unchecking a session-added package just drops it (no exclude)" {
   printf '%s\n' '{"packages":{"repo":{"shell":["ripgrep"]}}}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_enter "[x] ripgrep  ●"
   [ "$output" = "refresh" ]
   jq -e '.packages.repo.shell == []' "$GUIDED_STATE_FILE"
@@ -129,12 +97,13 @@ state()   { cat "$GUIDED_STATE_FILE"; }
     "$GUIDED_STATE_FILE"
 }
 
+
 # ── the offered set is the declared union ───────────────────────────────────
 
 @test "the toggle list offers the union across core and the profile" {
   printf '%s\n' '{"packages":{"repo":{"shell":["ripgrep"]}}}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_list
   # core's two plus the session's one, and nothing else
   [ "$(echo "$output" | grep -c '^\[')" -eq 3 ]
@@ -145,22 +114,22 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 
 @test "an excluded core package stays offered so it can be re-checked" {
   printf '%s\n' '{"packages":{"exclude":["htop"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_list
   echo "$output" | grep -q "htop"
 }
 
 @test "both slots offer a browse action" {
-  set_nav "$(navigation_to_package_category Packages repo)"
+  set_navigation "$(navigation_to_package_category Packages repo)"
   run guided_controller_list
   echo "$output" | grep -q "browse all repo packages"
-  set_nav "$(navigation_to_package_category Packages aur)"
+  set_navigation "$(navigation_to_package_category Packages aur)"
   run guided_controller_list
   echo "$output" | grep -q "browse all aur packages"
 }
 
 @test "repo ＋Add drills to the in-place browser (no execute hand-off)" {
-  set_nav "$(navigation_to_package_category Packages repo)"
+  set_navigation "$(navigation_to_package_category Packages repo)"
   run guided_controller_enter "+ Add package ▸ browse all repo packages"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgbrowse" ]
@@ -171,7 +140,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   # htop/vlc are core (checked, no dot); cowsay is a plain available package
   printf '%s\n' htop cowsay vlc > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qxF "← Back"
@@ -185,7 +154,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   # neutralise the live pacman fallback so the test is host-independent
   pacman() { return 1; }
   export -f pacman
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_list
   echo "$output" | grep -q "run 'pacman -Sy' first"
 }
@@ -193,7 +162,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "browser Enter on an available package routes it into repo.extra" {
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   printf '%s\n' cowsay > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "[ ] cowsay"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["cowsay"]' ]
@@ -202,14 +171,14 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "browser Enter on a checked core package excludes it" {
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   printf '%s\n' htop > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "[x] htop"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.packages.exclude' "$GUIDED_STATE_FILE")" = '["htop"]' ]
 }
 
 @test "browser Back returns to the slot's category list" {
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
@@ -220,7 +189,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   # git is a Base Package → always derived; cowsay is neither
   printf '%s\n' git cowsay > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF "[x] git  ⟲ derived"
@@ -230,7 +199,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "browser Enter on a derived row is read-only (notice, no change)" {
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   printf '%s\n' git > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "[x] git  ⟲ derived"
   [[ "$output" == notice* ]]
   [ "$(cat "$GUIDED_STATE_FILE")" = '{}' ]   # state untouched
@@ -240,19 +209,19 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   export GUIDED_PKGDERIV_FILE="$TEST_DIR/deriv"
   printf '%s\n' git cowsay > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   guided_controller_list >/dev/null                        # first render → populate
   [ -s "$GUIDED_PKGDERIV_FILE" ]
-  key1="$(head -n1 "$GUIDED_PKGDERIV_FILE")"
-  tail -n +2 "$GUIDED_PKGDERIV_FILE" | grep -qx git # git cached as derived
+  key1="$(awk 'NR == 1 { print; exit }' "$GUIDED_PKGDERIV_FILE")"
+  awk 'NR > 1' "$GUIDED_PKGDERIV_FILE" | grep -qx git # git cached as derived
   # adding an extra must NOT change the key (an add never re-derives)
   echo '{"packages":{"repo":{"extra":["cowsay"]}}}' > "$GUIDED_STATE_FILE"
   guided_controller_list >/dev/null
-  [ "$(head -n1 "$GUIDED_PKGDERIV_FILE")" = "$key1" ]
+  [ "$(awk 'NR == 1 { print; exit }' "$GUIDED_PKGDERIV_FILE")" = "$key1" ]
 }
 
 @test "aur ＋Add drills to the in-place browser (same as repo)" {
-  set_nav "$(navigation_to_package_category Packages aur)"
+  set_navigation "$(navigation_to_package_category Packages aur)"
   run guided_controller_enter "+ Add package ▸ browse all aur packages"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgbrowse" ]
@@ -263,7 +232,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   export GUIDED_AURLIST_FILE="$TEST_DIR/aurlist"
   # brave-bin is aur core (checked, no dot); some-aur-pkg is available
   printf '%s\n' brave-bin some-aur-pkg > "$GUIDED_AURLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages aur)"
+  set_navigation "$(navigation_to_package_browse Packages aur)"
   run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qxF "[x] brave-bin"      # inherited aur core, no dot
@@ -273,7 +242,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "aur browser query-as-add routes a typed name into aur.extra" {
   export GUIDED_AURLIST_FILE="$TEST_DIR/aurlist"
   printf '%s\n' brave-bin > "$GUIDED_AURLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages aur)"
+  set_navigation "$(navigation_to_package_browse Packages aur)"
   run guided_controller_enter "" "some-aur-pkg"          # no row match, typed query
   [ "$output" = "refresh" ]
   [ "$(jq -c '.packages.aur.extra' "$GUIDED_STATE_FILE")" = '["some-aur-pkg"]' ]
@@ -282,7 +251,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 @test "repo browser does NOT query-as-add an unmatched name" {
   export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
   printf '%s\n' htop > "$GUIDED_PKGLIST_FILE"
-  set_nav "$(navigation_to_package_browse Packages repo)"
+  set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "" "not-a-real-pkg"        # repo is enumerable → no-op
   [ "$output" = "noop" ]
   [ "$(cat "$GUIDED_STATE_FILE")" = '{}' ]
@@ -295,28 +264,15 @@ state()   { cat "$GUIDED_STATE_FILE"; }
     "Description":"Brave browser","Maintainer":"someone","NumVotes":42,
     "Popularity":3.1,"OutOfDate":null,"URL":"https://brave.com"}]}'; }
   export -f curl
-  set_nav "$(navigation_to_package_browse Packages aur)"
+  set_navigation "$(navigation_to_package_browse Packages aur)"
   run guided_controller_preview "[x] brave-bin"
   echo "$output" | grep -q "Version:     1.2-1"
   echo "$output" | grep -q "Votes:       42"
   [ -s "$GUIDED_AURINFO_DIR/brave-bin" ]           # cached to disk
 }
 
+
 # ── the ＋Add guard routes each typed name visibly (ADR 0086) ────────────────
-# grub is Menu-Owned (Bootloader), clamav Menu-Owned (Security), docker a
-# free-standing user program, ripgrep a raw package name.
-guard_registry() {
-  mkdir -p "$INSTALLER_DIR/programs/bootloader/grub" \
-           "$INSTALLER_DIR/programs/security/clamav" \
-           "$INSTALLER_DIR/programs/virtualization/docker"
-  printf '{"name":"grub","kind":"host"}\n' \
-    > "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc"
-  printf '{"name":"clamav","kind":"user"}\n' \
-    > "$INSTALLER_DIR/programs/security/clamav/config.jsonc"
-  printf '{"name":"docker","kind":"user"}\n' \
-    > "$INSTALLER_DIR/programs/virtualization/docker/config.jsonc"
-  program_registry_build
-}
 
 @test "guard: a Menu-Owned host name (grub) is not added; informs Bootloader" {
   guard_registry
@@ -373,23 +329,24 @@ guard_registry() {
   ! jq -e '.host_programs' <<<"$out" >/dev/null 2>&1   # grub not promoted
 }
 
+
 # ── navigation is non-destructive ───────────────────────────────────────────
 
 @test "edits survive leaving and re-entering the screen" {
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   guided_controller_enter "[x] htop" >/dev/null
   guided_controller_back >/dev/null                      # → pkgcat
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
   guided_controller_back >/dev/null                      # → category
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_list
   echo "$output" | grep -qx "\[ \] htop  ●"       # still excluded
 }
 
 @test "back from pkgs returns to the category list, then to Packages" {
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_back
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" slot)" = "repo" ]
@@ -400,102 +357,7 @@ guard_registry() {
 
 # Esc is `back`, and back never commits — only Enter mutates state.
 @test "edits commit on Enter and not on Esc" {
-  set_nav "$(navigation_to_packages Packages repo shell)"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_back
   [ "$(jq -c '.' "$GUIDED_STATE_FILE")" = '{}' ]
-}
-
-# ── the read-only derived section (ticket 09) ───────────────────────────────
-
-@test "the derived section lists sources with counts and their origin" {
-  printf '%s\n' '{"environment":{"desktop":["kde"],"gpu":["amd"]}}' \
-    > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_package_derived Packages)"
-  run guided_controller_list
-  [ "$status" -eq 0 ]
-  echo "$output" | grep -qE '^gpu ▸ [0-9]+   \(from Environment\)'
-  echo "$output" | grep -qE '^audio ▸ [0-9]+   \(from Environment\)'
-  echo "$output" | grep -qE '^base ▸ [0-9]+'
-  echo "$output" | grep -qE '^kernel ▸ [0-9]+   \(from Options\)'
-}
-
-@test "origin labels: services + fonts point at their merged homes (ADR 0081)" {
-  [ "$(package_resolver_source_origin printing)" = "Daemons" ]
-  [ "$(package_resolver_source_origin bluetooth)" = "Daemons" ]
-  [ "$(package_resolver_source_origin power)" = "Daemons" ]
-  [ "$(package_resolver_source_origin fonts)" = "System" ]
-}
-
-@test "the derived section drills to a source's package list" {
-  printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_package_derived Packages)"
-  run guided_controller_enter "gpu ▸ 3   (from Environment)"
-  [ "$output" = "render" ]
-  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgderivedsrc" ]
-  [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" source)" = "gpu" ]
-
-  run guided_controller_list
-  echo "$output" | grep -q "vulkan-radeon"
-}
-
-@test "derived entries cannot be toggled" {
-  printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_package_derived_source Packages gpu)"
-  run guided_controller_enter "    vulkan-radeon"
-  [ "$output" = "noop" ]
-  [ "$(jq -c '.packages // "none"' "$GUIDED_STATE_FILE")" = '"none"' ]
-}
-
-@test "changing the GPU vendor updates the derived section" {
-  printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_package_derived_source Packages gpu)"
-  run guided_controller_list
-  echo "$output" | grep -q "vulkan-radeon"
-  ! echo "$output" | grep -q "nvidia-open-dkms"
-
-  printf '%s\n' '{"environment":{"gpu":["nvidia"]}}' > "$GUIDED_STATE_FILE"
-  run guided_controller_list
-  echo "$output" | grep -q "nvidia-open-dkms"
-  ! echo "$output" | grep -q "vulkan-radeon"
-}
-
-@test "changing the desktop selection updates the derived section" {
-  printf '%s\n' '{"environment":{"desktop":[]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_package_derived Packages)"
-  run guided_controller_list
-  ! echo "$output" | grep -qE '^audio ▸'
-
-  printf '%s\n' '{"environment":{"desktop":["kde"]}}' > "$GUIDED_STATE_FILE"
-  run guided_controller_list
-  echo "$output" | grep -qE '^audio ▸'
-}
-
-@test "toggling a backup tool updates the derived section" {
-  printf '%s\n' '{"users":["a"],"post_install":{"backup":{"borg":true}}}' \
-    > "$GUIDED_STATE_FILE"
-  set_nav "$(navigation_to_package_derived Packages)"
-  run guided_controller_list
-  echo "$output" | grep -qE '^backup ▸ [0-9]+   \(from Backup\)'
-
-  printf '%s\n' '{"users":["a"],"post_install":{"backup":
-    {"borg":false,"zfs_auto_snapshot":false}}}' > "$GUIDED_STATE_FILE"
-  run guided_controller_list
-  ! echo "$output" | grep -qE '^backup ▸'
-}
-
-# The section and the CLI inspector share one resolver, so they cannot drift.
-@test "the derived section agrees with the Package Resolver" {
-  printf '%s\n' '{"environment":{"desktop":["kde"],"gpu":["amd"]}}' \
-    > "$GUIDED_STATE_FILE"
-  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh"
-
-  local eff; eff="$(_controller_effective "$(state)" "$(cat "$GUIDED_BASELINE_FILE")")"
-  local direct menu
-  direct="$(package_resolver_resolve "$eff" \
-    | awk -F'\t' '$2 == "derived" && $1 == "gpu" { print $3 }' | sort -u)"
-  set_nav "$(navigation_to_package_derived_source Packages gpu)"
-  menu="$(guided_controller_list | sed 's/^ *//;s/ *$//' \
-    | grep -vE '^(← Back)?$' | sort -u)"
-  [ "$direct" = "$menu" ]
 }

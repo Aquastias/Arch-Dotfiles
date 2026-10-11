@@ -15,7 +15,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/layout/manual/plan.sh"
 }
 
-plan_field() { grep -E "^$1=" | cut -d= -f2; }
+plan_field() { KEY="$1" awk -F= '$1 == ENVIRON["KEY"] { print $2 }'; }
 
 ESP='{"device":"/dev/sda1","mountpoint":"/boot/efi","fs":"fat32","format":true}'
 ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
@@ -37,7 +37,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
   [ "$mounts" -eq 2 ]
   # root (/) is shallower than /boot/efi, so it must be emitted first.
   local first
-  first="$(printf '%s\n' "$output" | grep '^mount' | head -n1 | cut -f3)"
+  first="$(printf '%s\n' "$output" | awk -F'\t' '/^mount/ { print $3; exit }')"
   [ "$first" = "/" ]
 }
 

@@ -25,9 +25,9 @@ teardown() { rm -rf "$T"; }
 @test "install: vetter, engine, data and seeded allowlist land in the target" {
   runner_install_aur_vet
   [ -x "$MOUNT_ROOT/usr/local/bin/aur-vet" ]
-  local f
-  for f in scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv; do
-    [ -f "$MOUNT_ROOT/usr/local/share/aur-vet/$f" ]
+  local installed_file
+  for installed_file in scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv; do
+    [ -f "$MOUNT_ROOT/usr/local/share/aur-vet/$installed_file" ]
   done
   [ ! -e "$MOUNT_ROOT/etc/aur-vet/vetted.tsv" ]   # no pin store (ADR 0149)
   cmp -s "$INSTALLER_DIR/aur/allow.tsv" "$MOUNT_ROOT/etc/aur-vet/allow.tsv"
@@ -67,8 +67,8 @@ SH
   _fake_rung_env 0
   run _runner_aur_bootstrap_rung alice paru-bin
   [ "$status" -eq 0 ]
-  [ "$(grep -n aur-vet "$CALLS" | cut -d: -f1)" -lt \
-    "$(grep -n makepkg "$CALLS" | cut -d: -f1)" ]
+  [ "$(awk '/aur-vet/ { print NR }' "$CALLS")" -lt \
+    "$(awk '/makepkg/ { print NR }' "$CALLS")" ]
   grep -q "aur-vet UNATTENDED=1 PKGBASE=paru-bin" "$CALLS"
 }
 
@@ -141,10 +141,10 @@ SH
 }
 
 @test "paru.conf: every paru.conf shipped in the repo carries the hook" {
-  local f bad=""
-  while IFS= read -r f; do
-    grep -qx 'PreBuildCommand = /usr/local/bin/aur-vet' "$INSTALLER_DIR/../$f" \
-      || bad+=" $f"
+  local paru_config_file bad=""
+  while IFS= read -r paru_config_file; do
+    grep -qx 'PreBuildCommand = /usr/local/bin/aur-vet' "$INSTALLER_DIR/../$paru_config_file" \
+      || bad+=" $paru_config_file"
   done < <(git -C "$INSTALLER_DIR" ls-files --full-name ':/*paru.conf')
   [ -z "$bad" ] || { echo "missing hook:$bad"; return 1; }
 }
@@ -165,9 +165,9 @@ SH
 
 @test "install: a login hook runs aur-vet doctor for every user" {
   runner_install_aur_vet
-  local f="$MOUNT_ROOT/etc/profile.d/aur-vet.sh"
-  [ -f "$f" ]
-  grep -q "/usr/local/bin/aur-vet doctor" "$f"
-  run sh -n "$f"
+  local installed_file="$MOUNT_ROOT/etc/profile.d/aur-vet.sh"
+  [ -f "$installed_file" ]
+  grep -q "/usr/local/bin/aur-vet doctor" "$installed_file"
+  run sh -n "$installed_file"
   [ "$status" -eq 0 ]
 }

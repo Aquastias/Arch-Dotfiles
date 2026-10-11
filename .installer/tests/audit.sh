@@ -28,7 +28,9 @@
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+HERE="$(cd "${script_path%/*}" && pwd)"
 OS="$(cd "$HERE/.." && pwd)"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
@@ -42,23 +44,22 @@ _skip() { echo -e "  ${YELLOW}SKIP${NC}  $*"; : $(( _nskip++ )); }
 _section() { echo -e "\n${BOLD}── $* ──${NC}"; }
 
 _file() {
-  local f="$1" label="${2:-$1}"
-  if [[ -e "$f" ]]; then _pass "$label"; else _fail "$label  (not found)"; fi
+  local file_path="$1" label="${2:-$1}"
+  if [[ -e "$file_path" ]]; then _pass "$label"; else _fail "$label  (not found)"; fi
 }
 
-_fn_in() {
-  local fn="$1" file="$2"
-  if grep -qE "^${fn}[[:space:]]*\(\)" "$file" 2>/dev/null; then
-    _pass "${fn}() defined in $(basename "$file")"
+_function_in() {
+  local function_name="$1" file="$2"
+  if grep -qE "^${function_name}[[:space:]]*\(\)" "$file" 2>/dev/null; then
+    _pass "${function_name}() defined in ${file##*/}"
   else
-    _fail "${fn}() missing from $(basename "$file")"
+    _fail "${function_name}() missing from ${file##*/}"
   fi
 }
 
 _jsonc_valid() {
-  local f="$1" label="$2"
-  if sed -e 's|[[:space:]]*//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$f" \
-       | jq empty 2>/dev/null; then
+  local file_path="$1" label="$2"
+  if _strip "$file_path" | jq empty 2>/dev/null; then
     _pass "$label — valid JSON"
   else
     _fail "$label — invalid JSON"
@@ -66,7 +67,10 @@ _jsonc_valid() {
 }
 
 # Strip JSONC comments → plain JSON on stdout
-_strip() { sed -e 's|[[:space:]]*//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$1"; }
+_strip() {
+  awk '{ sub(/[[:space:]]*\/\/[^"]*$/, "") } !/^[[:space:]]*\/\// { print }' \
+    "$1"
+}
 
 # =============================================================================
 echo -e "\n${BOLD}Installer static audit${NC}  (INSTALLER_DIR: ${OS})"
@@ -74,13 +78,13 @@ echo -e "\n${BOLD}Installer static audit${NC}  (INSTALLER_DIR: ${OS})"
 # =============================================================================
 _section "1. Host-side lib modules"
 # =============================================================================
-for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
+for file_path in lib/common.sh lib/jsonc.sh lib/globals.sh \
           lib/config/lifecycle.sh lib/config/program-registry.sh \
           lib/config/environment.sh lib/config/validation.sh \
           lib/packages/package-list.sh lib/chroot.sh lib/profiles/runner.sh \
           lib/finalize.sh \
           lib/zfs/pools.sh lib/layout/zfs/single.sh lib/layout/zfs/multi.sh; do
-  _file "${OS}/${f}" "${f}"
+  _file "${OS}/${file_path}" "${file_path}"
 done
 
 # =============================================================================
@@ -92,9 +96,9 @@ _section "2. Staged file manifest  (chroot_configure_system → /root/)"
 #   lib/globals.sh  → /root/lib/globals.sh
 #   lib/chroot/extras-common.sh → /root/lib/chroot/extras-common.sh
 # (lib/chroot/* is also cp -r to /root/lib-chroot/ — covered in section 4)
-for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
+for file_path in lib/common.sh lib/jsonc.sh lib/globals.sh \
   lib/chroot/extras-common.sh; do
-  _file "${OS}/${f}" "${f}  (staged → /root/${f})"
+  _file "${OS}/${file_path}" "${file_path}  (staged → /root/${file_path})"
 done
 
 # Verify the cp lines actually exist in chroot.sh so the manifest stays in sync
@@ -122,29 +126,29 @@ _section "3. Chroot source chain  (extras scripts running at /root/)"
 # /root/lib/{jsonc,globals}.sh
 
 # shellcheck disable=SC2043  # kde is the only extras-common DE today; loop eases adds
-for de in kde; do
-  script="${OS}/extras/desktop/${de}/${de}.sh"
+for desktop in kde; do
+  script="${OS}/extras/desktop/${desktop}/${desktop}.sh"
   if [[ ! -f "$script" ]]; then
-    _fail "extras/desktop/${de}/${de}.sh  (missing)"
+    _fail "extras/desktop/${desktop}/${desktop}.sh  (missing)"
     continue
   fi
   # Must source the extras-common.sh path that resolves to
   # /root/lib/chroot/extras-common.sh
   if grep -q 'lib/chroot/extras-common\.sh' "$script"; then
-    _pass "extras/${de}: sources lib/chroot/extras-common.sh"
+    _pass "extras/${desktop}: sources lib/chroot/extras-common.sh"
   else
-    _fail "extras/${de}: does not source extras-common.sh via lib/chroot/ path"
+    _fail "extras/${desktop}: does not source extras-common.sh via lib/chroot/ path"
   fi
   # Must NOT call jsonc() or other helpers before the source line
-  src_line=$(grep -n 'extras-common\.sh' "$script" | head -1 | cut -d: -f1)
+  src_line=$(awk '/extras-common\.sh/ { print NR; exit }' "$script")
   if grep -nE '\bjsonc[[:space:](]' "$script" 2>/dev/null \
       | grep -v '\.jsonc' \
       | awk -F: '$1 < '"${src_line:-999}"' {found=1} END{exit !found}'; \
       then
-    _fail "extras/${de}: calls jsonc() before sourcing" \
+    _fail "extras/${desktop}: calls jsonc() before sourcing" \
           "extras-common.sh (line ${src_line})"
   else
-    _pass "extras/${de}: no jsonc() call before source"
+    _pass "extras/${desktop}: no jsonc() call before source"
   fi
 done
 
@@ -168,10 +172,10 @@ done
 # =============================================================================
 _section "4. lib/chroot/ scripts  (staged → /root/lib-chroot/)"
 # =============================================================================
-for f in configure.sh extras.sh identity.sh initcpio.sh \
+for file_path in configure.sh extras.sh identity.sh initcpio.sh \
           bootloader-systemd-boot.sh bootloader-grub.sh \
           create-user.sh password.sh extras-common.sh; do
-  _file "${OS}/lib/chroot/${f}" "lib/chroot/${f}"
+  _file "${OS}/lib/chroot/${file_path}" "lib/chroot/${file_path}"
 done
 
 # configure.sh must source install-state.sh (staged from lib/install-state.sh)
@@ -196,15 +200,15 @@ fi
 # =============================================================================
 _section "5. jsonc.sh function definitions"
 # =============================================================================
-for fn in jsonc jsonc_strip jsonc_read jsonc_read_optional; do
-  _fn_in "$fn" "${OS}/lib/jsonc.sh"
+for function_name in jsonc jsonc_strip jsonc_read jsonc_read_optional; do
+  _function_in "$function_name" "${OS}/lib/jsonc.sh"
 done
 
 # =============================================================================
 _section "6. Bootloader scripts"
 # =============================================================================
-for bl in systemd-boot grub; do
-  _file "${OS}/lib/chroot/bootloader-${bl}.sh" "lib/chroot/bootloader-${bl}.sh"
+for bootloader in systemd-boot grub; do
+  _file "${OS}/lib/chroot/bootloader-${bootloader}.sh" "lib/chroot/bootloader-${bootloader}.sh"
 done
 
 # =============================================================================
@@ -213,45 +217,50 @@ _section "7. STAGED_RUNTIME_FILES  (profiles.sh → /var/tmp/.installer-runtime/
 while IFS= read -r entry; do
   _file "${OS}/${entry}" "_STAGED_RUNTIME_FILES: ${entry}"
 done < <(
-  sed -n '/_STAGED_RUNTIME_FILES=(/,/^)/p' "${OS}/lib/profiles/runner.sh" \
-    | grep '"' | sed 's|.*"\([^"]*\)".*|\1|'
+  awk '/_STAGED_RUNTIME_FILES=\(/, /^\)/ {
+    if (!/"/) next
+    sub(/"[^"]*$/, ""); sub(/.*"/, ""); print
+  }' "${OS}/lib/profiles/runner.sh"
 )
 
 # =============================================================================
 _section "8. Program registry"
 # =============================================================================
 # Build name → path map from all program config.jsonc files.
-declare -A _prog_dir=()
+declare -A _program_directories=()
 while IFS= read -r cfg; do
-  name="$(basename "$(dirname "$cfg")")"
-  _prog_dir["$name"]="$(dirname "$cfg")"
+  name="${cfg%/*}"; name="${name##*/}"
+  _program_directories["$name"]="${cfg%/*}"
 done < <(find "${OS}/programs" -name "config.jsonc")
 
 _check_program() {
   local name="$1" want_kind="$2" context="$3"
-  if [[ ! -v _prog_dir["$name"] ]]; then
+  if [[ ! -v _program_directories["$name"] ]]; then
     _fail "${context}: program '${name}' not found in programs/"
     return
   fi
-  local dir="${_prog_dir[$name]}"
+  local program_directory="${_program_directories[$name]}"
   local got_kind
-  got_kind="$(grep '"kind"' "${dir}/config.jsonc" 2>/dev/null \
-                | head -1 \
-                | sed 's/.*"kind"[[:space:]]*:[[:space:]]*"\(host\|user\)".*/\1/')"
+  got_kind="$(awk '/"kind"/ {
+      if (match($0, /"kind"[[:space:]]*:[[:space:]]*"(host|user)"/)) {
+        $0 = substr($0, RSTART, RLENGTH); sub(/^"kind"[^"]*"/, ""); sub(/"$/, "")
+      }
+      print; exit
+    }' "${program_directory}/config.jsonc" 2>/dev/null)"
   if [[ "$got_kind" == "$want_kind" ]]; then
     _pass "${context}: program '${name}' (kind=${got_kind})"
   else
     _fail "${context}: program '${name}' has" \
           "kind=${got_kind}, expected ${want_kind}"
   fi
-  if [[ ! -f "${dir}/install.sh" ]]; then
+  if [[ ! -f "${program_directory}/install.sh" ]]; then
     _fail "${context}: program '${name}' missing install.sh"
   fi
 }
 
 # Host configs → host_programs must have kind:host
 while IFS= read -r cfg; do
-  host="$(basename "$(dirname "$cfg")")"
+  host="${cfg%/*}"; host="${host##*/}"
   [[ "$host" == "core" ]] && continue
   while IFS= read -r prog; do
     _check_program "$prog" "host" "host:${host}"
@@ -260,7 +269,7 @@ done < <(find "${OS}/hosts" -name "profile.jsonc")
 
 # User configs → programs must have kind:user
 while IFS= read -r cfg; do
-  user="$(basename "$(dirname "$cfg")")"
+  user="${cfg%/*}"; user="${user##*/}"
   [[ "$user" == "core" ]] && continue
   while IFS= read -r prog; do
     _check_program "$prog" "user" "user:${user}"
@@ -271,12 +280,12 @@ done < <(find "${OS}/users" -name "profile.jsonc")
 _section "9. Extras JSON files"
 # =============================================================================
 # shellcheck disable=SC2043  # kde is the only extras JSON DE today; loop eases adds
-for de in kde; do
-  json="${OS}/extras/desktop/${de}/install-${de}.jsonc"
+for desktop in kde; do
+  json="${OS}/extras/desktop/${desktop}/install-${desktop}.jsonc"
   if [[ -f "$json" ]]; then
-    _jsonc_valid "$json" "extras/desktop/${de}/install-${de}.jsonc"
+    _jsonc_valid "$json" "extras/desktop/${desktop}/install-${desktop}.jsonc"
   else
-    _fail "extras/desktop/${de}/install-${de}.jsonc  (not found)"
+    _fail "extras/desktop/${desktop}/install-${desktop}.jsonc  (not found)"
   fi
 done
 
@@ -284,7 +293,7 @@ done
 _section "10. Host config cross-refs  (referenced users exist)"
 # =============================================================================
 while IFS= read -r cfg; do
-  host="$(basename "$(dirname "$cfg")")"
+  host="${cfg%/*}"; host="${host##*/}"
   [[ "$host" == "core" ]] && continue
   while IFS= read -r user; do
     if [[ -d "${OS}/users/${user}" ]]; then
@@ -299,10 +308,10 @@ done < <(find "${OS}/hosts" -name "profile.jsonc")
 _section "11. User config cross-refs  (referenced programs consistent)"
 # =============================================================================
 while IFS= read -r cfg; do
-  user="$(basename "$(dirname "$cfg")")"
+  user="${cfg%/*}"; user="${user##*/}"
   [[ "$user" == "core" ]] && continue
   while IFS= read -r prog; do
-    if [[ -v _prog_dir["$prog"] ]]; then
+    if [[ -v _program_directories["$prog"] ]]; then
       _pass "user:${user} → program '${prog}' exists"
     else
       _fail "user:${user} → program '${prog}' not found in programs/"
@@ -321,10 +330,10 @@ _commons_fns=(print_status check_root send_user_notification command_exists \
 _dups_found=0
 while IFS= read -r script; do
   rel="${script#"${OS}"/}"
-  for fn in "${_commons_fns[@]}"; do
-    if grep -qE "^[[:space:]]*(function[[:space:]]+)?${fn}[[:space:]]*\(" \
+  for function_name in "${_commons_fns[@]}"; do
+    if grep -qE "^[[:space:]]*(function[[:space:]]+)?${function_name}[[:space:]]*\(" \
         "$script" 2>/dev/null; then
-      _fail "${rel}: redefines commons helper '${fn}()' (see ADR 0011)"
+      _fail "${rel}: redefines commons helper '${function_name}()' (see ADR 0011)"
       _dups_found=$((_dups_found + 1))
     fi
   done

@@ -88,8 +88,8 @@ setup() {
 # ── list appends ────────────────────────────────────────────────────────────
 
 @test "edit_append_packages: split names append to packages.repo.extra" {
-  local s='{"packages":{"repo":{"extra":["vim"]}}}'
-  run edit_append_packages "$s" "htop  btop"
+  local state='{"packages":{"repo":{"extra":["vim"]}}}'
+  run edit_append_packages "$state" "htop  btop"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' <<<"$output")" = '["vim","htop","btop"]' ]
 }
@@ -172,9 +172,9 @@ setup() {
 }
 
 @test "edit_add_mirror_server: dedup-appends a Server URL" {
-  local s; s="$(edit_add_mirror_server '{}' https://m.example/repo)"
-  s="$(edit_add_mirror_server "$s" https://m.example/repo)"   # dup ignored
-  [ "$(jq -c '.options.mirror_servers' <<<"$s")" \
+  local state; state="$(edit_add_mirror_server '{}' https://m.example/repo)"
+  state="$(edit_add_mirror_server "$state" https://m.example/repo)"   # dup ignored
+  [ "$(jq -c '.options.mirror_servers' <<<"$state")" \
     = '["https://m.example/repo"]' ]
 }
 

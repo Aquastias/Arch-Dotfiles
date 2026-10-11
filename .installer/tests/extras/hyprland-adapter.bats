@@ -11,26 +11,9 @@
 # writes the curated session files; a separate Display Manager Adapter owns the
 # greeter.
 
-setup() {
-  TEST_DIR="$(mktemp -d)"
-  STUB_BIN="$TEST_DIR/bin"
-  mkdir -p "$STUB_BIN"
-
-  PACMAN_LOG="$TEST_DIR/pacman.log"
-  SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
-  GIT_LOG="$TEST_DIR/git.log"
-  ROOT="$TEST_DIR/root"
-  SEED="$TEST_DIR/seed"
-  STATE="$TEST_DIR/state.json"
-  SESSION="$ROOT/usr/local/share/wayland-sessions/hyprland.desktop"
-  ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
-
-  export PACMAN_LOG SYSTEMCTL_LOG GIT_LOG ROOT STATE
-  export HYPR_SEED_ROOT="$SEED"
-  # Default to "no battery" (desktop) so laptop plugin gating is deterministic;
-  # battery is not exercised here.
-  export HYPR_BAT_GLOB="$TEST_DIR/nobat/BAT*"
-
+# _write_command_stubs — pacman/systemctl/git stubs on STUB_BIN that log
+# each call (git emulates a sparse-checkout of the Noctalia plugins).
+_write_command_stubs() {
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
@@ -57,8 +40,30 @@ esac
 exit 0
 GIT
   chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/git"
-
   export PATH="$STUB_BIN:$PATH"
+}
+
+setup() {
+  TEST_DIR="$(mktemp -d)"
+  STUB_BIN="$TEST_DIR/bin"
+  mkdir -p "$STUB_BIN"
+
+  PACMAN_LOG="$TEST_DIR/pacman.log"
+  SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
+  GIT_LOG="$TEST_DIR/git.log"
+  ROOT="$TEST_DIR/root"
+  SEED="$TEST_DIR/seed"
+  STATE="$TEST_DIR/state.json"
+  SESSION="$ROOT/usr/local/share/wayland-sessions/hyprland.desktop"
+  ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
+
+  export PACMAN_LOG SYSTEMCTL_LOG GIT_LOG ROOT STATE
+  export HYPR_SEED_ROOT="$SEED"
+  # Default to "no battery" (desktop) so laptop plugin gating is deterministic;
+  # battery is not exercised here.
+  export HYPR_BAT_GLOB="$TEST_DIR/nobat/BAT*"
+
+  _write_command_stubs
 
   # Curated-config source (ADR 0097, mirroring niri's ADR 0095): chroot.sh
   # stages the repo's single-source Noctalia-wired hyprland.lua PLUS the shared
@@ -93,12 +98,12 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # run_hypr <desktop> [wayland_shell]
 run_hypr() {
-  local desk="$1" shell="${2:-}"
+  local desktops="$1" shell="${2:-}"
   if [[ -n "$shell" ]]; then
-    run env ENVIRONMENT_DESKTOP="$desk" ENVIRONMENT_WAYLAND_SHELL="$shell" \
+    run env ENVIRONMENT_DESKTOP="$desktops" ENVIRONMENT_WAYLAND_SHELL="$shell" \
       bash "$ADAPTER"
   else
-    run env ENVIRONMENT_DESKTOP="$desk" bash "$ADAPTER"
+    run env ENVIRONMENT_DESKTOP="$desktops" bash "$ADAPTER"
   fi
 }
 
@@ -107,10 +112,10 @@ run_hypr() {
 @test "installs exactly the working-session core" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
-  local p
-  for p in hyprland seatd xdg-desktop-portal-hyprland \
+  local package
+  for package in hyprland seatd xdg-desktop-portal-hyprland \
            xdg-desktop-portal-gtk wl-clipboard; do
-    grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
+    grep -q "$package" "$PACMAN_LOG" || { echo "core missing: $package"; return 1; }
   done
   # Noctalia's own agent serves polkit (ADR 0100); no second agent.
   ! grep -q polkit-kde-agent "$PACMAN_LOG"
@@ -145,10 +150,10 @@ run_hypr() {
 @test "installs no companion packages, no qt6ct, no hyprlock" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
-  local p
-  for p in waybar dunst fuzzel rofi-wayland wofi alacritty hyprlock \
+  local package
+  for package in waybar dunst fuzzel rofi-wayland wofi alacritty hyprlock \
            hypridle hyprpaper grim slurp nwg-look qt6ct qt6ct-kde; do
-    ! grep -q "$p" "$PACMAN_LOG" || { echo "unexpected package: $p"; return 1; }
+    ! grep -q "$package" "$PACMAN_LOG" || { echo "unexpected package: $package"; return 1; }
   done
 }
 
@@ -187,9 +192,9 @@ run_hypr() {
 @test "noctalia: installs the Noctalia preset packages" {
   run_hypr "hyprland" noctalia
   [ "$status" -eq 0 ]
-  local p
-  for p in noctalia kitty brightnessctl playerctl pcmanfm-qt; do
-    grep -q "$p" "$PACMAN_LOG" || { echo "preset missing: $p"; return 1; }
+  local package
+  for package in noctalia kitty brightnessctl playerctl pcmanfm-qt; do
+    grep -q "$package" "$PACMAN_LOG" || { echo "preset missing: $package"; return 1; }
   done
 }
 

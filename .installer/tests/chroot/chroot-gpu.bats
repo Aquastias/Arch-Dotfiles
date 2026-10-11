@@ -164,41 +164,41 @@ setup() {
 # ── _gpu_apply_modules edits mkinitcpio.conf in place ───────────────────────
 
 @test "apply-modules: rewrites a default empty MODULES=() line" {
-  local conf="$BATS_TEST_TMPDIR/mkinitcpio.conf"
-  printf 'MODULES=()\nHOOKS=(base udev)\n' > "$conf"
-  _gpu_apply_modules "$conf"
-  grep -q '^MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)$' "$conf"
+  local mkinitcpio_config="$BATS_TEST_TMPDIR/mkinitcpio.conf"
+  printf 'MODULES=()\nHOOKS=(base udev)\n' > "$mkinitcpio_config"
+  _gpu_apply_modules "$mkinitcpio_config"
+  grep -q '^MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)$' "$mkinitcpio_config"
   # unrelated lines untouched
-  grep -q '^HOOKS=(base udev)$' "$conf"
+  grep -q '^HOOKS=(base udev)$' "$mkinitcpio_config"
 }
 
 @test "apply-modules: idempotent across two applications" {
-  local conf="$BATS_TEST_TMPDIR/mkinitcpio.conf"
-  printf 'MODULES=()\n' > "$conf"
-  _gpu_apply_modules "$conf"
-  _gpu_apply_modules "$conf"
-  [ "$(grep -c 'nvidia_drm' "$conf")" -eq 1 ]
+  local mkinitcpio_config="$BATS_TEST_TMPDIR/mkinitcpio.conf"
+  printf 'MODULES=()\n' > "$mkinitcpio_config"
+  _gpu_apply_modules "$mkinitcpio_config"
+  _gpu_apply_modules "$mkinitcpio_config"
+  [ "$(grep -c 'nvidia_drm' "$mkinitcpio_config")" -eq 1 ]
 }
 
 # ── _gpu_harden orchestration gates on the vendor list ──────────────────────
 
 @test "harden: hybrid writes every artifact + edits the conf" {
-  local conf="$BATS_TEST_TMPDIR/mkinitcpio.conf"
-  printf 'MODULES=()\n' > "$conf"
-  _gpu_harden "$ROOT" "$conf" amd nvidia
+  local mkinitcpio_config="$BATS_TEST_TMPDIR/mkinitcpio.conf"
+  printf 'MODULES=()\n' > "$mkinitcpio_config"
+  _gpu_harden "$ROOT" "$mkinitcpio_config" amd nvidia
   [ -f "$ROOT/etc/modprobe.d/nvidia.conf" ]
   [ -f "$ROOT/etc/modprobe.d/amdgpu.conf" ]
   [ -f "$ROOT/etc/udev/rules.d/80-nvidia-pm.rules" ]
   [ -f "$ROOT/etc/pacman.d/hooks/95-nvidia-initramfs.hook" ]
-  grep -q 'nvidia_drm' "$conf"
+  grep -q 'nvidia_drm' "$mkinitcpio_config"
 }
 
 @test "harden: single-vendor is a no-op (returns non-zero, writes nothing)" {
-  local conf="$BATS_TEST_TMPDIR/mkinitcpio.conf"
-  printf 'MODULES=()\n' > "$conf"
-  run _gpu_harden "$ROOT" "$conf" amd
+  local mkinitcpio_config="$BATS_TEST_TMPDIR/mkinitcpio.conf"
+  printf 'MODULES=()\n' > "$mkinitcpio_config"
+  run _gpu_harden "$ROOT" "$mkinitcpio_config" amd
   [ "$status" -ne 0 ]
   [ ! -e "$ROOT/etc/modprobe.d/nvidia.conf" ]
   [ ! -e "$ROOT/etc/modprobe.d/amdgpu.conf" ]
-  grep -q '^MODULES=()$' "$conf"
+  grep -q '^MODULES=()$' "$mkinitcpio_config"
 }

@@ -21,10 +21,12 @@ teardown() {
 
 @test "sops-runtime.service passes systemd-analyze verify" {
   # Patch ExecStart to the in-repo script path so systemd-analyze can resolve it
-  local tmp_unit="$TEST_DIR/sops-runtime.service"
-  sed "s|/usr/local/lib/sops/sops-runtime.sh|${SOPS_SCRIPT}|" \
-    "$SOPS_SERVICE" > "$tmp_unit"
-  run systemd-analyze verify "$tmp_unit"
+  local unit_copy="$TEST_DIR/sops-runtime.service"
+  SCRIPT="$SOPS_SCRIPT" awk '{
+      sub(/\/usr\/local\/lib\/sops\/sops-runtime.sh/, ENVIRON["SCRIPT"]); print
+    }' \
+    "$SOPS_SERVICE" > "$unit_copy"
+  run systemd-analyze verify "$unit_copy"
   [ "$status" -eq 0 ]
 }
 

@@ -123,7 +123,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   run _initcpio_write_udev_override "$root"
   [ "$status" -eq 0 ]
   # /etc/initcpio/hooks/udev takes precedence over /usr/lib/initcpio/hooks/udev.
-  local f="$root/etc/initcpio/hooks/udev"
-  [ -f "$f" ]
-  grep -q 'udevadm settle --timeout=30' "$f"
+  local hook_file="$root/etc/initcpio/hooks/udev"
+  [ -f "$hook_file" ]
+  grep -q 'udevadm settle --timeout=30' "$hook_file"
 }

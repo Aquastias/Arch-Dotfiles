@@ -25,8 +25,8 @@ teardown() { rm -rf "$T"; }
 @test "cache server lands in every repo section, never [options]" {
   INSTALL_PKG_CACHE_SERVER=http://gw/c pacman_config_apply_audit_cache "$C"
   [ "$(grep -c '^CacheServer = http://gw/c$' "$C")" -eq 2 ]
-  [ "$(sed -n '2p' "$C")" = 'HoldPkg = pacman' ]
-  [ "$(grep -A1 -x '\[core\]' "$C" | tail -1)" = 'CacheServer = http://gw/c' ]
+  [ "$(awk 'NR == 2 { print; exit }' "$C")" = 'HoldPkg = pacman' ]
+  [ "$(awk 'previous == "[core]" { print; exit } { previous = $0 }' "$C")" = 'CacheServer = http://gw/c' ]
 }
 
 @test "the AUR cache becomes an [audit-aur] repo" {

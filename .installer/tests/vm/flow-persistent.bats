@@ -159,8 +159,8 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'/root/.log-pulled'* ]]
   # the hold sits before poweroff
   local hold pow
-  hold="$(grep -n 'log-pulled' <<<"$output" | head -1 | cut -d: -f1)"
-  pow="$(grep -n '^  poweroff' <<<"$output" | cut -d: -f1)"
+  hold="$(awk '/log-pulled/ { print NR; exit }' <<<"$output")"
+  pow="$(awk '/^  poweroff/ { print NR }' <<<"$output")"
   [ "$hold" -lt "$pow" ]
 }
 
@@ -193,16 +193,16 @@ teardown() { rm -rf "$CACHE_DIR"; }
 # tuned 20261008: the live ISO named SATA disks out of port order (sdb was
 # the 20G disk), so a "/dev/sda","/dev/sdb" mirror landed on the wrong disk
 @test "pin_disks: maps /dev/sdX to the port's by-id path when present" {
-  local d="$BATS_TEST_TMPDIR" b
-  b="$d/by-id/ata-QEMU_HARDDISK_vmdisk"
-  mkdir -p "$d/by-id"
-  touch "${b}0" "${b}1"
+  local test_directory="$BATS_TEST_TMPDIR" by_id_directory
+  by_id_directory="$test_directory/by-id/ata-QEMU_HARDDISK_vmdisk"
+  mkdir -p "$test_directory/by-id"
+  touch "${by_id_directory}0" "${by_id_directory}1"
   echo '{"os_pool":{"disks":["/dev/sda","/dev/sdb"]},"x":["/dev/sdc"]}' \
-    > "$d/c.json"
+    > "$test_directory/c.json"
   eval "$(_flow_persistent_pin_disks_function)"
-  pin_disks "$d/c.json" "$d/by-id"
-  run jq -r '[.os_pool.disks[], .x[]] | join(" ")' "$d/c.json"
-  [ "$output" = "${b}0 ${b}1 /dev/sdc" ]
+  pin_disks "$test_directory/c.json" "$test_directory/by-id"
+  run jq -r '[.os_pool.disks[], .x[]] | join(" ")' "$test_directory/c.json"
+  [ "$output" = "${by_id_directory}0 ${by_id_directory}1 /dev/sdc" ]
 }
 
 @test "render: pins disks before the installer runs" {

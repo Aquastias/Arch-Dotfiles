@@ -61,25 +61,25 @@ teardown() { rm -rf "$TEST_DIR"; }
   unset FILESYSTEM
   local units="$TEST_DIR/units"
   impermanence_common_write_mount_unit /etc/ssh "$units"
-  local u; u="$units/$(systemd-escape -p --suffix=mount /etc/ssh)"
-  grep -qE "^After=zfs-mount\.service$" "$u"
+  local unit_file; unit_file="$units/$(systemd-escape -p --suffix=mount /etc/ssh)"
+  grep -qE "^After=zfs-mount\.service$" "$unit_file"
 }
 
 @test "impermanence_common_write_mount_unit: btrfs orders /etc/ssh After=etc.mount" {
   export FILESYSTEM=btrfs
   local units="$TEST_DIR/units"
   impermanence_common_write_mount_unit /etc/ssh "$units"
-  local u; u="$units/$(systemd-escape -p --suffix=mount /etc/ssh)"
-  grep -qE "^After=etc\.mount$" "$u"
-  ! grep -qE "^After=zfs-mount\.service$" "$u"
+  local unit_file; unit_file="$units/$(systemd-escape -p --suffix=mount /etc/ssh)"
+  grep -qE "^After=etc\.mount$" "$unit_file"
+  ! grep -qE "^After=zfs-mount\.service$" "$unit_file"
 }
 
 @test "impermanence_common_write_mount_unit: btrfs orders /usr/local After=usr-local.mount" {
   export FILESYSTEM=btrfs
   local units="$TEST_DIR/units"
   impermanence_common_write_mount_unit /usr/local/bin "$units"
-  local u; u="$units/$(systemd-escape -p --suffix=mount /usr/local/bin)"
-  grep -qE "^After=usr-local\.mount$" "$u"
+  local unit_file; unit_file="$units/$(systemd-escape -p --suffix=mount /usr/local/bin)"
+  grep -qE "^After=usr-local\.mount$" "$unit_file"
 }
 
 @test "impermanence_common_mount_after_unit: btrfs /root lives on @ → -.mount (no subvol)" {
@@ -114,11 +114,11 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "impermanence_common_create_rollback_datasets: creates each dataset at its mountpoint" {
   : > "$CALLS"
   impermanence_common_create_rollback_datasets rpool
-  local entry ds mp
+  local entry dataset mount_path
   for entry in etc:/etc opt:/opt srv:/srv usrlocal:/usr/local; do
-    ds="rpool/ROOT/${entry%%:*}"; mp="${entry#*:}"
-    grep -qE "^zfs create .*mountpoint=$mp .*$ds\$" "$CALLS" \
-      || { echo "missing create for $ds at $mp"; cat "$CALLS"; return 1; }
+    dataset="rpool/ROOT/${entry%%:*}"; mount_path="${entry#*:}"
+    grep -qE "^zfs create .*mountpoint=$mount_path .*$dataset\$" "$CALLS" \
+      || { echo "missing create for $dataset at $mount_path"; cat "$CALLS"; return 1; }
   done
 }
 
@@ -280,7 +280,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "impermanence_common_persist_unapply: removes the tmpfiles entry; preserves other lines" {
   conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  mkdir -p "$(dirname "$conf")"
+  mkdir -p "${conf%/*}"
   printf "d /etc/other 0755 root root - -\n" > "$conf"
   impermanence_common_persist_apply /etc/foo.conf f
   impermanence_common_persist_unapply /etc/foo.conf
@@ -375,10 +375,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "impermanence_common_persist_apply: optional tmpfiles_file overrides default location" {
   local alt_units="$TEST_DIR/alt-units"
-  local alt_conf="$TEST_DIR/alt-tmpfiles/impermanence-curated.conf"
-  impermanence_common_persist_apply /etc/foo.conf f "$alt_units" "$alt_conf"
-  [ -f "$alt_conf" ]
-  grep -qxF "f /etc/foo.conf 0644 root root - -" "$alt_conf"
+  local alternate_tmpfiles_config="$TEST_DIR/alt-tmpfiles/impermanence-curated.conf"
+  impermanence_common_persist_apply /etc/foo.conf f "$alt_units" "$alternate_tmpfiles_config"
+  [ -f "$alternate_tmpfiles_config" ]
+  grep -qxF "f /etc/foo.conf 0644 root root - -" "$alternate_tmpfiles_config"
 }
 
 @test "impermanence_common_persist_stage_in_move: optional roots override IMPERMANENCE_ROOT/IMPERMANENCE_MOUNT" {

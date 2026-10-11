@@ -54,7 +54,7 @@ setup() {
   # multi-word countries must survive as single lines, not split on space.
   echo "$output" | grep -qx "United Kingdom"
   echo "$output" | grep -qx "United States"
-  [ "$(echo "$output" | head -1)" == "Germany" ]
+  [ "${output%%$'\n'*}" == "Germany" ]
 }
 
 @test "menu_enum_options: unknown / free-text field emits nothing" {

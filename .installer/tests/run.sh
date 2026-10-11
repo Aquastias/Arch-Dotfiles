@@ -21,7 +21,9 @@
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+HERE="$(cd "${script_path%/*}" && pwd)"
 BATS_DIR="${BATS_DIR:-$HERE/bats}"
 
 # shellcheck source=./select-changed.sh
@@ -35,7 +37,7 @@ case "${1:-}" in
   --changed) MODE="changed"; CHANGED_REF="${2:-}" ;;
   --vm) MODE="vm" ;;
   -h | --help)
-    sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    awk 'NR >= 2 && NR <= 17 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
     exit 0
     ;;
   *)
@@ -64,21 +66,21 @@ fi
 # (the --fast set) lives as _FAST_CORE_TOKENS in select-changed.sh — one source
 # of truth shared by --fast and --changed, so the two cannot drift.
 expand_tokens() {
-  local t f
-  for t in "$@"; do
-    if [[ "$t" == *.bats ]]; then
-      [[ -f "$HERE/$t" ]] && FILES+=("$HERE/$t")
+  local token test_file
+  for token in "$@"; do
+    if [[ "$token" == *.bats ]]; then
+      [[ -f "$HERE/$token" ]] && FILES+=("$HERE/$token")
     else
-      while IFS= read -r f; do FILES+=("$f"); done \
-        < <(find "$HERE/$t" -name '*.bats' | sort)
+      while IFS= read -r test_file; do FILES+=("$test_file"); done \
+        < <(find "$HERE/$token" -name '*.bats' | sort)
     fi
   done
 }
 
 collect_all() {
   # Every .bats under tests/ except the vendored bats-core checkout.
-  local f
-  while IFS= read -r f; do FILES+=("$f"); done \
+  local test_file
+  while IFS= read -r test_file; do FILES+=("$test_file"); done \
     < <(find "$HERE" -name '*.bats' -not -path "$BATS_DIR/*" | sort)
 }
 
@@ -105,8 +107,8 @@ collect_changed() {
   else
     echo "[run.sh] --changed targets (+ install-correctness core):" >&2
     # shellcheck disable=SC2001  # sed line-prefix clearer than repeating literal
-    sed 's/^/[run.sh]   /' <<< "$targets" >&2
-    local t; while IFS= read -r t; do expand_tokens "$t"; done <<< "$targets"
+    awk '{ print "[run.sh]   " $0 }' <<< "$targets" >&2
+    local token; while IFS= read -r token; do expand_tokens "$token"; done <<< "$targets"
   fi
 }
 

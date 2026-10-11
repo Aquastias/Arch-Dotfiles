@@ -20,14 +20,14 @@ teardown() { rm -rf "$TEST_DIR"; }
 # Run _core_stage_fixture_files in a child bash. Arguments become entries in the
 # VM_FIXTURE_FILES array (one per arg). `run` captures status/output.
 _stage() {
-  local args=""
-  local a
-  for a in "$@"; do args+=" '${a//\'/\'\\\'\'}'"; done
+  local arguments=""
+  local argument
+  for argument in "$@"; do arguments+=" '${argument//\'/\'\\\'\'}'"; done
   run bash -c "
     set +e
     VM_SCRIPT_DIR='$VM_SCRIPT_DIR'
     CACHE_DIR='$CACHE_DIR'
-    declare -a VM_FIXTURE_FILES=($args)
+    declare -a VM_FIXTURE_FILES=($arguments)
     # silence harness 'info' output during the test
     source '$HARNESS' >/dev/null 2>&1
     _core_stage_fixture_files

@@ -120,26 +120,26 @@ _stub_io='
 @test "session bakes @blank after writing autologin, before reboot" {
   run bash -c "source '$AGENT'; $_stub_io; verb_session kde; cat \"\$LOG\""
   [ "$status" -eq 0 ]
-  local w b r
-  w="$(grep -n 'zz-agent-autologin.conf' <<<"$output" | head -1 | cut -d: -f1)"
-  b="$(grep -n 'resnapshot.sh' <<<"$output" | head -1 | cut -d: -f1)"
-  r="$(grep -n '^reboot$' <<<"$output" | cut -d: -f1)"
-  [ -n "$w" ]
-  [ -n "$b" ]
-  [ -n "$r" ]
-  (( w < b && b < r ))
+  local write_line bake_line reboot_line
+  write_line="$(awk '/zz-agent-autologin.conf/ { print NR; exit }' <<<"$output")"
+  bake_line="$(awk '/resnapshot.sh/ { print NR; exit }' <<<"$output")"
+  reboot_line="$(awk '/^reboot$/ { print NR }' <<<"$output")"
+  [ -n "$write_line" ]
+  [ -n "$bake_line" ]
+  [ -n "$reboot_line" ]
+  (( write_line < bake_line && bake_line < reboot_line ))
 }
 
 @test "greeter bakes @blank after removing autologin" {
   run bash -c "source '$AGENT'; $_stub_io; verb_greeter; cat \"\$LOG\""
   [ "$status" -eq 0 ]
-  local w b
-  w="$(grep -n 'rm -f /etc/sddm.conf.d/zz-agent-autologin.conf' <<<"$output" \
-    | cut -d: -f1)"
-  b="$(grep -n 'resnapshot.sh' <<<"$output" | head -1 | cut -d: -f1)"
-  [ -n "$w" ]
-  [ -n "$b" ]
-  (( w < b ))
+  local write_line bake_line
+  write_line="$(awk '/rm -f \/etc\/sddm.conf.d\/zz-agent-autologin.conf/ {
+    print NR }' <<<"$output")"
+  bake_line="$(awk '/resnapshot.sh/ { print NR; exit }' <<<"$output")"
+  [ -n "$write_line" ]
+  [ -n "$bake_line" ]
+  (( write_line < bake_line ))
 }
 
 # ── Feature Audit verbs (ADR 0152) ───────────────────────────────────────────

@@ -79,9 +79,9 @@ setup() {
 # ── validate: disk_counts agree with the picker min-disk table ──────────────
 
 @test "skeleton_validate: every preset is installable" {
-  for p in single os-mirror os-mirror-raidz1 data-pools; do
-    run skeleton_validate "$(skeleton_preset "$p")"
-    [ "$status" -eq 0 ] || { echo "preset $p rejected: $output"; return 1; }
+  for preset in single os-mirror os-mirror-raidz1 data-pools; do
+    run skeleton_validate "$(skeleton_preset "$preset")"
+    [ "$status" -eq 0 ] || { echo "preset $preset rejected: $output"; return 1; }
   done
 }
 
