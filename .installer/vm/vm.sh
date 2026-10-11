@@ -65,12 +65,13 @@ USAGE
 }
 
 main() {
-  local profile_ref="" testing=0 print_config=0 recreate=0 verify_boot=0 guided=0
+  local profile_reference="" testing=0 print_config=0 recreate=0
+  local verify_boot=0 guided=0
   local hold_on_fail=0 rescue=0 verify_aur=0
   while (($#)); do
     case "$1" in
-      --profile)      profile_ref="${2:-}"; shift 2 ;;
-      --profile=*)    profile_ref="${1#*=}"; shift ;;
+      --profile)      profile_reference="${2:-}"; shift 2 ;;
+      --profile=*)    profile_reference="${1#*=}"; shift ;;
       --testing)      testing=1; shift ;;
       --guided)       guided=1; shift ;;
       --recreate)     recreate=1; shift ;;
@@ -84,37 +85,51 @@ main() {
     esac
   done
 
-  [[ -n "$profile_ref" ]] || { usage >&2; die "--profile is required"; }
-
-  # --guided is a disposable test flow (like --testing) that drives the Guided
-  # Installer headlessly; it resolves profiles under tests/vm/profiles/ too.
-  # An absolute path to an existing profile file is used verbatim — the seam the
-  # Combination Matrix uses to run an ephemeral, tmpfs-materialized cell profile
-  # (matrix.sh emit) without staging it under the profiles tree (ADR 0046).
+  [[ -n "$profile_reference" ]] || { usage >&2; die "--profile is required"; }
   local profile_file
-  if [[ "$profile_ref" == /* && -f "$profile_ref" ]]; then
-    profile_file="$profile_ref"
-  else
-    local base
-    if ((testing || guided)); then base="$INSTALLER_DIR/tests/vm/profiles"; else
-      base="$INSTALLER_DIR/vm/profiles"; fi
-    profile_file="$base/$profile_ref.jsonc"
-  fi
+  profile_file="$(profile_file_path "$profile_reference" "$testing" "$guided")"
   [[ -f "$profile_file" ]] || die "profile not found: $profile_file"
 
-  local hosts_dir="$INSTALLER_DIR/hosts"
+  local hosts_directory="$INSTALLER_DIR/hosts"
   local profile_json
   profile_json="$(jsonc_strip "$profile_file" | jq '.')" \
     || die "profile is not valid JSONC: $profile_file"
 
-  profile_validate "$profile_json" "$hosts_dir" || exit 1
+  profile_validate "$profile_json" "$hosts_directory" || exit 1
 
   if ((print_config)); then
     vm_profile_resolve_config "$profile_json"
     return 0
   fi
 
-  # ── Map the profile into the harness contract (env overrides win) ───────────
+  map_profile_contract "$profile_json"
+  map_verify_contract "$profile_json" "$verify_boot" "$verify_aur" \
+    "$hold_on_fail"
+  RECREATE=$( ((recreate)) && echo true || echo false )
+  run_flow "$rescue" "$guided" "$testing"
+}
+
+# profile_file_path <reference> <testing> <guided> — --guided is a disposable
+# test flow (like --testing) that drives the Guided Installer headlessly; it
+# resolves profiles under tests/vm/profiles/ too. An absolute path to an
+# existing profile file is used verbatim — the seam the Combination Matrix uses
+# to run an ephemeral, tmpfs-materialized cell profile (matrix.sh emit) without
+# staging it under the profiles tree (ADR 0046).
+profile_file_path() {
+  local profile_reference="$1" testing="$2" guided="$3" base
+  if [[ "$profile_reference" == /* && -f "$profile_reference" ]]; then
+    printf '%s\n' "$profile_reference"
+    return 0
+  fi
+  if ((testing || guided)); then base="$INSTALLER_DIR/tests/vm/profiles"; else
+    base="$INSTALLER_DIR/vm/profiles"; fi
+  printf '%s\n' "$base/$profile_reference.jsonc"
+}
+
+# map_profile_contract <profile-json> — map the profile into the harness
+# contract (env overrides win): VM shape, Install Config, fixtures, timeouts.
+map_profile_contract() {
+  local profile_json="$1"
   VM_NAME="$(jq -r '.name' <<<"$profile_json")"
   # shellcheck disable=SC2034 # consumed by core.sh _core_vm_create via the flow
   mapfile -t VM_DISK_SIZES < <(jq -r '.hardware.disks[]' <<<"$profile_json")
@@ -122,39 +137,62 @@ main() {
   VM_VCPUS="${VM_VCPUS:-$(jq -r '.hardware.vcpus' <<<"$profile_json")}"
   INSTALL_CONFIG_CONTENT="$(vm_profile_resolve_config "$profile_json")"
 
-  # shellcheck disable=SC2034 # both consumed by core.sh _core_stage_fixture_files
+  # Both consumed by core.sh _core_stage_fixture_files.
+  # shellcheck disable=SC2034
   mapfile -t VM_FIXTURE_FILES < <(jq -r '.fixtures[]?' <<<"$profile_json")
   # shellcheck disable=SC2034
   VM_SCRIPT_DIR="$INSTALLER_DIR/vm"
 
   # Timeouts: env > profile > flow default. An empty profile value leaves the
   # flow's own `: "${VAR:=default}"` to apply.
-  INSTALL_TIMEOUT_SEC="${INSTALL_TIMEOUT_SEC:-$(jq -r '.timeouts.install // empty' <<<"$profile_json")}"
-  TIMEOUT_SEC="${TIMEOUT_SEC:-$(jq -r '.timeouts.install // empty' <<<"$profile_json")}"
-  BOOT_TIMEOUT_SEC="${BOOT_TIMEOUT_SEC:-$(jq -r '.timeouts.boot // empty' <<<"$profile_json")}"
+  INSTALL_TIMEOUT_SEC="${INSTALL_TIMEOUT_SEC:-$(
+    jq -r '.timeouts.install // empty' <<<"$profile_json")}"
+  TIMEOUT_SEC="${TIMEOUT_SEC:-$(
+    jq -r '.timeouts.install // empty' <<<"$profile_json")}"
+  BOOT_TIMEOUT_SEC="${BOOT_TIMEOUT_SEC:-$(
+    jq -r '.timeouts.boot // empty' <<<"$profile_json")}"
+}
 
-  # Verify block (test flow): env > profile; --verify-boot forces boot verify.
-  VERIFY_BOOT="${VERIFY_BOOT:-$(jq -r '.verify.boot // false' <<<"$profile_json")}"
+# map_verify_contract <profile-json> <verify-boot> <verify-aur> <hold-on-fail>
+# — the verify block (test flow): env > profile; flags force their checks.
+map_verify_contract() {
+  local profile_json="$1" verify_boot="$2" verify_aur="$3" hold_on_fail="$4"
+  VERIFY_BOOT="${VERIFY_BOOT:-$(
+    jq -r '.verify.boot // false' <<<"$profile_json")}"
   ((verify_boot)) && VERIFY_BOOT=true
   # verify.aur_audit (ADR 0143): the booted VM audits itself; needs boot verify.
   VM_VERIFY_AUR_AUDIT="${VM_VERIFY_AUR_AUDIT:-$(
     jq -r '.verify.aur_audit // false' <<<"$profile_json")}"
   ((verify_aur)) && VM_VERIFY_AUR_AUDIT=true
   [[ "$VM_VERIFY_AUR_AUDIT" == true ]] && VERIFY_BOOT=true
-  DIRTY_CACHE="${DIRTY_CACHE:-$(jq -r '.verify.dirty_cache // false' <<<"$profile_json")}"
-  # Hold-on-fail (ADR 0099): env > profile > flag. When on, a failed test cell is
-  # left running with a serial autologin shell instead of powering off.
-  HOLD_ON_FAIL="${HOLD_ON_FAIL:-$(jq -r '.verify.hold_on_fail // false' <<<"$profile_json")}"
+  DIRTY_CACHE="${DIRTY_CACHE:-$(
+    jq -r '.verify.dirty_cache // false' <<<"$profile_json")}"
+  # Hold-on-fail (ADR 0099): env > profile > flag. When on, a failed test
+  # cell is left running with a serial autologin shell instead of powering
+  # off.
+  HOLD_ON_FAIL="${HOLD_ON_FAIL:-$(
+    jq -r '.verify.hold_on_fail // false' <<<"$profile_json")}"
   ((hold_on_fail)) && HOLD_ON_FAIL=true
-  VM_VERIFY_BYID="${VM_VERIFY_BYID:-$(jq -r '.verify.by_id // false' <<<"$profile_json")}"
-  VM_REORDER_BOOT_DISKS="${VM_REORDER_BOOT_DISKS:-$(jq -r '.verify.reorder_boot_disks // false' <<<"$profile_json")}"
+  VM_VERIFY_BYID="${VM_VERIFY_BYID:-$(
+    jq -r '.verify.by_id // false' <<<"$profile_json")}"
+  VM_REORDER_BOOT_DISKS="${VM_REORDER_BOOT_DISKS:-$(
+    jq -r '.verify.reorder_boot_disks // false' <<<"$profile_json")}"
   mapfile -t VM_VERIFY_POOLS  < <(jq -r '.verify.pools[]?'  <<<"$profile_json")
   mapfile -t VM_VERIFY_MOUNTS < <(jq -r '.verify.mounts[]?' <<<"$profile_json")
   mapfile -t VM_VERIFY_OWNED  < <(jq -r '.verify.owned[]?'  <<<"$profile_json")
-  mapfile -t VM_VERIFY_FS_MOUNTS < <(jq -r '.verify.fs_mounts[]?' <<<"$profile_json")
+  mapfile -t VM_VERIFY_FS_MOUNTS < <(jq -r '.verify.fs_mounts[]?' \
+    <<<"$profile_json")
   # Per-desktop session verification (ADR 0062): each name here has its
   # session-launch artifacts asserted on the booted system (===<TAG>-OK===).
-  mapfile -t VM_VERIFY_DESKTOPS < <(jq -r '.verify.desktops[]?' <<<"$profile_json")
+  mapfile -t VM_VERIFY_DESKTOPS < <(jq -r '.verify.desktops[]?' \
+    <<<"$profile_json")
+  map_session_contract "$profile_json"
+}
+
+# map_session_contract <profile-json> — the Display Manager, session logins,
+# virtual GPU and rollback checks of the verify block.
+map_session_contract() {
+  local profile_json="$1"
   # Display Manager (ADR 0069/0091): resolve display_manager as the installer
   # does, so boot-verify asserts the right greeter. `auto` is desktop-aware
   # (ADR 0091): sddm when kde is present, else greetd for a KDE-free set; `none`
@@ -171,32 +209,41 @@ main() {
   # Per-desktop LOGIN verification (ADR 0062): each name here is actually logged
   # into (SDDM Autologin, one per boot) and its compositor confirmed up
   # (===<TAG>-SESSION-OK===). Needs a GPU (below) and a login user.
-  mapfile -t VM_VERIFY_SESSIONS < <(jq -r '.verify.sessions[]?' <<<"$profile_json")
+  mapfile -t VM_VERIFY_SESSIONS < <(jq -r '.verify.sessions[]?' \
+    <<<"$profile_json")
   VM_SESSION_USER="${VM_SESSION_USER:-$(jq -r '
-    .verify.session_user // (.install.users[0]? // "aquastias")' <<<"$profile_json")}"
+    .verify.session_user // (.install.users[0]? // "aquastias")' \
+    <<<"$profile_json")}"
   # A virtual GPU (virtio-gpu + virgl, headless) — required for a real Wayland
-  # session to start. Implied by verify.sessions, else the profile's hardware.gpu.
+  # session to start. Implied by verify.sessions, else the profile's
+  # hardware.gpu.
   if ((${#VM_VERIFY_SESSIONS[@]})); then
     VM_GPU=true
   else
     VM_GPU="${VM_GPU:-$(jq -r '.hardware.gpu // false' <<<"$profile_json")}"
   fi
-  VM_VERIFY_RESILIENCE="${VM_VERIFY_RESILIENCE:-$(jq -r '.verify.resilience // false' <<<"$profile_json")}"
-  VM_VERIFY_ROLLBACK="${VM_VERIFY_ROLLBACK:-$(jq -r '.verify.rollback // false' <<<"$profile_json")}"
+  VM_VERIFY_RESILIENCE="${VM_VERIFY_RESILIENCE:-$(
+    jq -r '.verify.resilience // false' <<<"$profile_json")}"
+  VM_VERIFY_ROLLBACK="${VM_VERIFY_ROLLBACK:-$(
+    jq -r '.verify.rollback // false' <<<"$profile_json")}"
   # The rollback proof's mechanics follow the root filesystem (zfs datasets vs
   # btrfs subvols, ADR 0044); derive it from the config so a btrfs impermanence
-  # profile needs no env override. `install` may be the string "repo" (install the
-  # repo default host profile) rather than an inline object, so guard the index —
-  # indexing a string aborts jq (exit 5) and, under set -e, the whole harness.
+  # profile needs no env override. `install` may be the string "repo"
+  # (install the repo default host profile) rather than an inline object, so
+  # guard the index — indexing a string aborts jq (exit 5) and, under set -e,
+  # the whole harness.
   VM_ROLLBACK_FS="${VM_ROLLBACK_FS:-$(jq -r '
     if (.install | type) == "object" then (.install.filesystem // "zfs")
     else "zfs" end' <<<"$profile_json")}"
+}
 
-  RECREATE=$( ((recreate)) && echo true || echo false )
-
-  # ── Dispatch to the selected flow (each guard-sources core.sh) ──────────────
-  # --rescue is a persistent-flow-only operation on an existing VM: re-attach the
-  # ISO + seed and boot the live env to inspect a broken install (ADR 0099).
+# run_flow <rescue> <guided> <testing> — dispatch to the selected flow (each
+# guard-sources core.sh).
+run_flow() {
+  local rescue="$1" guided="$2" testing="$3"
+  # --rescue is a persistent-flow-only operation on an existing VM: re-attach
+  # the ISO + seed and boot the live env to inspect a broken install
+  # (ADR 0099).
   if ((rescue)); then
     # shellcheck source=lib/flow-persistent.sh
     source "$SELF_DIR/lib/flow-persistent.sh"

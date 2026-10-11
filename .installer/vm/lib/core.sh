@@ -43,10 +43,10 @@ source "${CORE_DIR}/host-capacity.sh"
 _core_ensure_dependencies() {
   local common=(virt-install:virt-install virsh:libvirt \
                 cloud-localds:cloud-image-utils jq:jq)
-  local missing=() pair cmd pkg
+  local missing=() pair command_name package
   for pair in "${common[@]}" "$@"; do
-    cmd="${pair%%:*}"; pkg="${pair##*:}"
-    command -v "$cmd" >/dev/null 2>&1 || missing+=("$pkg")
+    command_name="${pair%%:*}"; package="${pair##*:}"
+    command -v "$command_name" >/dev/null 2>&1 || missing+=("$package")
   done
   if ((${#missing[@]} > 0)); then
     info "Installing missing host dependencies: ${missing[*]}"
@@ -55,7 +55,9 @@ _core_ensure_dependencies() {
 }
 
 _core_ensure_libvirt_group() {
-  if ! id -nG "$USER" | tr ' ' '\n' | grep -qx libvirt; then
+  if ! id -nG "$USER" \
+      | awk '{ for (i = 1; i <= NF; i++) if ($i == "libvirt") found = 1 }
+             END { exit !found }'; then
     error "User '$USER' is not in the 'libvirt' group.
   Run:  sudo usermod -aG libvirt $USER
   Then log out and back in (or run: newgrp libvirt) before retrying."
@@ -75,19 +77,19 @@ _core_ensure_libvirtd() {
 # 0099; see docs/agents/vm-sandbox.md). Best-effort probe: `virsh uri` connects
 # to the daemon without touching any domain.
 _core_ensure_libvirt_reachable() {
-  local err
-  err="$(virsh uri 2>&1 >/dev/null)" && return 0
+  local error_text
+  error_text="$(virsh uri 2>&1 >/dev/null)" && return 0
   if systemctl is-active --quiet libvirtd 2>/dev/null; then
     # Daemon is up but virsh cannot connect → almost certainly a sandbox-blocked
     # socket (or a permissions issue), not a dead daemon.
     error "libvirt unreachable (sandbox?) — libvirtd is running but 'virsh' \
 cannot reach its socket:
-  ${err}
+  ${error_text}
   If this ran under a sandbox, the libvirt socket is likely blocked; retry the
   same command with the sandbox disabled (see docs/agents/vm-sandbox.md)."
   else
     error "libvirt unreachable — libvirtd is not reachable:
-  ${err}
+  ${error_text}
   Start it (sudo systemctl enable --now libvirtd), or if under a sandbox that \
 blocks the socket, retry with the sandbox disabled (docs/agents/vm-sandbox.md)."
   fi
@@ -99,8 +101,8 @@ blocks the socket, retry with the sandbox disabled (docs/agents/vm-sandbox.md)."
 # Current DHCP lease of the domain's first NIC, or empty if none yet.
 _core_vm_ip_now() {
   virsh domifaddr "$VM_NAME" 2>/dev/null \
-    | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' \
-    | head -1
+    | awk \
+    'NR>2 { split($4, a, "/"); if (a[1] ~ /^[0-9]/) { print a[1]; exit } }'
 }
 
 _core_vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
@@ -112,10 +114,15 @@ _core_vm_running() {
 # Used to detect stale ISO references.
 _core_vm_install_iso_path() {
   virsh dumpxml "$VM_NAME" 2>/dev/null |
-    sed -n "/device='cdrom'/,/<\/disk>/p" |
-    grep -oE "source file='[^']+\.iso'" |
-    head -1 |
-    sed -E "s/^source file='(.*)'\$/\1/"
+    awk -v q="'" '
+      BEGIN { start = "device=" q "cdrom" q
+              source = "source file=" q "[^" q "]+\\.iso" q }
+      !in_disk && $0 ~ start { in_disk = 1; first = 1 }
+      in_disk && match($0, source) {
+        print substr($0, RSTART + 13, RLENGTH - 14); exit
+      }
+      in_disk && !first && /<\/disk>/ { in_disk = 0 }
+      { first = 0 }'
 }
 
 # =============================================================================
@@ -123,29 +130,29 @@ _core_vm_install_iso_path() {
 # =============================================================================
 # Pinned-override download: cache <downloads_dir>/<basename>, fetch if absent.
 _core_resolve_pinned_iso() {
-  local url="$1" downloads_dir="$2"
+  local url="$1" downloads_directory="$2"
   local filename="${url##*/}"
-  local target="${downloads_dir%/}/${filename}"
+  local target="${downloads_directory%/}/${filename}"
   if [[ -f "$target" ]]; then printf '%s\n' "$target"; return 0; fi
-  local tmp="${target}.partial"
-  curl -fSL --retry 2 -o "$tmp" "$url" >&2 || {
-    rm -f "$tmp"
+  local partial_path="${target}.partial"
+  curl -fSL --retry 2 -o "$partial_path" "$url" >&2 || {
+    rm -f "$partial_path"
     error "Pinned ISO download failed: $url"
   }
-  mv -f "$tmp" "$target"
+  mv -f "$partial_path" "$target"
   printf '%s\n' "$target"
 }
 
 # vm_resolve_iso <iso_dir> — pinned override else newest archzfs-compatible.
 # Prints the ISO path on stdout; status/info on stderr.
 vm_resolve_iso() {
-  local iso_dir="$1" iso
+  local iso_directory="$1" iso
   if [[ -n "$ISO_URL_OVERRIDE" ]]; then
-    iso="$(_core_resolve_pinned_iso "$ISO_URL_OVERRIDE" "$iso_dir")"
+    iso="$(_core_resolve_pinned_iso "$ISO_URL_OVERRIDE" "$iso_directory")"
     info "ISO (pinned): ${iso}" >&2
   else
     info "Picking newest archived ISO whose kernel archzfs supports." >&2
-    iso="$(iso_resolver_get_zfs_compatible "$iso_dir")"
+    iso="$(iso_resolver_get_zfs_compatible "$iso_directory")"
     info "ISO (archzfs-compatible): ${iso}" >&2
   fi
   printf '%s\n' "$iso"
@@ -155,16 +162,18 @@ vm_resolve_iso() {
 # STORAGE POOL HELPERS
 # =============================================================================
 _core_pool_for_directory() {
-  local dir
-  dir="$(realpath "$1")"
+  local directory
+  directory="$(readlink -f "$1")"
   local name target
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     target="$(virsh pool-dumpxml "$name" 2>/dev/null \
-              | sed -n 's|.*<path>\(.*\)</path>.*|\1|p' | head -1)"
+              | awk '/<path>.*<\/path>/ {
+                  sub(/.*<path>/, ""); sub(/<\/path>.*/, ""); print; exit
+                }')"
     [[ -n "$target" ]] || continue
-    target="$(realpath "$target" 2>/dev/null || printf '%s' "$target")"
-    [[ "$target" == "$dir" ]] && { printf '%s\n' "$name"; return 0; }
+    target="$(readlink -f "$target" 2>/dev/null || printf '%s' "$target")"
+    [[ "$target" == "$directory" ]] && { printf '%s\n' "$name"; return 0; }
   done < <(virsh pool-list --name 2>/dev/null)
   return 1
 }
@@ -173,7 +182,8 @@ _core_pool_for_directory() {
 # downloaded ISO/seed is visible to the domain. No-op when not pool-backed.
 _core_refresh_pool_for_path() {
   local pool
-  pool="$(_core_pool_for_directory "$(dirname "$1")" 2>/dev/null)" || return 0
+  pool="$(_core_pool_for_directory "$(parent_directory "$1")" 2>/dev/null)" \
+    || return 0
   virsh pool-refresh "$pool" >/dev/null
 }
 
@@ -206,20 +216,21 @@ _core_vm_destroy_undefine() {
 # graphics/video/channel flags via FLOW_GRAPHICS_ARGS[].
 _core_vm_create() {
   local iso="$1" seed="$2"
-  local disk_args=() i
+  local disk_arguments=() i
   for i in "${!VM_DISK_SIZES[@]}"; do
     local disk_path="${CACHE_DIR}/${VM_NAME}-disk${i}.qcow2"
     # serial: a stable by-id name per port — the live ISO may name SATA
     # disks out of order (flow-persistent's pin_disks, tuned 20261008)
     local spec="path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2"
-    disk_args+=(--disk "${spec},bus=sata,serial=vmdisk${i}")
+    disk_arguments+=(--disk "${spec},bus=sata,serial=vmdisk${i}")
   done
   # VM_PM (Feature Audit, ADR 0152): expose ACPI S3/S4 so a guest suspend
   # can be woken by `virsh dompmwakeup`.
-  local -a pm_args=()
+  local -a power_management_arguments=()
   # shellcheck disable=SC2054 # one virt-install --pm value
   [[ -n "${VM_PM:-}" ]] \
-    && pm_args=(--pm suspend_to_mem.enabled=on,suspend_to_disk.enabled=on)
+    && power_management_arguments=(--pm \
+    suspend_to_mem.enabled=on,suspend_to_disk.enabled=on)
   local disk_summary
   disk_summary="$(printf '%sG ' "${VM_DISK_SIZES[@]}")"
   info "Creating VM '${VM_NAME}'" \
@@ -231,13 +242,13 @@ _core_vm_create() {
     --osinfo        archlinux \
     --boot          uefi \
     --boot          cdrom,hd \
-    "${disk_args[@]}" \
+    "${disk_arguments[@]}" \
     --disk "path=${iso},device=cdrom,bus=sata,readonly=on,format=raw" \
     --disk "path=${seed},device=cdrom,bus=sata,readonly=on,format=raw" \
     --network       network=default \
     "${FLOW_GRAPHICS_ARGS[@]}" \
     --console       pty,target_type=serial \
-    "${pm_args[@]}" \
+    "${power_management_arguments[@]}" \
     --noautoconsole \
     --noreboot
 }
@@ -275,10 +286,11 @@ _core_vm_boot() {
 # ISO (the domain is created --boot cdrom,hd). Shared by both flows; operates on
 # the persistent config so it survives the next start. Best-effort, never fatal.
 _core_vm_eject_cdroms() {
-  local tgt
-  while read -r tgt; do
-    [[ -n "$tgt" ]] || continue
-    virsh change-media "$VM_NAME" "$tgt" --eject --config >/dev/null 2>&1 || true
+  local target
+  while read -r target; do
+    [[ -n "$target" ]] || continue
+    virsh change-media "$VM_NAME" "$target" --eject --config >/dev/null 2>&1 \
+      || true
   done < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
             | awk '$2 == "cdrom" { print $3 }')
 }
@@ -360,14 +372,14 @@ _core_wait_for_serial_pty() {
 # operates on the persistent config so it survives the next start. Best-effort.
 _core_vm_insert_cdroms() {
   local iso="$1" seed="${2:-}"
-  local -a tgts=()
-  mapfile -t tgts < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
+  local -a targets=()
+  mapfile -t targets < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
     | awk '$2 == "cdrom" { print $3 }')
-  [[ -n "${tgts[0]:-}" && -n "$iso" ]] \
-    && virsh change-media "$VM_NAME" "${tgts[0]}" "$iso" \
+  [[ -n "${targets[0]:-}" && -n "$iso" ]] \
+    && virsh change-media "$VM_NAME" "${targets[0]}" "$iso" \
          --insert --config >/dev/null 2>&1 || true
-  [[ -n "${tgts[1]:-}" && -n "$seed" ]] \
-    && virsh change-media "$VM_NAME" "${tgts[1]}" "$seed" \
+  [[ -n "${targets[1]:-}" && -n "$seed" ]] \
+    && virsh change-media "$VM_NAME" "${targets[1]}" "$seed" \
          --insert --config >/dev/null 2>&1 || true
 }
 
@@ -404,7 +416,7 @@ _core_stage_fixture_files() {
     fi
     [[ -f "$resolved" ]] \
       || error "VM_FIXTURE_FILES: missing source file: $entry"
-    base="$(basename "$resolved")"
+    base="$(base_name "$resolved")"
     [[ "$base" == "run" ]] \
       && error "VM_FIXTURE_FILES: basename collides with installer 'run': $entry"
     [[ -n "${_seen[$base]:-}" ]] \

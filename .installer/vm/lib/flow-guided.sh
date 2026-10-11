@@ -27,7 +27,7 @@ FLOW_GUIDED_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 # answers so the replayed menu exercises the filesystem-first Disks section
 # (issue 03 L4) end-to-end.
 _flow_render_user_data() {
-  local repo_url="$1" hostname encryption impermanence layout n_disks=1
+  local repo_url="$1" hostname encryption impermanence layout disk_count=1
   hostname="$(jq -r '.system.hostname // "arch-guided"' \
     <<<"${INSTALL_CONFIG_CONTENT}")"
   encryption="$(jq -r '.options.encryption // false' \
@@ -41,7 +41,7 @@ _flow_render_user_data() {
     # shellcheck source=../../lib/config/skeleton.sh
     [[ "$(type -t skeleton_total_disks)" == function ]] \
       || source "$INSTALLER_DIR/lib/config/skeleton.sh"
-    n_disks="$(skeleton_total_disks "$(skeleton_preset "$layout")")"
+    disk_count="$(skeleton_total_disks "$(skeleton_preset "$layout")")"
   fi
   # guided_user (issue 07) names an ad-hoc user + passwords the replay authors;
   # the seed appends the create-user form keys + the USER-OK boot check.
@@ -62,6 +62,6 @@ _flow_render_user_data() {
   manual="$(jq -r '.guided_manual // false' <<<"${INSTALL_CONFIG_CONTENT}")"
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
-    "$encryption" "$impermanence" "$layout" "$n_disks" "$guided_user" \
+    "$encryption" "$impermanence" "$layout" "$disk_count" "$guided_user" \
     "$guided_extras" "$bind_devices" "$manual"
 }

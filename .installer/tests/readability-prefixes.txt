@@ -72,3 +72,6 @@ file .installer/lib/packages/package-resolver-desktop.sh package_resolver_ _pack
 file .installer/lib/config/validation-programs.sh validation_ _validation_
 file .installer/lib/guided/controller*.sh guided_ _controller_
 file .installer/lib/feature-audit/live*.sh feature_audit_ _live_
+file .installer/vm/lib/flow-persistent*.sh vm_ _flow_persistent_
+file .installer/vm/lib/seed-generator*.sh vm_ _seed_generator_
+file .installer/vm/lib/agent-*.sh agent_ _agent_

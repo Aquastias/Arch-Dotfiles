@@ -56,8 +56,8 @@ vm_host_capacity_force_serial() {
 # total host RAM, so even one VM never thrashes the host. Reject (1) otherwise,
 # or when host_total is unknown/zero.
 vm_host_capacity_admit() {
-  local vm_mb="$1" host_mb="$2" pct="${3:-$HOST_CAP_SAFE_PCT}"
+  local vm_mb="$1" host_mb="$2" safe_percent="${3:-$HOST_CAP_SAFE_PCT}"
   [[ "$vm_mb" =~ ^[0-9]+$ && "$host_mb" =~ ^[0-9]+$ ]] || return 1
   (( host_mb > 0 )) || return 1
-  (( vm_mb * 100 <= host_mb * pct ))
+  (( vm_mb * 100 <= host_mb * safe_percent ))
 }

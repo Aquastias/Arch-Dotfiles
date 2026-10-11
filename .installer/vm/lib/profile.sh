@@ -12,11 +12,11 @@
 # Sourced by vm/vm.sh and tests/vm/profile.bats.
 # =============================================================================
 
-# shellcheck source=../../lib/config/profile-loader.sh Brings
-# profile_loader_load + profile_loader_assemble_config (and, transitively,
-# picker.sh + layers.sh) — the same loader/assembler the real install front-end
-# uses, so a VM resolves the unified profile.jsonc rather than a copied Install
-# Template.
+# Brings profile_loader_load + profile_loader_assemble_config (and,
+# transitively, picker.sh + layers.sh) — the same loader/assembler the real
+# install front-end uses, so a VM resolves the unified profile.jsonc rather
+# than a copied Install Template.
+# shellcheck source=../../lib/config/profile-loader.sh
 source "${BASH_SOURCE[0]%/*}/../../lib/config/profile-loader.sh"
 
 # The host profile install:"repo" resolves to — the designated default. One
@@ -32,7 +32,7 @@ VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-arch-kde}"
 #   the unified loader/assembler under INSTALLER_DIR.
 vm_profile_resolve_config() {
   local profile="$1"
-  local host_profile install_type install_str
+  local host_profile install_type install_text
   host_profile="$(jq -r '.host_profile // empty' <<<"$profile")"
   if [[ -n "$host_profile" ]]; then
     _profile_resolve_host "$profile" "$host_profile"
@@ -42,11 +42,13 @@ vm_profile_resolve_config() {
   if [[ "$install_type" == "object" ]]; then
     jq '.install' <<<"$profile"
   elif [[ "$install_type" == "string" ]]; then
-    install_str="$(jq -r '.install' <<<"$profile")"
-    if [[ "$install_str" == "repo" ]]; then
+    install_text="$(jq -r '.install' <<<"$profile")"
+    if [[ "$install_text" == "repo" ]]; then
       _profile_resolve_repo "$profile"
     else
-      echo "profile: unknown install string '$install_str' (expected \"repo\")" >&2
+      echo \
+        "profile: unknown install string '$install_text'" \
+        "(expected \"repo\")" >&2
       return 1
     fi
   fi

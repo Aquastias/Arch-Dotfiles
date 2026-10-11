@@ -60,7 +60,7 @@ _call() { run bash -c "source '$AGENT'; $1"; }
 @test "session env carries the locale (no Qt locale-C fallback)" {
   # Agent-launched Qt apps logged "Detected locale C" (Audit Run 20260929):
   # the session env import dropped LANG/LC_*.
-  _call '_remote_environment_function'
+  _call '_agent_remote_environment_function'
   [[ "$output" == *"LANG=*"* ]]
   [[ "$output" == *"LC_*=*"* ]]
 }

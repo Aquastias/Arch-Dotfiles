@@ -37,18 +37,18 @@
 SENTINEL_WATCHER_REGEX='^===INSTALLER-EXIT-([0-9]+)===[[:space:]]*$'
 
 vm_sentinel_watcher_wait() {
-  local log_path="$1" timeout_sec="$2"
+  local log_path="$1" timeout_seconds="$2"
 
   [[ -n "$log_path" ]] || {
     echo "sentinel-watcher: log path is empty" >&2
     return 2
   }
-  [[ "$timeout_sec" =~ ^[0-9]+$ ]] || {
+  [[ "$timeout_seconds" =~ ^[0-9]+$ ]] || {
     echo "sentinel-watcher: timeout must be a non-negative integer" >&2
     return 2
   }
 
-  local deadline=$((SECONDS + timeout_sec))
+  local deadline=$((SECONDS + timeout_seconds))
   local line code
 
   while ((SECONDS < deadline)); do
@@ -71,7 +71,7 @@ vm_sentinel_watcher_wait() {
 }
 
 vm_sentinel_watcher_wait_marker() {
-  local log_path="$1" marker="$2" timeout_sec="$3"
+  local log_path="$1" marker="$2" timeout_seconds="$3"
 
   [[ -n "$log_path" ]] || {
     echo "sentinel-watcher: log path is empty" >&2
@@ -81,12 +81,12 @@ vm_sentinel_watcher_wait_marker() {
     echo "sentinel-watcher: marker is empty" >&2
     return 2
   }
-  [[ "$timeout_sec" =~ ^[0-9]+$ ]] || {
+  [[ "$timeout_seconds" =~ ^[0-9]+$ ]] || {
     echo "sentinel-watcher: timeout must be a non-negative integer" >&2
     return 2
   }
 
-  local deadline=$((SECONDS + timeout_sec))
+  local deadline=$((SECONDS + timeout_seconds))
   while ((SECONDS < deadline)); do
     if grep -F -q -- "$marker" "$log_path" 2>/dev/null; then
       return 0

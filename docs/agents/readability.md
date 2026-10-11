@@ -328,6 +328,14 @@ vm/lib/ (directory API `vm_`)
 - `console-answerer.sh`, `host-capacity.sh`, `profile.sh`,
   `profile-validate.sh`, `seed-generator.sh`, `sentinel-watcher.sh`,
   `esp-resilience-verify.sh`: public → `vm_<stem>_`, private `_<stem>_`
+- `flow-persistent.sh` split into `flow-persistent.sh` +
+  `flow-persistent-run.sh`; `seed-generator.sh` into `seed-generator.sh` +
+  `seed-generator-firstboot.sh` — one `file` rule per pair
+  (`flow-persistent*.sh`, `seed-generator*.sh`) keeps each on `vm_` /
+  `_<stem>_`
+- `agent-commands.sh` (new): `vm-agent.sh`'s pure helpers; a `file` rule
+  (`agent-*.sh`) keeps them on `agent_` / `_agent_`; agent verbs stay
+  frozen
 - `vm-pool-verify.sh`: `vm_pool_*` → `=`
 
 extras/desktop/ (Desktop Environment Adapters)

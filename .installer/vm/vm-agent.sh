@@ -57,255 +57,18 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  sed -n '4,37p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  awk 'NR >= 4 && NR <= 37 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
 }
 
-# ── pure helpers (unit-tested; no libvirt, no SSH) ───────────────────────────
-
-# agent_key_path — the harness SSH key, identical to flow-persistent's.
-agent_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
-
-# agent_ssh_mux_options <dir> — client ssh options that ride a shared master
-# connection when one is up (else ssh connects directly). ufw's `limit ssh`
-# rejects a 6th connection in 30s, and the harness runs one command per call.
-# ServerAlive drops a master whose guest rebooted.
-agent_ssh_mux_options() {
-  printf -- '-o\n%s\n' "ControlPath=$1/%C" ServerAliveInterval=5 \
-    ServerAliveCountMax=2
-}
-
-# _agent_mux_directory — private socket dir for agent_ssh_mux_options.
-_agent_mux_directory() {
-  local d="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/vm-agent-mux"
-  mkdir -p "$d" && chmod 700 "$d" && printf '%s\n' "$d"
-}
-
-# agent_resolve_name <selector> — VM domain name from a --profile ref (read
-# .name from the profile jsonc) or a bare --vm name (verbatim).
-agent_resolve_name() {
-  local kind="$1" ref="$2"
-  if [[ "$kind" == vm ]]; then printf '%s\n' "$ref"; return 0; fi
-  local file
-  if [[ "$ref" == /* && -f "$ref" ]]; then file="$ref"
-  else file="$INSTALLER_DIR/vm/profiles/$ref.jsonc"; fi
-  [[ -f "$file" ]] || die "profile not found: $file"
-  jsonc_strip "$file" | jq -er '.name' \
-    || die "profile has no .name: $file"
-}
-
-# agent_session_desktop <niri|hyprland|kde> — the DM Session= .desktop id.
-agent_session_desktop() {
-  case "$1" in
-    niri)     printf 'niri.desktop\n' ;;
-    hyprland) printf 'hyprland.desktop\n' ;;
-    kde)      printf 'plasma.desktop\n' ;;
-    *)        return 1 ;;
-  esac
-}
-
-# agent_session_command <niri|hyprland|kde> — the greetd initial_session command
-# (its session launcher; hyprland via start-hyprland, ADR 0070).
-agent_session_command() {
-  case "$1" in
-    niri)     printf 'niri-session\n' ;;
-    hyprland) printf 'start-hyprland\n' ;;
-    kde)      printf 'startplasma-wayland\n' ;;
-    *)        return 1 ;;
-  esac
-}
-
-# agent_autologin_config <sddm|greetd> <session> <user> — the autologin config
-# body for the resolved greeter (ADR 0069/0091). sddm → a drop-in [Autologin]
-# block; greetd → an [initial_session] table.
-agent_autologin_config() {
-  local dm="$1" session="$2" user="$3"
-  case "$dm" in
-    sddm)
-      printf '[Autologin]\nUser=%s\nSession=%s\nRelogin=true\n' \
-        "$user" "$(agent_session_desktop "$session")" ;;
-    greetd)
-      printf '[initial_session]\ncommand = "%s"\nuser = "%s"\n' \
-        "$(agent_session_command "$session")" "$user" ;;
-    *) return 1 ;;
-  esac
-}
-
-# agent_bake_blank_command — guest command that re-takes @blank on an impermanence
-# guest (no-op elsewhere). Its /etc rolls back on boot, so an autologin edit
-# not baked into @blank is lost on the reboot (ADR 0144).
-agent_bake_blank_command() {
-  local h=/usr/lib/impermanence/resnapshot.sh
-  printf "sh -c '[ ! -x %s ] || %s'\n" "$h" "$h"
-}
-
-# agent_shot_tool <compositor> — screenshot tool for the running compositor.
-agent_shot_tool() {
-  case "$1" in
-    kwin_wayland) printf 'spectacle\n' ;;
-    niri|Hyprland) printf 'grim\n' ;;
-    *) return 1 ;;
-  esac
-}
-
-# agent_pull_command <abs-guest-path> — guest command streaming the path as a tar
-# (relative to its parent) so `pull` lands it under the host dir by basename.
-agent_pull_command() {
-  local p="${1%/}"
-  [[ "$p" == /* && "$p" != / ]] || return 1
-  printf "tar -C '%s' -cf - '%s'\n" "${p%/*}" "${p##*/}" \
-    | sed "s|-C ''|-C '/'|"
-}
-
-# agent_network_command <on|off> — guest (root) command cutting/restoring internet
-# while host↔guest SSH stays up: drop the default route (saved) / put it back.
-# A link-down would sever the very SSH channel driving the guest.
-agent_network_command() {
-  local s=/run/vm-agent-default-route
-  case "$1" in
-    off) printf '%s' "sh -c '[ -s $s ] || ip route show default > $s;" \
-           " ip route del default 2>/dev/null; true'" ;;
-    on)  printf '%s' "sh -c '[ -s $s ] && while read -r r;" \
-           " do ip route replace \$r; done < $s; rm -f $s; true'" ;;
-    *) return 1 ;;
-  esac
-  printf '\n'
-}
-
-# agent_key_qcodes <chord> — xkb-style chord (Mod+Shift+Return) → QEMU qcodes
-# in press order. Mod/Super/Meta/Win are the logo key. Fails on a key QEMU
-# cannot inject (brightness, mic-mute, ...), so a caller can mark it SKIP.
-agent_key_qcodes() {
-  local tok q; local -a qs=()
-  local IFS=+
-  for tok in $1; do
-    tok="${tok// /}"
-    case "${tok,,}" in
-      mod|super|meta|win|logo) q=meta_l ;;
-      ctrl|control) q=ctrl ;;  shift) q="shift" ;;  alt) q=alt ;;
-      return|enter) q=ret ;;  escape|esc) q=esc ;;  space) q=spc ;;
-      tab) q=tab ;;  backspace) q=backspace ;;  delete) q=delete ;;
-      left|right|up|down|home|end|insert) q="${tok,,}" ;;
-      page_up|prior|pageup|pgup) q=pgup ;;
-      page_down|next|pagedown|pgdown|pgdn) q=pgdn ;;
-      print) q=print ;;  minus) q=minus ;;  equal) q=equal ;;
-      bracketleft) q=bracket_left ;;  bracketright) q=bracket_right ;;
-      comma) q=comma ;;  period) q="dot" ;;  slash) q=slash ;;
-      backslash) q=backslash ;;  semicolon) q=semicolon ;;
-      apostrophe) q=apostrophe ;;  grave) q=grave_accent ;;
-      xf86audioraisevolume|volumeup) q=volumeup ;;
-      xf86audiolowervolume|volumedown) q=volumedown ;;
-      xf86audiomute|volumemute) q=audiomute ;;
-      xf86audioplay|mediaplay) q=audioplay ;;
-      xf86audionext|medianext) q=audionext ;;
-      xf86audioprev|mediaprevious) q=audioprev ;;
-      xf86audiostop|mediastop) q=audiostop ;;
-      plus) q="shift equal" ;;  '~'|asciitilde) q="shift grave_accent" ;;
-      '`') q=grave_accent ;;  '=') q=equal ;;  '-') q=minus ;;
-      [a-z0-9]) q="${tok,,}" ;;
-      f[0-9]|f1[0-2]) q="${tok,,}" ;;
-      *) return 1 ;;
-    esac
-    qs+=("$q")
-  done
-  local IFS=' '
-  printf '%s\n' "${qs[*]}"
-}
-
-# agent_key_qmp <down|up> "<qcodes>" — the QMP input-send-event batch;
-# releases go in reverse so modifiers are held around the key.
-agent_key_qmp() {
-  local dir="$1" codes="$2"
-  jq -cn --arg d "$dir" --arg c "$codes" '
-    ($c | split(" ") | if $d == "up" then reverse else . end) as $k
-    | { execute: "input-send-event",
-        arguments: { events: [ $k[] | { type: "key",
-          data: { down: ($d == "down"),
-                  key: { type: "qcode", data: . } } } ] } }'
-}
-
-# agent_mouse_qmp move <x> <y> | btn <left|right|middle> <down|up>
-#   | wheel <up|down> — QMP pointer events (absolute tablet, 0..32767).
-agent_mouse_qmp() {
-  case "$1" in
-    move)
-      jq -cn --argjson x "$2" --argjson y "$3" '{ execute: "input-send-event",
-        arguments: { events: [
-          { type: "abs", data: { axis: "x", value: $x } },
-          { type: "abs", data: { axis: "y", value: $y } } ] } }' ;;
-    btn)
-      [[ "$2" =~ ^(left|right|middle)$ && "$3" =~ ^(down|up)$ ]] || return 1
-      jq -cn --arg b "$2" --arg d "$3" '{ execute: "input-send-event",
-        arguments: { events: [ { type: "btn",
-          data: { down: ($d == "down"), button: $b } } ] } }' ;;
-    wheel)
-      [[ "$2" =~ ^(up|down)$ ]] || return 1
-      jq -cn --arg b "wheel-$2" '{ execute: "input-send-event",
-        arguments: { events: [
-          { type: "btn", data: { down: true, button: $b } },
-          { type: "btn", data: { down: false, button: $b } } ] } }' ;;
-    *) return 1 ;;
-  esac
-}
-
-# _remote_environment_function — a guest-side bash fragment defining _agent_load_env, which
-# finds the running compositor and exports its session environment (read from
-# /proc/<pid>/environ) so exec/launch/shot reach the live session.
-_remote_environment_function() {
-  cat <<'SH'
-_agent_load_env() {
-  local c comp="" cpid="" client clpid="" src kv sock
-  # Identify the running compositor (for tool selection + Qt theme).
-  for c in niri Hyprland kwin_wayland; do
-    cpid="$(pgrep -x "$c" 2>/dev/null | head -1)"
-    if [ -n "$cpid" ]; then comp="$c"; break; fi
-  done
-  [ -n "$comp" ] || return 1
-  AGENT_COMPOSITOR="$comp"
-  # Source the session env from a real CLIENT — the compositor *server* has no
-  # WAYLAND_DISPLAY of its own. noctalia (wlroots) / plasmashell (KDE).
-  # XDG_SESSION_TYPE comes from the client (=wayland), NOT our SSH pty (=tty):
-  # a leaked `tty` makes browsers/Electron skip the ScreenCast portal and fall
-  # back to internal window-capture (no full-screen), faking a portal failure.
-  for client in noctalia plasmashell waybar; do
-    clpid="$(pgrep -x "$client" 2>/dev/null | head -1)"
-    [ -n "$clpid" ] && break
-  done
-  src="${clpid:-$cpid}"
-  while IFS= read -r -d '' kv; do
-    case "$kv" in
-      XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DBUS_SESSION_BUS_ADDRESS=*|\
-DISPLAY=*|XAUTHORITY=*|XDG_CURRENT_DESKTOP=*|\
-XDG_SESSION_TYPE=*|NIRI_SOCKET=*|HYPRLAND_INSTANCE_SIGNATURE=*|\
-LANG=*|LANGUAGE=*|LC_*=*) export "$kv" ;;
-    esac
-  done < "/proc/$src/environ" 2>/dev/null || true
-  # Fallbacks so a server-only source still yields a usable env.
-  : "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"; export XDG_RUNTIME_DIR
-  if [ -z "${WAYLAND_DISPLAY:-}" ]; then
-    sock="$(ls "$XDG_RUNTIME_DIR"/wayland-* 2>/dev/null \
-      | grep -v '\.lock$' | head -1)"
-    [ -n "$sock" ] && export WAYLAND_DISPLAY="${sock##*/}"
-  fi
-  : "${DBUS_SESSION_BUS_ADDRESS:=unix:path=$XDG_RUNTIME_DIR/bus}"
-  # the system locale when the client carried none (Qt falls back to C)
-  if [ -z "${LANG:-}" ] && [ -r /etc/locale.conf ]; then
-    set -a; . /etc/locale.conf; set +a
-  fi
-  export DBUS_SESSION_BUS_ADDRESS GDK_BACKEND=wayland
-  # Qt platform theme is fleet-set per-compositor for wlroots (ADR 0102); KDE
-  # uses its own (plasma-integration), so only default it under niri/Hyprland.
-  case "$comp" in niri|Hyprland) : "${QT_QPA_PLATFORMTHEME:=qt6ct}";
-    export QT_QPA_PLATFORMTHEME ;; esac
-  return 0
-}
-SH
-}
+# shellcheck source=lib/agent-commands.sh
+source "$SELF_DIR/lib/agent-commands.sh"
 
 # ── connection (libvirt + ssh) ───────────────────────────────────────────────
 
 _vm_ip() {
   virsh domifaddr "$VM_NAME" 2>/dev/null \
-    | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' | head -1
+    | awk \
+    'NR>2 { split($4, a, "/"); if (a[1] ~ /^[0-9]/) { print a[1]; exit } }'
 }
 
 # _preflight — confirm libvirt is reachable and the VM is running, emitting the
@@ -356,7 +119,7 @@ _stage() { _ssh "cat > '$1'"; }
 _in_session() {
   _ssh "bash -s" <<REMOTE
 set -e
-$(_remote_environment_function)
+$(_agent_remote_environment_function)
 _agent_load_env || { echo 'vm-agent: no live session on guest' >&2; exit 3; }
 $*
 REMOTE
@@ -365,7 +128,7 @@ REMOTE
 # ── guest DM detection (for session control) ─────────────────────────────────
 _guest_display_manager() {
   _ssh 'readlink -f /etc/systemd/system/display-manager.service 2>/dev/null' \
-    | grep -oE 'sddm|greetd' | head -1
+    | awk 'match($0, /sddm|greetd/) { print substr($0, RSTART, RLENGTH); exit }'
 }
 
 # ── verbs ────────────────────────────────────────────────────────────────────
@@ -449,16 +212,19 @@ verb_session() {
   local target="${1:-}"
   agent_session_desktop "$target" >/dev/null \
     || die "session must be niri|hyprland|kde"
-  local dm; dm="$(_guest_display_manager)"
-  [[ -n "$dm" ]] || die "could not detect the guest display manager"
-  local cfg; cfg="$(agent_autologin_config "$dm" "$target" "$AGENT_USER")"
-  info "setting $dm autologin → $target, then rebooting…"
-  case "$dm" in
+  local display_manager; display_manager="$(_guest_display_manager)"
+  [[ -n "$display_manager" ]] \
+    || die "could not detect the guest display manager"
+  local autologin_config
+  autologin_config="$(agent_autologin_config "$display_manager" "$target" \
+    "$AGENT_USER")"
+  info "setting $display_manager autologin → $target, then rebooting…"
+  case "$display_manager" in
     sddm)
       # A CLI-owned drop-in, named to sort LAST in /etc/sddm.conf.d so it wins:
       # sddm merges alphabetically (last wins), and the seeded kde_settings.conf
       # (empty Autologin) sorts after a 99-* name ('9' < 'k'), so use zz-*.
-      printf '%s\n' "$cfg" | _stage /tmp/vm-agent-autologin.conf
+      printf '%s\n' "$autologin_config" | _stage /tmp/vm-agent-autologin.conf
       _sudo "install -Dm0644 /tmp/vm-agent-autologin.conf \
         /etc/sddm.conf.d/zz-agent-autologin.conf"
       _ssh "rm -f /tmp/vm-agent-autologin.conf" || true ;;
@@ -466,7 +232,7 @@ verb_session() {
       # Rewrite greetd's [initial_session] table, keeping the rest of the file.
       # No python (repo policy): a staged bash+awk script splices the block in at
       # the table's position, or appends it when the table is absent.
-      { printf '%s\n' "$cfg"; } | _stage /tmp/vm-agent-greetd-block
+      { printf '%s\n' "$autologin_config"; } | _stage /tmp/vm-agent-greetd-block
       _stage /tmp/vm-agent-greetd.sh <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -497,10 +263,11 @@ SH
 # autologin gone there is no graphical session to become ready, so it restarts
 # the display manager and returns. `session <de>` re-arms autologin.
 verb_greeter() {
-  local dm; dm="$(_guest_display_manager)"
-  [[ -n "$dm" ]] || die "could not detect the guest display manager"
-  info "removing $dm autologin → greeter…"
-  case "$dm" in
+  local display_manager; display_manager="$(_guest_display_manager)"
+  [[ -n "$display_manager" ]] \
+    || die "could not detect the guest display manager"
+  info "removing $display_manager autologin → greeter…"
+  case "$display_manager" in
     # sddm reads EVERY file in .conf.d (not just *.conf), so delete the drop-in
     # outright — renaming it would leave it active.
     sddm) _sudo "rm -f /etc/sddm.conf.d/zz-agent-autologin.conf" ;;
@@ -521,8 +288,8 @@ SH
   esac
   _sudo "$(agent_bake_blank_command)"
   _sudo "systemctl restart display-manager" || _sudo "systemctl reboot" || true
-  info "$dm greeter shown — log in at the console (agent desktop control needs \
-'session <de>' to re-arm autologin)."
+  info "$display_manager greeter shown — log in at the console" \
+    "(agent desktop control needs 'session <de>' to re-arm autologin)."
 }
 
 verb_idle() {
@@ -552,39 +319,48 @@ verb_idle() {
 # pull <abs-guest-path> <host-dir> — copy a guest file/dir (read as root, so
 # root-only logs work) into <host-dir>/<basename> (Feature Audit, ADR 0152).
 verb_pull() {
-  local src="${1:-}" dest="${2:-}" cmd
-  cmd="$(agent_pull_command "$src")" || die "pull needs an absolute guest path"
+  local source_path="${1:-}" dest="${2:-}" command_line
+  command_line="$(agent_pull_command "$source_path")" \
+    || die "pull needs an absolute guest path"
   [[ -n "$dest" ]] || die "pull needs a host dir"
   mkdir -p "$dest"
-  _sudo "$cmd" | tar -C "$dest" -xf - || die "pull failed: $src"
+  _sudo "$command_line" | tar -C "$dest" -xf - \
+    || die "pull failed: $source_path"
 }
 
 # sudo [cmd…] — run a command as root; with no args, run stdin as a root bash
 # script (staged, since stdin also carries the sudo password).
 verb_sudo() {
   if (($#)); then _sudo "$*"; return; fi
-  local s="/tmp/vm-agent-sudo.$$.sh"
-  _stage "$s"
-  _sudo "bash $s"; local rc=$?
-  _ssh "rm -f $s" || true
+  local script_path="/tmp/vm-agent-sudo.$$.sh"
+  _stage "$script_path"
+  _sudo "bash $script_path"; local rc=$?
+  _ssh "rm -f $script_path" || true
   return "$rc"
 }
 
 # push <host-path> <guest-dir> — copy a host file/dir into a user-writable
 # guest dir (as the agent user); the inverse of pull.
 verb_push() {
-  local src="${1:-}" dest="${2:-}"
-  [[ -e "$src" && -n "$dest" ]] || die "push needs <host-path> <guest-dir>"
-  tar -C "$(dirname "$src")" -cf - "$(basename "$src")" \
-    | _ssh "mkdir -p '$dest' && tar -C '$dest' -xf -" \
-    || die "push failed: $src"
+  local source_path="${1:-}" destination="${2:-}" parent
+  [[ -e "$source_path" && -n "$destination" ]] \
+    || die "push needs <host-path> <guest-dir>"
+  while [[ "$source_path" == */ && "$source_path" != / ]]; do
+    source_path="${source_path%/}"
+  done
+  parent=.
+  [[ "$source_path" == */* ]] && parent="${source_path%/*}"
+  tar -C "${parent:-/}" -cf - "${source_path##*/}" \
+    | _ssh "mkdir -p '$destination' && tar -C '$destination' -xf -" \
+    || die "push failed: $source_path"
 }
 
 # net <on|off> — cut/restore the guest's internet, keeping SSH (Feature
 # Audit offline probes, ADR 0152).
 verb_net() {
-  local cmd; cmd="$(agent_network_command "${1:-}")" || die "net needs on|off"
-  _sudo "$cmd"
+  local command_line; command_line="$(agent_network_command "${1:-}")" \
+    || die "net needs on|off"
+  _sudo "$command_line"
   info "network ${1}."
 }
 
@@ -613,13 +389,15 @@ verb_mouse() {
 # keydown <chord> / keyup <chord> — hold / release a chord, to wrap pointer
 # input (Super+drag, Super+wheel binds).
 verb_keydown() {
-  local c; c="$(agent_key_qcodes "${1:-}")" || die "keydown: not injectable"
-  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp down "$c")" \
+  local qcodes; qcodes="$(agent_key_qcodes "${1:-}")" \
+    || die "keydown: not injectable"
+  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp down "$qcodes")" \
     >/dev/null || die "keydown failed"
 }
 verb_keyup() {
-  local c; c="$(agent_key_qcodes "${1:-}")" || die "keyup: not injectable"
-  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp up "$c")" \
+  local qcodes; qcodes="$(agent_key_qcodes "${1:-}")" \
+    || die "keyup: not injectable"
+  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp up "$qcodes")" \
     >/dev/null || die "keyup failed"
 }
 verb_lock()   { _sudo "loginctl lock-sessions";   info "locked."; }
@@ -654,13 +432,15 @@ verb_shot() {
 # ── main ─────────────────────────────────────────────────────────────────────
 
 main() {
-  local sel_kind=profile sel_ref="$AGENT_PROFILE_DEFAULT"
+  local selection_kind=profile selection_reference="$AGENT_PROFILE_DEFAULT"
   while (($#)); do
     case "$1" in
-      --profile) sel_kind=profile; sel_ref="${2:-}"; shift 2 ;;
-      --profile=*) sel_kind=profile; sel_ref="${1#*=}"; shift ;;
-      --vm) sel_kind=vm; sel_ref="${2:-}"; shift 2 ;;
-      --vm=*) sel_kind=vm; sel_ref="${1#*=}"; shift ;;
+      --profile) selection_kind=profile; selection_reference="${2:-}"; shift \
+        2 ;;
+      --profile=*) selection_kind=profile; selection_reference="${1#*=}"; \
+        shift ;;
+      --vm) selection_kind=vm; selection_reference="${2:-}"; shift 2 ;;
+      --vm=*) selection_kind=vm; selection_reference="${1#*=}"; shift ;;
       --user) AGENT_USER="${2:-}"; shift 2 ;;
       --help|-h) usage; return 0 ;;
       --) shift; break ;;
@@ -672,7 +452,7 @@ main() {
   local verb="${1:-}"; shift || true
   [[ -n "$verb" ]] || { usage >&2; die "a verb is required"; }
 
-  VM_NAME="$(agent_resolve_name "$sel_kind" "$sel_ref")"
+  VM_NAME="$(agent_resolve_name "$selection_kind" "$selection_reference")"
 
   case "$verb" in
     exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot\

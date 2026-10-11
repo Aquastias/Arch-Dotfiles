@@ -101,36 +101,7 @@ HOLD
   fi
 
   local boot_block=""
-  if [[ "${VERIFY_BOOT}" == "true" ]]; then
-    if [[ "${VM_VERIFY_ROLLBACK:-false}" == "true" ]]; then
-      # Impermanence rollback proof (ADR 0044): a stateful two-boot sentinel.
-      # VM_ROLLBACK_PROBE_DIR overrides the probe path for the assertion negative
-      # control (/persist = a survivor → probe persists → host RED).
-      # VM_ROLLBACK_BREAK_BLANK=true is the hook-level fault control: boot1
-      # destroys a @blank so boot2's hook fails closed → emergency shell → RED.
-      # VM_ROLLBACK_FS selects the rollback mechanics (zfs datasets vs btrfs
-      # subvols, ADR 0044); default zfs keeps the existing runs unchanged.
-      boot_block="$(_seed_generator_rollback_firstboot_block \
-        "${VM_ROLLBACK_PROBE_DIR:-/opt}" "${VM_ROLLBACK_BREAK_BLANK:-false}" \
-        "${VM_ROLLBACK_FS:-zfs}")"
-    elif [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
-      boot_block="$(_seed_generator_esp_resilience_firstboot_block)"
-    elif [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then
-      boot_block="$(_seed_generator_multi_firstboot_block \
-        "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
-        "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}" \
-        "${VM_VERIFY_FS_MOUNTS[*]:-}")"
-    elif [[ -n "${VM_VERIFY_SESSIONS[*]:-}" ]]; then
-      # Graphical-login proof (ADR 0062): stage the session prober that logs into
-      # each desktop in turn and emits its OK marker.
-      boot_block="$(_seed_generator_session_firstboot_block \
-        "${VM_SESSION_USER:-aquastias}" "${VM_VERIFY_SESSIONS[@]}")"
-    else
-      boot_block="$(_seed_generator_firstboot_block "" "" \
-        "${VM_VERIFY_DESKTOPS[*]:-}" "${VM_VERIFY_DM:-}" \
-        "${VM_VERIFY_AUR_AUDIT}")"
-    fi
-  fi
+  [[ "${VERIFY_BOOT}" == "true" ]] && boot_block="$(_flow_test_boot_block)"
 
   cat <<EOF
 #cloud-config
@@ -159,6 +130,40 @@ ${boot_block}
     sync
 ${poweroff_step}
 EOF
+}
+
+# _flow_test_boot_block — the first-boot verify block the profile's verify
+# data selects: rollback, ESP resilience, pools, sessions, else the plain
+# boot sentinel.
+_flow_test_boot_block() {
+  if [[ "${VM_VERIFY_ROLLBACK:-false}" == "true" ]]; then
+    # Impermanence rollback proof (ADR 0044): a stateful two-boot sentinel.
+    # VM_ROLLBACK_PROBE_DIR overrides the probe path for the assertion negative
+    # control (/persist = a survivor → probe persists → host RED).
+    # VM_ROLLBACK_BREAK_BLANK=true is the hook-level fault control: boot1
+    # destroys a @blank so boot2's hook fails closed → emergency shell → RED.
+    # VM_ROLLBACK_FS selects the rollback mechanics (zfs datasets vs btrfs
+    # subvols, ADR 0044); default zfs keeps the existing runs unchanged.
+    _seed_generator_rollback_firstboot_block \
+      "${VM_ROLLBACK_PROBE_DIR:-/opt}" "${VM_ROLLBACK_BREAK_BLANK:-false}" \
+      "${VM_ROLLBACK_FS:-zfs}"
+  elif [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
+    _seed_generator_esp_resilience_firstboot_block
+  elif [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then
+    _seed_generator_multi_firstboot_block \
+      "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
+      "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}" \
+      "${VM_VERIFY_FS_MOUNTS[*]:-}"
+  elif [[ -n "${VM_VERIFY_SESSIONS[*]:-}" ]]; then
+    # Graphical-login proof (ADR 0062): stage the session prober that logs into
+    # each desktop in turn and emits its OK marker.
+    _seed_generator_session_firstboot_block \
+      "${VM_SESSION_USER:-aquastias}" "${VM_VERIFY_SESSIONS[@]}"
+  else
+    _seed_generator_firstboot_block "" "" \
+      "${VM_VERIFY_DESKTOPS[*]:-}" "${VM_VERIFY_DM:-}" \
+      "${VM_VERIFY_AUR_AUDIT}"
+  fi
 }
 
 _flow_build_seed() {
@@ -250,6 +255,24 @@ _flow_test_reorder_boot_disks() {
 # serial console. Returns 0 if the marker appears within BOOT_TIMEOUT_SEC, 125
 # otherwise (distinct from installer exit codes and the 124 timeout).
 _flow_test_run_boot_verify() {
+  _flow_test_boot_and_watch || return 125
+  _flow_test_assert_session_markers || return 126
+  _flow_test_assert_desktop_markers || return 126
+  # AUR audit (ADR 0143): the sentinel echoed the audit verdict first; a FAIL
+  # or missing OK marker fails boot-verify with its own code (122).
+  if [[ "${VM_VERIFY_AUR_AUDIT}" == "true" ]]; then
+    if ! grep -Fq -- "===AUR-AUDIT-OK===" "$BOOT_LOG_FILE"; then
+      warn "AUR audit FAILED on the installed system — see ${BOOT_LOG_FILE}."
+      return 122
+    fi
+    info "AUR audit OK."
+  fi
+  return 0
+}
+
+# _flow_test_boot_and_watch — boot the installed disk with serial capture and
+# the Console Answerer; rc 1 when its sentinel never arrives.
+_flow_test_boot_and_watch() {
   section "Verifying installed system boots (timeout: ${BOOT_TIMEOUT_SEC}s)"
   _core_vm_eject_cdroms
   _core_vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
@@ -267,63 +290,59 @@ _flow_test_run_boot_verify() {
   # Session-login profiles self-reboot through each desktop and finish on
   # ===SESSION-VERIFY-DONE===; plain profiles finish on the first-boot sentinel.
   local wait_marker="$SEED_GENERATOR_FIRSTBOOT_MARKER"
-  [[ -n "${VM_VERIFY_SESSIONS[*]:-}" ]] && wait_marker="===SESSION-VERIFY-DONE==="
+  [[ -n "${VM_VERIFY_SESSIONS[*]:-}" ]] \
+    && wait_marker="===SESSION-VERIFY-DONE==="
 
-  local brc=0
+  local boot_rc=0
   set +e
   vm_sentinel_watcher_wait_marker \
     "$BOOT_LOG_FILE" "$wait_marker" "$BOOT_TIMEOUT_SEC"
-  brc=$?
+  boot_rc=$?
   set -e
 
   _flow_test_stop_console_answerer
   _core_stop_console_capture
   _core_vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
+  ((boot_rc == 0))
+}
 
-  ((brc == 0)) || return 125
-
-  # Per-desktop LOGIN assertion (ADR 0062): the prober logged into each session
-  # and emitted its OK marker before DONE. A missing/FAIL marker means a desktop
-  # could not be logged into — fail with a distinct code (126).
-  local _sde _sok
-  for _sde in "${VM_VERIFY_SESSIONS[@]:-}"; do
-    [[ -n "$_sde" ]] || continue
-    _sok="$(_seed_generator_session_marker "$_sde")"
-    if [[ -z "$_sok" ]] || ! grep -Fq -- "$_sok" "$BOOT_LOG_FILE"; then
-      warn "Session login verify FAILED: '${_sde}' (${_sok:-?}) — did not log in."
-      return 126
+# Per-desktop LOGIN assertion (ADR 0062): the prober logged into each session
+# and emitted its OK marker before DONE. A missing/FAIL marker means a desktop
+# could not be logged into (rc 1). The wlroots probe markers are recorded.
+_flow_test_assert_session_markers() {
+  local desktop marker probe_marker
+  for desktop in "${VM_VERIFY_SESSIONS[@]:-}"; do
+    [[ -n "$desktop" ]] || continue
+    marker="$(_seed_generator_session_marker "$desktop")"
+    if [[ -z "$marker" ]] || ! grep -Fq -- "$marker" "$BOOT_LOG_FILE"; then
+      warn "Session login verify FAILED: '${desktop}' (${marker:-?})" \
+        "— did not log in."
+      return 1
     fi
-    info "Session login verify OK: '${_sde}' (${_sok})."
+    info "Session login verify OK: '${desktop}' (${marker})."
   done
-  local _pm
-  while IFS= read -r _pm; do
-    info "wlroots probe (recorded): $_pm"
+  while IFS= read -r probe_marker; do
+    info "wlroots probe (recorded): $probe_marker"
   done < <(_seed_generator_probe_markers "$BOOT_LOG_FILE")
+  return 0
+}
 
-  # Per-desktop assertion (ADR 0062): the first-boot sentinel echoed each
-  # requested desktop's OK/FAIL marker before FIRSTBOOT-OK. Require every one's
-  # OK marker on the captured console — a missing/FAIL marker fails boot-verify
-  # with a distinct code (126) so a desktop regression is never a silent pass.
-  local _de _ok
-  for _de in "${VM_VERIFY_DESKTOPS[@]:-}"; do
-    [[ -n "$_de" ]] || continue
-    _ok="$(_seed_generator_desktop_marker "$_de")"
-    if [[ -z "$_ok" ]] || ! grep -Fq -- "$_ok" "$BOOT_LOG_FILE"; then
-      warn "Desktop verify FAILED: '${_de}' (${_ok:-unknown marker}) absent."
-      return 126
+# Per-desktop assertion (ADR 0062): the first-boot sentinel echoed each
+# requested desktop's OK/FAIL marker before FIRSTBOOT-OK. Require every one's
+# OK marker on the captured console — a missing/FAIL marker fails (rc 1) so a
+# desktop regression is never a silent pass.
+_flow_test_assert_desktop_markers() {
+  local desktop marker
+  for desktop in "${VM_VERIFY_DESKTOPS[@]:-}"; do
+    [[ -n "$desktop" ]] || continue
+    marker="$(_seed_generator_desktop_marker "$desktop")"
+    if [[ -z "$marker" ]] || ! grep -Fq -- "$marker" "$BOOT_LOG_FILE"; then
+      warn "Desktop verify FAILED: '${desktop}' (${marker:-unknown marker})" \
+        "absent."
+      return 1
     fi
-    info "Desktop verify OK: '${_de}' (${_ok})."
+    info "Desktop verify OK: '${desktop}' (${marker})."
   done
-
-  # AUR audit (ADR 0143): the sentinel echoed the audit verdict first; a FAIL
-  # or missing OK marker fails boot-verify with its own code (122).
-  if [[ "${VM_VERIFY_AUR_AUDIT}" == "true" ]]; then
-    if ! grep -Fq -- "===AUR-AUDIT-OK===" "$BOOT_LOG_FILE"; then
-      warn "AUR audit FAILED on the installed system — see ${BOOT_LOG_FILE}."
-      return 122
-    fi
-    info "AUR audit OK."
-  fi
   return 0
 }
 
@@ -355,35 +374,10 @@ flow_run() {
   local seed; seed="$(_flow_build_seed)"
   info "Seed: ${seed}"
 
-  section "VM lifecycle"
-  $RECREATE && _core_vm_destroy_undefine
-  if _core_vm_exists; then
-    local current_iso; current_iso="$(_core_vm_install_iso_path)"
-    if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
-      info "Existing VM points at stale ISO (${current_iso}); recreating."
-      _core_vm_destroy_undefine
-    fi
-  fi
-  _core_vm_exists || _core_vm_create "$iso" "$seed"
-  _core_vm_boot
+  _flow_test_bring_up_vm "$iso" "$seed"
 
-  section "Capturing installer log → ${LOG_FILE}"
-  _core_wait_for_serial_pty
-  _core_start_console_capture "$LOG_FILE"
-
-  section "Waiting for installer (timeout: ${TIMEOUT_SEC}s)"
   local rc=0
-  set +e
-  vm_sentinel_watcher_wait "$LOG_FILE" "$TIMEOUT_SEC"
-  rc=$?
-  set -e
-  _core_stop_console_capture
-
-  if   ((rc == 124)); then warn "Installer timed out after ${TIMEOUT_SEC}s."
-  elif ((rc == 0));   then info "Installer completed successfully (exit 0)."
-  else                     warn "Installer finished with exit code ${rc}."
-  fi
-  info "Log: ${LOG_FILE}"
+  _flow_test_watch_installer
 
   if ((rc == 0)) && [[ "$VERIFY_BOOT" == "true" ]]; then
     if _flow_test_run_boot_verify; then
@@ -396,18 +390,60 @@ flow_run() {
     fi
   fi
 
-  # Hold-on-fail (ADR 0099): a failed cell skipped its poweroff and gave ttyS0 a
-  # root autologin shell, so it is left running for inspection over serial. Never
-  # auto-destroyed — it IS the evidence; the user reaps it when done.
-  if ((rc != 0)) && [[ "$HOLD_ON_FAIL" == "true" ]] && _core_vm_running; then
-    section "Inspect the failed cell (VM held up)"
-    info "Cell failed (exit ${rc}) — the VM is left running for inspection."
-    info "Serial console:  virsh console ${VM_NAME}" \
-         "  (root autologin; Ctrl-] to exit)"
-    info "Install log (host copy): ${LOG_FILE}"
-    info "Clean up when done:  virsh destroy ${VM_NAME} &&" \
-         "virsh undefine --nvram ${VM_NAME}"
-  fi
+  ((rc != 0)) && _flow_test_report_held_cell "$rc"
 
   exit "$rc"
+}
+
+# _flow_test_watch_installer — capture the installer's serial log and wait
+# for its exit sentinel; sets the caller's rc (124 = timeout).
+_flow_test_watch_installer() {
+  section "Capturing installer log → ${LOG_FILE}"
+  _core_wait_for_serial_pty
+  _core_start_console_capture "$LOG_FILE"
+
+  section "Waiting for installer (timeout: ${TIMEOUT_SEC}s)"
+  set +e
+  vm_sentinel_watcher_wait "$LOG_FILE" "$TIMEOUT_SEC"
+  rc=$?
+  set -e
+  _core_stop_console_capture
+
+  if   ((rc == 124)); then warn "Installer timed out after ${TIMEOUT_SEC}s."
+  elif ((rc == 0));   then info "Installer completed successfully (exit 0)."
+  else                     warn "Installer finished with exit code ${rc}."
+  fi
+  info "Log: ${LOG_FILE}"
+}
+
+# _flow_test_bring_up_vm <iso> <seed> — (re)create the domain when it is
+# missing, recreated on request, or points at a stale ISO; then boot it.
+_flow_test_bring_up_vm() {
+  local iso="$1" seed="$2"
+  section "VM lifecycle"
+  $RECREATE && _core_vm_destroy_undefine
+  if _core_vm_exists; then
+    local current_iso; current_iso="$(_core_vm_install_iso_path)"
+    if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
+      info "Existing VM points at stale ISO (${current_iso}); recreating."
+      _core_vm_destroy_undefine
+    fi
+  fi
+  _core_vm_exists || _core_vm_create "$iso" "$seed"
+  _core_vm_boot
+}
+
+# Hold-on-fail (ADR 0099): a failed cell skipped its poweroff and gave ttyS0 a
+# root autologin shell, so it is left running for inspection over serial. Never
+# auto-destroyed — it IS the evidence; the user reaps it when done.
+_flow_test_report_held_cell() {
+  local rc="$1"
+  [[ "$HOLD_ON_FAIL" == "true" ]] && _core_vm_running || return 0
+  section "Inspect the failed cell (VM held up)"
+  info "Cell failed (exit ${rc}) — the VM is left running for inspection."
+  info "Serial console:  virsh console ${VM_NAME}" \
+       "  (root autologin; Ctrl-] to exit)"
+  info "Install log (host copy): ${LOG_FILE}"
+  info "Clean up when done:  virsh destroy ${VM_NAME} &&" \
+       "virsh undefine --nvram ${VM_NAME}"
 }

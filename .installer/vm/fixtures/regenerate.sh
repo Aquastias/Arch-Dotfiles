@@ -15,7 +15,9 @@
 
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 : "${REPO_ROOT:=$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 
 PASSPHRASE="test"
@@ -51,7 +53,7 @@ PUB="$(age-keygen -y "$TMP/new.txt")"
 
 # 2. Passphrase-encrypt private key to key.age. age requires a tty for the
 #    passphrase prompt, so allocate a pty via util-linux `script`.
-mkdir -p "$(dirname "$KEY_AGE")"
+mkdir -p "${KEY_AGE%/*}"
 script -qc "age -p -o '$KEY_AGE' '$TMP/new.txt'" /dev/null \
   <<< "${PASSPHRASE}"$'\n'"${PASSPHRASE}"$'\n' >/dev/null
 
@@ -78,12 +80,13 @@ mv "$SOPS_YAML.tmp" "$SOPS_YAML"
 #    the recipient now in .sops.yaml.
 cd "$REPO_ROOT"
 KEY_FILE_FOR_DECRYPT="${OLD_KEY:-$TMP/new.txt}"
-for sf in "${SECRETS_FILES[@]}"; do
-  [[ -f "$sf" ]] || { echo "regenerate.sh: missing $sf" >&2; exit 1; }
-  if grep -q '"sops"' "$sf"; then
+for secrets_file in "${SECRETS_FILES[@]}"; do
+  [[ -f "$secrets_file" ]] \
+    || { echo "regenerate.sh: missing $secrets_file" >&2; exit 1; }
+  if grep -q '"sops"' "$secrets_file"; then
     SOPS_AGE_KEY_FILE="$KEY_FILE_FOR_DECRYPT" \
-      sops updatekeys --yes "$sf" >/dev/null
+      sops updatekeys --yes "$secrets_file" >/dev/null
   else
-    sops -e -i "$sf"
+    sops -e -i "$secrets_file"
   fi
 done

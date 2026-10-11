@@ -35,12 +35,20 @@ _profile_validate_int() {
 
 # profile_validate <profile_json> <hosts_dir>
 profile_validate() {
-  local profile="$1" hosts_dir="$2"
+  local profile="$1" hosts_directory="$2"
 
   local name
   name="$(jq -r '.name // empty' <<<"$profile")"
   [[ -n "$name" ]] || { echo "profile: missing 'name'" >&2; return 1; }
 
+  _profile_validate_hardware "$profile" || return 1
+  _profile_validate_install_source "$profile" "$hosts_directory" || return 1
+  _profile_validate_verify_entries "$profile"
+}
+
+# _profile_validate_hardware <profile> — disks, RAM, vCPUs, timeouts.
+_profile_validate_hardware() {
+  local profile="$1"
   local disks_check
   disks_check="$(jq -r '
     if   (.hardware.disks | type) != "array"      then "type"
@@ -62,7 +70,12 @@ profile_validate() {
     timeouts.install optional || return 1
   _profile_validate_int "$profile" '.timeouts.boot' 1 86400 \
     timeouts.boot optional || return 1
+}
 
+# _profile_validate_install_source <profile> <hosts-dir> — exactly one of
+# host_profile / install, and a host_profile names a real host.
+_profile_validate_install_source() {
+  local profile="$1" hosts_directory="$2"
   local sources
   sources="$(jq -r '
     [ (if (.host_profile // "") != "" then 1 else empty end),
@@ -81,15 +94,22 @@ profile_validate() {
   # profile.jsonc, merged over core). We require only that the host directory
   # exists, so a typo'd reference still fails fast before any VM is
   # provisioned (ADR 0036).
-  local hp
-  hp="$(jq -r '.host_profile // empty' <<<"$profile")"
-  if [[ -n "$hp" ]] \
-     && [[ ! -d "$hosts_dir/$hp" && ! -d "$hosts_dir/vm/$hp" ]]; then
-    echo "profile: host_profile '$hp' is not a host under $hosts_dir" >&2
+  local host_profile
+  host_profile="$(jq -r '.host_profile // empty' <<<"$profile")"
+  if [[ -n "$host_profile" ]] \
+     && [[ ! -d "$hosts_directory/$host_profile" \
+     && ! -d "$hosts_directory/vm/$host_profile" ]]; then
+    echo \
+      "profile: host_profile '$host_profile' is not a host under" \
+      "$hosts_directory" >&2
     return 1
   fi
+}
 
-  # verify.mounts entries are <dataset>:/<mount>; verify.owned are /<mount>:<user>
+# _profile_validate_verify_entries <profile> — verify.mounts entries are
+# <dataset>:/<mount>; verify.owned are /<mount>:<user>.
+_profile_validate_verify_entries() {
+  local profile="$1"
   local bad
   bad="$(jq -r '
     (.verify.mounts // [])[] | select(test("^[^:]+:/.+") | not)' <<<"$profile")"
