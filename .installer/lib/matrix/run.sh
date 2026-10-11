@@ -15,6 +15,8 @@
 #
 # Public API:
 #   matrix_run [<cell-id>]   → install + boot-verify the cell (default tracer)
+#
+# Used by: lib/matrix/driver.sh, lib/matrix/profile.sh, tools/matrix.sh.
 # =============================================================================
 
 # shellcheck source=./profile.sh
@@ -37,7 +39,8 @@ matrix_run() {
   profile="$(matrix_emit "$id")" || return $?
   echo "[matrix] cell '$id' → profile $profile (boot-verify=$bootv)" >&2
 
-  local -a args=(--testing --profile "$profile")
-  [[ "$bootv" == true ]] && args=(--testing --verify-boot --profile "$profile")
-  "$INSTALLER_DIR/vm/vm.sh" "${args[@]}"
+  local -a arguments=(--testing --profile "$profile")
+  [[ "$bootv" == true ]] \
+    && arguments=(--testing --verify-boot --profile "$profile")
+  "$INSTALLER_DIR/vm/vm.sh" "${arguments[@]}"
 }

@@ -32,7 +32,7 @@ setup() {
 
 # ── orchestration: reuses the guarded run-all machinery via a shared core ─────
 
-# Regression: a real VM launch (_matrix_run_cell → vm.sh) prints verbose output
+# Regression: a real VM launch (_driver_run_cell → vm.sh) prints verbose output
 # to stdout. That must NOT leak into the per-cell result JSON, or the summary jq
 # chokes ("Invalid numeric literal") and the run exits nonzero despite every
 # cell passing — the exact failure a live serialized smoke run hit.
@@ -41,10 +41,10 @@ setup() {
     jq -c -n '{id:"zfs-single-plain", axes:{filesystem:"zfs",
       topology:"single", encryption:false, impermanence:false}}'
   }
-  _matrix_preflight()  { return 0; }
-  _matrix_guard_gate() { return 0; }
+  _driver_preflight()  { return 0; }
+  _driver_guard_gate() { return 0; }
   # a VM launch that is noisy on stdout (like vm.sh) but succeeds.
-  _matrix_run_cell() {
+  _driver_run_cell() {
     echo "[INFO] ISO (pinned): /x.iso"; echo "noise"; return 0
   }
   run matrix_smoke
@@ -65,9 +65,9 @@ setup() {
     printf '%s\n' "$(_pcell zfs-single-plain)" "$(_pcell zfs-mirror-plain)" \
       "$(_pcell zfs-single-plain-imp)" "$(_pcell zfs-single-enc)"
   }
-  _matrix_preflight()  { return 0; }
-  _matrix_guard_gate() { return 0; }
-  _matrix_run_cell() {
+  _driver_preflight()  { return 0; }
+  _driver_guard_gate() { return 0; }
+  _driver_run_cell() {
     local id; id="$(jq -r .id <<<"$1")"
     echo "$id" >>"$tmp/attempts"
     [[ "$id" == zfs-mirror-plain ]] && return 1 || return 0   # one fails

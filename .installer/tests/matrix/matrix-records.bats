@@ -52,8 +52,8 @@ _axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
   local full reduced
   full="$(matrix_coverage_summary 0)"
   # shrink the constraint model: drop raidz2 from the pairwise topology domain.
-  _TEST_BASE_AXES="$(_matrix_tier2_axes)"
-  _matrix_tier2_axes() {
+  _TEST_BASE_AXES="$(_generator_tier2_axes)"
+  _generator_tier2_axes() {
     jq -c '.topology -= ["raidz2"]' <<<"$_TEST_BASE_AXES"
   }
   reduced="$(matrix_coverage_summary 0)"
@@ -90,8 +90,8 @@ _axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
 
 @test "drift guard: a deliberate axis-value change is detected (fails CI)" {
   # simulate a menu/constraint change: drop raidz2 from the pairwise axes.
-  _TEST_BASE_AXES="$(_matrix_tier2_axes)"
-  _matrix_tier2_axes() {
+  _TEST_BASE_AXES="$(_generator_tier2_axes)"
+  _generator_tier2_axes() {
     jq -c '.topology -= ["raidz2"]' <<<"$_TEST_BASE_AXES"
   }
   matrix_coverage_summary 0 >"$BATS_TEST_TMPDIR/c"

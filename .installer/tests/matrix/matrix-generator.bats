@@ -90,10 +90,10 @@ setup() {
   # recompute the expected size from the menu-derived factors (independently of
   # the nested generator loop).
   local fs roots=0 pools expected=0 multis imps
-  pools="$(_matrix_data_pool_specs | wc -l)"
-  for fs in $(_matrix_root_filesystems); do
-    multis=$(( 1 + $(_matrix_multi_topologies "$fs" | wc -l) ))  # single + multi
-    imps=$(_matrix_impermanence_values "$fs" | wc -l)
+  pools="$(_generator_data_pool_specs | wc -l)"
+  for fs in $(_generator_root_filesystems); do
+    multis=$(( 1 + $(_generator_multi_topologies "$fs" | wc -l) ))  # single + multi
+    imps=$(_generator_impermanence_values "$fs" | wc -l)
     roots=$(( roots + multis * 2 * imps ))                       # × enc(2)
   done
   expected=$(( roots * pools ))
@@ -150,7 +150,7 @@ setup() {
   local cells; cells="$(matrix_tier2_cells 0)"
   local fs topo allowed
   while IFS=$'\t' read -r fs topo; do
-    allowed=" single $(_matrix_multi_topologies "$fs" | tr '\n' ' ') "
+    allowed=" single $(_generator_multi_topologies "$fs" | tr '\n' ' ') "
     [[ "$allowed" == *" $topo "* ]] || { echo "bad: $fs/$topo"; false; }
   done < <(jq -r '"\(.axes.filesystem)\t\(.axes.topology)"' <<<"$cells" | sort -u)
 }

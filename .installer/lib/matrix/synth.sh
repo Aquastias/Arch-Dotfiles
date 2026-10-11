@@ -22,6 +22,8 @@
 #   matrix_cell_boot_verify <cell>            → "true" | "false"
 #   matrix_cell_timeout     <cell>            → install timeout (seconds)
 #   matrix_cell_synthesize  <cell> [disk_gib] → the VM Profile JSON
+#
+# Used by: lib/matrix/assemble.sh, lib/matrix/driver.sh, lib/matrix/profile.sh.
 # =============================================================================
 
 # shellcheck source=./assemble.sh
@@ -84,15 +86,15 @@ matrix_cell_verify() {
 
 # matrix_cell_synthesize <cell> [disk_gib] — the ephemeral VM Profile JSON.
 matrix_cell_synthesize() {
-  local cell="$1" gib="${2:-$MATRIX_DISK_GIB}" n verify timeout install
-  n="$(matrix_cell_disk_count "$cell")"
+  local cell="$1" gib="${2:-$MATRIX_DISK_GIB}" disk_count verify timeout install
+  disk_count="$(matrix_cell_disk_count "$cell")"
   verify="$(matrix_cell_verify "$cell")"
   timeout="$(matrix_cell_timeout "$cell")"
   install="$(matrix_cell_assemble "$cell")"
 
   jq -n \
     --arg name "matrix-$(jq -r '.id' <<<"$cell")" \
-    --argjson n "$n" --argjson gib "$gib" \
+    --argjson n "$disk_count" --argjson gib "$gib" \
     --argjson verify "$verify" --argjson timeout "$timeout" \
     --argjson install "$install" '
     {

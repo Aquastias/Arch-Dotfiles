@@ -16,6 +16,8 @@
 #
 # Public API:
 #   matrix_gen_cells   → the Tier-2 Matrix Manifest, one JSON cell per line
+#
+# Used by: tools/matrix.sh.
 # =============================================================================
 
 # shellcheck source=./registry.sh

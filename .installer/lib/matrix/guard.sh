@@ -14,6 +14,8 @@
 #       → "" when the host can run VMs; else a one-line structured reason
 #   matrix_guard_can_launch <free_mem_kib> <reserve_kib> <per_vm_kib>
 #       → exit 0 when one more VM fits now; the per-spawn gate predicate
+#
+# Used by: lib/matrix/driver.sh, vm/lib/host-capacity.sh.
 # =============================================================================
 
 # matrix_guard_max_parallel <avail_kib> <reserve_kib> <per_vm_kib> <cap>

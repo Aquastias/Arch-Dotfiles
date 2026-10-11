@@ -17,6 +17,8 @@
 # Public API:
 #   matrix_cell_profile <cell>     → the VM Profile JSON for the cell
 #   matrix_emit         <cell-id>  → write the profile to tmpfs, print its path
+#
+# Used by: lib/matrix/generator.sh, lib/matrix/run.sh, tools/matrix.sh.
 # =============================================================================
 
 # shellcheck source=./generator.sh

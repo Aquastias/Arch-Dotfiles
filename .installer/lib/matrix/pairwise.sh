@@ -27,169 +27,235 @@
 #
 # Public API:
 #   matrix_pairwise <axes_json> <constraints_json> [seed]  → rows (JSON lines)
+#
+# Used by: lib/matrix/generator.sh.
 # =============================================================================
 
-# matrix_pairwise <axes_json> <constraints_json> [seed]
+# matrix_pairwise <axes_json> <constraints_json> [seed]. The phases below share
+# this function's state arrays (dynamic scope): AXIS_NAMES, AXIS_COUNT,
+# AXIS_VALUES["axis,index"] (JSON token), AXIS_VALUE_COUNTS[axis],
+# VALUE_ORDER["axis,position"] (seed-rotated try-order), CONSTRAINTS
+# ("key<TAB>value-json" blocks), UNCOVERED["axis,index,axis,index"], and the
+# row being built: ROW[name] / ASSIGNED[axis] = value index.
 matrix_pairwise() {
   local axes_json="$1" constraints_json="${2:-[]}" seed="${3:-0}"
+  local -a AXIS_NAMES=() AXIS_VALUE_COUNTS=() CONSTRAINTS=() rows_out=()
+  local -A AXIS_VALUES=() VALUE_ORDER=() UNCOVERED=() ROW=() ASSIGNED=()
+  local AXIS_COUNT pair first_axis first_index second_axis second_index
+  _pairwise_parse_axes "$axes_json"
+  _pairwise_order_values "$seed"
+  _pairwise_parse_constraints "$constraints_json"
+  _pairwise_enumerate_pairs
 
-  # ── parse axes ────────────────────────────────────────────────────────────
-  local -a NAMES=()
-  mapfile -t NAMES < <(jq -r 'keys_unsorted[]' <<<"$axes_json")
-  local n=${#NAMES[@]}
-  local -A VAL=()          # VAL["i,idx"] = JSON token
-  local -a NVAL=()         # NVAL[i] = value count of axis i
-  local i idx k
-  local -a _vs
-  for ((i = 0; i < n; i++)); do
-    k="${NAMES[i]}"
-    mapfile -t _vs < <(jq -c --arg k "$k" '.[$k][]' <<<"$axes_json")
-    NVAL[i]=${#_vs[@]}
-    for ((idx = 0; idx < ${#_vs[@]}; idx++)); do VAL["$i,$idx"]="${_vs[idx]}"; done
-  done
-
-  # seed-rotated try-order of value indices per axis (reproducible).
-  local -A ORDER=() pos r cnt
-  for ((i = 0; i < n; i++)); do
-    cnt=${NVAL[i]}; ((cnt > 0)) || continue
-    r=$((seed % cnt))
-    for ((pos = 0; pos < cnt; pos++)); do ORDER["$i,$pos"]=$(((pos + r) % cnt)); done
-  done
-
-  # ── parse constraints into TAB-delimited "key<TAB>valjson" blocks ──────────
-  local -a CONSTR=()
-  local cj
-  while IFS= read -r cj; do
-    [[ -n "$cj" ]] || continue
-    CONSTR+=("$(jq -r 'to_entries[] | "\(.key)\t\(.value|tojson)"' <<<"$cj")")
-  done < <(jq -c '.[]?' <<<"$constraints_json")
-
-  # ── enumerate valid uncovered pairs (i<j) ─────────────────────────────────
-  local -A UNCOV=()
-  local j ai aj
-  for ((i = 0; i < n; i++)); do
-    for ((j = i + 1; j < n; j++)); do
-      for ((ai = 0; ai < NVAL[i]; ai++)); do
-        for ((aj = 0; aj < NVAL[j]; aj++)); do
-          local -A _p=()
-          _p["${NAMES[i]}"]="${VAL[$i,$ai]}"
-          _p["${NAMES[j]}"]="${VAL[$j,$aj]}"
-          _pw_ok _p && UNCOV["$i,$ai,$j,$aj"]=1
-        done
-      done
-    done
-  done
-
-  # ── greedy build ──────────────────────────────────────────────────────────
-  local -a ROWS_OUT=()
-  local -A ROW=() ASSIGNED=()
-  local pk pi pai pj paj m a b
-  while ((${#UNCOV[@]})); do
-    pk="$(printf '%s\n' "${!UNCOV[@]}" | sort -t, -k1,1n -k2,2n -k3,3n -k4,4n \
-      | head -1)"
-    IFS=',' read -r pi pai pj paj <<<"$pk"
-
-    ROW=(); ASSIGNED=()
-    ROW["${NAMES[pi]}"]="${VAL[$pi,$pai]}"; ASSIGNED[$pi]=$pai
-    ROW["${NAMES[pj]}"]="${VAL[$pj,$paj]}"; ASSIGNED[$pj]=$paj
-
-    if ! _pw_forward; then
+  # Greedy build: seed a row from the first uncovered pair, complete it
+  # forward, else backtrack; an uncompletable pair is dropped.
+  while ((${#UNCOVERED[@]})); do
+    pair="$(printf '%s\n' "${!UNCOVERED[@]}" \
+      | sort -t, -k1,1n -k2,2n -k3,3n -k4,4n | awk 'NR == 1 { print; exit }')"
+    IFS=',' read -r first_axis first_index second_axis second_index <<<"$pair"
+    _pairwise_seed_row
+    if ! _pairwise_forward; then
       # forward pass blocked → reset to the seed pair and backtrack.
-      ROW=(); ASSIGNED=()
-      ROW["${NAMES[pi]}"]="${VAL[$pi,$pai]}"; ASSIGNED[$pi]=$pai
-      ROW["${NAMES[pj]}"]="${VAL[$pj,$paj]}"; ASSIGNED[$pj]=$paj
-      if ! _pw_extend 0; then unset "UNCOV[$pk]"; continue; fi
+      _pairwise_seed_row
+      if ! _pairwise_extend 0; then unset "UNCOVERED[$pair]"; continue; fi
     fi
+    _pairwise_mark_covered
+    rows_out+=("$(_pairwise_row_json)")
+  done
 
-    # mark every pair in the completed row covered.
-    for a in "${!ASSIGNED[@]}"; do
-      for b in "${!ASSIGNED[@]}"; do
-        ((a < b)) || continue
-        unset "UNCOV[$a,${ASSIGNED[$a]},$b,${ASSIGNED[$b]}]"
-      done
+  ((${#rows_out[@]})) && printf '%s\n' "${rows_out[@]}"
+  return 0
+}
+
+# _pairwise_parse_axes <axes_json> — AXIS_NAMES, AXIS_COUNT, AXIS_VALUES,
+# AXIS_VALUE_COUNTS, in axis order.
+_pairwise_parse_axes() {
+  local axes_json="$1" axis index name
+  local -a values
+  mapfile -t AXIS_NAMES < <(jq -r 'keys_unsorted[]' <<<"$axes_json")
+  AXIS_COUNT=${#AXIS_NAMES[@]}
+  for ((axis = 0; axis < AXIS_COUNT; axis++)); do
+    name="${AXIS_NAMES[axis]}"
+    mapfile -t values < <(jq -c --arg k "$name" '.[$k][]' <<<"$axes_json")
+    AXIS_VALUE_COUNTS[axis]=${#values[@]}
+    for ((index = 0; index < ${#values[@]}; index++)); do
+      AXIS_VALUES["$axis,$index"]="${values[index]}"
     done
-    ROWS_OUT+=("$(_pw_row_json)")
   done
-
-  ((${#ROWS_OUT[@]})) && printf '%s\n' "${ROWS_OUT[@]}"
   return 0
 }
 
-# _pw_ok <row-assoc-name> — 0 iff the (partial) row violates no constraint.
-_pw_ok() {
-  local -n _row="$1"
-  local c key val allmatch
-  for c in ${CONSTR[@]+"${CONSTR[@]}"}; do
-    allmatch=1
-    while IFS=$'\t' read -r key val; do
+# _pairwise_order_values <seed> — the seed-rotated try-order of value indices
+# per axis (reproducible).
+_pairwise_order_values() {
+  local seed="$1" axis position rotation count
+  for ((axis = 0; axis < AXIS_COUNT; axis++)); do
+    count=${AXIS_VALUE_COUNTS[axis]}; ((count > 0)) || continue
+    rotation=$((seed % count))
+    for ((position = 0; position < count; position++)); do
+      VALUE_ORDER["$axis,$position"]=$(((position + rotation) % count))
+    done
+  done
+  return 0
+}
+
+# _pairwise_parse_constraints <constraints_json> — one TAB-delimited
+# "key<TAB>value-json" block per constraint.
+_pairwise_parse_constraints() {
+  local constraint
+  while IFS= read -r constraint; do
+    [[ -n "$constraint" ]] || continue
+    CONSTRAINTS+=("$(jq -r 'to_entries[] | "\(.key)\t\(.value|tojson)"' \
+      <<<"$constraint")")
+  done < <(jq -c '.[]?' <<<"$1")
+  return 0
+}
+
+# _pairwise_enumerate_pairs — every valid value pair across axes i<j into
+# UNCOVERED.
+_pairwise_enumerate_pairs() {
+  local first second
+  for ((first = 0; first < AXIS_COUNT; first++)); do
+    for ((second = first + 1; second < AXIS_COUNT; second++)); do
+      _pairwise_enumerate_value_pairs "$first" "$second"
+    done
+  done
+  return 0
+}
+
+# shellcheck disable=SC2034 # pair_row is read through _pairwise_ok's nameref
+_pairwise_enumerate_value_pairs() {
+  local first="$1" second="$2" first_index second_index
+  for ((first_index = 0; first_index < AXIS_VALUE_COUNTS[first]; first_index++))
+  do
+    for ((second_index = 0; second_index < AXIS_VALUE_COUNTS[second];
+          second_index++)); do
+      local -A pair_row=()
+      pair_row["${AXIS_NAMES[first]}"]="${AXIS_VALUES[$first,$first_index]}"
+      pair_row["${AXIS_NAMES[second]}"]="${AXIS_VALUES[$second,$second_index]}"
+      _pairwise_ok pair_row \
+        && UNCOVERED["$first,$first_index,$second,$second_index"]=1
+    done
+  done
+  return 0
+}
+
+# _pairwise_seed_row — ROW/ASSIGNED holding just the caller's seed pair.
+_pairwise_seed_row() {
+  ROW=(); ASSIGNED=()
+  ROW["${AXIS_NAMES[first_axis]}"]="${AXIS_VALUES[$first_axis,$first_index]}"
+  ASSIGNED[$first_axis]=$first_index
+  ROW["${AXIS_NAMES[second_axis]}"]="${AXIS_VALUES[$second_axis,$second_index]}"
+  ASSIGNED[$second_axis]=$second_index
+}
+
+# _pairwise_mark_covered — every pair in the completed row leaves UNCOVERED.
+_pairwise_mark_covered() {
+  local first second
+  for first in "${!ASSIGNED[@]}"; do
+    for second in "${!ASSIGNED[@]}"; do
+      ((first < second)) || continue
+      unset "UNCOVERED[$first,${ASSIGNED[$first]},$second,${ASSIGNED[$second]}]"
+    done
+  done
+  return 0
+}
+
+# _pairwise_ok <row-assoc-name> — 0 iff the (partial) row violates no
+# constraint.
+_pairwise_ok() {
+  local -n checked_row="$1"
+  local constraint key value all_match
+  for constraint in ${CONSTRAINTS[@]+"${CONSTRAINTS[@]}"}; do
+    all_match=1
+    while IFS=$'\t' read -r key value; do
       [[ -n "$key" ]] || continue
-      if [[ -z "${_row[$key]+x}" || "${_row[$key]}" != "$val" ]]; then
-        allmatch=0; break
+      if [[ -z "${checked_row[$key]+x}" || "${checked_row[$key]}" != "$value" ]]
+      then
+        all_match=0; break
       fi
-    done <<<"$c"
-    ((allmatch)) && return 1
+    done <<<"$constraint"
+    ((all_match)) && return 1
   done
   return 0
 }
 
-# _pw_forward — complete ROW/ASSIGNED by a coverage-maximising forward pass over
-# the unassigned axes (no backtracking). 0 on a full valid row, 1 if some axis
-# has no constraint-valid value. Reads NAMES/NVAL/VAL/ORDER/UNCOV/ASSIGNED/n.
-_pw_forward() {
-  local m pos vi best best_cov cov a aidx key
-  for ((m = 0; m < n; m++)); do
-    [[ -n "${ASSIGNED[$m]+x}" ]] && continue
-    best=-1; best_cov=-1
-    for ((pos = 0; pos < NVAL[m]; pos++)); do
-      vi=${ORDER[$m,$pos]}
-      ROW["${NAMES[m]}"]="${VAL[$m,$vi]}"
-      if _pw_ok ROW; then
-        cov=0
-        for a in "${!ASSIGNED[@]}"; do
-          aidx=${ASSIGNED[$a]}
-          if ((a < m)); then key="$a,$aidx,$m,$vi"; else key="$m,$vi,$a,$aidx"; fi
-          [[ -n "${UNCOV[$key]+x}" ]] && ((cov++))
-        done
-        ((cov > best_cov)) && { best_cov=$cov; best=$vi; }
+# _pairwise_forward — complete ROW/ASSIGNED by a coverage-maximising forward
+# pass over the unassigned axes (no backtracking). 0 on a full valid row, 1 if
+# some axis has no constraint-valid value.
+_pairwise_forward() {
+  local axis position value_index best best_coverage coverage
+  for ((axis = 0; axis < AXIS_COUNT; axis++)); do
+    [[ -n "${ASSIGNED[$axis]+x}" ]] && continue
+    best=-1; best_coverage=-1
+    for ((position = 0; position < AXIS_VALUE_COUNTS[axis]; position++)); do
+      value_index=${VALUE_ORDER[$axis,$position]}
+      ROW["${AXIS_NAMES[axis]}"]="${AXIS_VALUES[$axis,$value_index]}"
+      if _pairwise_ok ROW; then
+        _pairwise_coverage "$axis" "$value_index"
+        ((coverage > best_coverage)) \
+          && { best_coverage=$coverage; best=$value_index; }
       fi
-      unset "ROW[${NAMES[m]}]"
+      unset "ROW[${AXIS_NAMES[axis]}]"
     done
     ((best < 0)) && return 1
-    ROW["${NAMES[m]}"]="${VAL[$m,$best]}"; ASSIGNED[$m]=$best
+    ROW["${AXIS_NAMES[axis]}"]="${AXIS_VALUES[$axis,$best]}"
+    ASSIGNED[$axis]=$best
   done
   return 0
 }
 
-# _pw_extend <m> — backtracking completion from axis <m>; 0 iff ROW/ASSIGNED can
-# be extended to a full constraint-valid row. Deterministic (ORDER-first).
-_pw_extend() {
-  local m=$1 pos vi
-  ((m == n)) && return 0
-  if [[ -n "${ASSIGNED[$m]+x}" ]]; then _pw_extend $((m + 1)); return $?; fi
-  for ((pos = 0; pos < NVAL[m]; pos++)); do
-    vi=${ORDER[$m,$pos]}
-    ROW["${NAMES[m]}"]="${VAL[$m,$vi]}"
-    if _pw_ok ROW; then
-      ASSIGNED[$m]=$vi
-      _pw_extend $((m + 1)) && return 0
-      unset "ASSIGNED[$m]"
+# _pairwise_coverage <axis> <value-index> — set the caller's `coverage` to how
+# many still-uncovered pairs that value would cover alongside the row's
+# assigned values.
+_pairwise_coverage() {
+  local axis="$1" value_index="$2" assigned assigned_index key
+  coverage=0
+  for assigned in "${!ASSIGNED[@]}"; do
+    assigned_index=${ASSIGNED[$assigned]}
+    if ((assigned < axis)); then
+      key="$assigned,$assigned_index,$axis,$value_index"
+    else
+      key="$axis,$value_index,$assigned,$assigned_index"
+    fi
+    [[ -n "${UNCOVERED[$key]+x}" ]] && ((coverage++))
+  done
+  return 0
+}
+
+# _pairwise_extend <axis> — backtracking completion from <axis>; 0 iff
+# ROW/ASSIGNED can be extended to a full constraint-valid row. Deterministic
+# (VALUE_ORDER first).
+_pairwise_extend() {
+  local axis=$1 position value_index
+  ((axis == AXIS_COUNT)) && return 0
+  if [[ -n "${ASSIGNED[$axis]+x}" ]]; then
+    _pairwise_extend $((axis + 1)); return $?
+  fi
+  for ((position = 0; position < AXIS_VALUE_COUNTS[axis]; position++)); do
+    value_index=${VALUE_ORDER[$axis,$position]}
+    ROW["${AXIS_NAMES[axis]}"]="${AXIS_VALUES[$axis,$value_index]}"
+    if _pairwise_ok ROW; then
+      ASSIGNED[$axis]=$value_index
+      _pairwise_extend $((axis + 1)) && return 0
+      unset "ASSIGNED[$axis]"
     fi
   done
-  unset "ROW[${NAMES[m]}]"
+  unset "ROW[${AXIS_NAMES[axis]}]"
   return 1
 }
 
-# _pw_row_json — the completed ROW as a compact JSON object, keys in axis order
-# (deterministic). Reads NAMES/ROW/n.
-_pw_row_json() {
-  local -a jqargs=()
-  local prog="{" idx k
-  for ((idx = 0; idx < n; idx++)); do
-    k="${NAMES[idx]}"
-    jqargs+=(--arg "k$idx" "$k" --argjson "v$idx" "${ROW[$k]}")
-    ((idx)) && prog+=","
-    prog+="(\$k$idx):\$v$idx"
+# _pairwise_row_json — the completed ROW as a compact JSON object, keys in
+# axis order (deterministic).
+_pairwise_row_json() {
+  local -a jq_arguments=()
+  local program="{" index name
+  for ((index = 0; index < AXIS_COUNT; index++)); do
+    name="${AXIS_NAMES[index]}"
+    jq_arguments+=(--arg "k$index" "$name" --argjson "v$index" "${ROW[$name]}")
+    ((index)) && program+=","
+    program+="(\$k$index):\$v$index"
   done
-  prog+="}"
-  jq -c -n "${jqargs[@]}" "$prog"
+  program+="}"
+  jq -c -n "${jq_arguments[@]}" "$program"
 }

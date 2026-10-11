@@ -16,6 +16,8 @@
 # Public API:
 #   matrix_cell_state    <cell>  → the Config State for the cell
 #   matrix_cell_assemble <cell>  → the device-baked Effective Config
+#
+# Used by: lib/config/config-state.sh, lib/config/emit.sh, lib/matrix/synth.sh.
 # =============================================================================
 
 # shellcheck source=../config/config-state.sh
@@ -25,11 +27,11 @@ declare -F config_state_new >/dev/null 2>&1 \
 declare -F emit_effective >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
 
-# _matrix_mode_for_topology <topology> — the install mode a topology installs
+# _assemble_mode_for_topology <topology> — the install mode a topology installs
 # under: `single` for the single-disk topology, `multi` for every multi-disk
 # one (mirror/raidz*/raid0/raid1/raid10/stripe). Mirrors the guided controller's
 # topology→mode split.
-_matrix_mode_for_topology() {
+_assemble_mode_for_topology() {
   case "$1" in
   single) printf 'single\n' ;;
   *)      printf 'multi\n' ;;
@@ -38,16 +40,16 @@ _matrix_mode_for_topology() {
 
 # matrix_cell_state <cell> — the Config State the assembler consumes: the
 # menu-derived launch defaults with the cell's axes laid over as overrides.
-# _matrix_cell_mode <cell> — the cell's install mode (its own `mode`, else
+# _assemble_cell_mode <cell> — the cell's install mode (its own `mode`, else
 # derived from the topology).
-_matrix_cell_mode() {
-  local m; m="$(jq -r '.axes.mode // empty' <<<"$1")"
-  [[ -n "$m" ]] && { printf '%s\n' "$m"; return 0; }
-  _matrix_mode_for_topology "$(jq -r '.axes.topology' <<<"$1")"
+_assemble_cell_mode() {
+  local mode; mode="$(jq -r '.axes.mode // empty' <<<"$1")"
+  [[ -n "$mode" ]] && { printf '%s\n' "$mode"; return 0; }
+  _assemble_mode_for_topology "$(jq -r '.axes.topology' <<<"$1")"
 }
 
-# _matrix_disk_devices <count> — /dev/sda, /dev/sdb, … as a JSON array.
-_matrix_disk_devices() {
+# _assemble_disk_devices <count> — /dev/sda, /dev/sdb, … as a JSON array.
+_assemble_disk_devices() {
   local i letters="abcdefghijklmnopqrstuvwxyz" out=()
   for ((i = 0; i < $1; i++)); do out+=("/dev/sd${letters:i:1}"); done
   printf '%s\n' "${out[@]}" | jq -R . | jq -s -c .
@@ -56,27 +58,30 @@ _matrix_disk_devices() {
 # matrix_cell_state <cell> — the Config State the assembler consumes: the
 # menu-derived launch defaults with the cell's axes laid over as overrides.
 matrix_cell_state() {
-  local cell="$1" fs enc mode imp state desktop topo dcroot
-  fs="$(jq -r '.axes.filesystem' <<<"$cell")"
-  enc="$(jq -r '.axes.encryption' <<<"$cell")"
-  imp="$(jq -r '.axes.impermanence // false' <<<"$cell")"
-  mode="$(_matrix_cell_mode "$cell")"
+  local cell="$1" filesystem encryption mode impermanence state desktop \
+    topology dcroot
+  filesystem="$(jq -r '.axes.filesystem' <<<"$cell")"
+  encryption="$(jq -r '.axes.encryption' <<<"$cell")"
+  impermanence="$(jq -r '.axes.impermanence // false' <<<"$cell")"
+  mode="$(_assemble_cell_mode "$cell")"
 
   state="$(config_state_seed_defaults "$(config_state_new)")"
-  state="$(config_state_set "$state" filesystem "$(jq -n --arg f "$fs" '$f')")"
+  state="$(config_state_set "$state" filesystem "$(jq -n --arg f \
+    "$filesystem" '$f')")"
   state="$(config_state_set "$state" mode "$(jq -n --arg m "$mode" '$m')")"
-  state="$(config_state_set "$state" options.encryption "$enc")"
+  state="$(config_state_set "$state" options.encryption "$encryption")"
   # impermanence rides the enabled bool; the dataset (rpool/persist) and mount
   # (/persist) default through the accessors, so a zfs root validates as-is.
-  state="$(config_state_set "$state" options.impermanence.enabled "$imp")"
+  state="$(config_state_set "$state" options.impermanence.enabled \
+    "$impermanence")"
 
   # multi mode needs the os_pool skeleton (topology + root disk count) so the
   # picker can bake the picked devices onto it.
   if [[ "$mode" == multi ]]; then
-    topo="$(jq -r '.axes.topology' <<<"$cell")"
+    topology="$(jq -r '.axes.topology' <<<"$cell")"
     dcroot="$(jq -r '.axes.disk_count // 2' <<<"$cell")"
     state="$(config_state_set "$state" os_pool "$(jq -c -n \
-      --arg t "$topo" --argjson dc "$dcroot" \
+      --arg t "$topology" --argjson dc "$dcroot" \
       '{pool_name:"rpool", topology:$t, disk_count:$dc}')")"
   fi
 
@@ -99,12 +104,13 @@ matrix_cell_state() {
 # synthesizer but not yet baked into the pool — a mixed-fs cell installs its root
 # and leaves the extra disk unused (data-pool baking is a follow-on).
 matrix_cell_assemble() {
-  local cell="$1" state mode n assignment
+  local cell="$1" state mode disk_count assignment
   state="$(matrix_cell_state "$cell")"
-  mode="$(_matrix_cell_mode "$cell")"
+  mode="$(_assemble_cell_mode "$cell")"
   if [[ "$mode" == multi ]]; then
-    n="$(jq -r '.axes.disk_count // 2' <<<"$cell")"
-    assignment="$(jq -c -n --argjson d "$(_matrix_disk_devices "$n")" \
+    disk_count="$(jq -r '.axes.disk_count // 2' <<<"$cell")"
+    assignment="$(jq -c -n \
+      --argjson d "$(_assemble_disk_devices "$disk_count")" \
       '{mode:"multi", os_pool:$d}')"
   else
     assignment='{"mode":"single","disk":"/dev/sda"}'

@@ -114,10 +114,10 @@ _rec() {
     printf '%s\n' "$(_pcell c1 zfs)" "$(_pcell c2 ext4)" "$(_pcell c3 xfs)"
   }
   # stub the host-IO seams so the run neither probes nor blocks.
-  _matrix_preflight()  { return 0; }
-  _matrix_guard_gate() { return 0; }
+  _driver_preflight()  { return 0; }
+  _driver_guard_gate() { return 0; }
   # stub the per-cell VM launch: record the attempt, fail only c2.
-  _matrix_run_cell() {
+  _driver_run_cell() {
     local id; id="$(jq -r .id <<<"$1")"
     echo "$id" >>"$tmp/attempts"
     [[ "$id" == c2 ]] && return 1 || return 0

@@ -5,9 +5,9 @@
 # Turns the generated Tier-2 set into a scheduled, guarded, self-summarizing
 # run. The pure cores — cell selection (smoke vs full), per-cell status
 # classification, the summary table, and the aggregate exit code — are separated
-# from the IO orchestrator (_matrix_orchestrate, shared by matrix_run_all and
+# from the IO orchestrator (_driver_orchestrate, shared by matrix_run_all and
 # matrix_smoke) so the run policy is unit-testable. The per-cell VM launch goes
-# through the _matrix_run_cell seam, which bats overrides to inject
+# through the _driver_run_cell seam, which bats overrides to inject
 # PASS/FAIL/SKIP without a real VM.
 #
 # Requires INSTALLER_DIR (menu functions, for the generator).
@@ -20,6 +20,8 @@
 #   matrix_run_all [--smoke|--full]     → guard, schedule, run-all, summarize
 #   matrix_smoke_cells [seed]           → the curated boot set (issue 06)
 #   matrix_smoke                        → guard, schedule, run the curated set
+#
+# Used by: tools/matrix.sh.
 # =============================================================================
 
 # shellcheck source=./generator.sh
@@ -72,9 +74,9 @@ matrix_run_classify() {
 # iff any cell FAILed (PASS and SKIP are both non-failing), else 0. A single bad
 # cell fails the run without hiding the others (they are already in the record).
 matrix_run_exit_code() {
-  local n
-  n="$(jq -s '[.[] | select(.status == "FAIL")] | length')" || return 2
-  (( n == 0 ))
+  local failures
+  failures="$(jq -s '[.[] | select(.status == "FAIL")] | length')" || return 2
+  (( failures == 0 ))
 }
 
 # matrix_summary_format — read result JSON lines ({id,axes,oracle,status}) on
@@ -90,20 +92,41 @@ matrix_summary_format() {
     "totals: PASS=\([.[]|select(.status=="PASS")]|length)"
       + " FAIL=\([.[]|select(.status=="FAIL")]|length)"
       + " SKIP=\([.[]|select(.status=="SKIP")]|length)"
-  ' | column -t -s $'\t' 2>/dev/null || jq -r -s '.[] | "\(.status) \(.id)"'
+  ' | _driver_align_columns
+}
+
+# _driver_align_columns — align TAB-separated rows like `column -t`: every
+# column padded to its widest entry plus two spaces (short rows padded too),
+# the last left unpadded, empty lines dropped.
+_driver_align_columns() {
+  awk '
+    { line[NR] = $0; count = split($0, field, "\t")
+      if (count > columns) columns = count
+      for (i = 1; i <= count; i++)
+        if (length(field[i]) > width[i]) width[i] = length(field[i]) }
+    END {
+      for (n = 1; n <= NR; n++) {
+        if (line[n] == "") continue
+        split(line[n], field, "\t"); out = ""
+        for (i = 1; i <= columns; i++)
+          out = out (i < columns \
+            ? sprintf("%-" (width[i] + 2) "s", field[i]) : field[i])
+        print out
+      }
+    }'
 }
 
 # ── IO seams (overridable in tests) ──────────────────────────────────────────
 
-# _matrix_mem_available_kib — the host's free RAM (KiB) from /proc/meminfo.
-_matrix_mem_available_kib() {
+# _driver_memory_available_kib — the host's free RAM (KiB) from /proc/meminfo.
+_driver_memory_available_kib() {
   awk '/^MemAvailable:/ {print $2; exit}' /proc/meminfo
 }
 
-# _matrix_preflight — abort with a reason (nonzero) if the host cannot run any
+# _driver_preflight — abort with a reason (nonzero) if the host cannot run any
 # VM: no /dev/kvm, libvirtd down, or not even one VM's RAM free after the
 # reserve. Runs once before any cell launches.
-_matrix_preflight() {
+_driver_preflight() {
   local has_kvm=false up=false reason
   [[ -e /dev/kvm ]] && has_kvm=true
   systemctl is-active --quiet libvirtd 2>/dev/null && up=true
@@ -113,7 +136,7 @@ _matrix_preflight() {
   [[ -z "$reason" ]] \
     || { echo "matrix: preflight abort — $reason" >&2; return 1; }
   local fit
-  fit="$(matrix_guard_max_parallel "$(_matrix_mem_available_kib)" \
+  fit="$(matrix_guard_max_parallel "$(_driver_memory_available_kib)" \
     "$((MATRIX_HOST_RESERVE_MB*1024))" "$((MATRIX_VM_RAM_MB*1024))" \
     "$MATRIX_MAX_PARALLEL")"
   (( fit >= 1 )) || {
@@ -122,40 +145,40 @@ _matrix_preflight() {
   }
 }
 
-# _matrix_guard_gate — block until a spawn slot is free: fewer than the cap
+# _driver_guard_gate — block until a spawn slot is free: fewer than the cap
 # running AND one VM's RAM available after the reserve.
-_matrix_guard_gate() {
+_driver_guard_gate() {
   while :; do
-    (( $(jobs -rp | wc -l) < MATRIX_MAX_PARALLEL )) \
-      && matrix_guard_can_launch "$(_matrix_mem_available_kib)" \
+    (( $(jobs -rp | grep -c .) < MATRIX_MAX_PARALLEL )) \
+      && matrix_guard_can_launch "$(_driver_memory_available_kib)" \
            "$((MATRIX_HOST_RESERVE_MB*1024))" "$((MATRIX_VM_RAM_MB*1024))" \
       && return 0
     wait -n 2>/dev/null || sleep 2
   done
 }
 
-# _matrix_run_cell <cell> — launch one cell's VM and return its exit code (0 ok,
+# _driver_run_cell <cell> — launch one cell's VM and return its exit code (0 ok,
 # 124 timeout, 125 boot-fail). The default drives the real VM Harness via
 # matrix_run; tests override this to inject an outcome without a VM.
-_matrix_run_cell() {
+_driver_run_cell() {
   matrix_run "$(jq -r '.id' <<<"$1")"
 }
 
-# _matrix_run_one <cell> — run one cell and emit its result record JSON
+# _driver_run_one <cell> — run one cell and emit its result record JSON
 # ({id,axes,oracle,status}) on stdout. Classifies the VM exit per the oracle.
 # ONLY the JSON record may reach stdout (the orchestrator captures it as the
 # cell's result file), so the VM launch's own verbose output is sent to stderr —
 # otherwise it pollutes the record and the summary jq chokes.
-_matrix_run_one() {
-  local cell="$1" id bv enc imp rc oracle axes status
+_driver_run_one() {
+  local cell="$1" id boot_verify encryption impermanence rc oracle axes status
   id="$(jq -r '.id' <<<"$cell")"
-  bv="$(matrix_cell_boot_verify "$cell")"
-  enc="$(jq -r '.axes.encryption // false' <<<"$cell")"
-  imp="$(jq -r '.axes.impermanence // false' <<<"$cell")"
-  _matrix_run_cell "$cell" >&2; rc=$?
-  status="$(matrix_run_classify "$bv" "$enc" "$rc")"
-  if [[ "$bv" == true ]]; then
-    [[ "$imp" == true ]] && oracle=rollback || oracle=firstboot
+  boot_verify="$(matrix_cell_boot_verify "$cell")"
+  encryption="$(jq -r '.axes.encryption // false' <<<"$cell")"
+  impermanence="$(jq -r '.axes.impermanence // false' <<<"$cell")"
+  _driver_run_cell "$cell" >&2; rc=$?
+  status="$(matrix_run_classify "$boot_verify" "$encryption" "$rc")"
+  if [[ "$boot_verify" == true ]]; then
+    [[ "$impermanence" == true ]] && oracle=rollback || oracle=firstboot
   else
     oracle="install-only"
   fi
@@ -165,28 +188,28 @@ _matrix_run_one() {
     --arg status "$status" '{id:$id,axes:$axes,oracle:$oracle,status:$status}'
 }
 
-# _matrix_orchestrate — read JSON cells on stdin, preflight the host, then
+# _driver_orchestrate — read JSON cells on stdin, preflight the host, then
 # schedule them up to the parallel cap (gated on free RAM), run each through the
 # VM seam, and print the summary. One failing cell never aborts the others;
 # returns non-zero iff any cell FAILed. Shared by matrix_run_all and
 # matrix_smoke so both get identical guard/scheduling/summary behaviour.
-_matrix_orchestrate() {
-  _matrix_preflight || return $?
+_driver_orchestrate() {
+  _driver_preflight || return $?
 
-  local work n=0 cell
+  local work launched=0 cell
   work="$(mktemp -d)"
   while IFS= read -r cell; do
     [[ -n "$cell" ]] || continue
-    _matrix_guard_gate
-    ( _matrix_run_one "$cell" >"$work/$(printf '%06d' "$n").json" ) &
-    n=$((n+1))
+    _driver_guard_gate
+    ( _driver_run_one "$cell" >"$work/$(printf '%06d' "$launched").json" ) &
+    launched=$((launched+1))
   done
   wait
 
-  local recs; recs="$(cat "$work"/*.json 2>/dev/null)"
+  local records; records="$(cat "$work"/*.json 2>/dev/null)"
   rm -rf "$work"
-  printf '%s\n' "$recs" | matrix_summary_format
-  printf '%s\n' "$recs" | matrix_run_exit_code
+  printf '%s\n' "$records" | matrix_summary_format
+  printf '%s\n' "$records" | matrix_run_exit_code
 }
 
 # matrix_run_all [--smoke|--full] — the Tier-2 orchestrator: run the pinned
@@ -198,7 +221,7 @@ matrix_run_all() {
     --smoke) mode=smoke ;; --full) mode=full ;;
     "" ) : ;; *) echo "matrix: unknown run flag '$1'" >&2; return 2 ;;
   esac
-  _matrix_orchestrate < <(matrix_run_select "$mode" "${MATRIX_SEED:-0}")
+  _driver_orchestrate < <(matrix_run_select "$mode" "${MATRIX_SEED:-0}")
 }
 
 # The curated on-demand boot set (ADR 0048, issue 06): a representative plain
@@ -218,13 +241,14 @@ MATRIX_SMOKE_IDS=(
 # Fails loud (rather than silently under-selecting) if a curated id no longer
 # exists in the generator — e.g. after a cell-id rename.
 matrix_smoke_cells() {
-  local seed="${1:-0}" ids out n
+  local seed="${1:-0}" ids out count
   ids="$(printf '%s\n' "${MATRIX_SMOKE_IDS[@]}" | jq -R . | jq -sc .)"
   out="$(matrix_all_cells "$seed" \
     | jq -c --argjson ids "$ids" 'select(.id as $i | $ids | index($i))')"
-  n="$(grep -c . <<<"$out")"
-  if (( n != ${#MATRIX_SMOKE_IDS[@]} )); then
-    echo "matrix: smoke selected $n cells, expected ${#MATRIX_SMOKE_IDS[@]}" \
+  count="$(grep -c . <<<"$out")"
+  if (( count != ${#MATRIX_SMOKE_IDS[@]} )); then
+    echo \
+      "matrix: smoke selected $count cells, expected ${#MATRIX_SMOKE_IDS[@]}" \
          "(a curated cell id no longer exists in the generator?)" >&2
     return 1
   fi
@@ -234,5 +258,5 @@ matrix_smoke_cells() {
 # matrix_smoke — run the curated boot set through the shared guarded scheduler.
 # On-demand only (needs libvirt+KVM); exits non-zero iff any cell FAILed.
 matrix_smoke() {
-  _matrix_orchestrate < <(matrix_smoke_cells "${MATRIX_SEED:-0}")
+  _driver_orchestrate < <(matrix_smoke_cells "${MATRIX_SEED:-0}")
 }
