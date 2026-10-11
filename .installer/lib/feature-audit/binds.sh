@@ -43,8 +43,7 @@ FA_REPO_ROOT="${FA_REPO_ROOT:-$(cd "$INSTALLER_DIR/.." && pwd)}"
 # an app bind sent as real input in the first compositor session.
 # `find:<dir>:<name>` walks a tree.
 _X=.installer/extras/desktop _P=.installer/programs
-declare -gA FA_BIND_SOURCES=( \
-   # readability-ok: FA_ is the frozen Audit Run env namespace
+declare -gA FA_BIND_SOURCES=(  # readability-ok: FA_ is the frozen env namespace
   [niri]="niri|.config/niri/conf.d/*.kdl|$_X/niri"
   [hyprland]="hyprland|.config/hypr/conf.d/*.lua|$_X/hyprland"
   [kde]="kde|$_X/kde/skel/.config/kglobalshortcutsrc|$_X/kde"

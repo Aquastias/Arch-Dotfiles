@@ -81,7 +81,7 @@ main() {
   show_disks_to_wipe
   confirm_wipe_intent
   final_confirm
-  run_parallel_wipe
+  wipe_run_parallel
   print_summary
 }
 

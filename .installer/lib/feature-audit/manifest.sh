@@ -123,8 +123,7 @@ feature_audit_variant_config() {
     source "$INSTALLER_DIR/vm/lib/profile.sh"
     if [[ -n "$patch" ]]; then
       eval "_manifest_original_$(declare -f profile_loader_load)"
-      profile_loader_load() { \
-         # readability-ok: patches the loader in a subshell
+      profile_loader_load() {  # readability-ok: patched in a subshell only
         if [[ "$1" == "$host" ]]; then
           _manifest_original_profile_loader_load "$1" \
             | jq -c --argjson p "$patch" '. * $p'

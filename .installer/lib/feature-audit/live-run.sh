@@ -228,16 +228,8 @@ feature_audit_run() {
   _core_ensure_libvirt_reachable
   VM_NAME="$(feature_audit_manifest_json | jq -r .vm_name)"
   export VM_NAME
-  local -a ids=() all
-  mapfile -t all < <(feature_audit_variant_ids)
-  local id started=0
-  for id in "${all[@]}"; do
-    if [[ -n "$only" ]]; then [[ "$id" == "$only" ]] && ids+=("$id")
-    elif [[ -n "$from" ]]; then
-      [[ "$id" == "$from" ]] && started=1
-      ((started)) && ids+=("$id")
-    else ids+=("$id"); fi
-  done
+  local -a ids
+  mapfile -t ids < <(_live_select_variants "$only" "$from")
   ((${#ids[@]})) || { echo "feature-audit: no variant selected" >&2; return 2; }
 
   local run; run="$(feature_audit_runs_root)/$(date +%Y%m%d-%H%M%S)"
@@ -264,4 +256,18 @@ feature_audit_run() {
     fi
   done
   feature_audit_report "$run"
+}
+
+# _live_select_variants <only> <from> — the variant ids to run, one per
+# line: just <only> when set, else every id from <from> on (all when empty).
+_live_select_variants() {
+  local only="$1" from="$2" id started=0
+  while IFS= read -r id; do
+    if [[ -n "$only" ]]; then [[ "$id" == "$only" ]] && printf '%s\n' "$id"
+    elif [[ -n "$from" ]]; then
+      [[ "$id" == "$from" ]] && started=1
+      ((started)) && printf '%s\n' "$id"
+    else printf '%s\n' "$id"; fi
+  done < <(feature_audit_variant_ids)
+  return 0
 }
