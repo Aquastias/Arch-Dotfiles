@@ -259,6 +259,7 @@ _live_session_client() {
 _live_session_settled() {
   local user="$1" client="$2"
   printf '%s' "${client:+pgrep -user $user -x $client >/dev/null && }"
+  # shellcheck disable=SC2016 # guest-side shell, expanded there
   printf '[ -z "$(runuser -u %s -- env XDG_RUNTIME_DIR=/run/user/$(id -u %s)' \
     "$user" "$user"
   printf ' systemctl --user list-jobs --no-legend)" ]'

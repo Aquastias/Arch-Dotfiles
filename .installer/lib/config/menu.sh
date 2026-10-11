@@ -151,6 +151,7 @@ menu_manual_locked_paths() { printf '%s\n' "${_MENU_MANUAL_LOCKED[@]}"; }
 # resolves to zfs, a group inheriting the root filesystem).
 _MENU_ZFS_LOCKED=(post_install.backup.zfs_auto_snapshot)
 menu_zfs_locked_paths() { printf '%s\n' "${_MENU_ZFS_LOCKED[@]}"; }
+# shellcheck disable=SC2016 # a jq program, not shell
 _MENU_ANY_ZFS_JQ='def any_zfs:
   (if ((.filesystem // "") == "") then "zfs" else .filesystem end) as $r
   | if (.disk_config.kind // "auto") == "manual" then false
@@ -287,6 +288,7 @@ _menu_fields_json() {
 
 # The jq helpers menu_rows renders with: render (array→", ", object→"k=v",
 # scalar→string, empty→default) and the locale projection.
+# shellcheck disable=SC2016 # a jq program, not shell
 _MENU_ROWS_JQ_DEFINITIONS='
   def render($v; $d):
     (if   $v == null            then null

@@ -74,6 +74,7 @@ _encryption_passphrase_without_prompt() {
   # is never silently encrypted with a default the operator never saw. Mirrors
   # the root-password default chroot.sh already gates on the same flag.
   if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    # shellcheck disable=SC2034 # read by lib/zfs/pools.sh + the layout adapters
     ZFS_PASSPHRASE="$INSTALL_DEFAULT_ENC_PASSPHRASE"
     info "ZFS encryption passphrase defaulted (unattended)."
     return 0
@@ -89,6 +90,7 @@ zfs_encryption_options() {
   if [[ "$(install_config_encryption_enabled)" == "true" ]]; then
     # keylocation=prompt means zpool create reads the passphrase from stdin.
     # We pipe ZFS_PASSPHRASE to it in zfs_create_pool().
+    # shellcheck disable=SC2034 # read by lib/zfs/pools.sh + the layout adapters
     ZFS_ENCRYPTION_OPTIONS=(
       -O encryption=aes-256-gcm
       -O keyformat=passphrase

@@ -270,6 +270,7 @@ _PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" \
 
 # The closed-schema check: the first (shortest) config path no schema pattern
 # admits, rendered dotted ("a.b[].c"); empty when every path is allowed.
+# shellcheck disable=SC2016 # a jq program, not shell
 _PROFILE_LOADER_SCHEMA_JQ='
   def parse_pat:
     split(".")

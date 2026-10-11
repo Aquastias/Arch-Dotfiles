@@ -90,6 +90,7 @@ _initcpio_write_udev_override() {
 # Preset name = the Primary Kernel's package base (linux-lts/linux/linux-zen/
 # linux-hardened). mkinitcpio -P still builds every installed kernel's preset;
 # the custom fallback injection below stays Primary-Kernel-only (interim).
+# shellcheck disable=SC2153 # KERNEL comes from install-state
 PRESET_NAME="$(kernel_package "$KERNEL")"
 INITRAMFS_FB="initramfs-${PRESET_NAME}-fallback.img"
 PRESET_FILE="/etc/mkinitcpio.d/${PRESET_NAME}.preset"

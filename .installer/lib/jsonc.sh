@@ -34,6 +34,7 @@ jsonc_read_optional() { jsonc_strip "$1" | jq -r "$2 // empty"; }
 # multi-line array gets a new last line (the old last element gains a comma).
 # Exits 3 when the array never closes on its own line (every buffered line
 # would be lost).
+# shellcheck disable=SC2016 # an awk program, not shell
 _JSONC_APPEND_PROGRAM='
   function strip_trailing_space(text) {
     sub(/[[:space:]]+$/, "", text); return text
@@ -86,6 +87,7 @@ _JSONC_APPEND_PROGRAM='
 
 # Creates `"key": ["value"]` as the first member of the object `parent`, when
 # that object opens on its own line (e.g. a profile with no persist.files).
+# shellcheck disable=SC2016 # an awk program, not shell
 _JSONC_CREATE_ARRAY_PROGRAM='
   pending {
     separator = ($0 ~ /^[[:space:]]*}/) ? "" : ","
@@ -101,6 +103,7 @@ _JSONC_CREATE_ARRAY_PROGRAM='
 
 # Removes `value` from the array whose key is `key`, one-line or multi-line,
 # fixing the commas of what is left. Exits 3 on an array that never closes.
+# shellcheck disable=SC2016 # an awk program, not shell
 _JSONC_REMOVE_PROGRAM='
   function strip_trailing_space(text) {
     sub(/[[:space:]]+$/, "", text); return text

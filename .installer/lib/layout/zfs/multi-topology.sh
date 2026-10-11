@@ -261,6 +261,7 @@ layout_prompt_pool_name() {
       warn "Pool name '${name}' is already taken — choose another."
       continue
     fi
+    # shellcheck disable=SC2034 # the caller reads POOL_NAME_RESULT
     POOL_NAME_RESULT="$name"
     return
   done

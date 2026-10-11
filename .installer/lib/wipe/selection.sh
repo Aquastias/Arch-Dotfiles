@@ -113,6 +113,7 @@ wipe_select_disks() {
   local selection
   read -rp "  Wipe which disk(s)? (e.g. '1 3', 'all', Enter to cancel): " \
     selection
+  # shellcheck disable=SC2034 # the caller wipes DISKS_TO_WIPE
   mapfile -t DISKS_TO_WIPE < <(wipe_parse_selection "$selection" \
     "${all_disks[@]}")
 }

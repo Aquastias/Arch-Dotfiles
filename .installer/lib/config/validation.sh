@@ -339,6 +339,7 @@ validation_check_install_context() {
   # EFFECTIVE CONFIG so every front-end aborts identically, before any disk is
   # touched. Replaces the guided-only promotion rule.
   local effective_json
+  # shellcheck disable=SC2153 # CONFIG_FILE is the Install Config global
   effective_json="$(jsonc_strip "$CONFIG_FILE")"
   program_registry_validate_package_exclusivity "$effective_json" \
     "$CONFIG_FILE" \

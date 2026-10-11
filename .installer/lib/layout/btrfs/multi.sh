@@ -48,6 +48,7 @@ layout_validate() {
     "Encrypted multi-disk btrfs root is unsupported: the classic mkinitcpio" \
     "'encrypt' hook opens only one device. Use a single-disk encrypted btrfs" \
     "root, or a plaintext multi-disk raid."
+  # shellcheck disable=SC2153 # CONFIG_FILE is the Install Config global
   mapfile -t _LAYOUT_BTRFS_DISKS \
     < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
   ((${#_LAYOUT_BTRFS_DISKS[@]} >= 1)) || error "btrfs multi: no os_pool.disks."

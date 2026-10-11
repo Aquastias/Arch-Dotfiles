@@ -70,6 +70,7 @@ install_state_load() {
 }
 
 # The install-state.json shape. Keys are read by the chroot modules — frozen.
+# shellcheck disable=SC2016 # a jq template, not shell
 _INSTALL_STATE_TEMPLATE='{
   hostname:$hostname, timezone:$timezone,
   locale:$locale, locales:$locales,
