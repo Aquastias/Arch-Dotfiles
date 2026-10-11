@@ -9,7 +9,12 @@ refactor regression. Teach the audit the same `users/vm/` fallback.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-triage
+**Status:** done
 
-- [ ] audit.sh resolves users via users/<name>/ then users/vm/<name>/
-- [ ] audit.sh green on the current tree
+- [x] audit.sh resolves users via users/<name>/ then users/vm/<name>/
+- [x] audit.sh green on the current tree
+
+## Comments
+
+2026-10-11: fixed — the user check accepts users/<name> or users/vm/<name>,
+the Profile Loader's lookup. audit.sh: 71 passed, 1 skipped (AUR RPC offline).

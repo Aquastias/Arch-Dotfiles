@@ -296,10 +296,11 @@ while IFS= read -r cfg; do
   host="${cfg%/*}"; host="${host##*/}"
   [[ "$host" == "core" ]] && continue
   while IFS= read -r user; do
-    if [[ -d "${OS}/users/${user}" ]]; then
+    # Same lookup as the Profile Loader: users/<name>, else users/vm/<name>.
+    if [[ -d "${OS}/users/${user}" || -d "${OS}/users/vm/${user}" ]]; then
       _pass "host:${host} → user '${user}' directory exists"
     else
-      _fail "host:${host} → user '${user}' not found in users/"
+      _fail "host:${host} → user '${user}' not found in users/ or users/vm/"
     fi
   done < <(_strip "$cfg" | jq -r '.users[]?' 2>/dev/null)
 done < <(find "${OS}/hosts" -name "profile.jsonc")
