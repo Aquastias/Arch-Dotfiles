@@ -41,7 +41,7 @@ declare -F matrix_run >/dev/null 2>&1 \
 # args, the IO seams below read them.
 : "${MATRIX_HOST_RESERVE_MB:=4096}"   # RAM held back for the host
 : "${MATRIX_MAX_PARALLEL:=3}"         # hard cap on concurrent VMs
-: "${MATRIX_VM_RAM_MB:=8192}"         # per-VM RAM (matches the synthesizer)
+: "${MATRIX_VM_RAM_MB:=8192}"         # per-VM RAM (the synthesizer uses it)
 
 # matrix_run_select <smoke|full> [seed] — the Tier-2 cells to run, one JSON cell
 # per line. smoke = the pinned historical-bug seeds only (seed-*); full = the

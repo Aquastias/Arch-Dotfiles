@@ -39,8 +39,10 @@ matrix_run() {
   profile="$(matrix_emit "$id")" || return $?
   echo "[matrix] cell '$id' → profile $profile (boot-verify=$bootv)" >&2
 
-  local -a arguments=(--testing --profile "$profile")
+  # --recreate: a cell VM is disposable; reusing a stale domain would keep its
+  # old RAM/vCPU/disk size and silently ignore the overrides.
+  local -a arguments=(--testing --recreate --profile "$profile")
   [[ "$bootv" == true ]] \
-    && arguments=(--testing --verify-boot --profile "$profile")
+    && arguments=(--testing --recreate --verify-boot --profile "$profile")
   "$INSTALLER_DIR/vm/vm.sh" "${arguments[@]}"
 }

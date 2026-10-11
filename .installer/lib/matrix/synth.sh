@@ -37,9 +37,12 @@ declare -F matrix_cell_assemble >/dev/null 2>&1 \
 # Per-disk size (GiB). The PRD's 20 GiB estimate is too small for a real zfs
 # root: with the default ~5 GiB swap zvol (refreserved) + the OS + impermanence
 # datasets, a ~16 GiB rpool runs out of space (`cannot create rpool/swap: out of
-# space`, VM-observed). 40 GiB is the proven-installable size (qcow2 is sparse,
-# so unused space costs nothing). Override with MATRIX_DISK_GIB.
-: "${MATRIX_DISK_GIB:=40}"
+# space`, VM-observed). 40 GiB then filled up during the fleet profile's AUR
+# builds (~27 GiB allocated after a green run), so 80 GiB is the default (qcow2
+# is sparse, so unused space costs nothing). Override with MATRIX_DISK_GIB.
+: "${MATRIX_DISK_GIB:=80}"
+# Per-VM RAM (MiB) — the same knob the driver admits VMs by (driver.sh).
+: "${MATRIX_VM_RAM_MB:=8192}"
 
 # matrix_cell_disk_count <cell> — Σ disk_count over the root topology and a
 # data pool (the cell already carries each group's disk_count).
@@ -94,12 +97,13 @@ matrix_cell_synthesize() {
 
   jq -n \
     --arg name "matrix-$(jq -r '.id' <<<"$cell")" \
+    --argjson ram "$MATRIX_VM_RAM_MB" \
     --argjson n "$disk_count" --argjson gib "$gib" \
     --argjson verify "$verify" --argjson timeout "$timeout" \
     --argjson install "$install" '
     {
       name: $name,
-      hardware: { disks: [range(0; $n) | $gib], ram_mb: 8192, vcpus: 2 },
+      hardware: { disks: [range(0; $n) | $gib], ram_mb: $ram, vcpus: 2 },
       timeouts: { install: $timeout },
       install: $install
     }

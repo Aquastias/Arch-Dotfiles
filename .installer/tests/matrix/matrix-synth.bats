@@ -84,8 +84,16 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
     "disk_count":2,"encryption":false,"impermanence":true,"data_pool":null}')"
   local profile; profile="$(matrix_cell_synthesize "$cell")"
   echo "$profile" | jq -e '(.hardware.disks | length) == 2'
-  echo "$profile" | jq -e '.hardware.disks | all(. == 40)'  # proven-installable size
+  echo "$profile" | jq -e '.hardware.disks | all(. == 80)'  # default size
   echo "$profile" | jq -e '.verify.rollback == true'
   echo "$profile" | jq -e '.timeouts.install == 2700'
   echo "$profile" | jq -e '.install | type == "object"'
+}
+
+@test "synthesize: VM RAM follows MATRIX_VM_RAM_MB (the knob admission uses)" {
+  local cell profile
+  cell="$(_cell '{"filesystem":"zfs","mode":"single","topology":"single",
+    "disk_count":1,"encryption":false,"impermanence":false,"data_pool":null}')"
+  profile="$(MATRIX_VM_RAM_MB=12288 matrix_cell_synthesize "$cell")"
+  echo "$profile" | jq -e '.hardware.ram_mb == 12288'
 }

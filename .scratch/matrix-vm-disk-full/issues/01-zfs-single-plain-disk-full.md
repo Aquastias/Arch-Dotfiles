@@ -11,10 +11,10 @@ profile in boot-smoke cells.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-triage
+**Status:** done
 
-- [ ] Root cause: what fills the 40G (package cache, paru build dirs, ARC?)
-- [ ] zfs-single-plain installs and boot-verifies green
+- [x] Root cause: what fills the 40G (package cache, paru build dirs, ARC?)
+- [x] zfs-single-plain installs and boot-verifies green
 
 ## Comments
 
@@ -27,3 +27,7 @@ headroom for build dirs + cache. Also found: `matrix_run` never passes
 `--recreate`, so a stale domain from an earlier run is reused with its old
 RAM/vCPU/disk size and env overrides silently do nothing. Suggest raising the
 `MATRIX_DISK_GIB` default (e.g. 80) and recreating matrix domains each run.
+
+2026-10-11 (fix): MATRIX_DISK_GIB default 40 → 80; matrix_run always passes
+`--recreate`; the synthesizer's ram_mb now follows MATRIX_VM_RAM_MB (it was
+hardcoded 8192, so the admission knob never reached the VM).
