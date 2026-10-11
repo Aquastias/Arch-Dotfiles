@@ -70,15 +70,19 @@ explain_usage() {
 
 # explain_load_profile <profile> — the profile resolved over Host Core
 # through the Layer Resolver — the same path install.sh --profile takes, so
-# the report matches the install.
+# the report matches the install. A profile with no file resolves Host
+# Core alone (the loader's status 1), reported on stderr.
 explain_load_profile() {
-  local profile="$1" effective
-  if effective="$(profile_loader_load "$profile" 2>/dev/null)"; then
-    printf '%s\n' "$effective"
-    return 0
-  fi
-  echo "explain-packages: could not load profile '${profile}'." >&2
-  return 1
+  local profile="$1" effective status=0
+  effective="$(profile_loader_load "$profile" 2>/dev/null)" || status=$?
+  case "$status" in
+    0) ;;
+    1) echo "explain-packages: no profile '${profile}' — resolved core" \
+         "only." >&2 ;;
+    *) echo "explain-packages: could not load profile '${profile}'." >&2
+       return 1 ;;
+  esac
+  printf '%s\n' "$effective"
 }
 
 # explain_authored_profile <profile> — the AUTHORED profile, not the resolved

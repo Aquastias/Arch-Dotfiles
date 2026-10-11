@@ -161,3 +161,12 @@ JSON
     package_resolver_resolve "$(profile_loader_load laptop)" | cut -f3 | sort -u')"
   [ "$output" = "$direct" ]
 }
+
+# A profile with no file resolves Host Core alone (the loader's status 1),
+# says so on stderr, and still reports — it is not a hard failure.
+@test "explain-packages: a missing profile reports Host Core only" {
+  run bash "$TOOL" no-such-profile --flat
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no profile 'no-such-profile' — resolved core only."* ]]
+  grep -qx base <<<"$output"
+}

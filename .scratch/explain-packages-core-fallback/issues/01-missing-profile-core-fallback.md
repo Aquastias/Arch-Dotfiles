@@ -11,8 +11,15 @@ status and restore it (today `profile_loader_load nope` returns 2, not 1).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-triage
+**Status:** done
 
-- [ ] Decide: core-only fallback for a missing profile, or abort (today)
-- [ ] If fallback: key it on the loader's actual missing-profile status
-- [ ] explain-packages.bats covers the chosen behaviour
+- [x] Decide: core-only fallback for a missing profile, or abort (today)
+- [x] If fallback: key it on the loader's actual missing-profile status
+- [x] explain-packages.bats covers the chosen behaviour
+
+## Comments
+
+2026-10-11: chose the core-only fallback (the original intent). The loader
+returns 1 with the core JSON for a missing profile (the earlier "returns 2"
+probe ran without INSTALLER_DIR); explain_load_profile now captures the real
+status. Covered by explain-packages.bats ("a missing profile …").
