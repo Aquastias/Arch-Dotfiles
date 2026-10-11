@@ -3,7 +3,7 @@
 # lib/matrix/generator.sh — Combination Matrix Cell Generator + Constraint Model
 # =============================================================================
 # The real generator (ADR 0046). It derives its axes and exclusions from the
-# menu's OWN option functions (_ctl_built_root_filesystems, _ctl_topologies_for_fs)
+# menu's OWN option functions (_controller_built_root_filesystems, _controller_topologies_for_filesystem)
 # — never a hand-kept spec — so the matrix can't drift from what the menu offers
 # and can't emit a cell the menu can't produce. It classifies axes through the
 # Axis Registry and draws the Tier-2 cover through the pure Pairwise Reducer.
@@ -27,7 +27,7 @@
 
 # menu option functions (the source of truth for reachability).
 # shellcheck source=../guided/controller.sh
-declare -F _ctl_topologies_for_fs >/dev/null 2>&1 \
+declare -F _controller_topologies_for_filesystem >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../guided/controller.sh"
 # shellcheck source=./pairwise.sh
 declare -F matrix_pairwise >/dev/null 2>&1 \
@@ -36,13 +36,13 @@ declare -F matrix_pairwise >/dev/null 2>&1 \
 # ── derived axes (from the menu functions) ───────────────────────────────────
 
 # _matrix_root_filesystems — the built root filesystems (menu-derived).
-_matrix_root_filesystems() { _ctl_built_root_filesystems; }
+_matrix_root_filesystems() { _controller_built_root_filesystems; }
 
 # _matrix_multi_topologies <fs> — the multi-disk topologies the menu offers for
 # <fs> (its topology cycle minus the single-disk entry). Empty ⇒ <fs> has no
 # multi-disk story, so it is single-only (ext4/xfs).
 _matrix_multi_topologies() {
-  _ctl_topologies_for_fs "$1" | grep -vx single || true
+  _controller_topologies_for_filesystem "$1" | grep -vx single || true
 }
 
 # _matrix_impermanence_values <fs> — the impermanence values reachable for <fs>.

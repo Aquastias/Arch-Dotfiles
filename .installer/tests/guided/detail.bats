@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for the Guided Installer's always-on master-detail pane (ADR 0071;
-# top-screen parent column dropped by ADR 0082): guided_ctl_preview shows the
+# top-screen parent column dropped by ADR 0082): guided_controller_preview shows the
 # highlighted item's live detail. The category screen still renders a
 # sibling-field parent column (current marked) above the leaf; the top screen
 # shows only the highlighted category (current selection is the fzf triangle
@@ -38,7 +38,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top): a category previews only its own fields, no parent column" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "System — hostname, timezone, fonts"
+  run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
   # the highlighted category's own fields show
   echo "$output" | plain | grep -qE 'hostname:'
@@ -49,7 +49,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top): a category previews its fields as key: value" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "System — hostname, timezone, fonts"
+  run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'timezone: +Europe/Bucharest'
 }
@@ -57,14 +57,14 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 @test "detail(top): an overridden field carries a ● in the summary" {
   printf '%s\n' '{"system":{"hostname":"myhost"}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "System — hostname, timezone, fonts"
+  run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +myhost.*●'
 }
 
 @test "detail(top): Mirrors & Repositories notes the reflector consumer" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "Mirrors & Repositories — countries, multilib"
+  run guided_controller_preview "Mirrors & Repositories — countries, multilib"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -q "reflector"
   echo "$output" | plain | grep -q -- "--sort rate"
@@ -72,7 +72,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top): a non-category row (Proceed) previews nothing" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "Proceed ▸ review & install"
+  run guided_controller_preview "Proceed ▸ review & install"
   [ "$status" -eq 0 ]
   # no parent column and no bogus "Proceed" field summary (ADR 0082)
   ! echo "$output" | plain | grep -q "Locales"
@@ -81,7 +81,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top): a bucket header previews nothing" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "── GENERAL ──"
+  run guided_controller_preview "── GENERAL ──"
   [ "$status" -eq 0 ]
   ! echo "$output" | plain | grep -qE 'hostname:|Locales'
 }
@@ -90,14 +90,14 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(category): the parent column lists the category's fields, marked" {
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_preview "Kernel: lts"
+  run guided_controller_preview "Kernel: lts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE '▶ +kernel'
 }
 
 @test "detail(category): a leaf shows its current value and its option set" {
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_preview "Kernel: lts"
+  run guided_controller_preview "Kernel: lts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'kernel: +lts'
   # the enumerable field lists its options
@@ -107,7 +107,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(category): the Back row previews the sibling column, no leaf" {
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_preview "← Back"
+  run guided_controller_preview "← Back"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'kernel'
 }
@@ -115,7 +115,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 @test "detail(category): an overridden field carries a ● in the pane" {
   printf '%s\n' '{"options":{"kernel":["zen"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_preview "Kernel: zen"
+  run guided_controller_preview "Kernel: zen"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'kernel.*●'          # parent column + leaf
 }
@@ -124,7 +124,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(values): a plain enum field screen shows value + options" {
   set_nav "$(navigation_to_values Bootloader options.bootloader bootloader)"
-  run guided_ctl_preview "[x] systemd-boot"
+  run guided_controller_preview "[x] systemd-boot"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'bootloader: +systemd-boot'
   echo "$output" | plain | grep -q "grub"                # its option set
@@ -133,7 +133,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 @test "detail(text): a free-text field screen shows value + a free-text hint" {
   printf '%s\n' '{"system":{"hostname":"eterniox"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_text System system.hostname hostname)"
-  run guided_ctl_preview "eterniox"
+  run guided_controller_preview "eterniox"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +eterniox'
   echo "$output" | plain | grep -q "free text"
@@ -143,7 +143,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail: the datapools screen keeps its live layout graph, not the pane" {
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_preview "single"
+  run guided_controller_preview "single"
   [ "$status" -eq 0 ]
   # no category parent-column header leaks onto the layout screen
   ! echo "$output" | plain | grep -qE '▶ +(kernel|System)'
@@ -153,7 +153,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top Users): previews the account table, not a users: field row" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "Users — primary user, extra accounts"
+  run guided_controller_preview "Users — primary user, extra accounts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -q "Accounts"
   echo "$output" | plain | grep -qE '^root — '            # the root account row
@@ -166,7 +166,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
   guided_userform_set "$GUIDED_USERFORMS_FILE" alice sudo 'true'
   guided_userform_set "$GUIDED_USERFORMS_FILE" alice groups '["wheel"]'
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "Users — primary user, extra accounts"
+  run guided_controller_preview "Users — primary user, extra accounts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -q "alice"
   echo "$output" | plain | grep -qE 'shell: +/bin/fish'
@@ -179,7 +179,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
     "data_pools":[{"name":"tank9","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_preview "Layout: custom"
+  run guided_controller_preview "Layout: custom"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -q "tank9"                 # reused layout graph
 }

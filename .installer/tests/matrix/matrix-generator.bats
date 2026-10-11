@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for the Cell Generator + Constraint Model (combination-matrix/04, ADR
-# 0046). Sourcing the menu's own option functions (_ctl_topologies_for_fs,
-# _ctl_built_root_filesystems) + the axis registry + the pairwise reducer, it
+# 0046). Sourcing the menu's own option functions (_controller_topologies_for_filesystem,
+# _controller_built_root_filesystems) + the axis registry + the pairwise reducer, it
 # emits two cell sets:
 #   Tier-1 = the exhaustive storage-cluster cross-product under the menu's
 #            exclusions (incl. mixed-fs + per-group encryption cells).

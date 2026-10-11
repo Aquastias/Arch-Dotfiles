@@ -68,7 +68,7 @@ declare -F guided_write_passwords >/dev/null 2>&1 \
 declare -F guided_save_host_profile >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/save.sh"
 # shellcheck source=controller.sh
-declare -F guided_ctl_list >/dev/null 2>&1 \
+declare -F guided_controller_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/controller.sh"
 # shellcheck source=../prompt.sh
 declare -F prompt_secret >/dev/null 2>&1 \
@@ -188,7 +188,7 @@ _guided_shell_seed_from_profile() {
   [[ -n "$name" ]] || return 0
   profile_file="${INSTALLER_DIR}/hosts/${name}/profile.jsonc"
   profile="$(_program_registry_parse "$profile_file" 2>/dev/null)" || return 0
-  # Resolve over Host Core first — see _ctl_enter_profiles: seeding the raw
+  # Resolve over Host Core first — see _controller_enter_profiles: seeding the raw
   # delta would install a different set from `install.sh --profile <name>`.
   profile="$(layer_resolver_resolve host "$(config_state_host_core)" "$profile")"
   _GUIDED_STATE="$(profiles_seed "$_GUIDED_STATE" "$profile")"

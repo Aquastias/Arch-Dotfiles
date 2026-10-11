@@ -39,7 +39,7 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 
 @test "catches an abbreviated function name" {
   make_repo
-  printf '_ctl_pw_missing() { return 0; }\n' > .installer/a.sh
+  printf '_controller_password_missing() { return 0; }\n' > .installer/a.sh
   check_repo
   [ "$status" -ne 0 ]
   [[ "$output" == *"function-name: .installer/a.sh:1: ctl pw"* ]]

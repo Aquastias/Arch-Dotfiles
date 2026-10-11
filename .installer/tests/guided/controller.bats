@@ -32,7 +32,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── top screen ───────────────────────────────────────────────────────────────
 
 @test "list(top): the categories, a divider, and the terminal rows" {
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "System — "
   echo "$output" | grep -q "Users — "
@@ -44,14 +44,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "list(top): bucket headers group the categories (ADR 0081)" {
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -Fq "── GENERAL ──"
   echo "$output" | grep -Fq "── SERVICES ──"
 }
 
 @test "enter(top): a bucket header is inert (noop)" {
-  [ "$(guided_ctl_enter "── GENERAL ──")" = "noop" ]
+  [ "$(guided_controller_enter "── GENERAL ──")" = "noop" ]
 }
 
 # ADR 0083: the focus-skip predicate — decorative rows are inert (the cursor
@@ -72,26 +72,26 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(top): Abort emits the abort directive (Esc-equivalent, ADR 0077)" {
-  [ "$(guided_ctl_enter "Abort ▸ quit without installing")" = "abort" ]
+  [ "$(guided_controller_enter "Abort ▸ quit without installing")" = "abort" ]
 }
 
 @test "enter(top): a category drills in (render + nav)" {
-  run guided_ctl_enter "Disks — layout, data pools, filesystem, encryption, swap"
+  run guided_controller_enter "Disks — layout, data pools, filesystem, encryption, swap"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
 }
 
 @test "enter(top): Proceed / Save / Export emit terminal directives" {
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Save profile ▸ x")" = "terminal save" ]
+  [ "$(guided_controller_enter "Save profile ▸ x")" = "terminal save" ]
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Export config ▸ x")" = "terminal export" ]
+  [ "$(guided_controller_enter "Export config ▸ x")" = "terminal export" ]
 }
 
 @test "enter(top): the divider is inert (noop)" {
-  run guided_ctl_enter "──────────────────────────"
+  run guided_controller_enter "──────────────────────────"
   [ "$output" = "noop" ]
 }
 
@@ -99,7 +99,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(category Disks): field rows + Disk layout action + Back" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "Filesystem: ZFS"
   echo "$output" | grep -qx "Encryption ▸ off"   # collapsed row (ADR 0059)
   echo "$output" | grep -q "Layout: single"   # reflects the default
@@ -111,7 +111,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     "bootloader":"systemd-boot","kernel":["lts","default","hardened","zen"]}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "⚠ ESP too small"
 }
 
@@ -120,7 +120,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     "bootloader":"systemd-boot","kernel":["lts","default","hardened","zen"]}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "⚠ ESP too small"
 }
 
@@ -128,23 +128,23 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' '{"filesystem":"zfs","options":{"esp_size":"auto",
     "kernel":["lts","default","hardened","zen"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "ESP too small"
 }
 
 @test "list(category Disks): the Disk layout row reflects the chosen preset" {
   printf '%s\n' "$(navigation_to_values Disks __layout__ "layout")" \
     > "$GUIDED_NAV_FILE"
-  guided_ctl_enter "os-mirror" >/dev/null    # apply the preset
+  guided_controller_enter "os-mirror" >/dev/null    # apply the preset
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "Layout: OS: 2 disks (mirror)"
   echo "$output" | grep -q "●"               # overridden marker
 }
 
 @test "enter(category): an enum field opens the value picker" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_enter "Filesystem: ZFS"
+  run guided_controller_enter "Filesystem: ZFS"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "filesystem" ]
@@ -152,7 +152,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): a text field opens the native query-line editor" {
   set_nav "$(navigation_to_category System)"
-  run guided_ctl_enter "Hostname: "
+  run guided_controller_enter "Hostname: "
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.hostname" ]
@@ -160,7 +160,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): a toggle field opens the multi-select picker" {
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_enter "Kernel: LTS"
+  run guided_controller_enter "Kernel: LTS"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.kernel" ]
@@ -173,7 +173,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
            post_install.security.antivirus post_install.backup.borg \
            options.printing.enabled options.bluetooth.enabled \
            environment.stock; do
-    _ctl_is_cycle_field "$f" || { echo "expected cycle: $f"; false; }
+    _controller_is_cycle_field "$f" || { echo "expected cycle: $f"; false; }
   done
   # options.power.profile is a 3-value ENUM (none/ppd/tuned), not a bool — it
   # must NOT be a Cycle Field, else the operator could never pick tuned/none
@@ -182,15 +182,15 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
            environment.display_manager options.encryption \
            options.impermanence.enabled system.hostname \
            options.power.profile; do
-    ! _ctl_is_cycle_field "$f" || { echo "unexpected cycle: $f"; false; }
+    ! _controller_is_cycle_field "$f" || { echo "unexpected cycle: $f"; false; }
   done
 }
 
 # The Power enum's value picker must offer the three backends (regression: the
-# render seam was wired but _ctl_enum_options was not, so it fell through to
+# render seam was wired but _controller_enum_options was not, so it fell through to
 # true/false and the field was misclassified as a bool — ADR 0080).
 @test "enum_options: power profile offers none / ppd / tuned, not true/false" {
-  run _ctl_enum_options options.power.profile
+  run _controller_enum_options options.power.profile
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx power-profiles-daemon
   echo "$output" | grep -qx tuned
@@ -236,7 +236,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$INSTALLER_DIR/programs/system/myhostprog/config.jsonc"
   program_registry_build
 
-  run _ctl_host_program_names
+  run _controller_host_program_names
   [ "$status" -eq 0 ]
   for p in cups bluetooth power-profiles-daemon tuned grub sops; do
     ! grep -qx "$p" <<<"$output"      # Menu-Owned, filtered out
@@ -264,7 +264,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$INSTALLER_DIR/programs/communication/teamspeak3/config.jsonc"
   program_registry_build
 
-  run _ctl_user_program_names
+  run _controller_user_program_names
   [ "$status" -eq 0 ]
   ! grep -qx clamav <<<"$output"      # Security-owned
   ! grep -qx firewalld <<<"$output"   # Security-owned
@@ -280,14 +280,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc"
   program_registry_build
 
-  run _ctl_host_program_names
+  run _controller_host_program_names
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "enter(category): a bare bool flips in place (refresh, no drill)" {
   set_nav "$(navigation_to_category Expert)"
-  run guided_ctl_enter "SSH: false"
+  run guided_controller_enter "SSH: false"
   [ "$output" = "refresh" ]                                   # stays on category
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]   # no values submenu
   [ "$(jq -c '.options.ssh.enabled' "$GUIDED_STATE_FILE")" = "true" ]
@@ -296,7 +296,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(category): flipping a default-true bool reads it true and turns it off" {
   _seed_baseline
   set_nav "$(navigation_to_category Pacman)"
-  run guided_ctl_enter "Color: true"
+  run guided_controller_enter "Color: true"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.options.pacman.color' "$GUIDED_STATE_FILE")" = "false" ]
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.pacman.color
@@ -305,10 +305,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(category): flipping a bool back to its default clears the override" {
   _seed_baseline
   set_nav "$(navigation_to_category Expert)"
-  guided_ctl_enter "SSH: false" >/dev/null   # default false → true, override kept
+  guided_controller_enter "SSH: false" >/dev/null   # default false → true, override kept
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
   set_nav "$(navigation_to_category Expert)"
-  guided_ctl_enter "SSH: true"  >/dev/null   # true → back to default false, drop
+  guided_controller_enter "SSH: true"  >/dev/null   # true → back to default false, drop
   ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
 }
 
@@ -317,23 +317,23 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(category): environment.stock flips on, stores, then clears on flip-back" {
   _seed_baseline
   set_nav "$(navigation_to_category Environment)"
-  run guided_ctl_enter "Stock: false"        # default false → true, override kept
+  run guided_controller_enter "Stock: false"        # default false → true, override kept
   [ "$output" = "refresh" ]
   [ "$(jq -c '.environment.stock' "$GUIDED_STATE_FILE")" = "true" ]
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
   set_nav "$(navigation_to_category Environment)"
-  guided_ctl_enter "Stock: true" >/dev/null  # true → back to default false, drop
+  guided_controller_enter "Stock: true" >/dev/null  # true → back to default false, drop
   ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
 }
 
 @test "header(category): the hint advertises cycle" {
-  run _ctl_nav_header "$(navigation_to_category Expert)"
+  run _controller_navigation_header "$(navigation_to_category Expert)"
   echo "$output" | grep -q "Enter edit / cycle"
 }
 
 @test "list(category Packages): drills repo/aur/derived, no field rows" {
   set_nav "$(navigation_to_category Packages)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^repo ▸'
   echo "$output" | grep -qE '^aur ▸'
   echo "$output" | grep -qE '^derived ▸'
@@ -347,14 +347,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   # overridden flag into it — an empty hostname must render "Hostname: " not
   # "Hostname: false"/"…True".
   set_nav "$(navigation_to_category System)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^Hostname: *$'
   ! echo "$output" | grep -qiE '^Hostname: (true|false)'
 }
 
 @test "list(text esp size): current shows the default auto, not (unset)" {
   set_nav "$(navigation_to_text Disks options.esp_size "esp size")"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "current: auto"
 }
 
@@ -363,49 +363,49 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(values toggle): options are marked [x]/[ ] by selection" {
   printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Kernels options.kernel kernel)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "\[x\] LTS"
   echo "$output" | grep -q "\[ \] Zen"
 }
 
 @test "enter(values toggle): toggling on adds the option and STAYS on the screen" {
   set_nav "$(navigation_to_values Kernels options.kernel kernel)"
-  run guided_ctl_enter "[ ] lts"
+  run guided_controller_enter "[ ] lts"
   [ "$output" = "refresh" ]   # reload-sync in place (no flicker, query kept)
   [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
 }
 
 @test "directive→action: refresh re-lists in place via reload-sync" {
-  run _guided_directive_to_action refresh /x/entry.sh
+  run _controller_directive_to_action refresh /x/entry.sh
   [ "$output" = "reload-sync(bash /x/entry.sh list)+refresh-preview" ]
 }
 
 @test "enter(values toggle): toggling an already-selected option removes it" {
   printf '%s\n' '{"options":{"kernel":["lts","zen"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Kernels options.kernel kernel)"
-  run guided_ctl_enter "[x] zen"
+  run guided_controller_enter "[x] zen"
   [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
 }
 
 @test "enter(values toggle): the last option toggled off unsets the override" {
   printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Kernels options.kernel kernel)"
-  run guided_ctl_enter "[x] lts"
+  run guided_controller_enter "[x] lts"
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
 @test "enter(values toggle gpu): auto is mutually exclusive → scalar auto" {
   printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Environment environment.gpu gpu)"
-  run guided_ctl_enter "[ ] auto"
+  run guided_controller_enter "[ ] auto"
   [ "$(jq -r '.environment.gpu' "$GUIDED_STATE_FILE")" = "auto" ]
 }
 
 @test "enter(values toggle gpu): picking a vendor clears auto" {
   printf '%s\n' '{"environment":{"gpu":"auto"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Environment environment.gpu gpu)"
-  run guided_ctl_enter "[ ] nvidia"
+  run guided_controller_enter "[ ] nvidia"
   [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["nvidia"]' ]
 }
 
@@ -414,20 +414,20 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   # so it also exercises the Display Label reverse lookup for gpu.
   printf '%s\n' '{"environment":{"gpu":"auto"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Environment environment.gpu gpu)"
-  guided_ctl_enter "[ ] AMD" >/dev/null       # clears auto, adds amd
+  guided_controller_enter "[ ] AMD" >/dev/null       # clears auto, adds amd
   [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd"]' ]
-  guided_ctl_enter "[ ] NVIDIA" >/dev/null    # adds the second vendor
+  guided_controller_enter "[ ] NVIDIA" >/dev/null    # adds the second vendor
   [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd","nvidia"]' ]
 }
 
 # ── undo / redo / reset (slice 03) ───────────────────────────────────────────
 
-@test "autocommit: guided_ctl_list snapshots a changed state for undo" {
+@test "autocommit: guided_controller_list snapshots a changed state for undo" {
   export GUIDED_HIST_FILE="$TEST_DIR/hist"
   history_new '{}' > "$GUIDED_HIST_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  guided_ctl_list >/dev/null     # the single choke point commits the change
+  guided_controller_list >/dev/null     # the single choke point commits the change
   [ "$(history_present "$(<"$GUIDED_HIST_FILE")" | jq -c '.options.encryption')" \
     = "true" ]
 }
@@ -436,8 +436,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   export GUIDED_HIST_FILE="$TEST_DIR/hist"
   history_new '{}' > "$GUIDED_HIST_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
-  guided_ctl_list >/dev/null     # autocommit the change
-  run guided_ctl_key ctrl-z
+  guided_controller_list >/dev/null     # autocommit the change
+  run guided_controller_key ctrl-z
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
@@ -446,9 +446,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   export GUIDED_HIST_FILE="$TEST_DIR/hist"
   history_new '{}' > "$GUIDED_HIST_FILE"
   printf '%s\n' '{"a":1}' > "$GUIDED_STATE_FILE"
-  guided_ctl_list >/dev/null
-  guided_ctl_key ctrl-z >/dev/null
-  run guided_ctl_key ctrl-y
+  guided_controller_list >/dev/null
+  guided_controller_key ctrl-z >/dev/null
+  run guided_controller_key ctrl-y
   [ "$output" = "render" ]
   [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
 }
@@ -457,10 +457,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   export GUIDED_HIST_FILE="$TEST_DIR/hist"
   printf '%s\n' '{"a":1}' > "$GUIDED_STATE_FILE"
   history_new '{"a":1}' > "$GUIDED_HIST_FILE"
-  run guided_ctl_key ctrl-r
+  run guided_controller_key ctrl-r
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
-  guided_ctl_key ctrl-z >/dev/null              # undo the reset
+  guided_controller_key ctrl-z >/dev/null              # undo the reset
   [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
@@ -471,11 +471,11 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$GUIDED_STATE_FILE"
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  run guided_ctl_key ctrl-r
+  run guided_controller_key ctrl-r
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q '?'
 }
 
@@ -486,7 +486,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$GUIDED_STATE_FILE"
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_key ctrl-r
+  run guided_controller_key ctrl-r
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
@@ -496,10 +496,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   local base='{"mode":"multi","os_pool":{"pool_name":"rpool","topology":"none","disk_count":1}}'
   printf '%s\n' "$base" > "$GUIDED_STATE_FILE"
   history_new "$base" > "$GUIDED_HIST_FILE"
-  printf '%s\n' "$(_ctl_add_data_pool "$base")" > "$GUIDED_STATE_FILE"
-  guided_ctl_list >/dev/null          # autocommit the added pool
+  printf '%s\n' "$(_controller_add_data_pool "$base")" > "$GUIDED_STATE_FILE"
+  guided_controller_list >/dev/null          # autocommit the added pool
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_key ctrl-z           # undo the add; layout is still multi
+  run guided_controller_key ctrl-z           # undo the add; layout is still multi
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
@@ -509,9 +509,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' \
     '{"mode":"multi","data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}' \
     > "$GUIDED_STATE_FILE"
-  guided_ctl_list >/dev/null          # autocommit the creation
+  guided_controller_list >/dev/null          # autocommit the creation
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  run guided_ctl_key ctrl-z
+  run guided_controller_key ctrl-z
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
@@ -521,21 +521,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' "$base" > "$GUIDED_STATE_FILE"
   history_new "$base" > "$GUIDED_HIST_FILE"
   printf '%s\n' "$(jq -c '.data_pools[0].disk_count=2' <<<"$base")" > "$GUIDED_STATE_FILE"
-  guided_ctl_list >/dev/null          # autocommit the count change
+  guided_controller_list >/dev/null          # autocommit the count change
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  run guided_ctl_key ctrl-z           # undo the change; the pool still exists
+  run guided_controller_key ctrl-z           # undo the change; the pool still exists
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
 }
 
 @test "key: a no-op without a history file" {
   unset GUIDED_HIST_FILE
-  run guided_ctl_key ctrl-z
+  run guided_controller_key ctrl-z
   [ "$output" = "noop" ]
 }
 
 @test "enter(category): Disk layout opens the native preset picker" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_enter "Layout: single"
+  run guided_controller_enter "Layout: single"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "__layout__" ]
@@ -543,7 +543,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): Back returns to the top screen" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
@@ -552,7 +552,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(values): the enum options + Back" {
   set_nav "$(navigation_to_values Bootloader options.bootloader bootloader)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "systemd-boot"
   echo "$output" | grep -q "Grub"
   echo "$output" | grep -q "← Back"
@@ -563,7 +563,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(values): display_manager picker offers auto/greetd/sddm, not bools" {
   set_nav \
     "$(navigation_to_values Environment environment.display_manager 'display manager')"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "Auto"
   echo "$output" | grep -q "greetd"
   echo "$output" | grep -q "SDDM"
@@ -576,13 +576,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(values): picking SDDM commits environment.display_manager=sddm" {
   set_nav \
     "$(navigation_to_values Environment environment.display_manager 'display manager')"
-  run guided_ctl_enter "SDDM"
+  run guided_controller_enter "SDDM"
   [ "$(jq -r '.environment.display_manager' "$GUIDED_STATE_FILE")" = "sddm" ]
 }
 
 @test "enter(values): picking a bool commits it and returns to the category" {
   set_nav "$(navigation_to_values Disks options.encryption encryption)"
-  run guided_ctl_enter "true"
+  run guided_controller_enter "true"
   [ "$output" = "render" ]
   [ "$(jq -c '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
@@ -591,7 +591,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(values): zfs commits the filesystem" {
   set_nav "$(navigation_to_values Disks filesystem filesystem)"
-  run guided_ctl_enter "zfs"
+  run guided_controller_enter "zfs"
   [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "zfs" ]
 }
 
@@ -600,7 +600,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # now: zfs/btrfs/ext4/xfs). No "(reserved)" placeholder — each is selectable.
 @test "list(values): filesystem picker offers the built adapters, none reserved" {
   set_nav "$(navigation_to_values Disks filesystem filesystem)"
-  run guided_ctl_list
+  run guided_controller_list
   local fs
   for fs in ZFS Btrfs Ext4 Xfs; do
     echo "$output" | grep -qx "$fs" || { echo "missing built fs: $fs"; false; }
@@ -610,21 +610,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(values): a built non-zfs filesystem (btrfs) commits" {
   set_nav "$(navigation_to_values Disks filesystem filesystem)"
-  run guided_ctl_enter "btrfs"
+  run guided_controller_enter "btrfs"
   [ "$output" = "render" ]
   [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
 }
 
 @test "enter(values): an unbuilt filesystem is a no-op (defensive)" {
   set_nav "$(navigation_to_values Disks filesystem filesystem)"
-  run guided_ctl_enter "bcachefs"
+  run guided_controller_enter "bcachefs"
   [ "$output" = "render" ]
   [ "$(jq -c '.filesystem // "unset"' "$GUIDED_STATE_FILE")" = '"unset"' ]
 }
 
 @test "enter(values): Back leaves the value unchanged" {
   set_nav "$(navigation_to_values Disks options.encryption encryption)"
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
@@ -642,7 +642,7 @@ _seed_baseline() {
 @test "enter(values): re-picking the default filesystem (zfs) leaves no override" {
   _seed_baseline
   set_nav "$(navigation_to_values Disks filesystem filesystem)"
-  run guided_ctl_enter "zfs"
+  run guided_controller_enter "zfs"
   [ "$status" -eq 0 ]
   # zfs == the seeded default → normalised away → no override key, no ●
   [ "$(jq -c 'has("filesystem")' "$GUIDED_STATE_FILE")" = "false" ]
@@ -652,7 +652,7 @@ _seed_baseline() {
 @test "enter(values): a non-default filesystem (btrfs) keeps the override" {
   _seed_baseline
   set_nav "$(navigation_to_values Disks filesystem filesystem)"
-  run guided_ctl_enter "btrfs"
+  run guided_controller_enter "btrfs"
   [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
 }
@@ -660,10 +660,10 @@ _seed_baseline() {
 @test "enter(values): a bool toggled on then back to its default drops the ●" {
   _seed_baseline
   set_nav "$(navigation_to_values Disks options.encryption encryption)"
-  guided_ctl_enter "true"  >/dev/null   # away from default false → override kept
+  guided_controller_enter "true"  >/dev/null   # away from default false → override kept
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
   set_nav "$(navigation_to_values Disks options.encryption encryption)"
-  guided_ctl_enter "false" >/dev/null   # back to default false → normalised away
+  guided_controller_enter "false" >/dev/null   # back to default false → normalised away
   [ "$(jq -c 'getpath(["options","encryption"]) == null' \
       "$GUIDED_STATE_FILE")" = "true" ]
   ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
@@ -673,7 +673,7 @@ _seed_baseline() {
 
 @test "list(values __layout__): lists the disk-layout presets + Back" {
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "single"
   echo "$output" | grep -q "os-mirror"
   echo "$output" | grep -q "data-pools"
@@ -682,7 +682,7 @@ _seed_baseline() {
 
 @test "enter(values __layout__): picking a multi preset opens the editor" {
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run guided_ctl_enter "os-mirror"
+  run guided_controller_enter "os-mirror"
   [ "$output" = "render" ]
   [ "$(jq -c '. != {}' "$GUIDED_STATE_FILE")" = "true" ]   # a skeleton landed
   # ADR 0047: a multi preset now drops into the unified editor, not back-out.
@@ -692,13 +692,13 @@ _seed_baseline() {
 # ── disk-layout graph preview ────────────────────────────────────────────────
 
 @test "layout graph: single shows one OS pool" {
-  run _ctl_layout_graph "$(skeleton_preset single)"
+  run _controller_layout_graph "$(skeleton_preset single)"
   echo "$output" | grep -q "rpool"
   echo "$output" | grep -qi "single"
 }
 
 @test "layout graph: os-mirror-raidz1 shows OS mirror + data raidz1" {
-  run _ctl_layout_graph "$(skeleton_preset os-mirror-raidz1)"
+  run _controller_layout_graph "$(skeleton_preset os-mirror-raidz1)"
   echo "$output" | grep -q "mirror · 2 disk"
   echo "$output" | grep -q "raidz1 · 3 disk"
 }
@@ -707,11 +707,11 @@ _seed_baseline() {
   # ADR 0071: the category screen now renders the master-detail pane (parent
   # column of its fields), while the __layout__ values screen keeps its graph.
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_preview "Filesystem: zfs"
+  run guided_controller_preview "Filesystem: zfs"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "filesystem"              # its field column
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run guided_ctl_preview "os-mirror"
+  run guided_controller_preview "os-mirror"
   echo "$output" | grep -q "mirror"
 }
 
@@ -720,23 +720,23 @@ _seed_baseline() {
     '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"raidz2","disk_count":6}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run guided_ctl_preview "data-pools"          # not a preset → live state
+  run guided_controller_preview "data-pools"          # not a preset → live state
   echo "$output" | grep -q "tank0"
   echo "$output" | grep -q "raidz2 · 6 disk"
 }
 
 @test "directive→action(render): layout + category show the pane, plain values hide it" {
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview(bash /x/entry.sh preview {})"
   echo "$output" | grep -q "change-preview-window(right,45%)"
   # ADR 0071: the category screen now shows the always-on detail pane too.
   set_nav "$(navigation_to_category Disks)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(right,45%)"
   # every field screen is populated now — even a plain enum values screen.
   set_nav "$(navigation_to_values Kernels options.kernel kernel)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(right,45%)"
 }
 
@@ -747,7 +747,7 @@ _seed_baseline() {
     '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"raidz1","disk_count":3}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_preview "disks: 3   (Enter cycles 1-8)"
+  run guided_controller_preview "disks: 3   (Enter cycles 1-8)"
   echo "$output" | grep -q "tank0"
   echo "$output" | grep -q "raidz1 · 3 disk"
 }
@@ -757,7 +757,7 @@ _seed_baseline() {
     '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2},{"name":"tank1","topology":"stripe","disk_count":4}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_preview "+ Add data pool"
+  run guided_controller_preview "+ Add data pool"
   echo "$output" | grep -q "tank0"
   echo "$output" | grep -q "tank1"
   echo "$output" | grep -q "4 disk"
@@ -765,11 +765,11 @@ _seed_baseline() {
 
 @test "directive→action(render): the data-pool editor shows the preview pane" {
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview(bash /x/entry.sh preview {})"
   echo "$output" | grep -q "change-preview-window(right,45%)"
   set_nav "$(navigation_to_data_pools Disks)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(right,45%)"
 }
 
@@ -777,13 +777,13 @@ _seed_baseline() {
 
 @test "list(category Disks): no separate data pools row (it lives under layout)" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "data pools:"
 }
 
 @test "enter(values __layout__): data-pools opens the editor with a starter pool" {
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run guided_ctl_enter "data-pools"
+  run guided_controller_enter "data-pools"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
   [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
@@ -794,14 +794,14 @@ _seed_baseline() {
   printf '%s\n' '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Disks __layout__ "layout")"
-  run guided_ctl_enter "data-pools"
+  run guided_controller_enter "data-pools"
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
   [ "$(jq '.data_pools | length' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
 @test "enter(datapools): + Add appends tank0 (single-disk stripe ×1) and forces multi" {
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_enter "+ Add data pool"
+  run guided_controller_enter "+ Add data pool"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
   [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "stripe" ]
@@ -815,7 +815,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_enter "+ Add data pool"
+  run guided_controller_enter "+ Add data pool"
   [ "$(jq -r '.data_pools[1].name' "$GUIDED_STATE_FILE")" = "tank1" ]
 }
 
@@ -824,7 +824,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","topology":"raidz1","disk_count":3}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "tank0: raidz1 ×3"
   echo "$output" | grep -q "+ Add data pool"
 }
@@ -833,7 +833,7 @@ _seed_baseline() {
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2},{"name":"tank1","topology":"stripe","disk_count":1}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_enter "tank1: stripe ×1"
+  run guided_controller_enter "tank1: stripe ×1"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" index)" = "1" ]
@@ -844,11 +844,11 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","topology":"stripe","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "topology: stripe   (Enter cycles)"
+  run guided_controller_enter "topology: stripe   (Enter cycles)"
   [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
-  run guided_ctl_enter "disks: 2   (Enter cycles 1-8)"
+  run guided_controller_enter "disks: 2   (Enter cycles 1-8)"
   [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]
-  run guided_ctl_enter "✗ remove this pool"
+  run guided_controller_enter "✗ remove this pool"
   [ "$(jq -c '.data_pools' "$GUIDED_STATE_FILE")" = "[]" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
@@ -860,7 +860,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"btrfs","topology":"single","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "topology: single   (Enter cycles)"
+  run guided_controller_enter "topology: single   (Enter cycles)"
   [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "raid0" ]
 }
 
@@ -869,7 +869,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"ext4","topology":"single","disk_count":1}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "topology: single   (Enter cycles)"
+  run guided_controller_enter "topology: single   (Enter cycles)"
   [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
 }
 
@@ -879,7 +879,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"zfs","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "filesystem: zfs   (Enter cycles)"
+  run guided_controller_enter "filesystem: zfs   (Enter cycles)"
   [ "$(jq -r '.data_pools[0].filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
 }
 
@@ -888,7 +888,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"btrfs","topology":"raid1","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "filesystem: btrfs   (Enter cycles)"
+  run guided_controller_enter "filesystem: btrfs   (Enter cycles)"
   [ "$(jq -r '.data_pools[0].filesystem' "$GUIDED_STATE_FILE")" = "ext4" ]
   [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
   [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
@@ -899,9 +899,9 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"zfs","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "encryption: false   (Enter toggles)"
+  run guided_controller_enter "encryption: false   (Enter toggles)"
   [ "$(jq -r '.data_pools[0].encryption' "$GUIDED_STATE_FILE")" = "true" ]
-  run guided_ctl_enter "encryption: true   (Enter toggles)"
+  run guided_controller_enter "encryption: true   (Enter toggles)"
   [ "$(jq -r '.data_pools[0].encryption' "$GUIDED_STATE_FILE")" = "false" ]
 }
 
@@ -910,7 +910,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"ext4","topology":"single","disk_count":1}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_enter "disks: 1   (Enter cycles 1-8)"
+  run guided_controller_enter "disks: 1   (Enter cycles 1-8)"
   [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
@@ -919,7 +919,7 @@ _seed_baseline() {
     '{"data_pools":[{"name":"tank0","filesystem":"btrfs","topology":"raid1","disk_count":2,"encryption":true}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "filesystem: btrfs"
   echo "$output" | grep -q "encryption: true"
 }
@@ -928,27 +928,27 @@ _seed_baseline() {
 
 @test "list(category Disks): one swap row, no separate swap size row" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   [ "$(echo "$output" | grep -cE '^Swap:')" = "1" ]
   ! echo "$output" | grep -qE '^Swap size:'
 }
 
 @test "list(category Disks): swap row defaults to size + zswap, no dot" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^Swap: auto · zswap zstd$'   # default on + zswap
 }
 
 @test "enter(category): swap opens the swapedit sub-editor" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_enter "Swap: auto"
+  run guided_controller_enter "Swap: auto"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
 }
 
 @test "list(swapedit): default shows enabled on + size auto + Back" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^enabled: on$'
   echo "$output" | grep -qE '^size: auto$'
   echo "$output" | grep -q "← Back"
@@ -956,7 +956,7 @@ _seed_baseline() {
 
 @test "enter(swapedit): toggling enabled flips options.swap and STAYS (refresh)" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "enabled: on"
+  run guided_controller_enter "enabled: on"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.options.swap' "$GUIDED_STATE_FILE")" = "false" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
@@ -965,66 +965,66 @@ _seed_baseline() {
 @test "enter(swapedit): an explicit swap:false toggles back to true (jq // guard)" {
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "enabled: off"
+  run guided_controller_enter "enabled: off"
   [ "$(jq -c '.options.swap' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
 @test "list(swapedit): swap off hides the size row" {
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^enabled: off$'
   ! echo "$output" | grep -qE '^size:'
 }
 
 @test "enter(swapedit): size opens the text editor; saving returns to swapedit" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "size: auto"
+  run guided_controller_enter "size: auto"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.swap_size" ]
-  run guided_ctl_enter "" "8G"                 # text screen: query is the value
+  run guided_controller_enter "" "8G"                 # text screen: query is the value
   [ "$(jq -r '.options.swap_size' "$GUIDED_STATE_FILE")" = "8G" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
 }
 
 @test "enter(swapedit): Back returns to the Disks category" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
 @test "swap label: off / size · zswap <comp> / size · no zswap" {
-  run _ctl_swap_label '{"options":{"swap":false}}'
+  run _controller_swap_label '{"options":{"swap":false}}'
   [ "$output" = "off" ]
-  run _ctl_swap_label '{"options":{"swap_size":"8G"}}'        # zswap default on
+  run _controller_swap_label '{"options":{"swap_size":"8G"}}'        # zswap default on
   [ "$output" = "8G · zswap zstd" ]
-  run _ctl_swap_label '{}'
+  run _controller_swap_label '{}'
   [ "$output" = "auto · zswap zstd" ]
-  run _ctl_swap_label '{"options":{"zswap":{"enabled":false}}}'
+  run _controller_swap_label '{"options":{"zswap":{"enabled":false}}}'
   [ "$output" = "auto · no zswap" ]
-  run _ctl_swap_label '{"options":{"zswap":{"compressor":"lz4"}}}'
+  run _controller_swap_label '{"options":{"zswap":{"compressor":"lz4"}}}'
   [ "$output" = "auto · zswap lz4" ]
 }
 
 @test "encryption label: off / on · <tag> (ADR 0059)" {
-  run _ctl_encryption_label '{"options":{"encryption":false}}' "default 12345678"
+  run _controller_encryption_label '{"options":{"encryption":false}}' "default 12345678"
   [ "$output" = "off" ]
-  run _ctl_encryption_label '{}' "default 12345678"        # default off
+  run _controller_encryption_label '{}' "default 12345678"        # default off
   [ "$output" = "off" ]
-  run _ctl_encryption_label '{"options":{"encryption":true}}' "default 12345678"
+  run _controller_encryption_label '{"options":{"encryption":true}}' "default 12345678"
   [ "$output" = "on · default 12345678" ]
-  run _ctl_encryption_label '{"options":{"encryption":true}}' "custom"
+  run _controller_encryption_label '{"options":{"encryption":true}}' "custom"
   [ "$output" = "on · custom" ]
-  run _ctl_encryption_label '{"options":{"encryption":true}}' "from age"
+  run _controller_encryption_label '{"options":{"encryption":true}}' "from age"
   [ "$output" = "on · from age" ]
 }
 
 @test "list(category Disks): swap row shows a dot once overridden" {
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^Swap: off  ●$'
 }
 
@@ -1032,7 +1032,7 @@ _seed_baseline() {
 
 @test "list(swapedit): default shows the zswap rows (on, zstd, 20)" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^zswap: on$'
   echo "$output" | grep -qE '^compressor: zstd'
   echo "$output" | grep -qE '^max pool %: 20'
@@ -1041,7 +1041,7 @@ _seed_baseline() {
 @test "list(swapedit): zswap off hides compressor + max pool %" {
   printf '%s\n' '{"options":{"zswap":{"enabled":false}}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^zswap: off$'
   ! echo "$output" | grep -qE '^compressor:'
   ! echo "$output" | grep -qE '^max pool %:'
@@ -1050,14 +1050,14 @@ _seed_baseline() {
 @test "list(swapedit): swap off hides every zswap row" {
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -qE '^zswap:'
   ! echo "$output" | grep -qE '^compressor:'
 }
 
 @test "enter(swapedit): toggling zswap flips options.zswap.enabled (refresh)" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "zswap: on"
+  run guided_controller_enter "zswap: on"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.options.zswap.enabled' "$GUIDED_STATE_FILE")" = "false" ]
 }
@@ -1065,27 +1065,27 @@ _seed_baseline() {
 @test "enter(swapedit): an explicit zswap:false toggles back to true (jq guard)" {
   printf '%s\n' '{"options":{"zswap":{"enabled":false}}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "zswap: off"
+  run guided_controller_enter "zswap: off"
   [ "$(jq -c '.options.zswap.enabled' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
 @test "enter(swapedit): compressor cycles zstd → lz4 → lzo → zstd" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "compressor: zstd   (Enter cycles)"
+  run guided_controller_enter "compressor: zstd   (Enter cycles)"
   [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "lz4" ]
-  run guided_ctl_enter "compressor: lz4   (Enter cycles)"
+  run guided_controller_enter "compressor: lz4   (Enter cycles)"
   [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "lzo" ]
-  run guided_ctl_enter "compressor: lzo   (Enter cycles)"
+  run guided_controller_enter "compressor: lzo   (Enter cycles)"
   [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "zstd" ]
 }
 
 @test "enter(swapedit): max pool % cycles 20 → 40 → 60 → 5" {
   set_nav "$(navigation_to_swap_edit Disks)"
-  run guided_ctl_enter "max pool %: 20   (Enter cycles)"
+  run guided_controller_enter "max pool %: 20   (Enter cycles)"
   [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "40" ]
-  run guided_ctl_enter "max pool %: 40   (Enter cycles)"
+  run guided_controller_enter "max pool %: 40   (Enter cycles)"
   [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "60" ]
-  run guided_ctl_enter "max pool %: 60   (Enter cycles)"
+  run guided_controller_enter "max pool %: 60   (Enter cycles)"
   [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "5" ]
 }
 
@@ -1093,7 +1093,7 @@ _seed_baseline() {
 
 @test "enter(category): keymap opens a big filterable list (values screen)" {
   set_nav "$(navigation_to_category Locales)"
-  run guided_ctl_enter "Keyboard: us"
+  run guided_controller_enter "Keyboard: us"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.keymap" ]
@@ -1101,7 +1101,7 @@ _seed_baseline() {
 
 @test "list(values keymap): a long MARKED list (multi) that includes us" {
   set_nav "$(navigation_to_values Locales system.keymap keymap)"
-  run guided_ctl_list
+  run guided_controller_list
   [ "${#lines[@]}" -gt 10 ]
   echo "$output" | grep -qE '\] us$'   # marked toggle row "[x]/[ ] us"
 }
@@ -1109,27 +1109,27 @@ _seed_baseline() {
 @test "enter(values keymap): toggling adds a keymap to the array (multi)" {
   printf '%s\n' '{"system":{"keymap":["us"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales system.keymap keymap)"
-  run guided_ctl_enter "[ ] de"
+  run guided_controller_enter "[ ] de"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.system.keymap' "$GUIDED_STATE_FILE")" = '["us","de"]' ]
 }
 
 @test "list(values timezone): includes region/city entries" {
   set_nav "$(navigation_to_values System system.timezone timezone)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^[A-Z][A-Za-z_]+/'
 }
 
 @test "list(values language): includes en_US (locale projection, ADR 0076)" {
   set_nav "$(navigation_to_values Locales __language__ language)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "en_US"
 }
 
 @test "enter(values language): picking recomposes system.locale, keeps encoding" {
   printf '%s\n' '{"system":{"locale":"en_US.UTF-8"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales __language__ language)"
-  run guided_ctl_enter "de_DE"
+  run guided_controller_enter "de_DE"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.UTF-8" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
@@ -1138,7 +1138,7 @@ _seed_baseline() {
 @test "list(values encoding): filtered to the language's charsets (en_US)" {
   printf '%s\n' '{"system":{"locale":"en_US.UTF-8"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales __encoding__ encoding)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "UTF-8"
   echo "$output" | grep -qx "ISO-8859-1"
 }
@@ -1146,7 +1146,7 @@ _seed_baseline() {
 @test "enter(values encoding): picking recomposes system.locale, keeps language" {
   printf '%s\n' '{"system":{"locale":"de_DE.UTF-8"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales __encoding__ encoding)"
-  run guided_ctl_enter "ISO-8859-1"
+  run guided_controller_enter "ISO-8859-1"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.ISO-8859-1" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
@@ -1156,20 +1156,20 @@ _seed_baseline() {
   printf '%s\n' '{"system":{"locale":["en_US.UTF-8","fr_FR.UTF-8"]}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales __language__ language)"
-  run guided_ctl_enter "de_DE"
+  run guided_controller_enter "de_DE"
   [ "$(jq -c '.system.locale' "$GUIDED_STATE_FILE")" \
     = '["de_DE.UTF-8","fr_FR.UTF-8"]' ]
 }
 
 @test "list(values console font): includes the always-present default8x16" {
   set_nav "$(navigation_to_values Locales system.console_font "console font")"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "default8x16"
 }
 
 @test "enter(values console font): an installed font sets system.console_font" {
   set_nav "$(navigation_to_values Locales system.console_font "console font")"
-  run guided_ctl_enter "default8x16"
+  run guided_controller_enter "default8x16"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.console_font' "$GUIDED_STATE_FILE")" = "default8x16" ]
 }
@@ -1177,7 +1177,7 @@ _seed_baseline() {
 @test "enter(values console font): an off-list font is rejected (no change)" {
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales system.console_font "console font")"
-  run guided_ctl_enter "no-such-font-xyz"
+  run guided_controller_enter "no-such-font-xyz"
   [ "$output" = "noop" ]
   [ "$(jq -r '.system.console_font // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
 }
@@ -1185,7 +1185,7 @@ _seed_baseline() {
 @test "preview(keymap): the side panel lists the selected keymaps" {
   printf '%s\n' '{"system":{"keymap":["us","de"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Locales system.keymap keymap)"
-  run guided_ctl_preview "[ ] fr"
+  run guided_controller_preview "[ ] fr"
   echo "$output" | grep -q "Selected keymaps"
   echo "$output" | grep -q "us"      # a current selection
   echo "$output" | grep -q "fr"      # highlighted candidate (mark stripped)
@@ -1193,7 +1193,7 @@ _seed_baseline() {
 
 @test "directive→action(render): a keymap screen shows the preview pane" {
   set_nav "$(navigation_to_values Locales system.keymap keymap)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(right,45%)"
 }
 
@@ -1201,7 +1201,7 @@ _seed_baseline() {
 
 @test "enter(text): a typed query commits the scalar + returns to the category" {
   set_nav "$(navigation_to_text System system.hostname hostname)"
-  run guided_ctl_enter "current: (unset)" "myhost"
+  run guided_controller_enter "current: (unset)" "myhost"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.hostname' "$GUIDED_STATE_FILE")" = "myhost" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
@@ -1209,20 +1209,20 @@ _seed_baseline() {
 
 @test "enter(text): an empty query leaves the value unchanged" {
   set_nav "$(navigation_to_text System system.hostname hostname)"
-  run guided_ctl_enter "current: (unset)" ""
+  run guided_controller_enter "current: (unset)" ""
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
 @test "enter(text): sysctl parses key=value from the query" {
   set_nav "$(navigation_to_text Security sysctl sysctl)"
-  run guided_ctl_enter "current: (unset)" "vm.swappiness=20"
+  run guided_controller_enter "current: (unset)" "vm.swappiness=20"
   [ "$(jq -c '.sysctl["vm.swappiness"]' "$GUIDED_STATE_FILE")" = "20" ]
 }
 
 @test "enter(text __persist__): a typed path appends to persist.directories" {
   set_nav "$(navigation_to_text Disks __persist__ "persist dir")"
-  run guided_ctl_enter "current: (unset)" "/var/lib/foo"
+  run guided_controller_enter "current: (unset)" "/var/lib/foo"
   [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/var/lib/foo"]' ]
 }
 
@@ -1230,7 +1230,7 @@ _seed_baseline() {
 
 @test "enter(category): sysctl opens its list screen" {
   set_nav "$(navigation_to_category Security)"
-  run guided_ctl_enter "Sysctl: "
+  run guided_controller_enter "Sysctl: "
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
@@ -1239,7 +1239,7 @@ _seed_baseline() {
 @test "list(values sysctl): lists current pairs + an Add action + Back" {
   printf '%s\n' '{"sysctl":{"vm.swappiness":10}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Security sysctl sysctl)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "vm.swappiness=10"
   echo "$output" | grep -q "+ Add sysctl"
   echo "$output" | grep -q "← Back"
@@ -1247,7 +1247,7 @@ _seed_baseline() {
 
 @test "enter(values sysctl): + Add opens the key=value text editor" {
   set_nav "$(navigation_to_values Security sysctl sysctl)"
-  run guided_ctl_enter "+ Add sysctl (key=value)"
+  run guided_controller_enter "+ Add sysctl (key=value)"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
@@ -1255,7 +1255,7 @@ _seed_baseline() {
 
 @test "enter(text sysctl): adding a pair returns to the sysctl list screen" {
   set_nav "$(navigation_to_text Security sysctl sysctl)"
-  run guided_ctl_enter "+ Add sysctl (key=value)" "vm.dirty_ratio=20"
+  run guided_controller_enter "+ Add sysctl (key=value)" "vm.dirty_ratio=20"
   [ "$(jq -c '.sysctl["vm.dirty_ratio"]' "$GUIDED_STATE_FILE")" = "20" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
@@ -1265,7 +1265,7 @@ _seed_baseline() {
 
 @test "enter(category): users opens its native screen" {
   set_nav "$(navigation_to_category Users)"
-  run guided_ctl_enter "Users: "
+  run guided_controller_enter "Users: "
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
@@ -1279,7 +1279,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "^alice — "          # enabled: name — shell · pw …
   echo "$output" | grep -q "^bob — disabled$"   # disabled: no checkbox
   ! echo "$output" | grep -q "core"
@@ -1289,7 +1289,7 @@ _seed_baseline() {
 @test "enter(values users): a user row opens its User Editor (slice 02)" {
   printf '%s\n' '{"users":["alice","bob"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_enter "bob — bash · pw default 12345"
+  run guided_controller_enter "bob — bash · pw default 12345"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
@@ -1297,7 +1297,7 @@ _seed_baseline() {
 
 @test "enter(values users): + Create opens the new-user text editor" {
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_enter "+ Create user (name)"
+  run guided_controller_enter "+ Create user (name)"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "__newuser__" ]
@@ -1309,7 +1309,7 @@ _seed_baseline() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "root — bash · pw default 12345"
   echo "$output" | grep -q "^aquastias — zsh · pw default 12345"
   echo "$output" | grep -qE '^ +password \(aquastias\): default 12345$'
@@ -1321,7 +1321,7 @@ _seed_baseline() {
     > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "root — bash · pw custom"
   echo "$output" | grep -qE '^ +password \(aquastias\): custom$'
 }
@@ -1331,7 +1331,7 @@ _seed_baseline() {
   printf '%s\n' '{"users":["aquastias"],"options":{"age_key_url":"https://k/age"}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "root — bash · pw from age"
   echo "$output" | grep -qE '^ +password \(aquastias\): from age$'
 }
@@ -1341,20 +1341,20 @@ _seed_baseline() {
   printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"age_key_url":"https://k/age"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "root — bash · pw custom"
 }
 
 @test "enter(values users): the merged root row opens the Root Editor (ADR 0063)" {
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_enter "root — bash · pw default 12345"
+  run guided_controller_enter "root — bash · pw default 12345"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "rooteditor" ]
 }
 
 @test "enter(values users): a per-user password row captures for that user" {
   set_nav "$(navigation_to_values Users users users)"
-  [ "$(guided_ctl_enter "      password (aquastias): default 12345")" \
+  [ "$(guided_controller_enter "      password (aquastias): default 12345")" \
     = "secret-user aquastias" ]
 }
 
@@ -1369,7 +1369,7 @@ _seed_baseline() {
   printf '%s\n' '{"users":["aquastias"],"options":{"encryption":true}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "disk encryption:"
   echo "$output" | grep -qx "root — bash · pw default 12345"   # account default
 }
@@ -1377,7 +1377,7 @@ _seed_baseline() {
 @test "enter(values users): no row routes to the passphrase capture" {
   set_nav "$(navigation_to_values Users users users)"
   # the old row line, were it still handled, would emit secret-enc; it must not.
-  [ "$(guided_ctl_enter "disk encryption: default 12345678")" != "secret-enc" ]
+  [ "$(guided_controller_enter "disk encryption: default 12345678")" != "secret-enc" ]
 }
 
 # ── Root Editor: password + shell behind one editor (ADR 0063) ───────────────
@@ -1389,7 +1389,7 @@ _seed_baseline() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '{}\n' > "$GUIDED_SECRETS_FILE"
   set_nav "$(navigation_to_root_editor Users)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "password: default 12345"
   echo "$output" | grep -q "shell: bash"
   echo "$output" | grep -q "← Back"
@@ -1397,7 +1397,7 @@ _seed_baseline() {
 
 @test "enter(rooteditor): shell cycles bash→zsh into options.root_shell" {
   set_nav "$(navigation_to_root_editor Users)"
-  run guided_ctl_enter "shell: bash   (Enter cycles)"
+  run guided_controller_enter "shell: bash   (Enter cycles)"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/zsh" ]
 }
@@ -1405,26 +1405,26 @@ _seed_baseline() {
 @test "enter(rooteditor): shell cycles zsh→fish" {
   printf '%s\n' '{"options":{"root_shell":"/bin/zsh"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_root_editor Users)"
-  guided_ctl_enter "shell: zsh   (Enter cycles)" >/dev/null
+  guided_controller_enter "shell: zsh   (Enter cycles)" >/dev/null
   [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/fish" ]
 }
 
 @test "enter(rooteditor): cycling shell to default (bash) drops the override" {
   printf '%s\n' '{"options":{"root_shell":"/bin/fish"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_root_editor Users)"
-  guided_ctl_enter "shell: fish   (Enter cycles)" >/dev/null
+  guided_controller_enter "shell: fish   (Enter cycles)" >/dev/null
   [ "$(jq -r '.options.root_shell // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
 }
 
 @test "enter(rooteditor): password falls back to execute() without rich chrome" {
   unset GUIDED_RICH_CHROME
   set_nav "$(navigation_to_root_editor Users)"
-  [ "$(guided_ctl_enter "password: default 12345")" = "secret-root" ]
+  [ "$(guided_controller_enter "password: default 12345")" = "secret-root" ]
 }
 
 @test "back(rooteditor): Esc returns to the Users list" {
   set_nav "$(navigation_to_root_editor Users)"
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
@@ -1435,7 +1435,7 @@ _seed_baseline() {
 @test "list(values users) rich: + Create user + Back render as visible rows" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  GUIDED_RICH_CHROME=1 run guided_ctl_list
+  GUIDED_RICH_CHROME=1 run guided_controller_list
   echo "$output" | grep -q "+ Create user"
   echo "$output" | grep -q "← Back"
 }
@@ -1447,7 +1447,7 @@ _seed_baseline() {
 
 @test "preview(values users): the Users screen is registered for a preview" {
   set_nav "$(navigation_to_values Users users users)"
-  run _ctl_field_has_preview users
+  run _controller_field_has_preview users
   [ "$status" -eq 0 ]
 }
 
@@ -1459,7 +1459,7 @@ _seed_baseline() {
     > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_preview "alice — fish · pw default 12345"
+  run guided_controller_preview "alice — fish · pw default 12345"
   echo "$output" | grep -q "/bin/fish"        # shell
   echo "$output" | grep -q "sudo:.*on"
   echo "$output" | grep -q "groups:.*wheel, docker"
@@ -1477,7 +1477,7 @@ _seed_baseline() {
   printf '{"bob":{"shell":"/bin/zsh"}}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["bob"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_preview "bob — zsh · pw default 12345"
+  run guided_controller_preview "bob — zsh · pw default 12345"
   echo "$output" | grep -q "/bin/zsh"          # override applied
   echo "$output" | grep -q "wheel"             # committed group merged in
 }
@@ -1485,14 +1485,14 @@ _seed_baseline() {
 @test "preview(values users): the root row shows shell + password source" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_preview "root — bash · pw default 12345"
+  run guided_controller_preview "root — bash · pw default 12345"
   echo "$output" | grep -q "shell:.*bash"
   echo "$output" | grep -q "password:.*default 12345"
 }
 
 @test "preview(values users): + Create user previews nothing" {
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_preview "+ Create user (name)"
+  run guided_controller_preview "+ Create user (name)"
   [ -z "$output" ]
 }
 
@@ -1500,7 +1500,7 @@ _seed_baseline() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 @test "proceed gate: allowed (terminal proceed) once all are set" {
@@ -1509,20 +1509,20 @@ _seed_baseline() {
     > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 @test "proceed gate: inert (proceed) when no secrets file is wired" {
   unset GUIDED_SECRETS_FILE
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 # ── slice 01: flatten Users + top-level password warning ─────────────────────
 
 @test "enter(top): Users flattens straight to the users screen (no category)" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_enter "Users — primary user, extra accounts"
+  run guided_controller_enter "Users — primary user, extra accounts"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
@@ -1530,7 +1530,7 @@ _seed_baseline() {
 
 @test "back(values users): returns to top, not the category screen" {
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_back
+  run guided_controller_back
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
@@ -1539,7 +1539,7 @@ _seed_baseline() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "pw needed"
   ! echo "$output" | grep -q "set passwords first"
   echo "$output" | grep -q "Proceed ▸ review & install"
@@ -1551,7 +1551,7 @@ _seed_baseline() {
     > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "pw needed"
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
@@ -1559,7 +1559,7 @@ _seed_baseline() {
 @test "list(top): undecorated when no secrets file is wired" {
   unset GUIDED_SECRETS_FILE
   set_nav '{"screen":"top"}'
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "pw needed"
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
@@ -1571,7 +1571,7 @@ _seed_baseline() {
   printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "pw needed"
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
@@ -1581,7 +1581,7 @@ _seed_baseline() {
   printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 @test "proceed gate: allowed once the passphrase is set (encryption on)" {
@@ -1590,7 +1590,7 @@ _seed_baseline() {
     > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 @test "gate: encryption off does not block, and the passphrase is retained" {
@@ -1599,8 +1599,8 @@ _seed_baseline() {
     > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":false}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
-  run guided_ctl_list
+  [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  run guided_controller_list
   ! echo "$output" | grep -qE '^Disks — .*pw needed'   # no gate while off
   # retain-silently: the stored passphrase survives the toggle-off
   [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
@@ -1609,7 +1609,7 @@ _seed_baseline() {
 @test "enter(values users): a disabled user row also opens its editor" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_enter "bob — disabled"
+  run guided_controller_enter "bob — disabled"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
@@ -1619,7 +1619,7 @@ _seed_baseline() {
 
 @test "back(useredit): returns to the flattened Users list" {
   set_nav "$(navigation_to_user_edit Users alice)"
-  run guided_ctl_back
+  run guided_controller_back
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
 }
@@ -1631,7 +1631,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users alice)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "enabled: on"
   echo "$output" | grep -q "shell: zsh"
   echo "$output" | grep -q "← Back"
@@ -1644,7 +1644,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users dave)"
-  run guided_ctl_list
+  run guided_controller_list
   ! echo "$output" | grep -q "enabled:"        # ad-hoc → no enabled
   echo "$output" | grep -q "shell: zsh"        # User Core default
   echo "$output" | grep -q "✗ remove user"
@@ -1657,7 +1657,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users alice)"
-  run guided_ctl_enter "enabled: on   (Enter toggles)"
+  run guided_controller_enter "enabled: on   (Enter toggles)"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]
 }
@@ -1670,10 +1670,10 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users alice)"
-  run guided_ctl_enter "shell: bash   (Enter cycles)"
+  run guided_controller_enter "shell: bash   (Enter cycles)"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.alice.shell' "$GUIDED_USERFORMS_FILE")" = "/bin/zsh" ]
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "shell: zsh"        # display reflects the override
 }
 
@@ -1686,7 +1686,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users alice)"
-  run guided_ctl_enter "shell: fish   (Enter cycles)"   # fish → wrap bash = committed
+  run guided_controller_enter "shell: fish   (Enter cycles)"   # fish → wrap bash = committed
   [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]     # strict delta: override gone
 }
 
@@ -1696,7 +1696,7 @@ _seed_baseline() {
   printf '{"dave":{"shell":"/bin/zsh"}}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users dave)"
-  run guided_ctl_enter "✗ remove user"
+  run guided_controller_enter "✗ remove user"
   [ "$output" = "render" ]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]
   [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]     # its form cleared too
@@ -1704,14 +1704,14 @@ _seed_baseline() {
 }
 
 @test "directive→action: secret rows execute the masked capture verb" {
-  local a; a="$(_guided_directive_to_action secret-root /e)"
+  local a; a="$(_controller_directive_to_action secret-root /e)"
   [[ "$a" == *"secret root"* ]]
-  a="$(_guided_directive_to_action "secret-user alex" /e)"
+  a="$(_controller_directive_to_action "secret-user alex" /e)"
   [[ "$a" == *"secret user alex"* ]]
 }
 
 @test "directive→action: a notice warns in the header without accepting" {
-  local a; a="$(_guided_directive_to_action "notice ⚠ set it" /e)"
+  local a; a="$(_controller_directive_to_action "notice ⚠ set it" /e)"
   [[ "$a" == *"change-header("* ]]
   [[ "$a" == *"bell"* ]]
   [[ "$a" != *accept* ]]
@@ -1721,7 +1721,7 @@ _seed_baseline() {
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_text Users __newuser__ "new user")"
-  run guided_ctl_enter "+ Create user (name)" "carol"
+  run guided_controller_enter "+ Create user (name)" "carol"
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","carol"]' ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "carol" ]
@@ -1735,7 +1735,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_text Users __newuser__ "new user")"
-  run guided_ctl_enter "+ Create user (name)" "alice"
+  run guided_controller_enter "+ Create user (name)" "alice"
   [[ "$output" == notice* ]]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
 }
@@ -1749,10 +1749,10 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice","dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users alice)"           # committed
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "⧉ Clone this user"
   set_nav "$(navigation_to_user_edit Users dave)"            # ad-hoc
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "⧉ Clone this user"
 }
 
@@ -1763,7 +1763,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_edit Users alice)"
-  run guided_ctl_enter "⧉ Clone this user"
+  run guided_controller_enter "⧉ Clone this user"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "__cloneuser__" ]
@@ -1782,7 +1782,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_clone Users alice)"
-  run guided_ctl_enter "clone" "bob"
+  run guided_controller_enter "clone" "bob"
   [ "$output" = "render" ]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","bob"]' ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
@@ -1802,7 +1802,7 @@ _seed_baseline() {
   printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_clone Users alice)"
-  run guided_ctl_enter "clone" "alice"
+  run guided_controller_enter "clone" "alice"
   [[ "$output" == notice* ]]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
 }
@@ -1810,7 +1810,7 @@ _seed_baseline() {
 @test "enter(text __cloneuser__): a blank name backs out to the Users list" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_clone Users alice)"
-  run guided_ctl_enter "clone" ""
+  run guided_controller_enter "clone" ""
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
@@ -1819,13 +1819,13 @@ _seed_baseline() {
 # ── back / abort ─────────────────────────────────────────────────────────────
 
 @test "back: at the top screen, aborts the whole menu" {
-  run guided_ctl_back
+  run guided_controller_back
   [ "$output" = "abort" ]
 }
 
 @test "back: from a category, returns to the top screen" {
   set_nav "$(navigation_to_category Kernels)"
-  run guided_ctl_back
+  run guided_controller_back
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
@@ -1833,32 +1833,32 @@ _seed_baseline() {
 # ── directive → fzf action translation (pure) ────────────────────────────────
 
 @test "directive→action: render re-lists in place via reload" {
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "reload(bash /x/entry.sh list)"
 }
 
 @test "directive→action: render also re-headers + re-prompts the screen" {
   set_nav "$(navigation_to_category Disks)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "reload(bash /x/entry.sh list)"
   echo "$output" | grep -q "change-header(Enter edit"
   echo "$output" | grep -q "change-prompt(Disks> )"
 }
 
 @test "directive→action: render clears the stale filter query first" {
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   # clear-query must precede reload so a leftover filter can't hide the screen
   [[ "$output" == clear-query+reload* ]]
 }
 
 @test "directive→action: abort and noop map to fzf primitives" {
-  [ "$(_guided_directive_to_action abort /x/entry.sh)" = "abort" ]
-  [ "$(_guided_directive_to_action noop /x/entry.sh)" = "ignore" ]
+  [ "$(_controller_directive_to_action abort /x/entry.sh)" = "abort" ]
+  [ "$(_controller_directive_to_action noop /x/entry.sh)" = "ignore" ]
 }
 
 @test "directive→action: terminal writes the verb to the result file + accepts" {
   export GUIDED_RESULT_FILE="$TEST_DIR/result"
-  run _guided_directive_to_action "terminal proceed" /x/entry.sh
+  run _controller_directive_to_action "terminal proceed" /x/entry.sh
   echo "$output" | grep -q "proceed"
   echo "$output" | grep -q "$TEST_DIR/result"
   echo "$output" | grep -q "+accept"
@@ -1869,29 +1869,29 @@ _seed_baseline() {
 @test "fast-path: render reloads via cat of the precomputed list file" {
   export GUIDED_LIST_FILE="$TEST_DIR/list"
   set_nav "$(navigation_to_category Disks)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "reload(cat "
   ! echo "$output" | grep -q "reload(bash"
 }
 
-@test "fast-path: the precomputed file equals guided_ctl_list (output-equiv)" {
+@test "fast-path: the precomputed file equals guided_controller_list (output-equiv)" {
   export GUIDED_LIST_FILE="$TEST_DIR/list"
   set_nav "$(navigation_to_category Disks)"
-  local direct; direct="$(guided_ctl_list)"
-  _guided_directive_to_action render /x/entry.sh >/dev/null
+  local direct; direct="$(guided_controller_list)"
+  _controller_directive_to_action render /x/entry.sh >/dev/null
   [ "$(cat "$GUIDED_LIST_FILE")" = "$direct" ]
 }
 
 @test "fast-path: refresh also cats the precomputed list file" {
   export GUIDED_LIST_FILE="$TEST_DIR/list"
   set_nav "$(navigation_to_values Kernels options.kernel kernel)"
-  run _guided_directive_to_action refresh /x/entry.sh
+  run _controller_directive_to_action refresh /x/entry.sh
   echo "$output" | grep -q "reload-sync(cat "
 }
 
 @test "fast-path: falls back to bash re-render with no list file wired" {
   unset GUIDED_LIST_FILE
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "reload(bash /x/entry.sh list)"
 }
 
@@ -1907,7 +1907,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "list(useredit): shows the full profile rows" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_edit Users dave)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "sudo: off"
   echo "$output" | grep -q "groups: (none)"
   echo "$output" | grep -q "git name: (unset)"
@@ -1919,7 +1919,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "enter(useredit): sudo toggles into the override" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_edit Users dave)"
-  run guided_ctl_enter "sudo: off   (Enter toggles)"
+  run guided_controller_enter "sudo: off   (Enter toggles)"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.dave.sudo' "$GUIDED_USERFORMS_FILE")" = "true" ]
 }
@@ -1927,7 +1927,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "enter(useredit): groups opens a userfield multi-select" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_edit Users dave)"
-  run guided_ctl_enter "groups: (none)   (Enter edits)"
+  run guided_controller_enter "groups: (none)   (Enter edits)"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "userfield" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "groups" ]
@@ -1936,9 +1936,9 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "list+enter(userfield groups): mark options + toggle into the override" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_field Users dave groups groups)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "\[ \] docker"
-  run guided_ctl_enter "[ ] docker"
+  run guided_controller_enter "[ ] docker"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.dave.groups' "$GUIDED_USERFORMS_FILE")" = '["docker"]' ]
 }
@@ -1946,7 +1946,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "enter(userfield git.name): a typed value commits + backs to the editor" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_field Users dave git.name "git name")"
-  run guided_ctl_enter "" "Dave D"
+  run guided_controller_enter "" "Dave D"
   [ "$output" = "render" ]
   [ "$(jq -r '.dave.git.name' "$GUIDED_USERFORMS_FILE")" = "Dave D" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
@@ -1955,9 +1955,9 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "userfield ssh: add opens a text screen, then appends the key" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_field Users dave ssh "ssh keys")"
-  run guided_ctl_enter "+ Add SSH key"
+  run guided_controller_enter "+ Add SSH key"
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "ssh.add" ]
-  run guided_ctl_enter "" "ssh-ed25519 AAAA"
+  run guided_controller_enter "" "ssh-ed25519 AAAA"
   [ "$(jq -c '.dave.ssh_authorized_keys' "$GUIDED_USERFORMS_FILE")" \
     = '["ssh-ed25519 AAAA"]' ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "ssh" ]   # back to the key list
@@ -1968,7 +1968,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   # a couple of resolvable programs under INSTALLER_DIR/programs/<cat>/<name>
   mkdir -p "$INSTALLER_DIR/programs/dev/git" "$INSTALLER_DIR/programs/dev/htop"
   set_nav "$(navigation_to_user_field Users dave programs programs)"
-  run guided_ctl_enter "[ ] git"
+  run guided_controller_enter "[ ] git"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.dave.programs' "$GUIDED_USERFORMS_FILE")" = '["git"]' ]
 }
@@ -1981,7 +1981,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "extra packages: a plain name stays a repo package" {
   mixed_programs_setup
   set_nav "$(navigation_to_text Packages packages.repo.extra "extra packages")"
-  run guided_ctl_enter "" "htop"
+  run guided_controller_enter "" "htop"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
 }
@@ -1989,7 +1989,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "extra packages: a Menu-Owned name is not added, just informed" {
   mixed_programs_setup
   set_nav "$(navigation_to_text Packages packages.repo.extra "extra packages")"
-  run guided_ctl_enter "" "cups"
+  run guided_controller_enter "" "cups"
   [ "$status" -eq 0 ]
   # cups is Menu-Owned (Services → printing): not promoted, not left a package.
   [ "$(jq -c '.host_programs // []' "$GUIDED_STATE_FILE")" = '[]' ]
@@ -1999,7 +1999,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "extra packages: a mixed entry keeps the Menu-Owned name out of state" {
   mixed_programs_setup
   set_nav "$(navigation_to_text Packages packages.repo.extra "extra packages")"
-  run guided_ctl_enter "" "htop cups"
+  run guided_controller_enter "" "htop cups"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
   [ "$(jq -c '.host_programs // []' "$GUIDED_STATE_FILE")" = '[]' ]
@@ -2008,7 +2008,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 @test "extra packages: routing reports where a Menu-Owned name went" {
   mixed_programs_setup
   set_nav "$(navigation_to_text Packages packages.repo.extra "extra packages")"
-  run guided_ctl_enter "" "cups"
+  run guided_controller_enter "" "cups"
   [[ "$output" == *"managed by"* ]]
   [[ "$output" == *"cups"* ]]
 }
@@ -2040,7 +2040,7 @@ mixed_programs_setup() {
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_field Users dave programs programs)"
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "\[ \] docker"
   # borg is Backup-owned (ADR 0086): filtered from the user picker too; only the
@@ -2054,7 +2054,7 @@ mixed_programs_setup() {
 @test "back(userfield): returns to the user's editor" {
   adhoc_editor_setup
   set_nav "$(navigation_to_user_field Users dave groups groups)"
-  run guided_ctl_back
+  run guided_controller_back
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "dave" ]
 }
@@ -2068,8 +2068,8 @@ mixed_programs_setup() {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_user_field Users alice groups groups)"
   # committed has docker; toggling it off then on again lands back on committed
-  guided_ctl_enter "[x] docker" >/dev/null    # remove → override []
-  run guided_ctl_enter "[ ] docker"           # add back → equals committed
+  guided_controller_enter "[x] docker" >/dev/null    # remove → override []
+  run guided_controller_enter "[ ] docker"           # add back → equals committed
   [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]   # strict delta: no override
 }
 
@@ -2085,7 +2085,7 @@ secret_setup() {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_root_editor Users)"
-  run guided_ctl_enter "password: (not set)"
+  run guided_controller_enter "password: (not set)"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" target)" = "root" ]
@@ -2095,14 +2095,14 @@ secret_setup() {
 @test "enter(rooteditor): root pw falls back to execute() without rich chrome" {
   secret_setup; unset GUIDED_RICH_CHROME
   set_nav "$(navigation_to_root_editor Users)"
-  [ "$(guided_ctl_enter "password: (not set)")" = "secret-root" ]
+  [ "$(guided_controller_enter "password: (not set)")" = "secret-root" ]
 }
 
 @test "enter(secret entry): stashes the buffer as pending + moves to confirm" {
   secret_setup
   printf 'hunter2' > "$GUIDED_PWBUF_FILE"
   set_nav "$(navigation_to_secret Users root "" entry)"
-  run guided_ctl_enter ""
+  run guided_controller_enter ""
   [ "$output" = "render" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" phase)" = "confirm" ]
   [ "$(cat "$GUIDED_PWPENDING_FILE")" = "hunter2" ]
@@ -2114,7 +2114,7 @@ secret_setup() {
   printf 'hunter2' > "$GUIDED_PWPENDING_FILE"
   printf 'hunter2' > "$GUIDED_PWBUF_FILE"
   set_nav "$(navigation_to_secret Users root "" confirm)"
-  run guided_ctl_enter ""
+  run guided_controller_enter ""
   [ "$output" = "render" ]
   [ "$(jq -r '.root_password' "$GUIDED_SECRETS_FILE")" = "hunter2" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
@@ -2126,7 +2126,7 @@ secret_setup() {
   printf 'hunter2' > "$GUIDED_PWPENDING_FILE"
   printf 'huntor2' > "$GUIDED_PWBUF_FILE"
   set_nav "$(navigation_to_secret Users root "" confirm)"
-  run guided_ctl_enter ""
+  run guided_controller_enter ""
   [ "$output" = "secret-mismatch" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
   [ "$(jq -r '.root_password // "unset"' "$GUIDED_SECRETS_FILE")" = "unset" ]
@@ -2136,7 +2136,7 @@ secret_setup() {
   secret_setup
   : > "$GUIDED_PWBUF_FILE"
   set_nav "$(navigation_to_secret Users root "" entry)"
-  run guided_ctl_enter ""
+  run guided_controller_enter ""
   [[ "$output" == notice* ]]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
 }
@@ -2145,13 +2145,13 @@ secret_setup() {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values Users users users)"
-  run guided_ctl_enter "      password (dave): (not set)"
+  run guided_controller_enter "      password (dave): (not set)"
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" target)" = "user" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "dave" ]
   printf 'davepw' > "$GUIDED_PWBUF_FILE"
-  guided_ctl_enter "" >/dev/null                 # entry → confirm
+  guided_controller_enter "" >/dev/null                 # entry → confirm
   printf 'davepw' > "$GUIDED_PWBUF_FILE"
-  guided_ctl_enter "" >/dev/null                 # confirm → save
+  guided_controller_enter "" >/dev/null                 # confirm → save
   [ "$(jq -r '.users.dave.password' "$GUIDED_SECRETS_FILE")" = "davepw" ]
 }
 
@@ -2161,7 +2161,7 @@ secret_setup() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '{}\n' > "$GUIDED_SECRETS_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "Encryption ▸ off"
   ! echo "$output" | grep -qE "^Encryption: "        # no generic bool row
   ! echo "$output" | grep -q "encryption password:"  # no old sub-row
@@ -2171,7 +2171,7 @@ secret_setup() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "Encryption ▸ on · default 12345678"
   ! echo "$output" | grep -q "⚠"                     # no gate warning anymore
 }
@@ -2180,7 +2180,7 @@ secret_setup() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE "Encryption ▸ on · default 12345678  ●$"
 }
 
@@ -2189,13 +2189,13 @@ secret_setup() {
   printf '%s\n' '{"enc_passphrase":"corrhorse"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "Encryption ▸ on · custom"
 }
 
 @test "enter(Disks): the Encryption row opens the Encryption Editor" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_enter "Encryption ▸ on · default 12345678"
+  run guided_controller_enter "Encryption ▸ on · default 12345678"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
@@ -2204,7 +2204,7 @@ secret_setup() {
 @test "list(encryption): off shows only the enabled row + Back" {
   printf '%s\n' '{"options":{"encryption":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "enabled: off"
   ! echo "$output" | grep -q "password:"
   echo "$output" | grep -q "← Back"
@@ -2214,7 +2214,7 @@ secret_setup() {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "enabled: on"
   echo "$output" | grep -qx "password: default 12345678"
 }
@@ -2222,12 +2222,12 @@ secret_setup() {
 @test "enter(encryption): enabled toggles in place and stays on the editor" {
   _seed_baseline                                 # so the strict-delta normalise
   set_nav "$(navigation_to_encryption Disks)"           # has the default to compare to
-  run guided_ctl_enter "enabled: off"
+  run guided_controller_enter "enabled: off"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
   # toggling back to the baseline drops the override (strict delta)
-  run guided_ctl_enter "enabled: on"
+  run guided_controller_enter "enabled: on"
   [ "$output" = "refresh" ]
   [ "$(jq 'getpath(["options","encryption"]) == null' "$GUIDED_STATE_FILE")" = "true" ]
 }
@@ -2236,7 +2236,7 @@ secret_setup() {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  run guided_ctl_enter "password: default 12345678"
+  run guided_controller_enter "password: default 12345678"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
@@ -2246,14 +2246,14 @@ secret_setup() {
   secret_setup; unset GUIDED_RICH_CHROME
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  [ "$(guided_ctl_enter "password: default 12345678")" = "secret-enc" ]
+  [ "$(guided_controller_enter "password: default 12345678")" = "secret-enc" ]
 }
 
 @test "enter(secret entry enc): a passphrase under 8 chars is refused" {
   secret_setup
   printf 'short7x' > "$GUIDED_PWBUF_FILE"        # 7 chars
   set_nav "$(navigation_to_secret Disks enc "" entry)"
-  run guided_ctl_enter ""
+  run guided_controller_enter ""
   [[ "$output" == notice* ]]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
   [ -z "$(cat "$GUIDED_PWPENDING_FILE")" ]        # nothing stashed
@@ -2263,7 +2263,7 @@ secret_setup() {
   secret_setup
   printf 'eightchr' > "$GUIDED_PWBUF_FILE"        # 8 chars
   set_nav "$(navigation_to_secret Disks enc "" entry)"
-  run guided_ctl_enter ""
+  run guided_controller_enter ""
   [ "$output" = "render" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" phase)" = "confirm" ]
   [ "$(cat "$GUIDED_PWPENDING_FILE")" = "eightchr" ]
@@ -2273,12 +2273,12 @@ secret_setup() {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  run guided_ctl_enter "password: default 12345678"
+  run guided_controller_enter "password: default 12345678"
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
-  guided_ctl_enter "" >/dev/null                  # entry → confirm
+  guided_controller_enter "" >/dev/null                  # entry → confirm
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
-  guided_ctl_enter "" >/dev/null                  # confirm → save
+  guided_controller_enter "" >/dev/null                  # confirm → save
   [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
 }
@@ -2287,9 +2287,9 @@ secret_setup() {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  guided_ctl_enter "password: default 12345678" >/dev/null
-  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_ctl_enter "" >/dev/null
-  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_ctl_enter "" >/dev/null
+  guided_controller_enter "password: default 12345678" >/dev/null
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_controller_enter "" >/dev/null
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_controller_enter "" >/dev/null
   [ "$(jq -r '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
@@ -2298,22 +2298,22 @@ secret_setup() {
   printf '%s\n' '{"enc_passphrase":"corrhorse"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_encryption Disks)"
-  guided_ctl_enter "enabled: on"  >/dev/null   # → off (baseline: override dropped)
-  guided_ctl_enter "enabled: off" >/dev/null   # → on again
-  run guided_ctl_list
+  guided_controller_enter "enabled: on"  >/dev/null   # → off (baseline: override dropped)
+  guided_controller_enter "enabled: off" >/dev/null   # → on again
+  run guided_controller_list
   echo "$output" | grep -qx "password: custom"    # retained, not cleared
 }
 
 @test "back(encryption): Esc returns to the Disks category" {
   set_nav "$(navigation_to_encryption Disks)"
-  run guided_ctl_back
+  run guided_controller_back
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
 }
 
 @test "directive→action: secret-enc executes the masked capture verb" {
-  local a; a="$(_guided_directive_to_action secret-enc /e)"
+  local a; a="$(_controller_directive_to_action secret-enc /e)"
   [[ "$a" == *"secret enc"* ]]
 }
 
@@ -2329,7 +2329,7 @@ secret_setup() {
 
 @test "list(category Disks): one Impermanence row, no plain toggle or add row" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   [ "$(echo "$output" | grep -cE '^Impermanence ▸ ')" = "1" ]
   ! echo "$output" | grep -qiE '^impermanence:'
   ! echo "$output" | grep -q "Add persist directory"
@@ -2337,24 +2337,24 @@ secret_setup() {
 
 @test "list(category Disks): Impermanence row is off by default, dot when set" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^Impermanence ▸ off$'
   printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
     > "$GUIDED_STATE_FILE"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^Impermanence ▸ on  ●$'
 }
 
 @test "enter(category): Impermanence opens the impermanence editor" {
   set_nav "$(navigation_to_category Disks)"
-  run guided_ctl_enter "Impermanence ▸ off"
+  run guided_controller_enter "Impermanence ▸ off"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
 }
 
 @test "list(impermanence): off shows only enabled off + Back" {
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^enabled: off$'
   ! echo "$output" | grep -q "Add persist directory"
   ! echo "$output" | grep -q "curated defaults"
@@ -2366,7 +2366,7 @@ secret_setup() {
     '{"options":{"impermanence":{"enabled":true}},
       "persist":{"directories":["/var/lib/foo"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qE '^enabled: on$'
   echo "$output" | grep -qxF '/var/lib/foo'
   echo "$output" | grep -qE '^curated defaults: [0-9]+ paths always persisted'
@@ -2376,7 +2376,7 @@ secret_setup() {
 
 @test "enter(impermanence): toggling enabled flips it and stays (refresh)" {
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_enter "enabled: off"
+  run guided_controller_enter "enabled: off"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.options.impermanence.enabled' "$GUIDED_STATE_FILE")" = "true" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
@@ -2387,7 +2387,7 @@ secret_setup() {
   printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_enter "enabled: on"
+  run guided_controller_enter "enabled: on"
   # strict delta: landing on the baseline (off) leaves no override
   [ "$(jq -c '.options.impermanence.enabled // "gone"' \
     "$GUIDED_STATE_FILE")" = '"gone"' ]
@@ -2397,7 +2397,7 @@ secret_setup() {
   printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_enter "Add persist directory ▸ extend the curated defaults"
+  run guided_controller_enter "Add persist directory ▸ extend the curated defaults"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "__persist__" ]
@@ -2407,14 +2407,14 @@ secret_setup() {
   printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_text Disks __persist__ "persist dir")"
-  run guided_ctl_enter "" "/srv/x"
+  run guided_controller_enter "" "/srv/x"
   [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/srv/x"]' ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
 }
 
 @test "enter(impermanence): Back returns to the Disks category" {
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
@@ -2424,7 +2424,7 @@ secret_setup() {
     '{"options":{"impermanence":{"enabled":true}},
       "persist":{"directories":["/srv/a","/srv/b"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_impermanence Disks)"
-  run guided_ctl_enter "/srv/a"
+  run guided_controller_enter "/srv/a"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/srv/b"]' ]
   # the enabled flag is left untouched
@@ -2435,7 +2435,7 @@ secret_setup() {
 
 @test "enter(category): the optional-repos row opens its multi-select" {
   set_nav "$(navigation_to_category "Mirrors & Repositories")"
-  run guided_ctl_enter "Optional repositories: multilib"
+  run guided_controller_enter "Optional repositories: multilib"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.optional_repos" ]
@@ -2446,7 +2446,7 @@ secret_setup() {
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values "Mirrors & Repositories" options.optional_repos \
     "optional repositories")"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "\[x\] multilib"
   echo "$output" | grep -q "\[x\] core-testing"
   echo "$output" | grep -q "\[ \] extra-testing"
@@ -2457,7 +2457,7 @@ secret_setup() {
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values "Mirrors & Repositories" options.mirror_servers \
     "custom servers")"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "https://a/x"
   echo "$output" | grep -q "+ Add server"
   echo "$output" | grep -q "← Back"
@@ -2466,7 +2466,7 @@ secret_setup() {
 @test "enter(text mirror_servers): a URL appends and returns to the list" {
   set_nav "$(navigation_to_text "Mirrors & Repositories" options.mirror_servers \
     "custom servers")"
-  run guided_ctl_enter "+ Add server" "https://mirror.example/repo"
+  run guided_controller_enter "+ Add server" "https://mirror.example/repo"
   [ "$(jq -r '.options.mirror_servers[0]' "$GUIDED_STATE_FILE")" \
     = "https://mirror.example/repo" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
@@ -2478,7 +2478,7 @@ secret_setup() {
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_values "Mirrors & Repositories" options.custom_repositories \
     "custom repositories")"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "cool — https://x · Never"
   echo "$output" | grep -q "+ Add repository"
 }
@@ -2486,7 +2486,7 @@ secret_setup() {
 @test "enter(text custom_repositories): a repo line appends a full object" {
   set_nav "$(navigation_to_text "Mirrors & Repositories" options.custom_repositories \
     "custom repositories")"
-  run guided_ctl_enter "+ Add repository" "myrepo https://r Optional TrustAll"
+  run guided_controller_enter "+ Add repository" "myrepo https://r Optional TrustAll"
   [ "$(jq -r '.options.custom_repositories[0].name' "$GUIDED_STATE_FILE")" \
     = "myrepo" ]
   [ "$(jq -r '.options.custom_repositories[0].url' "$GUIDED_STATE_FILE")" \

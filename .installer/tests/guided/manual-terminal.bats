@@ -26,7 +26,7 @@ set_state() { printf '%s\n' "$1" > "$GUIDED_STATE_FILE"; }
 
 @test "top rows: the auto path offers Proceed, Save and Export" {
   set_state '{}'
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -q '^Proceed'
   echo "$output" | grep -q '^Save profile'
@@ -35,7 +35,7 @@ set_state() { printf '%s\n' "$1" > "$GUIDED_STATE_FILE"; }
 
 @test "top rows: manual withholds Save and Export, keeps Proceed" {
   set_state '{"disk_config":{"kind":"manual"}}'
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -q '^Proceed'
   ! echo "$output" | grep -q '^Save profile'

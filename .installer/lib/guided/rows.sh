@@ -7,7 +7,7 @@
 # INERT — the fzf `focus` skip bind hops the cursor past them, and Enter is a
 # no-op on them. A row is inert when it is:
 #   • a blank spacer line (between buckets, ADR 0082),
-#   • the category / terminal-action divider (_CTL_DIVIDER), or
+#   • the category / terminal-action divider (_CONTROLLER_DIVIDER), or
 #   • a "── BUCKET ──" header (ADR 0081).
 # Everything else — Profiles, a category, a terminal action — is selectable.
 #

@@ -236,14 +236,14 @@ A Guided-Installer leaf whose whole value set is `true`/`false` and which
 therefore **flips in place** on the category screen — Enter advances to the
 other value and stays put (`echo refresh`), never drilling into the values
 submenu ([ADR 0075]). A field is a Cycle Field structurally, by its option set
-being exactly `{true, false}` (`_ctl_is_cycle_field`), so a newly-added bare
+being exactly `{true, false}` (`_controller_is_cycle_field`), so a newly-added bare
 bool becomes one with no list to maintain. Scope is **bare bools only**: the
 five Pacman flags, Environment→stock, the three Security and two Backup bools,
 the Daemons printing and bluetooth toggles, and Expert→SSH — fourteen in all.
 A bool that owns a richer editor (encryption, impermanence — both
 `▸` editor rows) is **not** a Cycle Field; it keeps drilling. Mirrors the older
 Manual-Partitioning in-place flip, now generalized. Reuses the strict-delta
-apply (`_ctl_apply_enum` + `_ctl_normalise_default`), so flipping back to the
+apply (`_controller_apply_enum` + `_controller_normalise_default`), so flipping back to the
 default clears the override and the `●` dot; a Manual-Partitioning-locked field
 is a silent no-op. The detail pane lists both values with the current one marked
 so the choice stays discoverable without the submenu. _Avoid_: "toggle" — that
@@ -346,8 +346,8 @@ keystroke bind in a **fresh shell**, so the session state must be
 process-external — the backing is a tmpfs file read via the `GUIDED_*_FILE` path
 the launcher (`guided_run_persistent`) exports; there is **one adapter** (the
 file), and the controller tests set the same globals to a temp path, asserting
-behaviour through it unchanged. The controller's private `_ctl_state` /
-`_ctl_write_state` / `_ctl_nav` / `_ctl_write_nav` / `_ctl_baseline` now
+behaviour through it unchanged. The controller's private `_controller_state` /
+`_controller_write_state` / `_controller_navigation` / `_controller_write_navigation` / `_controller_baseline` now
 delegate here, and the former direct pokes in `guided/fzf-entry.sh` (the
 `cfdisk` / `pkgbrowse` execute() verbs) and `guided/shell.sh` (the session
 seed/read in `guided_run_persistent`) route through it. Scope is the Config
@@ -2151,16 +2151,16 @@ The generated space of menu-reachable install combinations under test, so that
 is one axis assignment (root filesystem, encryption, impermanence, topology,
 disk-mode, per-group data-pool filesystem/encryption, kernel, bootloader,
 desktop, gpu, swap). Cells, their allowed values, and the exclusions between
-them are **derived from the menu's own option functions** (`_ctl_topologies_
-for_fs`, `menu_rows`, picker/validation), never a hand-kept duplicate, so an
-unreachable combination is one the menu never emits ([ADR 0046]). Covered in two
-tiers: **Tier 1** assembles + `validation_check_install_context`-checks the
-*exhaustive* storage cluster with no VM (always-on in bats); **Tier 2** installs
-a **pairwise** (2-wise) subset plus a pinned seed list of historically-broken
-tuples through a real VM (`vm.sh --testing`), reusing Tier 1's assembler to feed
-the Effective Config via the config seam. The covered set is recorded as a
-committed **Matrix Manifest** (one line per cell); VM Profiles are materialized
-on demand, never committed.
+them are **derived from the menu's own option functions**
+(`_controller_topologies_for_filesystem`, `menu_rows`, picker/validation), never
+a hand-kept duplicate, so an unreachable combination is one the menu never emits
+([ADR 0046]). Covered in two tiers: **Tier 1** assembles +
+`validation_check_install_context`-checks the *exhaustive* storage cluster with
+no VM (always-on in bats); **Tier 2** installs a **pairwise** (2-wise) subset
+plus a pinned seed list of historically-broken tuples through a real VM (`vm.sh
+--testing`), reusing Tier 1's assembler to feed the Effective Config via the
+config seam. The covered set is recorded as a committed **Matrix Manifest** (one
+line per cell); VM Profiles are materialized on demand, never committed.
 
 ### Feature Audit
 The live, deep audit that installs max-feature VMs and treats any unexplained

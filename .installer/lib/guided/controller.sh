@@ -6,9 +6,9 @@
 # Invoked by the single persistent fzf's reload/transform binds as SUBPROCESSES.
 # It reads the navigation + Config-State files (paths in GUIDED_NAV_FILE /
 # GUIDED_STATE_FILE / GUIDED_BASELINE_FILE), mutates them, and either prints the
-# current screen's item list (guided_ctl_list, for `reload`) or a single
-# navigation DIRECTIVE the launcher maps to fzf actions (guided_ctl_enter /
-# guided_ctl_back). No fzf is needed to drive it — state files in, files + a
+# current screen's item list (guided_controller_list, for `reload`) or a single
+# navigation DIRECTIVE the launcher maps to fzf actions (guided_controller_enter /
+# guided_controller_back). No fzf is needed to drive it — state files in, files + a
 # directive out — so the dispatch is unit-testable without a tty.
 #
 # Screens (navigation.sh): top, category, values (enum picks, toggles, list
@@ -16,7 +16,7 @@
 # Everything commits in place, so the menu never leaves fzf; ^Z/^Y/^R drive
 # undo/redo/reset over a snapshot history.
 #
-# Directives (one per guided_ctl_enter / guided_ctl_back call):
+# Directives (one per guided_controller_enter / guided_controller_back call):
 #   render             re-list + re-prompt + re-header the current screen
 #   terminal <action>  exit with proceed|save|export
 #                       (launcher → result + accept)
@@ -109,10 +109,10 @@ declare -F package_resolver_resolve >/dev/null 2>&1 \
 declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/layer-resolver.sh"
 
-# _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
+# _controller_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
 # in-menu credential rows, read from GUIDED_SECRETS_FILE. Never emits the value.
 # With no secrets file wired (non-persistent), everything reads "(not set)".
-_ctl_secret_state() {
+_controller_secret_state() {
   local f="${GUIDED_SECRETS_FILE:-}"
   if [[ -n "$f" ]]; then
     case "$1" in
@@ -124,14 +124,14 @@ _ctl_secret_state() {
   echo "(not set)"
 }
 
-# _ctl_secret_tag <root|user|enc> [name] → the ADR-0055 source tag for a
+# _controller_secret_tag <root|user|enc> [name] → the ADR-0055 source tag for a
 # credential: `custom` (operator typed it into GUIDED_SECRETS_FILE), else
 # `from age` (a committed secret will decrypt via the wired age key — .secrets.*
 # wins over .guided_passwords.* in the resolver), else the default tag. The
 # default is role-dependent (ADR 0059): the disk passphrase reports its 8-char
 # default, accounts their 5-char one. Never emits the value. Reads the secrets
 # file + effective state.
-_ctl_secret_tag() {
+_controller_secret_tag() {
   local f="${GUIDED_SECRETS_FILE:-}" role="$1" name="${2:-}"
   if [[ -n "$f" ]]; then
     case "$role" in
@@ -141,45 +141,45 @@ _ctl_secret_tag() {
       guided_secrets_file_has_user "$f" "$name" && { echo "custom"; return; } ;;
     esac
   fi
-  [[ -n "$(config_state_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+  [[ -n "$(config_state_get "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")" \
       options.age_key_url)" ]] && { echo "from age"; return; }
   if [[ "$role" == "enc" ]]; then echo "default $INSTALL_DEFAULT_ENC_PASSPHRASE"
   else echo "default 12345"; fi
 }
 
-# _ctl_pw_missing — count of required-but-unset passwords (root + each enabled
+# _controller_password_missing — count of required-but-unset passwords (root + each enabled
 # user), from GUIDED_SECRETS_FILE over the effective user list. 0 when no
 # secrets
 # file is wired (non-persistent contexts), so the top screen stays undecorated.
-_ctl_pw_missing() {
+_controller_password_missing() {
   local f="${GUIDED_SECRETS_FILE:-}"
   [[ -n "$f" ]] || { printf '0'; return; }
   local users
   users="$(jq -c '.users // []' \
-    <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
+    <<<"$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")")"
   guided_secrets_file_missing "$f" "$users" | grep -c .
 }
 
-# _ctl_enc_missing — rc 0 when the encryption passphrase is required but unset
+# _controller_encryption_missing — rc 0 when the encryption passphrase is required but unset
 # (ADR 0054): encryption is on AND no passphrase captured. Inert (rc 1) when no
 # secrets file is wired or encryption is off — so toggling encryption off drops
 # the requirement even though a stored passphrase is retained.
-_ctl_enc_missing() {
+_controller_encryption_missing() {
   local f="${GUIDED_SECRETS_FILE:-}"
   [[ -n "$f" ]] || return 1
-  [[ "$(config_state_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+  [[ "$(config_state_get "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")" \
     options.encryption)" == "true" ]] || return 1
   guided_secrets_file_has_encryption "$f" && return 1
   return 0
 }
 
-# _ctl_display_values <field> → 0 when <field>'s enum/toggle VALUES are human
+# _controller_display_values <field> → 0 when <field>'s enum/toggle VALUES are human
 # words that should render through the Display Label formatter (desktop, gpu,
 # kernel, filesystem, bootloader, firewall). Every other field's values are
 # technical (keymap codes, mirror countries, program names), free-text, or
 # booleans and are shown verbatim. Labels are always formatted; only VALUES are
 # gated by this allowlist.
-_ctl_display_values() {
+_controller_display_values() {
   case "$1" in
   environment.desktop | environment.gpu | environment.display_manager \
     | options.kernel | filesystem \
@@ -188,13 +188,13 @@ _ctl_display_values() {
   esac
 }
 
-# _ctl_display_value_str <field> <value-string> → the value formatted for
+# _controller_display_value_string <field> <value-string> → the value formatted for
 # display when <field> is value-formattable, else verbatim. Multi-value fields
 # render as ", "-joined tokens (menu_render_value), so each token is formatted
 # and re-joined; single values are one token.
-_ctl_display_value_str() {
+_controller_display_value_string() {
   local field="$1" val="$2"
-  { _ctl_display_values "$field" && [[ -n "$val" ]]; } \
+  { _controller_display_values "$field" && [[ -n "$val" ]]; } \
     || { printf '%s' "$val"; return; }
   local out="" part
   while [[ "$val" == *", "* ]]; do
@@ -206,19 +206,19 @@ _ctl_display_value_str() {
 
 # The rule separating the categories from the terminal-action rows on the top
 # screen.
-_CTL_DIVIDER="──────────────────────────"
+_CONTROLLER_DIVIDER="──────────────────────────"
 
 # ── state-file accessors ─────────────────────────────────────────────────────
 # Thin delegations to the Config Store (lib/config/config-store.sh), which owns
 # the triad session files — so the file IPC lives in one place, not here.
-_ctl_state()       { config_store_state; }
-_ctl_nav()         { config_store_navigation; }
-_ctl_baseline()    { config_store_baseline; }
-_ctl_write_state() { config_store_write_state "$1"; }
-_ctl_write_nav()   { config_store_write_navigation "$1"; }
+_controller_state()       { config_store_state; }
+_controller_navigation()         { config_store_navigation; }
+_controller_baseline()    { config_store_baseline; }
+_controller_write_state() { config_store_write_state "$1"; }
+_controller_write_navigation()   { config_store_write_navigation "$1"; }
 
-# _ctl_effective <state> <baseline> — the merged view (override wins).
-_ctl_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }
+# _controller_effective <state> <baseline> — the merged view (override wins).
+_controller_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }
 
 # The controller's parts, in their original order.
 # shellcheck source=controller-fields.sh

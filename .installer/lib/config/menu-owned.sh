@@ -6,7 +6,7 @@
 # dedicated menu control, so the control is its sole home: it is never listed in
 # a Guided Installer program picker. This module unions every control-owned set
 # into one `menu_owned_programs`, the single filter both program pickers
-# subtract (_ctl_host_program_names / _ctl_user_program_names).
+# subtract (_controller_host_program_names / _controller_user_program_names).
 #
 # Generalises the printing/bluetooth/power owned-sets (ADR 0079/0080) to every
 # control: the Bootloader owns `grub`, the Security & Backup toggles own the

@@ -31,41 +31,41 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── version gate (pure) — AC3 ────────────────────────────────────────────────
 
-@test "_ctl_fzf_rich_for_version: 0.62.0 is rich" {
-  run _ctl_fzf_rich_for_version "0.62.0 (abc)"
+@test "_controller_fzf_rich_for_version: 0.62.0 is rich" {
+  run _controller_fzf_rich_for_version "0.62.0 (abc)"
   [ "$status" -eq 0 ]
 }
 
-@test "_ctl_fzf_rich_for_version: 0.61.0 is legacy" {
-  run _ctl_fzf_rich_for_version "0.61.0 (abc)"
+@test "_controller_fzf_rich_for_version: 0.61.0 is legacy" {
+  run _controller_fzf_rich_for_version "0.61.0 (abc)"
   [ "$status" -ne 0 ]
 }
 
-@test "_ctl_fzf_rich_for_version: 0.36.0 is legacy" {
-  run _ctl_fzf_rich_for_version "0.36.0"
+@test "_controller_fzf_rich_for_version: 0.36.0 is legacy" {
+  run _controller_fzf_rich_for_version "0.36.0"
   [ "$status" -ne 0 ]
 }
 
-@test "_ctl_fzf_rich_for_version: 0.65.1 and 1.0.0 are rich" {
-  run _ctl_fzf_rich_for_version "0.65.1"; [ "$status" -eq 0 ]
-  run _ctl_fzf_rich_for_version "1.0.0";  [ "$status" -eq 0 ]
+@test "_controller_fzf_rich_for_version: 0.65.1 and 1.0.0 are rich" {
+  run _controller_fzf_rich_for_version "0.65.1"; [ "$status" -eq 0 ]
+  run _controller_fzf_rich_for_version "1.0.0";  [ "$status" -eq 0 ]
 }
 
-@test "_ctl_detect_rich_chrome: reads fzf --version off PATH, prints 1/0" {
+@test "_controller_detect_rich_chrome: reads fzf --version off PATH, prints 1/0" {
   # stub fzf ≥ 0.62 on PATH
   printf '#!/usr/bin/env bash\necho "0.62.0 (stub)"\n' > "$TEST_DIR/fzf"
   chmod +x "$TEST_DIR/fzf"
-  PATH="$TEST_DIR:$PATH" run _ctl_detect_rich_chrome
+  PATH="$TEST_DIR:$PATH" run _controller_detect_rich_chrome
   [ "$output" = "1" ]
   printf '#!/usr/bin/env bash\necho "0.50.0 (stub)"\n' > "$TEST_DIR/fzf"
-  PATH="$TEST_DIR:$PATH" run _ctl_detect_rich_chrome
+  PATH="$TEST_DIR:$PATH" run _controller_detect_rich_chrome
   [ "$output" = "0" ]
 }
 
-@test "_ctl_rich_chrome: rc 0 only when GUIDED_RICH_CHROME=1" {
-  GUIDED_RICH_CHROME=1 run _ctl_rich_chrome; [ "$status" -eq 0 ]
-  GUIDED_RICH_CHROME=0 run _ctl_rich_chrome; [ "$status" -ne 0 ]
-  run _ctl_rich_chrome; [ "$status" -ne 0 ]        # unset → legacy default
+@test "_controller_rich_chrome: rc 0 only when GUIDED_RICH_CHROME=1" {
+  GUIDED_RICH_CHROME=1 run _controller_rich_chrome; [ "$status" -eq 0 ]
+  GUIDED_RICH_CHROME=0 run _controller_rich_chrome; [ "$status" -ne 0 ]
+  run _controller_rich_chrome; [ "$status" -ne 0 ]        # unset → legacy default
 }
 
 # ── rich mode: action rows stay visible too (ADR 0063, AC1) ──────────────────
@@ -73,7 +73,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(datapools) rich: add + Back rows stay visible, data rows too" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  GUIDED_RICH_CHROME=1 run guided_ctl_list
+  GUIDED_RICH_CHROME=1 run guided_controller_list
   echo "$output" | grep -q "tank0: mirror ×2"
   echo "$output" | grep -q "+ Add data pool"
   # ADR 0063: action rows render in rich chrome again (^A/^X/Esc stay too).
@@ -83,7 +83,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(pooledit data) rich: remove + Back rows visible, data rows stay" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  GUIDED_RICH_CHROME=1 run guided_ctl_list
+  GUIDED_RICH_CHROME=1 run guided_controller_list
   echo "$output" | grep -q "topology: mirror"
   echo "$output" | grep -q "remove"
   echo "$output" | grep -q "← Back"
@@ -94,7 +94,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(datapools) legacy: action rows remain" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "+ Add data pool"
   echo "$output" | grep -q "← Back"
 }
@@ -104,7 +104,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "action add: on datapools appends a pool" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_action add
+  run guided_controller_action add
   [ "$output" = "refresh" ]
   [ "$(jq '.data_pools | length' "$GUIDED_STATE_FILE")" = "2" ]
 }
@@ -112,7 +112,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "action remove: on a data pool editor deletes it and returns to the list" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  run guided_ctl_action remove
+  run guided_controller_action remove
   [ "$output" = "render" ]
   [ "$(jq -c '.data_pools' "$GUIDED_STATE_FILE")" = "[]" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
@@ -121,7 +121,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "action add-storage: on datapools appends a storage group (^S)" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_action add-storage
+  run guided_controller_action add-storage
   [ "$output" = "refresh" ]
   [ "$(jq -r '.storage_groups[0].name' "$GUIDED_STATE_FILE")" = "data" ]
   [ "$(jq -r '.storage_groups[0].mount' "$GUIDED_STATE_FILE")" = "/data" ]
@@ -130,7 +130,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "action remove: ^X on a highlighted data pool row deletes it in place" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_action remove "tank0: mirror ×2"
+  run guided_controller_action remove "tank0: mirror ×2"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.data_pools' "$GUIDED_STATE_FILE")" = "[]" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
@@ -141,7 +141,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     '{"storage_groups":[{"name":"data","mount":"/data","topology":"raidz1","disk_count":3}]}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_action remove "data (storage): raidz1 ×3"
+  run guided_controller_action remove "data (storage): raidz1 ×3"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.storage_groups' "$GUIDED_STATE_FILE")" = "[]" ]
 }
@@ -149,14 +149,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "action remove: ^X on the OS pool row is a noop" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run guided_ctl_action remove "OS pool: none ×1"
+  run guided_controller_action remove "OS pool: none ×1"
   [ "$output" = "noop" ]
   [ "$(jq -r '.os_pool.topology' "$GUIDED_STATE_FILE")" = "none" ]
 }
 
 @test "action add: on the sysctl list opens the add-text screen" {
   set_nav "$(navigation_to_values Options sysctl sysctl)"
-  run guided_ctl_action add
+  run guided_controller_action add
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
@@ -165,7 +165,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "action remove: on the OS pool editor is a noop (not removable)" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0 os)"
-  run guided_ctl_action remove
+  run guided_controller_action remove
   [ "$output" = "noop" ]
 }
 
@@ -174,7 +174,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "directive→action(render) rich: carries footer, breadcrumb, header" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  GUIDED_RICH_CHROME=1 run _guided_directive_to_action render /x/entry.sh
+  GUIDED_RICH_CHROME=1 run _controller_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-footer("
   echo "$output" | grep -q "change-list-label("
   echo "$output" | grep -q "change-header("
@@ -183,7 +183,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "directive→action(render) legacy: no footer or breadcrumb" {
   set_nav "$(navigation_to_data_pools Disks)"
-  run _guided_directive_to_action render /x/entry.sh
+  run _controller_directive_to_action render /x/entry.sh
   ! echo "$output" | grep -q "change-footer("
   ! echo "$output" | grep -q "change-list-label("
   echo "$output" | grep -q "change-header("   # header stays in both modes
@@ -192,31 +192,31 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "directive→action(refresh) rich: re-emits the live footer summary" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  GUIDED_RICH_CHROME=1 run _guided_directive_to_action refresh /x/entry.sh
+  GUIDED_RICH_CHROME=1 run _controller_directive_to_action refresh /x/entry.sh
   echo "$output" | grep -q "reload-sync(bash"
   echo "$output" | grep -q "change-footer("
 }
 
 @test "directive→action(refresh) legacy: no footer emitted" {
   set_nav "$(navigation_to_data_pools Disks)"
-  run _guided_directive_to_action refresh /x/entry.sh
+  run _controller_directive_to_action refresh /x/entry.sh
   echo "$output" | grep -q "reload-sync(bash"
   ! echo "$output" | grep -q "change-footer("
 }
 
 # ── breadcrumb + footer builders (pure) ──────────────────────────────────────
 
-@test "_ctl_breadcrumb: pooledit names category ▸ layout ▸ pool" {
+@test "_controller_breadcrumb: pooledit names category ▸ layout ▸ pool" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_pool_edit Disks 0 data)"
-  run _ctl_breadcrumb "$(<"$GUIDED_NAV_FILE")"
+  run _controller_breadcrumb "$(<"$GUIDED_NAV_FILE")"
   echo "$output" | grep -q "Disks"
   echo "$output" | grep -q "tank0"
 }
 
-@test "_ctl_footer: datapools footer mentions the add key" {
+@test "_controller_footer: datapools footer mentions the add key" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(navigation_to_data_pools Disks)"
-  run _ctl_footer "$(<"$GUIDED_NAV_FILE")"
+  run _controller_footer "$(<"$GUIDED_NAV_FILE")"
   echo "$output" | grep -q "\^A"
 }

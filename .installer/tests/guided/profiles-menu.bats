@@ -40,7 +40,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── top screen: the Profiles row leads, set off by its own divider ──────────
 
 @test "list(top): a Profiles row leads when installable profiles exist" {
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "Profiles ▸ start from a saved machine" ]
   [ "${lines[1]}" = "──────────────────────────" ]
@@ -52,12 +52,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   # ADR 0063: the picker is unconditional — it leads with the reset row, so it is
   # always a first-class entry point, even on a fresh repo with no profiles.
   rm -rf "$INSTALLER_DIR/hosts/desktop" "$INSTALLER_DIR/hosts/laptop"
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -q "Profiles ▸"
 }
 
 @test "enter(top): the Profiles row drills to the profiles screen" {
-  run guided_ctl_enter "Profiles ▸ start from a saved machine"
+  run guided_controller_enter "Profiles ▸ start from a saved machine"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
 }
@@ -66,7 +66,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(profiles): Reset row leads, then desktop + laptop, then Back" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_list
+  run guided_controller_list
   [ "${lines[0]}" = "↺ Reset to blank" ]   # ADR 0063: leads the picker
   [ "${lines[1]}" = "desktop" ]
   [ "${lines[2]}" = "laptop" ]
@@ -77,14 +77,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(profiles): a fresh repo shows only the Reset row + Back" {
   rm -rf "$INSTALLER_DIR/hosts/desktop" "$INSTALLER_DIR/hosts/laptop"
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_list
+  run guided_controller_list
   [ "${lines[0]}" = "↺ Reset to blank" ]
   echo "$output" | grep -q "← Back"
 }
 
 @test "back(profiles): Esc/Back returns to the top screen" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
@@ -93,7 +93,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "preview(profiles): shows a deep tree of the resolved machine" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_preview desktop
+  run guided_controller_preview desktop
   echo "$output" | grep -q "eterniox"             # hostname (resolved)
   echo "$output" | grep -q "encryption: on"       # options incl. encryption
   echo "$output" | grep -q "impermanence"         # …and impermanence
@@ -114,7 +114,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$d/users/alice/profile.jsonc"
   export INSTALLER_DIR="$d"
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_preview box
+  run guided_controller_preview box
   echo "$output" | grep -q "alice"
   echo "$output" | grep -q "/bin/fish"
   echo "$output" | grep -q "wheel"
@@ -127,21 +127,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '{"system":{"hostname":"box"}}\n' > "$d/hosts/box/profile.jsonc"
   export INSTALLER_DIR="$d"
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_preview box
+  run guided_controller_preview box
   echo "$output" | grep -q "bootloader: grub"     # inherited from Host Core
 }
 
 @test "preview(profiles): rows stay clean — only the name (no inline hint)" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_list
+  run guided_controller_list
   echo "$output" | grep -qx "desktop"             # name only, no hostname hint
 }
 
 @test "preview(profiles): Back + Reset row preview nothing" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_preview "← Back"
+  run guided_controller_preview "← Back"
   [ -z "$output" ]
-  run guided_ctl_preview "↺ Reset to blank"
+  run guided_controller_preview "↺ Reset to blank"
   [ -z "$output" ]
 }
 
@@ -149,7 +149,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(profiles): Reset row drills to the confirm screen" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_enter "↺ Reset to blank"
+  run guided_controller_enter "↺ Reset to blank"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "newhost" ]
 }
@@ -157,7 +157,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(newhost): Back cancels to the picker, session intact" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"newhost"}'
-  run guided_ctl_enter "← Back"
+  run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
   jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"      # untouched
@@ -179,7 +179,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
 
   set_nav '{"screen":"newhost"}'
-  run guided_ctl_enter "Yes — discard session work and start blank"
+  run guided_controller_enter "Yes — discard session work and start blank"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
   jq -e '. == {}' "$GUIDED_STATE_FILE"                  # Config State → baseline
@@ -200,9 +200,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
 
   set_nav '{"screen":"newhost"}'
-  guided_ctl_enter "Yes — discard session work and start blank" >/dev/null
+  guided_controller_enter "Yes — discard session work and start blank" >/dev/null
 
-  run guided_ctl_key ctrl-z
+  run guided_controller_key ctrl-z
   [ "$output" = "render" ]
   jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"      # Config State restored
   jq -e '.alice.shell == "/bin/fish"' "$GUIDED_USERFORMS_FILE"  # forms restored
@@ -213,7 +213,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(profiles): picking a profile seeds the state + returns to top" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_enter desktop
+  run guided_controller_enter desktop
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
   jq -e '.system.hostname == "eterniox"' "$GUIDED_STATE_FILE"
@@ -224,7 +224,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(profiles): a prior edit survives unless the profile overrides it" {
   printf '%s\n' '{"system":{"keymap":"de"}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"profiles"}'
-  guided_ctl_enter desktop >/dev/null
+  guided_controller_enter desktop >/dev/null
   jq -e '.system.keymap == "de"' "$GUIDED_STATE_FILE"        # kept
   jq -e '.system.hostname == "eterniox"' "$GUIDED_STATE_FILE" # merged
 }
@@ -232,7 +232,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(profiles): an unreadable profile warns without touching state" {
   printf '%s\n' '{"seed":"me"}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_enter ghost
+  run guided_controller_enter ghost
   [[ "$output" == notice* ]]
   jq -e '.seed == "me"' "$GUIDED_STATE_FILE"                 # untouched
 }
@@ -258,7 +258,7 @@ JSON
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
   set_nav "$(navigation_to_profiles)"
-  run guided_ctl_enter "desktop"
+  run guided_controller_enter "desktop"
   [ "$status" -eq 0 ]
 
   # the seeded state carries core's contribution as well as the delta
@@ -281,7 +281,7 @@ JSON
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
   set_nav "$(navigation_to_profiles)"
-  guided_ctl_enter "desktop" >/dev/null
+  guided_controller_enter "desktop" >/dev/null
 
   source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
   local seeded resolved

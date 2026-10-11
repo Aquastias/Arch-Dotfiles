@@ -70,13 +70,13 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
 
 @test "apply: toggling zfs snapshots is a no-op without ZFS" {
   local st='{"filesystem":"ext4"}'
-  run _ctl_apply_enum "$st" "$SNAP" false
+  run _controller_apply_enum "$st" "$SNAP" false
   [ "$status" -eq 1 ]
   [ "$output" = "$st" ]
 }
 
 @test "apply: toggling zfs snapshots works on a zfs install" {
-  run _ctl_apply_enum '{}' "$SNAP" false
+  run _controller_apply_enum '{}' "$SNAP" false
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.post_install.backup.zfs_auto_snapshot == false'
 }
@@ -85,7 +85,7 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
   printf '%s\n' '{"filesystem":"ext4"}' > "$GUIDED_STATE_FILE"
   printf '%s\n' '{"screen":"category","category":"Backup"}' \
     > "$GUIDED_NAV_FILE"
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   [[ "$output" == *"off (no ZFS)"* ]]
 }
@@ -93,7 +93,7 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
 @test "Backup screen: renders the toggle value on a zfs install" {
   printf '%s\n' '{"screen":"category","category":"Backup"}' \
     > "$GUIDED_NAV_FILE"
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   [[ "$output" != *"no ZFS"* ]]
   [[ "$output" == *"ZFS snapshots: true"* ]]

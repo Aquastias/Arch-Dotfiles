@@ -148,13 +148,13 @@ _guided_shell_detect_session_mode() {
   # Save/Export still work with nothing attached.
   export GUIDED_LIVE_SET GUIDED_DEVICE_MODE
   GUIDED_LIVE_SET="$(live_medium_disks 2>/dev/null || true)"
-  GUIDED_DEVICE_MODE="$(_ctl_detect_device_mode)"
+  GUIDED_DEVICE_MODE="$(_controller_detect_device_mode)"
 
   # Rich chrome (ADR 0047): decide ONCE whether the installed fzf (≥ 0.62)
   # supports the footer/breadcrumb chrome; a lagging ISO's older fzf degrades to
   # the legacy action-rows layout. Cached so every fzf-entry subprocess agrees.
   export GUIDED_RICH_CHROME
-  GUIDED_RICH_CHROME="$(_ctl_detect_rich_chrome)"
+  GUIDED_RICH_CHROME="$(_controller_detect_rich_chrome)"
 }
 
 # Fixed navy/blue palette (ADR 0071) so the installer looks the same on any box
@@ -187,7 +187,7 @@ _guided_shell_launch_fzf() {
   # The preview pane is the always-on master-detail column (ADR 0071), wired to
   # the entry's `preview` verb from the start so it paints on first render.
   # The current row is marked by the ▶ pointer (ADR 0082).
-  guided_ctl_list | fzf --reverse --prompt='guided> ' --pointer='▶' \
+  guided_controller_list | fzf --reverse --prompt='guided> ' --pointer='▶' \
     --border=rounded --border-label=' Guided Installer ' \
     --border-label-pos=center \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \

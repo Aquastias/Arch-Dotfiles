@@ -90,26 +90,26 @@ manual" ]
   # The notice now rides the manual-on fzf directive (header), not stderr, so
   # apply stays a clean pure state transform.
   local state
-  state="$(_ctl_apply_enum "$(config_state_new)" disk_config.kind manual)"
+  state="$(_controller_apply_enum "$(config_state_new)" disk_config.kind manual)"
   echo "$state" | jq -e '.disk_config.kind == "manual"'
 }
 
 @test "apply: a locked field (encryption) is a no-op while manual" {
   local s; s="$(manual_state)"
-  run _ctl_apply_enum "$s" options.encryption true
+  run _controller_apply_enum "$s" options.encryption true
   [ "$status" -ne 0 ]
   echo "$output" | jq -e '.options.encryption == null'
 }
 
 @test "apply: the locked esp-size text field is a no-op while manual" {
   local s; s="$(manual_state)"
-  run _ctl_apply_text "$s" options.esp_size 4G
+  run _controller_apply_text "$s" options.esp_size 4G
   [ "$status" -ne 0 ]
   echo "$output" | jq -e '(.options.esp_size // null) == null'
 }
 
 @test "apply: encryption is editable again once manual is off" {
-  run _ctl_apply_enum "$(config_state_new)" options.encryption true
+  run _controller_apply_enum "$(config_state_new)" options.encryption true
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.encryption == true'
 }
@@ -117,7 +117,7 @@ manual" ]
 @test "toggle: turning manual on emits the manual-on directive" {
   printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
-  run _ctl_enter_category "Manual partitioning: off"
+  run _controller_enter_category "Manual partitioning: off"
   [ "$status" -eq 0 ]
   [ "$output" = "manual-on" ]
   jq -e '.disk_config.kind == "manual"' "$GUIDED_STATE_FILE"
@@ -126,7 +126,7 @@ manual" ]
 @test "toggle: turning manual off emits a plain refresh" {
   printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
   printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
-  run _ctl_enter_category "Manual partitioning: on"
+  run _controller_enter_category "Manual partitioning: on"
   [ "$status" -eq 0 ]
   [ "$output" = "refresh" ]
   jq -e '.disk_config.kind == "auto"' "$GUIDED_STATE_FILE"
@@ -137,7 +137,7 @@ nav_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDE
 @test "editor: the Partitions row opens the assignment table" {
   nav_disks
   printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
-  run _ctl_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
+  run _controller_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
   [ "$status" -eq 0 ] && [ "$output" = "render" ]
   jq -e '.screen == "manualparts"' "$GUIDED_NAV_FILE"
 }
@@ -145,7 +145,7 @@ nav_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDE
 @test "editor: a partition row opens its per-partition editor" {
   printf '%s\n' '{"screen":"manualparts","category":"Disks"}' > "$GUIDED_NAV_FILE"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
-  run _ctl_enter_manualparts "/dev/sda3  →  (unassigned)  [format]"
+  run _controller_enter_manual_partitions "/dev/sda3  →  (unassigned)  [format]"
   [ "$status" -eq 0 ] && [ "$output" = "render" ]
   jq -e '.screen == "partedit" and .device == "/dev/sda3"' "$GUIDED_NAV_FILE"
 }
@@ -154,9 +154,9 @@ nav_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDE
   printf '%s\n' '{"screen":"manualparts","category":"Disks"}' > "$GUIDED_NAV_FILE"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
   local row="⟳ Run cfdisk (edit the partition table)"
-  INSTALL_DEBUG=1 run _ctl_enter_manualparts "$row"
+  INSTALL_DEBUG=1 run _controller_enter_manual_partitions "$row"
   [[ "$output" == notice* ]]
-  INSTALL_DEBUG=0 run _ctl_enter_manualparts "$row"
+  INSTALL_DEBUG=0 run _controller_enter_manual_partitions "$row"
   [ "$output" = "cfdisk" ]
 }
 
@@ -171,7 +171,7 @@ part_nav() {
   printf '%s\n' \
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"","fs":"","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
-  run _ctl_enter_partedit "mountpoint: (unassigned)   (Enter cycles)"
+  run _controller_enter_partition_edit "mountpoint: (unassigned)   (Enter cycles)"
   [ "$status" -eq 0 ]
   jq -e '.disk_config.partitions[0].mountpoint == "/"' "$GUIDED_STATE_FILE"
 }
@@ -181,7 +181,7 @@ part_nav() {
   printf '%s\n' \
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
-  run _ctl_enter_partedit "filesystem: ext4   (Enter cycles)"
+  run _controller_enter_partition_edit "filesystem: ext4   (Enter cycles)"
   jq -e '.disk_config.partitions[0].fs == "xfs"' "$GUIDED_STATE_FILE"
 }
 
@@ -190,14 +190,14 @@ part_nav() {
   printf '%s\n' \
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
-  run _ctl_enter_partedit "format: on   (Enter toggles)"
+  run _controller_enter_partition_edit "format: on   (Enter toggles)"
   jq -e '.disk_config.partitions[0].format == false' "$GUIDED_STATE_FILE"
 }
 
 @test "proceed: blocked with a notice when the manual layout is invalid" {
   printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
   printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
-  run _ctl_proceed_directive
+  run _controller_proceed_directive
   [[ "$output" == notice* ]]
   [[ "$output" == *"Partitions"* ]]
 }
@@ -207,7 +207,7 @@ part_nav() {
   printf '%s\n' \
     '{"disk_config":{"kind":"manual","partitions":[{"device":"/dev/sda1","mountpoint":"/boot/efi","fs":"fat32","format":true},{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
-  run _ctl_proceed_directive
+  run _controller_proceed_directive
   [ "$output" = "terminal proceed" ]
 }
 
@@ -216,7 +216,7 @@ part_nav() {
   printf '%s\n' \
     '{"disk_config":{"kind":"manual"},"options":{"encryption":true,"impermanence":{"enabled":true}}}' \
     > "$GUIDED_STATE_FILE"
-  run guided_ctl_list
+  run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qF 'Encryption ▸ off (manual)'
   echo "$output" | grep -qF 'Impermanence ▸ off (manual)'
@@ -227,8 +227,8 @@ part_nav() {
   # is non-destructive; the toggle only writes disk_config.kind).
   local s
   s="$(config_state_set "$(config_state_new)" filesystem '"btrfs"')"
-  s="$(_ctl_apply_enum "$s" disk_config.kind manual)"
-  s="$(_ctl_apply_enum "$s" disk_config.kind auto)"
+  s="$(_controller_apply_enum "$s" disk_config.kind manual)"
+  s="$(_controller_apply_enum "$s" disk_config.kind auto)"
   echo "$s" | jq -e '.filesystem == "btrfs"'
   echo "$s" | jq -e '.disk_config.kind == "auto"'
 }

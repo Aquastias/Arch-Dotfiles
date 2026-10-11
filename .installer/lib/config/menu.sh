@@ -108,7 +108,7 @@ _MENU_FIELDS=(
 
 # menu_enum_options <field> — the canonical option set for an enumerable field,
 # one per line. The single source of truth shared by the interactive controller
-# (_ctl_enum_options / _ctl_toggle_options) and the replay editors
+# (_controller_enum_options / _controller_toggle_options) and the replay editors
 # (_guided_edit_*), so the two guided front-ends can never drift on what a field
 # offers. Free-text / unknown fields emit nothing. Multi-word entries stay whole
 # (one per line) — callers mapfile into an array before passing them on.

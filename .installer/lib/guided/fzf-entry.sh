@@ -71,31 +71,31 @@ source "${_entry_dir}/controller.sh"
 
 case "${1:-}" in
 list)
-  guided_ctl_list
+  guided_controller_list
   ;;
 dispatch)
   _verb="${2:-}"; _line="${3:-}"; _query="${4:-}"; _d="noop"
   case "$_verb" in
-  enter) _d="$(guided_ctl_enter "$_line" "$_query")" ;;
-  back)  _d="$(guided_ctl_back)" ;;
+  enter) _d="$(guided_controller_enter "$_line" "$_query")" ;;
+  back)  _d="$(guided_controller_back)" ;;
   esac
-  _guided_directive_to_action "$_d" "$_entry_self"
+  _controller_directive_to_action "$_d" "$_entry_self"
   ;;
 key)
   # ^A add / ^S add storage / ^X remove — context actions (rich chrome); ^Z/^Y/^R
   # — undo/redo/reset. ^X carries the highlighted line ({}) so it can remove the
   # pool under the cursor on the datapools list.
   case "${2:-}" in
-  ctrl-a) _dk="$(guided_ctl_action add)" ;;
-  ctrl-s) _dk="$(guided_ctl_action add-storage)" ;;
-  ctrl-x) _dk="$(guided_ctl_action remove "${3:-}")" ;;
-  *)      _dk="$(guided_ctl_key "${2:-}")" ;;
+  ctrl-a) _dk="$(guided_controller_action add)" ;;
+  ctrl-s) _dk="$(guided_controller_action add-storage)" ;;
+  ctrl-x) _dk="$(guided_controller_action remove "${3:-}")" ;;
+  *)      _dk="$(guided_controller_key "${2:-}")" ;;
   esac
-  _guided_directive_to_action "$_dk" "$_entry_self"
+  _controller_directive_to_action "$_dk" "$_entry_self"
   ;;
 preview)
   # fzf preview body — the ASCII layout graph (only on the Disk-layout screen).
-  guided_ctl_preview "${2:-}"
+  guided_controller_preview "${2:-}"
   ;;
 cfdisk)
   # Manual Partitioning (ADR 0073): runs under fzf execute() (has a tty). Launch

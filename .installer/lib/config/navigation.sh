@@ -102,7 +102,7 @@ navigation_to_data_pools() {
 # navigation_to_pool_edit <category> <index> [kind] — edit one pool group.
 # <kind> is the group reference (os | storage | data), defaulting to data for
 # back-compat; the controller resolves the group through (kind, index) — see
-# _ctl_pool_get.
+# _controller_pool_get.
 navigation_to_pool_edit() {
   jq -nc --arg c "$1" --argjson i "$2" --arg k "${3:-data}" \
     '{screen:"pooledit", category:$c, index:$i, kind:$k}'

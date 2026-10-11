@@ -25,7 +25,7 @@ is tracked in [[test-regression-catalog]].
 ## The sync contract: menu-derived, CI-enforced
 
 The matrix axes, values, and exclusions are **derived from the menu's own
-option functions** (`_ctl_built_root_filesystems`, `_ctl_topologies_for_fs`,
+option functions** (`_controller_built_root_filesystems`, `_controller_topologies_for_filesystem`,
 the pickers/validation) — never a hand-kept spec — so the matrix cannot drift
 from what the installer menu offers. Two guards keep it honest:
 
