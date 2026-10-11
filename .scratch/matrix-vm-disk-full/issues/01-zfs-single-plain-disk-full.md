@@ -15,3 +15,15 @@ profile in boot-smoke cells.
 
 - [ ] Root cause: what fills the 40G (package cache, paru build dirs, ARC?)
 - [ ] zfs-single-plain installs and boot-verifies green
+
+## Comments
+
+2026-10-11: `zfs-single-plain` installed and boot-verified green (INSTALLER-EXIT-0,
+FIRSTBOOT-OK) on a 100 GiB disk with 10 GiB RAM / 4 vCPU (run via
+`vm.sh --testing --verify-boot --recreate` on the emitted cell profile, with
+`MATRIX_DISK_GIB=100 VM_RAM_MB=10240 VM_VCPUS=4`). The qcow2 ended at ~27 GiB
+allocated after the AUR pass (libcef/qt6ct builds), so 40 GiB leaves too little
+headroom for build dirs + cache. Also found: `matrix_run` never passes
+`--recreate`, so a stale domain from an earlier run is reused with its old
+RAM/vCPU/disk size and env overrides silently do nothing. Suggest raising the
+`MATRIX_DISK_GIB` default (e.g. 80) and recreating matrix domains each run.

@@ -5,7 +5,7 @@
 
 **Blocked by:** 05 — Pilot
 
-**Status:** done (VM install pending)
+**Status:** done
 
 - [x] Renames per the Prefix Map applied to every definition here and
       every caller repo-wide (incl. bats/helpers); frozen interface untouched
@@ -20,4 +20,4 @@
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [ ] Full VM install green at ticket close
+- [x] Full VM install green at ticket close (zfs-single-plain, 2026-10-11)

@@ -6,7 +6,7 @@ runs strict: any violation anywhere fails. ADR 0153 status → implemented.
 
 **Blocked by:** 06–21 (every area ticket)
 
-**Status:** done (VM install + guided run pending)
+**Status:** done (guided-flow run pending; full VM install green 2026-10-11)
 
 - [x] Test helpers/bats renamed; `@test` titles left free text
 - [x] Baseline removed; lint strict; suite green

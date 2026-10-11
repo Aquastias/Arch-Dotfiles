@@ -20,4 +20,4 @@ and Shell Stdlib follow the Readability Rules.
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [ ] Full VM install green at ticket close (pending final VM check)
+- [x] Full VM install green at ticket close (zfs-single-plain, 2026-10-11)
