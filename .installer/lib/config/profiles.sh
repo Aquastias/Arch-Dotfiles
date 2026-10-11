@@ -63,10 +63,11 @@ profiles_header() {
 
 # profiles_seed <state> <profile-json> — the Config State with <profile-json>
 # merged OVER it (jq `*`: profile scalars/arrays replace, objects deep-merge —
-# the same rule _guided_effective uses to overlay overrides on the baseline), so
-# picking a profile populates every category with its values. Device paths are
-# flattened out first: profiles are device-less (ADR 0036) and disks stay
-# operator-picked at Proceed, so a stray devices[] never enters the seed.
+# the same rule _guided_shell_effective uses to overlay overrides on the
+# baseline), so picking a profile populates every category with its values.
+# Device paths are flattened out first: profiles are device-less (ADR 0036) and
+# disks stay operator-picked at Proceed, so a stray devices[] never enters the
+# seed.
 profiles_seed() {
   local state="$1" profile="$2"
   profile="$(skeleton_flatten_devices "$profile")"

@@ -14,6 +14,8 @@
 # Pure, dependency-free (so the fzf skip bind can source JUST this, not the
 # whole controller, per focus). Shared with the controller so the skip bind and
 # the unit tests never drift on what "inert" means.
+#
+# Used by: lib/guided/controller.sh, lib/guided/fzf-entry.sh.
 # =============================================================================
 
 # guided_row_inert <line> — rc 0 when the row is inert (skip it), 1 otherwise.

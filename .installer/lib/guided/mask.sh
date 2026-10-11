@@ -17,6 +17,8 @@
 #
 # Pure: two strings in, two lines out (new buffer, then the bullet display). No
 # fzf, no tty, no files.
+#
+# Used by: lib/guided/controller.sh, lib/guided/fzf-entry.sh.
 # =============================================================================
 
 # The bullet the query renders as. UTF-8 (the installer + repo are UTF-8 through-
@@ -29,26 +31,32 @@ _GUIDED_MASK_BULLET='•'
 # A longer query appends its non-bullet suffix (real newly-typed chars, so a paste
 # lands whole); a shorter query truncates the buffer to the query's length.
 guided_mask_apply() {
-  local buf="$1" q="$2" blen qlen
-  blen=${#buf}; qlen=${#q}
-  if (( qlen > blen )); then
-    local add="${q:blen}" clean="" i c
+  local buffer="$1" query="$2" buffer_length query_length
+  buffer_length=${#buffer}; query_length=${#query}
+  if (( query_length > buffer_length )); then
+    local add="${query:buffer_length}" clean="" i character
     for (( i = 0; i < ${#add}; i++ )); do
-      c="${add:i:1}"
-      [[ "$c" == "$_GUIDED_MASK_BULLET" ]] || clean+="$c"
+      character="${add:i:1}"
+      [[ "$character" == "$_GUIDED_MASK_BULLET" ]] || clean+="$character"
     done
-    buf="$buf$clean"
-  elif (( qlen < blen )); then
-    buf="${buf:0:qlen}"
+    buffer="$buffer$clean"
+  elif (( query_length < buffer_length )); then
+    buffer="${buffer:0:query_length}"
   fi
-  local disp="" i
-  for (( i = 0; i < ${#buf}; i++ )); do disp+="$_GUIDED_MASK_BULLET"; done
-  printf '%s\n%s' "$buf" "$disp"
+  local display="" i
+  for (( i = 0; i < ${#buffer}; i++ )); do display+="$_GUIDED_MASK_BULLET"; done
+  printf '%s\n%s' "$buffer" "$display"
 }
 
 # guided_mask_buffer <buffer> <query> — just the reconstructed buffer (first line
 # of guided_mask_apply). Convenience for the fzf-entry glue's buffer file write.
-guided_mask_buffer() { guided_mask_apply "$1" "$2" | head -1; }
+guided_mask_buffer() {
+  local masked; masked="$(guided_mask_apply "$1" "$2")"
+  printf '%s\n' "${masked%%$'\n'*}"
+}
 
 # guided_mask_display <buffer> <query> — just the bullet display (second line).
-guided_mask_display() { guided_mask_apply "$1" "$2" | tail -1; }
+guided_mask_display() {
+  local masked; masked="$(guided_mask_apply "$1" "$2")"
+  printf '%s' "${masked##*$'\n'}"
+}

@@ -38,33 +38,33 @@ write_answers() {
 
 # ── device injection into the Config State (AC1) ─────────────────────────────
 
-@test "_guided_edit_bound_devices: injects os_pool devices + derives count" {
+@test "_guided_shell_edit_bound_devices: injects os_pool devices + derives count" {
   _GUIDED_REPLAY=1
   declare -gA _GUIDED_ANSWERS=(
     [os_pool_devices]="/dev/disk/by-id/wwn-A /dev/disk/by-id/wwn-B")
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"mirror","disk_count":2}}'
-  _guided_edit_bound_devices
+  _guided_shell_edit_bound_devices
   [ "$(jq -c '.os_pool.devices' <<<"$_GUIDED_STATE")" \
     = '["/dev/disk/by-id/wwn-A","/dev/disk/by-id/wwn-B"]' ]
   [ "$(jq -r '.os_pool.disk_count' <<<"$_GUIDED_STATE")" = "2" ]
 }
 
-@test "_guided_edit_bound_devices: injects a data pool's devices by index" {
+@test "_guided_shell_edit_bound_devices: injects a data pool's devices by index" {
   _GUIDED_REPLAY=1
   declare -gA _GUIDED_ANSWERS=([data_0_devices]="/dev/disk/by-id/wwn-X")
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"none","disk_count":1},
                   "data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}'
-  _guided_edit_bound_devices
+  _guided_shell_edit_bound_devices
   [ "$(jq -c '.data_pools[0].devices' <<<"$_GUIDED_STATE")" \
     = '["/dev/disk/by-id/wwn-X"]' ]
   [ "$(jq -r '.data_pools[0].disk_count' <<<"$_GUIDED_STATE")" = "1" ]
 }
 
-@test "_guided_edit_bound_devices: no key leaves a group device-less" {
+@test "_guided_shell_edit_bound_devices: no key leaves a group device-less" {
   _GUIDED_REPLAY=1
   declare -gA _GUIDED_ANSWERS=()
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"mirror","disk_count":2}}'
-  _guided_edit_bound_devices
+  _guided_shell_edit_bound_devices
   [ "$(jq -r '.os_pool | has("devices")' <<<"$_GUIDED_STATE")" = "false" ]
 }
 

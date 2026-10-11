@@ -317,25 +317,25 @@ write_answers() {
 # ── the encryption passphrase round-trips handoff file → manifest (ADR 0054) ──
 
 @test "secrets: an enc passphrase in the handoff file lands in the manifest" {
-  _guided_users_reset
+  _guided_shell_users_reset
   local f="$TEST_DIR/secrets.json"
   printf '%s\n' '{"enc_passphrase":"corrhorse","root_password":"r00t"}' > "$f"
-  _guided_load_secrets_file "$f"
-  [ "$_GUIDED_ENC_PASSPHRASE" = "corrhorse" ]
-  run _guided_secrets_manifest
+  _guided_shell_load_secrets_file "$f"
+  [ "$_GUIDED_ENCRYPTION_PASSPHRASE" = "corrhorse" ]
+  run _guided_shell_secrets_manifest
   echo "$output" | jq -e '.enc_passphrase == "corrhorse"'
   echo "$output" | jq -e '.root_password == "r00t"'
 }
 
 @test "secrets: no enc_passphrase key when none was captured" {
-  _guided_users_reset
-  run _guided_secrets_manifest
+  _guided_shell_users_reset
+  run _guided_shell_secrets_manifest
   echo "$output" | jq -e 'has("enc_passphrase") | not'
 }
 
 # ── Advanced freeform authoring: build an arbitrary skeleton group by group ─
 
-@test "_guided_author_skeleton: replay authors the OS pool + a storage group" {
+@test "_guided_shell_author_skeleton: replay authors the OS pool + a storage group" {
   guided_load_replay "$(write_answers \
     'adv_os_topology=mirror' 'adv_os_disk_count=2' \
     'adv_storage_count=1' 'adv_storage_0_name=data' \
@@ -343,7 +343,7 @@ write_answers() {
     'adv_data_count=0')"
   _GUIDED_STATE="$(config_state_new)"
 
-  _guided_author_skeleton
+  _guided_shell_author_skeleton
   echo "$_GUIDED_STATE" | jq -e '.mode == "multi"'
   echo "$_GUIDED_STATE" | jq -e '.os_pool.topology == "mirror"'
   echo "$_GUIDED_STATE" | jq -e '.storage_groups[0].name == "data"'
@@ -417,8 +417,8 @@ write_answers() {
 
 # ── filesystem-first Disks: all four adapters ship, none reserved (issue 09) ─
 
-@test "_guided_filesystem_options: all four built filesystems are active" {
-  run _guided_filesystem_options
+@test "_guided_shell_filesystem_options: all four built filesystems are active" {
+  run _guided_shell_filesystem_options
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "zfs"
   echo "$output" | grep -qx "btrfs"
@@ -428,17 +428,17 @@ write_answers() {
   ! echo "$output" | grep -q "reserved"
 }
 
-@test "_guided_edit_filesystem: picking zfs commits the filesystem" {
+@test "_guided_shell_edit_filesystem: picking zfs commits the filesystem" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "zfs"; }
   export -f guided_select
 
-  _guided_edit_filesystem
+  _guided_shell_edit_filesystem
   [ "$(config_state_get "$_GUIDED_STATE" filesystem)" = "zfs" ]
 }
 
-@test "_guided_edit_filesystem: a reserved filesystem is refused, no commit" {
+@test "_guided_shell_edit_filesystem: a reserved filesystem is refused, no commit" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   # All four adapters ship today, so exercise the reserved seam (kept for a
@@ -447,52 +447,52 @@ write_answers() {
   guided_select() { printf '%s' "reiserfs (reserved)"; }
   export -f guided_select
 
-  run _guided_edit_filesystem
+  run _guided_shell_edit_filesystem
   [ "$status" -ne 0 ]
   [ -z "$(config_state_get "$_GUIDED_STATE" filesystem)" ]
 }
 
 # ── encryption / impermanence are bool toggles through the seam ─────────────
 
-@test "_guided_edit_encryption: selecting true enables encryption" {
+@test "_guided_shell_edit_encryption: selecting true enables encryption" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "true"; }
   export -f guided_select
 
-  _guided_edit_encryption
+  _guided_shell_edit_encryption
   echo "$_GUIDED_STATE" | jq -e '.options.encryption == true'
 }
 
-@test "_guided_edit_impermanence: selecting true enables impermanence" {
+@test "_guided_shell_edit_impermanence: selecting true enables impermanence" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "true"; }
   export -f guided_select
 
-  _guided_edit_impermanence
+  _guided_shell_edit_impermanence
   echo "$_GUIDED_STATE" | jq -e '.options.impermanence.enabled == true'
 }
 
 # ── persist extensions: free-text directories appended for impermanence ─────
 
-@test "_guided_add_persist: appends a directory to persist.directories" {
+@test "_guided_shell_add_persist: appends a directory to persist.directories" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "/etc/wireguard"; }
   export -f guided_prompt
 
-  _guided_add_persist
+  _guided_shell_add_persist
   echo "$_GUIDED_STATE" | jq -e '.persist.directories == ["/etc/wireguard"]'
 }
 
-@test "_guided_add_persist: empty input adds nothing" {
+@test "_guided_shell_add_persist: empty input adds nothing" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' ""; }
   export -f guided_prompt
 
-  run _guided_add_persist
+  run _guided_shell_add_persist
   [ "$status" -ne 0 ]
   echo "$_GUIDED_STATE" | jq -e '.persist == null'
 }
@@ -501,20 +501,20 @@ write_answers() {
 # The seed is the BASELINE; an edit writes the OVERRIDE map (so the row flips ●)
 # and wins effectively over the seed.
 
-@test "_guided_edit_locale: a typed value writes an override over the seed" {
+@test "_guided_shell_edit_locale: a typed value writes an override over the seed" {
   _GUIDED_REPLAY=0
   _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "de_DE.UTF-8"; }
   export -f guided_prompt
 
-  _guided_edit_locale
+  _guided_shell_edit_locale
   echo "$_GUIDED_STATE" | jq -e '.system.locale == "de_DE.UTF-8"'   # in override
   config_state_is_overridden "$_GUIDED_STATE" system.locale             # flips ●
-  [ "$(config_state_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
+  [ "$(config_state_get "$(_guided_shell_effective)" system.locale)" = "de_DE.UTF-8" ]
 }
 
-@test "_guided_edit_timezone / _guided_edit_keymap: typed values override the seeds" {
+@test "_guided_shell_edit_timezone / _guided_shell_edit_keymap: typed values override the seeds" {
   _GUIDED_REPLAY=0
   _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
   _GUIDED_STATE="$(config_state_new)"
@@ -526,8 +526,8 @@ write_answers() {
   }
   export -f guided_prompt
 
-  _guided_edit_timezone
-  _guided_edit_keymap
+  _guided_shell_edit_timezone
+  _guided_shell_edit_keymap
   echo "$_GUIDED_STATE" | jq -e '.system.timezone == "America/New_York"'
   echo "$_GUIDED_STATE" | jq -e '.system.keymap == "de"'
 }
@@ -539,37 +539,37 @@ write_answers() {
 @test "reset of an overridden locale falls back to the seeded baseline" {
   _GUIDED_BASELINE="$(config_state_seed_defaults "$(config_state_new)")"
   _GUIDED_STATE="$(config_state_set "$(config_state_new)" system.locale '"de_DE.UTF-8"')"
-  [ "$(config_state_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
+  [ "$(config_state_get "$(_guided_shell_effective)" system.locale)" = "de_DE.UTF-8" ]
 
   _GUIDED_STATE="$(config_state_unset "$_GUIDED_STATE" system.locale)"   # reset field
   [ -z "$(config_state_get "$_GUIDED_STATE" system.locale)" ]           # override gone
-  [ "$(config_state_get "$(_guided_effective)" system.locale)" = "en_US.UTF-8" ]
+  [ "$(config_state_get "$(_guided_shell_effective)" system.locale)" = "en_US.UTF-8" ]
 }
 
 # ── Pacman + Advanced edits (issue 06 Pass B): reuse the issue-05 helpers ───
 
-@test "_guided_edit_mirror_countries: multi-select stores the country array" {
+@test "_guided_shell_edit_mirror_countries: multi-select stores the country array" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "Japan" "Australia"; }
   export -f guided_multi
 
-  _guided_edit_mirror_countries
+  _guided_shell_edit_mirror_countries
   echo "$_GUIDED_STATE" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
 }
 
-@test "_guided_edit_optional_repos: a replay set selects the optional repos" {
+@test "_guided_shell_edit_optional_repos: a replay set selects the optional repos" {
   _GUIDED_STATE="$(config_state_new)"
   guided_load_replay "$(write_answers 'optional_repos=multilib core-testing')"
-  _guided_edit_optional_repos
+  _guided_shell_edit_optional_repos
   echo "$_GUIDED_STATE" \
     | jq -e '.options.optional_repos == ["multilib","core-testing"]'
 }
 
-@test "_guided_add_custom_repository: a replayed repo appends an object" {
+@test "_guided_shell_add_custom_repository: a replayed repo appends an object" {
   _GUIDED_STATE="$(config_state_new)"
   guided_load_replay "$(write_answers 'custom_repository=cool https://x Never')"
-  _guided_add_custom_repository
+  _guided_shell_add_custom_repository
   echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].name == "cool"'
   echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].url == "https://x"'
   echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].sign_check == "Never"'
@@ -577,76 +577,76 @@ write_answers() {
     | jq -e '.options.custom_repositories[0].sign_option == "TrustedOnly"'
 }
 
-@test "_guided_edit_firewall: picking ufw sets the firewall to ufw" {
+@test "_guided_shell_edit_firewall: picking ufw sets the firewall to ufw" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "ufw"; }
   export -f guided_select
 
-  _guided_edit_firewall
+  _guided_shell_edit_firewall
   echo "$_GUIDED_STATE" | jq -e '.post_install.security.firewall == "ufw"'
 }
 
-@test "_guided_edit_firewall: picking none disables the firewall" {
+@test "_guided_shell_edit_firewall: picking none disables the firewall" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "none"; }
   export -f guided_select
 
-  _guided_edit_firewall
+  _guided_shell_edit_firewall
   echo "$_GUIDED_STATE" | jq -e '.post_install.security.firewall == "none"'
 }
 
-@test "_guided_edit_antivirus: selecting false drops clamav from the selection" {
+@test "_guided_shell_edit_antivirus: selecting false drops clamav from the selection" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "false"; }
   export -f guided_select
 
-  _guided_edit_antivirus
+  _guided_shell_edit_antivirus
   echo "$_GUIDED_STATE" | jq -e '.post_install.security.antivirus == false'
 }
 
-@test "_guided_edit_borg: selecting false drops borg from the selection" {
+@test "_guided_shell_edit_borg: selecting false drops borg from the selection" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "false"; }
   export -f guided_select
 
-  _guided_edit_borg
+  _guided_shell_edit_borg
   echo "$_GUIDED_STATE" | jq -e '.post_install.backup.borg == false'
 }
 
 # ── no-user guard (M5): the terminal actions need a Primary User when extras
 # are selected (the tools install via that user's paru pass) ────────────────
 
-@test "_guided_guard_post_install: passes with selections and a seeded user" {
+@test "_guided_shell_guard_post_install: passes with selections and a seeded user" {
   _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
     '{users:["aquastias"], post_install:$pi}')"
   _GUIDED_STATE="$(config_state_new)"
-  run _guided_guard_post_install
+  run _guided_shell_guard_post_install
   [ "$status" -eq 0 ]
 }
 
-@test "_guided_guard_post_install: aborts with selections but zero users" {
+@test "_guided_shell_guard_post_install: aborts with selections but zero users" {
   _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
     '{post_install:$pi}')"
   _GUIDED_STATE="$(config_state_new)"
-  run _guided_guard_post_install
+  run _guided_shell_guard_post_install
   [ "$status" -ne 0 ]
   [[ "$output" == *"user"* ]]
 }
 
-@test "_guided_guard_post_install: passes userless when nothing is selected" {
+@test "_guided_shell_guard_post_install: passes userless when nothing is selected" {
   _GUIDED_BASELINE="$(config_state_new)"
   _GUIDED_STATE="$(config_state_new)"
-  run _guided_guard_post_install
+  run _guided_shell_guard_post_install
   [ "$status" -eq 0 ]
 }
 
 # ── Users (issue 07): committed multi-select + ad-hoc create ────────────────
 
-@test "_guided_pick_users: committed multi-select sets users[], primary first" {
+@test "_guided_shell_pick_users: committed multi-select sets users[], primary first" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/bob" "$INSTALLER_DIR/users/core"
@@ -656,11 +656,11 @@ write_answers() {
   guided_multi() { printf '%s\n' "alice" "bob"; }   # core never offered
   export -f guided_multi
 
-  _guided_pick_users
+  _guided_shell_pick_users
   echo "$_GUIDED_STATE" | jq -e '.users == ["alice","bob"]'
 }
 
-@test "_guided_create_user: ad-hoc form authors a User Profile + adds the user" {
+@test "_guided_shell_create_user: ad-hoc form authors a User Profile + adds the user" {
   guided_load_replay "$(write_answers \
     'new_user_name=carol' \
     'new_user_shell=/bin/zsh' \
@@ -672,60 +672,60 @@ write_answers() {
     'new_user_ssh_keys=' \
     'new_user_password=hunter2')"
   _GUIDED_STATE="$(config_state_new)"
-  _guided_users_reset
+  _guided_shell_users_reset
 
-  _guided_create_user
+  _guided_shell_create_user
   echo "$_GUIDED_STATE" | jq -e '.users == ["carol"]'                 # in the list
   echo "${_GUIDED_ADHOC_FORM[carol]}" \
     | jq -e '.shell == "/bin/zsh" and .sudo == true'
   echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e '.groups == ["docker","libvirt"]'
   echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e '.git.name == "Carol"'
   echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e 'has("name") | not'    # username = dir
-  [ "${_GUIDED_USER_PW[carol]}" = "hunter2" ]
+  [ "${_GUIDED_USER_PASSWORDS[carol]}" = "hunter2" ]
 }
 
-@test "_guided_create_user: an empty password defaults to 12345" {
+@test "_guided_shell_create_user: an empty password defaults to 12345" {
   guided_load_replay "$(write_answers \
     'new_user_name=dave' 'new_user_password=')"
   _GUIDED_STATE="$(config_state_new)"
-  _guided_users_reset
+  _guided_shell_users_reset
 
-  _guided_create_user
-  [ "${_GUIDED_USER_PW[dave]}" = "12345" ]
+  _guided_shell_create_user
+  [ "${_GUIDED_USER_PASSWORDS[dave]}" = "12345" ]
 }
 
 # ── passwords: root + the no-SOPS secrets manifest ──────────────────────────
 
-@test "_guided_set_root_password: a typed password is held aside" {
+@test "_guided_shell_set_root_password: a typed password is held aside" {
   _GUIDED_REPLAY=0
-  _guided_users_reset
+  _guided_shell_users_reset
   guided_prompt() { printf '%s' "r00t"; }
   export -f guided_prompt
 
-  _guided_set_root_password
-  [ "$_GUIDED_ROOT_PW" = "r00t" ]
+  _guided_shell_set_root_password
+  [ "$_GUIDED_ROOT_PASSWORD" = "r00t" ]
 }
 
-@test "_guided_secrets_manifest: builds the root + per-user password shape" {
-  _guided_users_reset
-  _GUIDED_ROOT_PW="r00t"
-  _GUIDED_USER_PW[carol]="hunter2"
+@test "_guided_shell_secrets_manifest: builds the root + per-user password shape" {
+  _guided_shell_users_reset
+  _GUIDED_ROOT_PASSWORD="r00t"
+  _GUIDED_USER_PASSWORDS[carol]="hunter2"
 
-  run _guided_secrets_manifest
+  run _guided_shell_secrets_manifest
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.root_password == "r00t"'
   echo "$output" | jq -e '.users.carol.password == "hunter2"'
 }
 
-@test "_guided_secrets_manifest: an unset root password defaults to 12345 (ADR 0055)" {
-  _guided_users_reset
+@test "_guided_shell_secrets_manifest: an unset root password defaults to 12345 (ADR 0055)" {
+  _guided_shell_users_reset
 
-  run _guided_secrets_manifest
+  run _guided_shell_secrets_manifest
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.root_password == "12345"'
 }
 
-@test "_guided_user_names: lists committed users, excludes core + users/vm fixtures" {
+@test "_guided_shell_user_names: lists committed users, excludes core + users/vm fixtures" {
   mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core" \
     "$INSTALLER_DIR/users/vm/test" "$INSTALLER_DIR/users/vm/data"
   : > "$INSTALLER_DIR/users/alice/profile.jsonc"
@@ -733,7 +733,7 @@ write_answers() {
   : > "$INSTALLER_DIR/users/vm/test/profile.jsonc"
   : > "$INSTALLER_DIR/users/vm/data/profile.jsonc"
 
-  run _guided_user_names
+  run _guided_shell_user_names
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "alice"
   ! echo "$output" | grep -qx "core"
@@ -744,57 +744,57 @@ write_answers() {
 
 # ── list builders: packages.repo.extra / host_programs / sysctl ───────────
 
-@test "_guided_add_package: typed names (whitespace-split) append to extra" {
+@test "_guided_shell_add_package: typed names (whitespace-split) append to extra" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "htop tmux"; }
   export -f guided_prompt
 
-  _guided_add_package
+  _guided_shell_add_package
   echo "$_GUIDED_STATE" | jq -e '.packages.repo.extra == ["htop","tmux"]'
 }
 
-@test "_guided_add_package: empty input adds nothing" {
+@test "_guided_shell_add_package: empty input adds nothing" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' ""; }
   export -f guided_prompt
 
-  run _guided_add_package
+  run _guided_shell_add_package
   [ "$status" -ne 0 ]
   echo "$_GUIDED_STATE" | jq -e '.packages == null'
 }
 
-@test "_guided_add_host_program: picked names append, deduped" {
+@test "_guided_shell_add_host_program: picked names append, deduped" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_set "$(config_state_new)" host_programs '["cups"]')"
   guided_multi() { printf '%s\n' "docker" "cups"; }   # cups already present
   export -f guided_multi
 
-  _guided_add_host_program
+  _guided_shell_add_host_program
   echo "$_GUIDED_STATE" | jq -e '.host_programs | index("docker")'
   echo "$_GUIDED_STATE" \
     | jq -e '([.host_programs[] | select(. == "cups")] | length) == 1'
 }
 
-@test "_guided_add_sysctl: a key=value sets a literal (dotted) sysctl key" {
+@test "_guided_shell_add_sysctl: a key=value sets a literal (dotted) sysctl key" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "vm.swappiness=10"; }
   export -f guided_prompt
 
-  _guided_add_sysctl
+  _guided_shell_add_sysctl
   # the dotted key is a literal object key, value stored as a number
   echo "$_GUIDED_STATE" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
-@test "_guided_add_sysctl: a malformed entry (no =) commits nothing" {
+@test "_guided_shell_add_sysctl: a malformed entry (no =) commits nothing" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "not-a-pair"; }
   export -f guided_prompt
 
-  run _guided_add_sysctl
+  run _guided_shell_add_sysctl
   [ "$status" -ne 0 ]
   echo "$_GUIDED_STATE" | jq -e '.sysctl == null'
 }
@@ -811,99 +811,99 @@ write_answers() {
 
 # ── Options edits: kernel is a token list, primary (first picked) first ─────
 
-@test "_guided_edit_kernel: multi-select stores the token array, primary first" {
+@test "_guided_shell_edit_kernel: multi-select stores the token array, primary first" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "zen" "lts"; }
   export -f guided_multi
 
-  _guided_edit_kernel
+  _guided_shell_edit_kernel
   echo "$_GUIDED_STATE" | jq -e '.options.kernel == ["zen","lts"]'
 }
 
-@test "_guided_edit_kernel: no pick leaves the kernel untouched" {
+@test "_guided_shell_edit_kernel: no pick leaves the kernel untouched" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_multi() { :; }
   export -f guided_multi
 
-  run _guided_edit_kernel
+  run _guided_shell_edit_kernel
   [ "$status" -ne 0 ]
   echo "$_GUIDED_STATE" | jq -e '.options.kernel == null'
 }
 
 # ── bootloader / swap-size / ssh: simple scalar + bool edits ───────────────
 
-@test "_guided_edit_bootloader: picking grub commits the bootloader" {
+@test "_guided_shell_edit_bootloader: picking grub commits the bootloader" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "grub"; }
   export -f guided_select
 
-  _guided_edit_bootloader
+  _guided_shell_edit_bootloader
   echo "$_GUIDED_STATE" | jq -e '.options.bootloader == "grub"'
 }
 
-@test "_guided_edit_swap_size: a typed size commits options.swap_size" {
+@test "_guided_shell_edit_swap_size: a typed size commits options.swap_size" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' "8G"; }
   export -f guided_prompt
 
-  _guided_edit_swap_size
+  _guided_shell_edit_swap_size
   echo "$_GUIDED_STATE" | jq -e '.options.swap_size == "8G"'
 }
 
-@test "_guided_edit_swap_size: empty input commits nothing" {
+@test "_guided_shell_edit_swap_size: empty input commits nothing" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_prompt() { printf '%s' ""; }
   export -f guided_prompt
 
-  run _guided_edit_swap_size
+  run _guided_shell_edit_swap_size
   [ "$status" -ne 0 ]
   echo "$_GUIDED_STATE" | jq -e '.options.swap_size == null'
 }
 
-@test "_guided_edit_ssh: selecting true enables ssh" {
+@test "_guided_shell_edit_ssh: selecting true enables ssh" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_select() { printf '%s' "true"; }
   export -f guided_select
 
-  _guided_edit_ssh
+  _guided_shell_edit_ssh
   echo "$_GUIDED_STATE" | jq -e '.options.ssh.enabled == true'
 }
 
 # ── Environment: desktop is a multi, gpu auto clears vendors ────────────────
 
-@test "_guided_edit_desktop: multi-select stores the desktop array" {
+@test "_guided_shell_edit_desktop: multi-select stores the desktop array" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "kde"; }
   export -f guided_multi
 
-  _guided_edit_desktop
+  _guided_shell_edit_desktop
   echo "$_GUIDED_STATE" | jq -e '.environment.desktop == ["kde"]'
 }
 
-@test "_guided_edit_gpu: vendors store an array" {
+@test "_guided_shell_edit_gpu: vendors store an array" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "amd" "nvidia"; }
   export -f guided_multi
 
-  _guided_edit_gpu
+  _guided_shell_edit_gpu
   echo "$_GUIDED_STATE" | jq -e '.environment.gpu == ["amd","nvidia"]'
 }
 
-@test "_guided_edit_gpu: auto stores the scalar and clears any vendors" {
+@test "_guided_shell_edit_gpu: auto stores the scalar and clears any vendors" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(config_state_new)"
   guided_multi() { printf '%s\n' "auto" "amd"; }   # auto wins, vendors dropped
   export -f guided_multi
 
-  _guided_edit_gpu
+  _guided_shell_edit_gpu
   echo "$_GUIDED_STATE" | jq -e '.environment.gpu == "auto"'
 }
 
@@ -924,43 +924,43 @@ write_answers() {
 
 # ── in-menu credentials (ticket 03): load the handoff file into held-aside vars ─
 
-@test "_guided_load_secrets_file: populates root + user passwords from the file" {
-  _GUIDED_ROOT_PW=""
-  _GUIDED_USER_PW=()
+@test "_guided_shell_load_secrets_file: populates root + user passwords from the file" {
+  _GUIDED_ROOT_PASSWORD=""
+  _GUIDED_USER_PASSWORDS=()
   local f; f="$(mktemp)"
   printf '%s\n' \
     '{"root_password":"r00t","users":{"aquastias":{"password":"aq"}}}' > "$f"
-  _guided_load_secrets_file "$f"
+  _guided_shell_load_secrets_file "$f"
   rm -f "$f"
-  [ "$_GUIDED_ROOT_PW" = "r00t" ]
-  [ "${_GUIDED_USER_PW[aquastias]}" = "aq" ]
+  [ "$_GUIDED_ROOT_PASSWORD" = "r00t" ]
+  [ "${_GUIDED_USER_PASSWORDS[aquastias]}" = "aq" ]
 }
 
-@test "_guided_load_secrets_file: an empty/missing file is a no-op" {
-  _GUIDED_ROOT_PW="kept"
-  _GUIDED_USER_PW=()
-  _guided_load_secrets_file "/nonexistent/secrets.json"
-  [ "$_GUIDED_ROOT_PW" = "kept" ]
+@test "_guided_shell_load_secrets_file: an empty/missing file is a no-op" {
+  _GUIDED_ROOT_PASSWORD="kept"
+  _GUIDED_USER_PASSWORDS=()
+  _guided_shell_load_secrets_file "/nonexistent/secrets.json"
+  [ "$_GUIDED_ROOT_PASSWORD" = "kept" ]
 }
 
 @test "in-menu secrets feed the no-SOPS manifest (never the Config State)" {
-  _GUIDED_ROOT_PW=""
-  _GUIDED_USER_PW=()
+  _GUIDED_ROOT_PASSWORD=""
+  _GUIDED_USER_PASSWORDS=()
   local f; f="$(mktemp)"
   printf '%s\n' '{"root_password":"r","users":{"alex":{"password":"a"}}}' > "$f"
-  _guided_load_secrets_file "$f"; rm -f "$f"
-  run _guided_secrets_manifest
+  _guided_shell_load_secrets_file "$f"; rm -f "$f"
+  run _guided_shell_secrets_manifest
   [ "$(jq -r '.root_password' <<<"$output")" = "r" ]
   [ "$(jq -r '.users.alex.password' <<<"$output")" = "a" ]
 }
 
 # ── a persistent-path created user (name only) gets a default profile ─────────
 
-@test "_guided_materialize_users: a created user without a profile gets a default" {
+@test "_guided_shell_materialize_users: a created user without a profile gets a default" {
   _GUIDED_BASELINE='{}'
   _GUIDED_STATE='{"users":["newbie"]}'
   _GUIDED_ADHOC_ORDER=()
-  _guided_materialize_users
+  _guided_shell_materialize_users
   [ -f "$INSTALLER_DIR/users/newbie/profile.jsonc" ]
   jq -e '.sudo == true and (.groups | index("wheel"))
     and (.programs | index("searxng"))' \
@@ -969,91 +969,91 @@ write_answers() {
 
 # ── issue 04: In-Menu Disk Binding resolves without a post-menu pick ──────────
 
-@test "_guided_resolve_assignment: a fully-bound layout picks no disks" {
+@test "_guided_shell_resolve_assignment: a fully-bound layout picks no disks" {
   _GUIDED_BASELINE='{}'
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"mirror",
     "devices":["/dev/disk/by-id/a","/dev/disk/by-id/b"]}}'
   # would fail loudly if the bound path ever reached the flat picker
   guided_pick_disks() { echo CALLED; return 1; }
-  run _guided_resolve_assignment
+  run _guided_shell_resolve_assignment
   [ "$status" -eq 0 ]
   ! echo "$output" | grep -q CALLED
   echo "$output" | jq -e '.os_pool == ["/dev/disk/by-id/a","/dev/disk/by-id/b"]'
 }
 
-@test "_guided_resolve_assignment: single mode uses the in-menu root disk" {
+@test "_guided_shell_resolve_assignment: single mode uses the in-menu root disk" {
   _GUIDED_BASELINE='{}'
   _GUIDED_STATE='{"mode":"single","root_disk":"/dev/disk/by-id/root"}'
   _GUIDED_DISK=""
-  run _guided_resolve_assignment
+  run _guided_shell_resolve_assignment
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.mode == "single" and .disk == "/dev/disk/by-id/root"'
 }
 
 # ── slice 02: install-scoped User Editor deltas merged onto the clone ─────────
 
-@test "_guided_apply_userforms: merges a shell delta, keeps the committed delta" {
+@test "_guided_shell_apply_userforms: merges a shell delta, keeps the committed delta" {
   mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
   printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   # committed delta carries groups; the edit only changes shell
   printf '{"groups":["docker"],"shell":"/bin/bash"}' \
     > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
-  _guided_apply_userforms
+  _guided_shell_apply_userforms
   jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/alice/profile.jsonc"
   jq -e '.groups == ["docker"]' "$INSTALLER_DIR/users/alice/profile.jsonc"  # delta kept
 }
 
-@test "_guided_apply_userforms: no-op when no deltas were held aside" {
+@test "_guided_shell_apply_userforms: no-op when no deltas were held aside" {
   mkdir -p "$INSTALLER_DIR/users/alice"
   printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_USERFORMS_JSON=''
-  _guided_apply_userforms
+  _guided_shell_apply_userforms
   jq -e '.shell == "/bin/bash"' "$INSTALLER_DIR/users/alice/profile.jsonc"   # untouched
 }
 
 # ── slice 04: Save-warn — committed profiles never rewritten ─────────────────
 
-@test "_guided_committed_userform_edits: reports committed users, not ad-hoc" {
+@test "_guided_shell_committed_userform_edits: reports committed users, not ad-hoc" {
   mkdir -p "$INSTALLER_DIR/users/alice"
   printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   # dave has NO committed profile → session-created, must not be reported
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"},"dave":{"shell":"/bin/fish"}}'
-  run _guided_committed_userform_edits
+  run _guided_shell_committed_userform_edits
   echo "$output" | grep -qx alice
   ! echo "$output" | grep -qx dave
 }
 
-@test "_guided_apply_userforms save: does NOT rewrite a committed profile" {
+@test "_guided_shell_apply_userforms save: does NOT rewrite a committed profile" {
   mkdir -p "$INSTALLER_DIR/users/alice"
   printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_COMMITTED_AT_START=" alice "
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
-  _guided_apply_userforms save
+  _guided_shell_apply_userforms save
   jq -e '.shell == "/bin/bash"' "$INSTALLER_DIR/users/alice/profile.jsonc"   # untouched
 }
 
-@test "_guided_apply_userforms save: still applies to a session-created user" {
+@test "_guided_shell_apply_userforms save: still applies to a session-created user" {
   mkdir -p "$INSTALLER_DIR/users/dave"
   printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/dave/profile.jsonc"
   _GUIDED_COMMITTED_AT_START=" "     # dave was not committed at start
   _GUIDED_USERFORMS_JSON='{"dave":{"shell":"/bin/zsh"}}'
-  _guided_apply_userforms save
+  _guided_shell_apply_userforms save
   jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/dave/profile.jsonc"
 }
 
-@test "_guided_apply_userforms proceed: DOES apply to a committed profile" {
+@test "_guided_shell_apply_userforms proceed: DOES apply to a committed profile" {
   mkdir -p "$INSTALLER_DIR/users/alice"
   printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_COMMITTED_AT_START=" alice "
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
-  _guided_apply_userforms proceed
+  _guided_shell_apply_userforms proceed
   jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/alice/profile.jsonc"
 }
 
 # ── headless replay: `profile=<name>` seeds the state (ADR 0055) ─────────────
 
-@test "_guided_seed_from_profile: replay 'profile=' seeds the state" {
+@test "_guided_shell_seed_from_profile: replay 'profile=' seeds the state" {
   mkdir -p "$INSTALLER_DIR/hosts/desktop"
   cat > "$INSTALLER_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
 { "system": { "hostname": "eterniox" },
@@ -1061,23 +1061,23 @@ write_answers() {
 JSONC
   guided_load_replay "$(write_answers 'profile=desktop')"
   _GUIDED_STATE="$(config_state_new)"
-  _guided_seed_from_profile
+  _guided_shell_seed_from_profile
   jq -e '.options.encryption == true' <<<"$_GUIDED_STATE"
   jq -e '.filesystem == "zfs"' <<<"$_GUIDED_STATE"
   jq -e '.system.hostname == "eterniox"' <<<"$_GUIDED_STATE"
 }
 
-@test "_guided_seed_from_profile: no 'profile=' key leaves the state untouched" {
+@test "_guided_shell_seed_from_profile: no 'profile=' key leaves the state untouched" {
   guided_load_replay "$(write_answers 'hostname=x')"
   _GUIDED_STATE='{"marker":1}'
-  _guided_seed_from_profile
+  _guided_shell_seed_from_profile
   jq -e '.marker == 1' <<<"$_GUIDED_STATE"
 }
 
-@test "_guided_seed_from_profile: an unknown profile is a no-op" {
+@test "_guided_shell_seed_from_profile: an unknown profile is a no-op" {
   guided_load_replay "$(write_answers 'profile=ghost')"
   _GUIDED_STATE='{"marker":1}'
-  _guided_seed_from_profile
+  _guided_shell_seed_from_profile
   jq -e '.marker == 1' <<<"$_GUIDED_STATE"
 }
 

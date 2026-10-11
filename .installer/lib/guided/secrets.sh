@@ -13,6 +13,8 @@
 # passwords must not trigger. The chroot + Runner resolvers read both keys.
 #
 # Requires install_state_update (lib/install-state.sh).
+#
+# Used by: lib/guided/shell.sh, 03-install.sh.
 # =============================================================================
 
 # shellcheck source=../install-state.sh
@@ -31,28 +33,30 @@ declare -F install_state_update >/dev/null 2>&1 \
 # install-state file under `.guided_passwords.*`. A missing root_password / empty
 # users object simply writes fewer files.
 guided_write_passwords() {
-  local secrets="$1" dir="$2" state="$3" enc
-  mkdir -p "$dir"
+  local secrets="$1" directory="$2" state="$3" path_json
+  mkdir -p "$directory"
   [[ -f "$state" ]] || echo '{}' > "$state"
 
   install_state_update "$state" '.guided_passwords' '{}'
 
-  local root_pw
-  root_pw="$(jq -r '.root_password // empty' <<<"$secrets")"
-  if [[ -n "$root_pw" ]]; then
-    local hf="${dir}/host-secrets.json"
-    jq -n --arg pw "$root_pw" '{root_password: $pw}' > "$hf"
-    enc="$(jq -nR --arg v "$hf" '$v')"
-    install_state_update "$state" '.guided_passwords.host' "$enc"
+  local root_password
+  root_password="$(jq -r '.root_password // empty' <<<"$secrets")"
+  if [[ -n "$root_password" ]]; then
+    local host_secrets_file="${directory}/host-secrets.json"
+    jq -n --arg pw "$root_password" '{root_password: $pw}' \
+      > "$host_secrets_file"
+    path_json="$(jq -nR --arg v "$host_secrets_file" '$v')"
+    install_state_update "$state" '.guided_passwords.host' "$path_json"
   fi
 
-  local name uf
+  local name user_secrets_file
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
-    uf="${dir}/${name}-secrets.json"
-    jq -c --arg n "$name" '.users[$n]' <<<"$secrets" > "$uf"
-    enc="$(jq -nR --arg v "$uf" '$v')"
-    install_state_update "$state" ".guided_passwords.users[\"${name}\"]" "$enc"
+    user_secrets_file="${directory}/${name}-secrets.json"
+    jq -c --arg n "$name" '.users[$n]' <<<"$secrets" > "$user_secrets_file"
+    path_json="$(jq -nR --arg v "$user_secrets_file" '$v')"
+    install_state_update "$state" ".guided_passwords.users[\"${name}\"]" \
+      "$path_json"
   done < <(jq -r '(.users // {}) | keys[]' <<<"$secrets")
 }
 
@@ -65,13 +69,13 @@ guided_write_passwords() {
 # non-empty value is left untouched, so an operator override (or an age-decrypted
 # secret merged in earlier) always wins over the default. Pure: JSON in, JSON out.
 guided_default_missing_secrets() {
-  local manifest="$1" users="${2:-[]}" enc="${3:-false}"
+  local manifest="$1" users="${2:-[]}" encryption="${3:-false}"
   manifest="$(jq --argjson u "$users" '
     def dflt: if (. // "") == "" then "12345" else . end;
     .root_password = (.root_password | dflt)
     | reduce $u[] as $n (.; .users[$n].password = (.users[$n].password | dflt))
   ' <<<"$manifest")"
-  if [[ "$enc" == "true" ]]; then
+  if [[ "$encryption" == "true" ]]; then
     manifest="$(jq --arg d "$INSTALL_DEFAULT_ENC_PASSPHRASE" '
       .enc_passphrase = (if (.enc_passphrase // "") == "" then $d
                          else .enc_passphrase end)' <<<"$manifest")"

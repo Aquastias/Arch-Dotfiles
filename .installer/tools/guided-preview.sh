@@ -26,14 +26,14 @@ source "${INSTALLER_DIR}/lib/guided/shell.sh"
 # guided_run_persistent directly, not via guided_build).
 _GUIDED_STATE="$(config_state_new)"
 _GUIDED_DISK=""
-_guided_set_identity
-_guided_users_reset
-_guided_seed_primary_user
+_guided_shell_set_identity
+_guided_shell_users_reset
+_guided_shell_seed_primary_user
 
 if guided_run_persistent; then
   printf '\n=== chosen action: %s ===\n' "$_GUIDED_ACTION"
   printf '=== override map (no install performed) ===\n'
-  _guided_effective
+  _guided_shell_effective
 else
   printf '\n=== cancelled — no terminal action (or no tty) ===\n'
 fi

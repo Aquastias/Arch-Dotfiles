@@ -262,7 +262,9 @@ lib/feature-audit/ (directory API `feature_audit_`)
 lib/guided/ (directory API `guided_`)
 - `controller.sh`: `_ctl_` → `_controller_` (split first, ticket 15)
 - `shell.sh`: `_guided_` → `_guided_shell_` (`_shell_` would read as the
-  Shell Stdlib)
+  Shell Stdlib); split into `shell.sh` + `shell-assembly.sh`,
+  `shell-options.sh`, `shell-users.sh`, `shell-session.sh` — one `file`
+  rule (`shell*.sh`) keeps them all on `_guided_shell_`
 - `mask.sh`, `rows.sh`, `save.sh`, `secrets.sh`, `secrets-file.sh`,
   `userforms.sh`, `fzf-entry.sh` (`_entry_` → `_fzf_entry_`) → `guided_`
 

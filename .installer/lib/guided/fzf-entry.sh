@@ -13,10 +13,14 @@
 # glue: it is UNVERIFIED by bats (it needs a tty + fzf) and is exercised at the
 # slice-01 VM / HITL gate. The dispatch LOGIC it calls (the controller + the
 # directive→action translation) is unit-tested in tests/config/guided-*.bats.
+#
+# Used by: lib/guided/shell-session.sh (the fzf binds run it).
 # =============================================================================
 set -uo pipefail
 
-_entry_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_entry_dir="${BASH_SOURCE[0]%/*}"
+[[ "$_entry_dir" != "${BASH_SOURCE[0]}" ]] || _entry_dir=.
+_entry_dir="$(cd "$_entry_dir" && pwd)"
 _entry_self="${_entry_dir}/fzf-entry.sh"
 export INSTALLER_DIR="${INSTALLER_DIR:-$(cd "${_entry_dir}/../.." && pwd)}"
 
@@ -114,12 +118,12 @@ secret)
   _spw=""
   case "${2:-}" in
   root) prompt_secret _spw "Root password"
-        guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$_spw" ;;
+        guided_secrets_file_set_root "${GUIDED_SECRETS_FILE}" "$_spw" ;;
   user) prompt_secret _spw "Password for ${3:-user}"
-        guided_secretsfile_set_user \
+        guided_secrets_file_set_user \
           "${GUIDED_SECRETS_FILE}" "${3:-user}" "$_spw" ;;
   enc)  prompt_secret _spw "Encryption password" 8
-        guided_secretsfile_set_enc "${GUIDED_SECRETS_FILE}" "$_spw" ;;
+        guided_secrets_file_set_encryption "${GUIDED_SECRETS_FILE}" "$_spw" ;;
   esac
   ;;
 esac

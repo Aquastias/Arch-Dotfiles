@@ -17,6 +17,8 @@
 # alongside the other GUIDED_*_FILE files.
 #
 # Pure: a file path + JSON in, a file mutation or JSON out. No fzf, no tty.
+#
+# Used by: lib/guided/controller.sh.
 # =============================================================================
 
 # guided_userforms_init <file> — ensure <file> exists as an empty object.
@@ -39,10 +41,11 @@ guided_userform_field() {
 # JSON value (a quoted string for scalars, or any JSON for arrays/bools). Creates
 # the per-user object as needed.
 guided_userform_set() {
-  local f="$1" n="$2" k="$3" v="$4" tmp
-  guided_userforms_init "$f"
-  tmp="$(jq --arg n "$n" --arg k "$k" --argjson v "$v" \
-    '.[$n][$k] = $v' "$f")" && printf '%s\n' "$tmp" > "$f"
+  local forms_file="$1" user="$2" key="$3" value="$4" updated_json
+  guided_userforms_init "$forms_file"
+  updated_json="$(jq --arg n "$user" --arg k "$key" --argjson v "$value" \
+    '.[$n][$k] = $v' "$forms_file")" \
+    && printf '%s\n' "$updated_json" > "$forms_file"
 }
 
 # guided_userform_unset <file> <name> <key> — drop a single field from a user's
@@ -50,20 +53,22 @@ guided_userform_set() {
 # override). Removes the per-user object entirely once it is empty. No-op on a
 # missing file.
 guided_userform_unset() {
-  local f="$1" n="$2" k="$3" tmp
-  [[ -s "$f" ]] || return 0
-  tmp="$(jq --arg n "$n" --arg k "$k" \
+  local forms_file="$1" user="$2" key="$3" updated_json
+  [[ -s "$forms_file" ]] || return 0
+  updated_json="$(jq --arg n "$user" --arg k "$key" \
     'if .[$n] then (.[$n] |= del(.[$k])
-       | if (.[$n] == {}) then del(.[$n]) else . end) else . end' "$f")" \
-    && printf '%s\n' "$tmp" > "$f"
+       | if (.[$n] == {}) then del(.[$n]) else . end) else . end' \
+    "$forms_file")" \
+    && printf '%s\n' "$updated_json" > "$forms_file"
 }
 
 # guided_userform_clear <file> <name> — drop a user's whole delta (used when a
 # session-created user is removed). No-op on a missing file.
 guided_userform_clear() {
-  local f="$1" n="$2" tmp
-  [[ -s "$f" ]] || return 0
-  tmp="$(jq --arg n "$n" 'del(.[$n])' "$f")" && printf '%s\n' "$tmp" > "$f"
+  local forms_file="$1" user="$2" updated_json
+  [[ -s "$forms_file" ]] || return 0
+  updated_json="$(jq --arg n "$user" 'del(.[$n])' "$forms_file")" \
+    && printf '%s\n' "$updated_json" > "$forms_file"
 }
 
 # guided_userform_names <file> — the user names carrying a non-empty delta, one

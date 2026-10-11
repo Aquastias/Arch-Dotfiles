@@ -65,7 +65,7 @@ declare -F history_new >/dev/null 2>&1 \
 declare -F display_label >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/display.sh"
 # shellcheck source=secrets-file.sh
-declare -F guided_secretsfile_has_root >/dev/null 2>&1 \
+declare -F guided_secrets_file_has_root >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/secrets-file.sh"
 # shellcheck source=../config/profile-loader.sh
 declare -F profile_loader_load_user >/dev/null 2>&1 \
@@ -116,9 +116,9 @@ _ctl_secret_state() {
   local f="${GUIDED_SECRETS_FILE:-}"
   if [[ -n "$f" ]]; then
     case "$1" in
-    root) guided_secretsfile_has_root "$f" && { echo "(set)"; return; } ;;
-    enc)  guided_secretsfile_has_enc  "$f" && { echo "(set)"; return; } ;;
-    *)    guided_secretsfile_has_user "$f" "$2" && { echo "(set)"; return; } ;;
+    root) guided_secrets_file_has_root "$f" && { echo "(set)"; return; } ;;
+    enc)  guided_secrets_file_has_encryption  "$f" && { echo "(set)"; return; } ;;
+    *)    guided_secrets_file_has_user "$f" "$2" && { echo "(set)"; return; } ;;
     esac
   fi
   echo "(not set)"
@@ -135,10 +135,10 @@ _ctl_secret_tag() {
   local f="${GUIDED_SECRETS_FILE:-}" role="$1" name="${2:-}"
   if [[ -n "$f" ]]; then
     case "$role" in
-    root) guided_secretsfile_has_root "$f" && { echo "custom"; return; } ;;
-    enc)  guided_secretsfile_has_enc  "$f" && { echo "custom"; return; } ;;
+    root) guided_secrets_file_has_root "$f" && { echo "custom"; return; } ;;
+    enc)  guided_secrets_file_has_encryption  "$f" && { echo "custom"; return; } ;;
     *)
-      guided_secretsfile_has_user "$f" "$name" && { echo "custom"; return; } ;;
+      guided_secrets_file_has_user "$f" "$name" && { echo "custom"; return; } ;;
     esac
   fi
   [[ -n "$(config_state_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
@@ -157,7 +157,7 @@ _ctl_pw_missing() {
   local users
   users="$(jq -c '.users // []' \
     <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
-  guided_secretsfile_missing "$f" "$users" | grep -c .
+  guided_secrets_file_missing "$f" "$users" | grep -c .
 }
 
 # _ctl_enc_missing — rc 0 when the encryption passphrase is required but unset
@@ -169,7 +169,7 @@ _ctl_enc_missing() {
   [[ -n "$f" ]] || return 1
   [[ "$(config_state_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
     options.encryption)" == "true" ]] || return 1
-  guided_secretsfile_has_enc "$f" && return 1
+  guided_secrets_file_has_encryption "$f" && return 1
   return 0
 }
 
@@ -2675,9 +2675,9 @@ _ctl_enter_secret() {
     echo "secret-mismatch"; return
   fi
   case "$tgt" in
-  user) guided_secretsfile_set_user "${GUIDED_SECRETS_FILE}" "$user" "$buf" ;;
-  enc)  guided_secretsfile_set_enc  "${GUIDED_SECRETS_FILE}" "$buf" ;;
-  *)    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf" ;;
+  user) guided_secrets_file_set_user "${GUIDED_SECRETS_FILE}" "$user" "$buf" ;;
+  enc)  guided_secrets_file_set_encryption  "${GUIDED_SECRETS_FILE}" "$buf" ;;
+  *)    guided_secrets_file_set_root "${GUIDED_SECRETS_FILE}" "$buf" ;;
   esac
   : > "${GUIDED_PWBUF_FILE:-/dev/null}"
   : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
