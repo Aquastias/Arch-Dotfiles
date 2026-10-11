@@ -26,11 +26,11 @@ source "${BASH_SOURCE[0]%/*}/../../lib/config/profile-loader.sh"
 # desktop would demand ≥2 disks) and stay light enough for a fast smoke.
 VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-arch-kde}"
 
-# profile_resolve_config <profile_json>
+# vm_profile_resolve_config <profile_json>
 #   Emits the resolved install.jsonc on stdout. Assumes the profile already
 #   passed profile_validate (exactly one install source). Hosts resolve through
 #   the unified loader/assembler under INSTALLER_DIR.
-profile_resolve_config() {
+vm_profile_resolve_config() {
   local profile="$1"
   local host_profile install_type install_str
   host_profile="$(jq -r '.host_profile // empty' <<<"$profile")"
@@ -52,9 +52,9 @@ profile_resolve_config() {
   fi
 }
 
-# profile_disk_devices <count>
+# vm_profile_disk_devices <count>
 #   Emits /dev/sda, /dev/sdb, … one per line, derived from the disk count.
-profile_disk_devices() {
+vm_profile_disk_devices() {
   local count="$1" i letters="abcdefghijklmnopqrstuvwxyz"
   for (( i = 0; i < count; i++ )); do
     printf '/dev/sd%s\n' "${letters:i:1}"
@@ -82,7 +82,7 @@ _profile_resolve_host() {
   esac
 
   count="$(jq -r '.hardware.disks | length' <<<"$profile")"
-  local -a disks; mapfile -t disks < <(profile_disk_devices "$count")
+  local -a disks; mapfile -t disks < <(vm_profile_disk_devices "$count")
 
   local assignment
   case "$mode" in

@@ -65,17 +65,17 @@ usage() {
 # agent_key_path — the harness SSH key, identical to flow-persistent's.
 agent_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
 
-# agent_ssh_mux_opts <dir> — client ssh options that ride a shared master
+# agent_ssh_mux_options <dir> — client ssh options that ride a shared master
 # connection when one is up (else ssh connects directly). ufw's `limit ssh`
 # rejects a 6th connection in 30s, and the harness runs one command per call.
 # ServerAlive drops a master whose guest rebooted.
-agent_ssh_mux_opts() {
+agent_ssh_mux_options() {
   printf -- '-o\n%s\n' "ControlPath=$1/%C" ServerAliveInterval=5 \
     ServerAliveCountMax=2
 }
 
-# _agent_mux_dir — private socket dir for agent_ssh_mux_opts.
-_agent_mux_dir() {
+# _agent_mux_directory — private socket dir for agent_ssh_mux_options.
+_agent_mux_directory() {
   local d="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/vm-agent-mux"
   mkdir -p "$d" && chmod 700 "$d" && printf '%s\n' "$d"
 }
@@ -130,10 +130,10 @@ agent_autologin_config() {
   esac
 }
 
-# agent_bake_blank_cmd — guest command that re-takes @blank on an impermanence
+# agent_bake_blank_command — guest command that re-takes @blank on an impermanence
 # guest (no-op elsewhere). Its /etc rolls back on boot, so an autologin edit
 # not baked into @blank is lost on the reboot (ADR 0144).
-agent_bake_blank_cmd() {
+agent_bake_blank_command() {
   local h=/usr/lib/impermanence/resnapshot.sh
   printf "sh -c '[ ! -x %s ] || %s'\n" "$h" "$h"
 }
@@ -147,19 +147,19 @@ agent_shot_tool() {
   esac
 }
 
-# agent_pull_cmd <abs-guest-path> — guest command streaming the path as a tar
+# agent_pull_command <abs-guest-path> — guest command streaming the path as a tar
 # (relative to its parent) so `pull` lands it under the host dir by basename.
-agent_pull_cmd() {
+agent_pull_command() {
   local p="${1%/}"
   [[ "$p" == /* && "$p" != / ]] || return 1
   printf "tar -C '%s' -cf - '%s'\n" "${p%/*}" "${p##*/}" \
     | sed "s|-C ''|-C '/'|"
 }
 
-# agent_net_cmd <on|off> — guest (root) command cutting/restoring internet
+# agent_network_command <on|off> — guest (root) command cutting/restoring internet
 # while host↔guest SSH stays up: drop the default route (saved) / put it back.
 # A link-down would sever the very SSH channel driving the guest.
-agent_net_cmd() {
+agent_network_command() {
   local s=/run/vm-agent-default-route
   case "$1" in
     off) printf '%s' "sh -c '[ -s $s ] || ip route show default > $s;" \
@@ -247,10 +247,10 @@ agent_mouse_qmp() {
   esac
 }
 
-# _remote_env_fn — a guest-side bash fragment defining _agent_load_env, which
+# _remote_environment_function — a guest-side bash fragment defining _agent_load_env, which
 # finds the running compositor and exports its session environment (read from
 # /proc/<pid>/environ) so exec/launch/shot reach the live session.
-_remote_env_fn() {
+_remote_environment_function() {
   cat <<'SH'
 _agent_load_env() {
   local c comp="" cpid="" client clpid="" src kv sock
@@ -321,7 +321,7 @@ _preflight() {
 _ssh() {
   local ip; ip="$(_vm_ip)"
   [[ -n "$ip" ]] || die "no DHCP lease for '$VM_NAME' yet"
-  local -a mux; mapfile -t mux < <(agent_ssh_mux_opts "$(_agent_mux_dir)")
+  local -a mux; mapfile -t mux < <(agent_ssh_mux_options "$(_agent_mux_directory)")
   # The master is started detached with stdio on /dev/null: one forked by a
   # client (ControlMaster=auto) keeps the caller's stderr open and hangs $(…).
   ssh "${mux[@]}" -O check "$AGENT_USER@$ip" >/dev/null 2>&1 \
@@ -356,14 +356,14 @@ _stage() { _ssh "cat > '$1'"; }
 _in_session() {
   _ssh "bash -s" <<REMOTE
 set -e
-$(_remote_env_fn)
+$(_remote_environment_function)
 _agent_load_env || { echo 'vm-agent: no live session on guest' >&2; exit 3; }
 $*
 REMOTE
 }
 
 # ── guest DM detection (for session control) ─────────────────────────────────
-_guest_dm() {
+_guest_display_manager() {
   _ssh 'readlink -f /etc/systemd/system/display-manager.service 2>/dev/null' \
     | grep -oE 'sddm|greetd' | head -1
 }
@@ -449,7 +449,7 @@ verb_session() {
   local target="${1:-}"
   agent_session_desktop "$target" >/dev/null \
     || die "session must be niri|hyprland|kde"
-  local dm; dm="$(_guest_dm)"
+  local dm; dm="$(_guest_display_manager)"
   [[ -n "$dm" ]] || die "could not detect the guest display manager"
   local cfg; cfg="$(agent_autologin_config "$dm" "$target" "$AGENT_USER")"
   info "setting $dm autologin → $target, then rebooting…"
@@ -488,7 +488,7 @@ SH
       _sudo "bash /tmp/vm-agent-greetd.sh"
       _ssh "rm -f /tmp/vm-agent-greetd.sh /tmp/vm-agent-greetd-block" || true ;;
   esac
-  _sudo "$(agent_bake_blank_cmd)"
+  _sudo "$(agent_bake_blank_command)"
   verb_reboot
 }
 
@@ -497,7 +497,7 @@ SH
 # autologin gone there is no graphical session to become ready, so it restarts
 # the display manager and returns. `session <de>` re-arms autologin.
 verb_greeter() {
-  local dm; dm="$(_guest_dm)"
+  local dm; dm="$(_guest_display_manager)"
   [[ -n "$dm" ]] || die "could not detect the guest display manager"
   info "removing $dm autologin → greeter…"
   case "$dm" in
@@ -519,7 +519,7 @@ SH
       _sudo "bash /tmp/vm-agent-greetd-degreet.sh"
       _ssh "rm -f /tmp/vm-agent-greetd-degreet.sh" || true ;;
   esac
-  _sudo "$(agent_bake_blank_cmd)"
+  _sudo "$(agent_bake_blank_command)"
   _sudo "systemctl restart display-manager" || _sudo "systemctl reboot" || true
   info "$dm greeter shown — log in at the console (agent desktop control needs \
 'session <de>' to re-arm autologin)."
@@ -553,7 +553,7 @@ verb_idle() {
 # root-only logs work) into <host-dir>/<basename> (Feature Audit, ADR 0152).
 verb_pull() {
   local src="${1:-}" dest="${2:-}" cmd
-  cmd="$(agent_pull_cmd "$src")" || die "pull needs an absolute guest path"
+  cmd="$(agent_pull_command "$src")" || die "pull needs an absolute guest path"
   [[ -n "$dest" ]] || die "pull needs a host dir"
   mkdir -p "$dest"
   _sudo "$cmd" | tar -C "$dest" -xf - || die "pull failed: $src"
@@ -583,7 +583,7 @@ verb_push() {
 # net <on|off> — cut/restore the guest's internet, keeping SSH (Feature
 # Audit offline probes, ADR 0152).
 verb_net() {
-  local cmd; cmd="$(agent_net_cmd "${1:-}")" || die "net needs on|off"
+  local cmd; cmd="$(agent_network_command "${1:-}")" || die "net needs on|off"
   _sudo "$cmd"
   info "network ${1}."
 }

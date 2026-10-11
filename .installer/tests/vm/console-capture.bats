@@ -4,7 +4,7 @@
 # PTY can drop mid-boot (notably the slower multi-disk boot), so the capture
 # re-attaches `virsh console` until the domain halts rather than attaching once —
 # otherwise the first-boot marker printed after the drop is lost and boot-verify
-# wrongly fails. This drives _console_capture_loop with stubbed script/_vm_running.
+# wrongly fails. This drives _core_console_capture_loop with stubbed script/_core_vm_running.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -21,7 +21,7 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-@test "_console_capture_loop: re-attaches across drops until the domain halts" {
+@test "_core_console_capture_loop: re-attaches across drops until the domain halts" {
   local log="$TEST_DIR/cap.log" cnt="$TEST_DIR/cnt"
   : > "$log"; echo 0 > "$cnt"
   VM_NAME="dummy"
@@ -30,23 +30,23 @@ teardown() { rm -rf "$TEST_DIR"; }
   # must re-attach while the domain runs.
   script() { printf 'attach\n' >> "$log"; }
   # running for the first two checks, halted on the third.
-  _vm_running() {
+  _core_vm_running() {
     local n; n="$(cat "$cnt")"; echo $((n + 1)) > "$cnt"
     [ "$n" -lt 2 ]
   }
 
-  _console_capture_loop "$log"
+  _core_console_capture_loop "$log"
   [ "$(grep -c attach "$log")" -eq 3 ]   # 3 attaches, then break on halt
 }
 
-@test "_console_capture_loop: a single attach that outlives the domain stops" {
+@test "_core_console_capture_loop: a single attach that outlives the domain stops" {
   local log="$TEST_DIR/cap.log"
   : > "$log"
   VM_NAME="dummy"
 
   script() { printf 'attach\n' >> "$log"; }
-  _vm_running() { return 1; }            # already halted after the first attach
+  _core_vm_running() { return 1; }            # already halted after the first attach
 
-  _console_capture_loop "$log"
+  _core_console_capture_loop "$log"
   [ "$(grep -c attach "$log")" -eq 1 ]
 }

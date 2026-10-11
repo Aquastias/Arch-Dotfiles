@@ -19,21 +19,21 @@ teardown() {
 @test "zero exit: returns 0" {
   printf 'preamble line\n===INSTALLER-EXIT-0===\ntrailing line\n' > "$LOG"
 
-  run sentinel_watcher_wait "$LOG" 2
+  run vm_sentinel_watcher_wait "$LOG" 2
   [ "$status" -eq 0 ]
 }
 
 @test "non-zero exit: returns the exact integer (7)" {
   printf '===INSTALLER-EXIT-7===\n' > "$LOG"
 
-  run sentinel_watcher_wait "$LOG" 2
+  run vm_sentinel_watcher_wait "$LOG" 2
   [ "$status" -eq 7 ]
 }
 
 @test "non-zero exit: returns the exact integer (42)" {
   printf 'noise\n===INSTALLER-EXIT-42===\n' > "$LOG"
 
-  run sentinel_watcher_wait "$LOG" 2
+  run vm_sentinel_watcher_wait "$LOG" 2
   [ "$status" -eq 42 ]
 }
 
@@ -42,7 +42,7 @@ teardown() {
 @test "no sentinel within timeout: returns 124" {
   printf 'log without a sentinel\nmore noise\n' > "$LOG"
 
-  run sentinel_watcher_wait "$LOG" 1
+  run vm_sentinel_watcher_wait "$LOG" 1
   [ "$status" -eq 124 ]
 }
 
@@ -57,7 +57,7 @@ teardown() {
     printf '===INSTALLER-EXIT-3===\n' > "$LOG"
   ) &
 
-  run sentinel_watcher_wait "$LOG" 3
+  run vm_sentinel_watcher_wait "$LOG" 3
   [ "$status" -eq 3 ]
 
   wait || true
@@ -74,7 +74,7 @@ teardown() {
     printf '===INSTALLER-EXIT-5===\n' >> "$LOG"
   ) &
 
-  run sentinel_watcher_wait "$LOG" 3
+  run vm_sentinel_watcher_wait "$LOG" 3
   [ "$status" -eq 5 ]
 
   wait || true
@@ -86,7 +86,7 @@ teardown() {
   printf '===INSTALLER-EXIT-0===\n' > "$LOG"
   before="$(sha256sum "$LOG" | awk '{print $1}')"
 
-  sentinel_watcher_wait "$LOG" 2 || true
+  vm_sentinel_watcher_wait "$LOG" 2 || true
   [ -f "$LOG" ]
   after="$(sha256sum "$LOG" | awk '{print $1}')"
   [ "$before" = "$after" ]
@@ -97,37 +97,37 @@ teardown() {
 @test "sentinel with trailing whitespace: still returns parsed code" {
   printf '===INSTALLER-EXIT-9===   \n' > "$LOG"
 
-  run sentinel_watcher_wait "$LOG" 2
+  run vm_sentinel_watcher_wait "$LOG" 2
   [ "$status" -eq 9 ]
 }
 
 # ── invalid arguments ────────────────────────────────────────────────────────
 
 @test "non-numeric timeout: returns 2 with a clear message" {
-  run sentinel_watcher_wait "$LOG" "soon"
+  run vm_sentinel_watcher_wait "$LOG" "soon"
   [ "$status" -eq 2 ]
   [[ "$output" =~ "non-negative integer" ]]
 }
 
 @test "empty log path: returns 2 with a clear message" {
-  run sentinel_watcher_wait "" 1
+  run vm_sentinel_watcher_wait "" 1
   [ "$status" -eq 2 ]
   [[ "$output" =~ "log path is empty" ]]
 }
 
-# ── sentinel_watcher_wait_marker (literal substring) ──────────────────────────
+# ── vm_sentinel_watcher_wait_marker (literal substring) ──────────────────────────
 
 @test "marker present on its own line: returns 0" {
   printf 'boot noise\n===FIRSTBOOT-OK===\nmore\n' > "$LOG"
 
-  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 2
+  run vm_sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 2
   [ "$status" -eq 0 ]
 }
 
 @test "marker absent within timeout: returns 124" {
   printf 'no marker here\nmore noise\n' > "$LOG"
 
-  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 1
+  run vm_sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 1
   [ "$status" -eq 124 ]
 }
 
@@ -138,7 +138,7 @@ teardown() {
     printf '===FIRSTBOOT-OK===\n' >> "$LOG"
   ) &
 
-  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 3
+  run vm_sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 3
   [ "$status" -eq 0 ]
 
   wait || true
@@ -147,20 +147,20 @@ teardown() {
 @test "serial CRLF line (trailing carriage return): returns 0" {
   printf '===FIRSTBOOT-OK===\r\n' > "$LOG"
 
-  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 2
+  run vm_sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 2
   [ "$status" -eq 0 ]
 }
 
 @test "empty marker: returns 2 with a clear message" {
   printf 'some content\n' > "$LOG"
 
-  run sentinel_watcher_wait_marker "$LOG" "" 1
+  run vm_sentinel_watcher_wait_marker "$LOG" "" 1
   [ "$status" -eq 2 ]
   [[ "$output" =~ "marker is empty" ]]
 }
 
 @test "marker: non-numeric timeout returns 2 with a clear message" {
-  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" "soon"
+  run vm_sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" "soon"
   [ "$status" -eq 2 ]
   [[ "$output" =~ "non-negative integer" ]]
 }

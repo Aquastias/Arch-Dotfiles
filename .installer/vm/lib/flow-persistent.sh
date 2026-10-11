@@ -16,7 +16,7 @@ FLOW_PERSIST_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 # core.sh provides the shared host-side functions + defaults; guard-source so
 # vm.sh sourcing core first does not double-source.
 # shellcheck source=./core.sh
-[[ "$(type -t core_resolve_iso)" == function ]] \
+[[ "$(type -t vm_resolve_iso)" == function ]] \
   || source "${FLOW_PERSIST_DIR}/core.sh"
 # shellcheck source=./sentinel-watcher.sh
 source "${FLOW_PERSIST_DIR}/sentinel-watcher.sh"
@@ -25,19 +25,19 @@ source "${FLOW_PERSIST_DIR}/sentinel-watcher.sh"
 # serial so a broken persistent boot is never silent (ADR 0099).
 source "${FLOW_PERSIST_DIR}/seed-generator.sh"
 
-# Per-flow virt-install graphics (core._vm_create appends these). niri (and any
+# Per-flow virt-install graphics (core._core_vm_create appends these). niri (and any
 # Wayland compositor) REJECTS software EGL — a display-only virtio-gpu renders a
 # black screen. So give the guest a virgl 3D device (hardware EGL) via spice-gl
 # when the host has a DRM render node; else fall back to display-only (a
 # headless/no-GPU host still builds, sans an interactive Wayland desktop).
-_persist_render_node() {
+_flow_persistent_render_node() {
   local n
   for n in "${VM_RENDER_NODE:-}" /dev/dri/renderD*; do
     [[ -n "$n" && -e "$n" ]] && { printf '%s\n' "$n"; return 0; }
   done
   return 1
 }
-if _rnode="$(_persist_render_node)"; then
+if _rnode="$(_flow_persistent_render_node)"; then
   # shellcheck disable=SC2054 # each --graphics value is one virt-install arg
   FLOW_GRAPHICS_ARGS=(
     --video model.type=virtio,model.acceleration.accel3d=on
@@ -65,10 +65,10 @@ _HTTP_PID=""
 # driving it) can SSH in to diagnose the installed desktop. The key lives under
 # the git-ignored .vm-cache; generate it on first use so a fresh checkout is
 # self-contained. Never a production install artifact.
-_harness_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
+_flow_persistent_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
 
-_harness_ensure_key() {
-  local key; key="$(_harness_key_path)"
+_flow_persistent_ensure_key() {
+  local key; key="$(_flow_persistent_key_path)"
   [[ -f "$key" && -f "${key}.pub" ]] && return 0
   command_exists ssh-keygen || error "ssh-keygen not found — install openssh."
   info "Generating harness SSH key at ${key}."
@@ -90,7 +90,7 @@ _harness_ensure_key() {
 # old in-payload authorize left. The install log is still a FILE, never streamed
 # to serial (a slow reader wedges pacman); the agent reads it over these
 # channels on demand.
-_flow_render_seed_user_data() {
+_flow_persistent_render_seed_user_data() {
   local pubkey="$1"
   cat <<EOF
 #cloud-config
@@ -107,7 +107,7 @@ runcmd:
     systemctl enable --now sshd 2>/dev/null || systemctl start sshd || true
     # Serial fallback: a root autologin getty on ttyS0 — the zero-network channel
     # an agent drives over \`virsh console\` (survives no-DHCP, no-sshd, a panic).
-$(_serial_autologin_root_lines)
+$(_core_serial_autologin_root_lines)
 EOF
 }
 
@@ -115,7 +115,7 @@ _flow_build_seed() {
   local pubkey="$1"
   local user_data="${CACHE_DIR}/${VM_NAME}-user-data"
   local seed_iso="${CACHE_DIR}/${VM_NAME}-seed.iso"
-  _flow_render_seed_user_data "${pubkey}" > "${user_data}"
+  _flow_persistent_render_seed_user_data "${pubkey}" > "${user_data}"
   cloud-localds "${seed_iso}" "${user_data}" >/dev/null \
     || error "cloud-localds failed for ${user_data}"
   [[ -s "${seed_iso}" ]] || \
@@ -123,12 +123,12 @@ _flow_build_seed() {
   printf '%s\n' "${seed_iso}"
 }
 
-# _flow_pin_disks_fn — print a guest-side `pin_disks <config> [by-id-dir]`:
+# _flow_persistent_pin_disks_function — print a guest-side `pin_disks <config> [by-id-dir]`:
 # each config string /dev/sdX becomes the by-id path of the disk the harness
-# put on that port (serial vmdisk<i>, _vm_create). The live ISO may name SATA
+# put on that port (serial vmdisk<i>, _core_vm_create). The live ISO may name SATA
 # disks out of port order (tuned 20261008: sdb was the 20G disk). An older VM
 # without the serials keeps its /dev/sdX.
-_flow_pin_disks_fn() {
+_flow_persistent_pin_disks_function() {
   cat <<'FN'
 pin_disks() {
   local c="$1" d="${2:-/dev/disk/by-id}" i=0 l p
@@ -145,7 +145,7 @@ FN
 # =============================================================================
 # INSTALLER SCRIPT (served over HTTP, launched via send-key)
 # =============================================================================
-_render_installer_script() {
+_flow_persistent_render_installer_script() {
   local repo_url="$1" pubkey="$2" primary_user="${3:-aquastias}" config_b64
   config_b64="$(printf '%s' "${INSTALL_CONFIG_CONTENT}" | base64 -w 0)"
   # Forced-skew gate (ADR 0137): when the host exports
@@ -205,7 +205,7 @@ _try pacman -Sy --noconfirm --needed git jq
 _try _clone
 printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.installer/install.jsonc
 cd /root/dotfiles/.installer
-$(_flow_pin_disks_fn)
+$(_flow_persistent_pin_disks_function)
 pin_disks install.jsonc
 # Persistent debug VMs only: enable sshd + authorize the harness key so the host
 # can SSH into the installed guest to diagnose the desktop. The clone is
@@ -262,7 +262,7 @@ EOF
 }
 
 # Map a single character to one or more virsh key names.
-_char_to_keys() {
+_flow_persistent_char_to_keys() {
   case "$1" in
     [a-z]) printf 'KEY_%s'            "${1^^}" ;;
     [0-9]) printf 'KEY_%s'            "$1"     ;;
@@ -276,11 +276,11 @@ _char_to_keys() {
   esac
 }
 
-_type_into_console() {
+_flow_persistent_type_into_console() {
   local vm="$1" text="$2" i char keys
   for ((i = 0; i < ${#text}; i++)); do
     char="${text:i:1}"
-    if keys="$(_char_to_keys "$char")"; then
+    if keys="$(_flow_persistent_char_to_keys "$char")"; then
       # shellcheck disable=SC2086
       virsh send-key "$vm" $keys >/dev/null 2>&1
     else
@@ -291,16 +291,16 @@ _type_into_console() {
   virsh send-key "$vm" KEY_ENTER >/dev/null 2>&1
 }
 
-_stop_http_server() {
+_flow_persistent_stop_http_server() {
   [[ -n "${_HTTP_PID}" ]] || return 0
   kill "${_HTTP_PID}" 2>/dev/null || true
   _HTTP_PID=""
 }
 
-_launch_installer() {
+_flow_persistent_launch_installer() {
   local script="${CACHE_DIR}/run"
-  local pubkey; pubkey="$(cat "$(_harness_key_path).pub")"
-  _render_installer_script "${REPO_URL}" "$pubkey" "${PRIMARY_USER}" \
+  local pubkey; pubkey="$(cat "$(_flow_persistent_key_path).pub")"
+  _flow_persistent_render_installer_script "${REPO_URL}" "$pubkey" "${PRIMARY_USER}" \
     > "${script}"
 
   "${FLOW_PERSIST_DIR}/serve-http.sh" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
@@ -310,7 +310,7 @@ _launch_installer() {
   local url="http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/run"
   local cmd="curl -s ${url}|bash"
   info "Sending to console: ${cmd}"
-  _type_into_console "${VM_NAME}" "${cmd}"
+  _flow_persistent_type_into_console "${VM_NAME}" "${cmd}"
   info "Installer command sent — running inside VM."
 }
 
@@ -318,10 +318,10 @@ _launch_installer() {
 # NETWORK / COMPLETION WAITS
 # =============================================================================
 
-_get_vm_ip() {
+_flow_persistent_get_vm_ip() {
   local elapsed=0 ip
   while true; do
-    ip="$(_vm_ip_now)"
+    ip="$(_core_vm_ip_now)"
     [[ -n "$ip" ]] && { printf '%s\n' "$ip"; return 0; }
     sleep 5; elapsed=$((elapsed + 5))
     ((elapsed >= BOOT_TIMEOUT_SEC)) && \
@@ -332,12 +332,12 @@ _get_vm_ip() {
 # Best-effort: wait for the installed guest's sshd, then print the ready-to-use
 # ssh command. Never fatal — a slow boot or a GPU-less host that never reaches a
 # lease must not fail an otherwise-successful install; it just prints guidance.
-_report_ssh_access() {
+_flow_persistent_report_ssh_access() {
   local key ip elapsed=0
-  key="$(_harness_key_path)"
+  key="$(_flow_persistent_key_path)"
   info "Waiting for sshd on the installed guest (best-effort)."
   while :; do
-    ip="$(_vm_ip_now)"
+    ip="$(_core_vm_ip_now)"
     [[ -n "$ip" ]] && nc -z "$ip" 22 >/dev/null 2>&1 && break
     sleep 5; elapsed=$((elapsed + 5))
     ((elapsed >= BOOT_TIMEOUT_SEC)) && {
@@ -358,10 +358,10 @@ _report_ssh_access() {
 # install log is at /root/install.log inside the VM (ADR 0099). Also the cleanup
 # one-liner — a failed VM is never auto-destroyed (it IS the evidence), so the
 # user reaps it when done, or re-runs with --recreate.
-_report_failure_access() {
+_flow_persistent_report_failure_access() {
   local key ip
-  key="$(_harness_key_path)"
-  ip="$(_vm_ip_now)"
+  key="$(_flow_persistent_key_path)"
+  ip="$(_core_vm_ip_now)"
   section "Inspect the failed install (live ISO held up)"
   info "The installer did not complete — the live ISO is left running so you" \
        "can inspect it. Install log inside the VM: /root/install.log"
@@ -375,7 +375,7 @@ _report_failure_access() {
   info "Or rebuild from scratch with:  vm.sh … --recreate"
 }
 
-_wait_for_ssh() {
+_flow_persistent_wait_for_ssh() {
   local ip="$1" elapsed=0
   info "Waiting for live system to finish booting (SSH port on ${ip})."
   while ! nc -z "$ip" 22 >/dev/null 2>&1; do
@@ -386,12 +386,12 @@ _wait_for_ssh() {
   sleep 5  # let tty1 auto-login settle
 }
 
-# _flow_export_install_artifacts <ip> <rc> <console-log> — Feature Audit hook
+# _flow_persistent_export_install_artifacts <ip> <rc> <console-log> — Feature Audit hook
 # (VM_ARTIFACT_DIR): pull the live ISO's install log over the seed's root SSH,
 # then release the payload's log-pull hold; record the exit code + serial.
-_flow_export_install_artifacts() {
+_flow_persistent_export_install_artifacts() {
   local ip="$1" rc="$2" console="$3" dir="$VM_ARTIFACT_DIR" key
-  key="$(_harness_key_path)"
+  key="$(_flow_persistent_key_path)"
   mkdir -p "$dir"
   printf '%s\n' "$rc" > "$dir/install-rc"
   cp -f "$console" "$dir/install-serial.txt" 2>/dev/null || true
@@ -404,11 +404,11 @@ _flow_export_install_artifacts() {
   ssh "${o[@]}" "root@${ip}" 'touch /root/.log-pulled' 2>/dev/null || true
 }
 
-_wait_for_poweroff() {
+_flow_persistent_wait_for_poweroff() {
   local elapsed=0
   info "Waiting for installer to finish" \
        "(max ${INSTALL_TIMEOUT_SEC}s — takes 10-30 min)."
-  while _vm_running; do
+  while _core_vm_running; do
     sleep 15; elapsed=$((elapsed + 15))
     ((elapsed >= INSTALL_TIMEOUT_SEC)) && \
       error "Installer timed out after ${INSTALL_TIMEOUT_SEC}s."
@@ -419,74 +419,74 @@ _wait_for_poweroff() {
 # =============================================================================
 # ENTRY POINT
 # =============================================================================
-flow_persistent_deps() {
-  _harness_ensure_deps nc:openbsd-netcat socat:socat ssh-keygen:openssh \
+vm_flow_persistent_dependencies() {
+  _core_ensure_dependencies nc:openbsd-netcat socat:socat ssh-keygen:openssh \
     script:util-linux
 }
 
 flow_run() {
-  trap '_stop_console_capture; _stop_http_server' EXIT
-  flow_persistent_deps
-  _ensure_libvirt_group
-  _ensure_libvirtd
-  _ensure_libvirt_reachable
+  trap '_core_stop_console_capture; _flow_persistent_stop_http_server' EXIT
+  vm_flow_persistent_dependencies
+  _core_ensure_libvirt_group
+  _core_ensure_libvirtd
+  _core_ensure_libvirt_reachable
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
-  _harness_ensure_key
+  _flow_persistent_ensure_key
   # Primary user (users[0]) owns the authorized harness key + the ssh command.
   PRIMARY_USER="$(jq -r '.users[0] // "aquastias"' \
     <<<"${INSTALL_CONFIG_CONTENT}")"
 
   section "Resolving Arch ISO"
-  local iso; iso="$(core_resolve_iso "$ISO_DIR")"
+  local iso; iso="$(vm_resolve_iso "$ISO_DIR")"
 
   section "Building seed CDROM"
   # The seed authorizes this key on the live ISO + sets up serial autologin, so
   # both inspection channels are up at boot regardless of the installer (0099).
-  local pubkey; pubkey="$(cat "$(_harness_key_path).pub")"
+  local pubkey; pubkey="$(cat "$(_flow_persistent_key_path).pub")"
   local seed; seed="$(_flow_build_seed "$pubkey")"
   info "Seed: ${seed}"
 
   section "VM lifecycle"
-  $RECREATE && _vm_destroy_undefine
-  if _vm_exists; then
-    local current_iso; current_iso="$(_vm_install_iso_path)"
+  $RECREATE && _core_vm_destroy_undefine
+  if _core_vm_exists; then
+    local current_iso; current_iso="$(_core_vm_install_iso_path)"
     if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
       info "Existing VM points at stale ISO (${current_iso}); recreating."
-      _vm_destroy_undefine
+      _core_vm_destroy_undefine
     fi
   fi
-  _refresh_pool_for_path "$iso"
-  _refresh_pool_for_path "$seed"
-  _vm_exists || _vm_create "$iso" "$seed"
-  _vm_boot
+  _core_refresh_pool_for_path "$iso"
+  _core_refresh_pool_for_path "$seed"
+  _core_vm_exists || _core_vm_create "$iso" "$seed"
+  _core_vm_boot
 
   section "Waiting for live system"
-  local vm_ip; vm_ip="$(_get_vm_ip)"
+  local vm_ip; vm_ip="$(_flow_persistent_get_vm_ip)"
   info "VM IP: ${vm_ip}"
-  _wait_for_ssh "$vm_ip"
+  _flow_persistent_wait_for_ssh "$vm_ip"
 
-  _stage_fixture_files
+  _core_stage_fixture_files
   section "Launching installer"
   # Capture serial so we can read the exit sentinel: the sentinel is one line
   # (safe on serial); the pacman-heavy install log stays a FILE. This lets us
   # tell a failed install from a hang and hold the VM for inspection (ADR 0099).
   local console_log="${CACHE_DIR}/${VM_NAME}-console.log"
-  _wait_for_serial_pty
-  _start_console_capture "$console_log"
-  _launch_installer
+  _core_wait_for_serial_pty
+  _core_start_console_capture "$console_log"
+  _flow_persistent_launch_installer
 
   section "Waiting for installer to complete"
   info "Watching for the installer exit sentinel" \
        "(max ${INSTALL_TIMEOUT_SEC}s — install takes 10-30 min)."
   local rc=0
   set +e
-  sentinel_watcher_wait "$console_log" "$INSTALL_TIMEOUT_SEC"
+  vm_sentinel_watcher_wait "$console_log" "$INSTALL_TIMEOUT_SEC"
   rc=$?
   set -e
-  _stop_console_capture
-  _stop_http_server
+  _core_stop_console_capture
+  _flow_persistent_stop_http_server
   [[ -n "${VM_ARTIFACT_DIR:-}" ]] \
-    && _flow_export_install_artifacts "$vm_ip" "$rc" "$console_log"
+    && _flow_persistent_export_install_artifacts "$vm_ip" "$rc" "$console_log"
 
   if ((rc != 0)); then
     # Failure (installer exit N) or timeout (124): HOLD the live ISO up. Never
@@ -497,25 +497,25 @@ flow_run() {
     else
       warn "Installer FAILED (exit ${rc}) — holding the VM for inspection."
     fi
-    _report_failure_access
+    _flow_persistent_report_failure_access
     return 0
   fi
 
   info "Installer completed successfully (exit 0)."
   # The payload powers off after the success sentinel; wait for it so the reboot
   # lands cleanly on the installed disk.
-  _wait_for_poweroff
+  _flow_persistent_wait_for_poweroff
 
   section "Starting installed system"
   # Eject the install ISO + seed so the reboot lands on the installed disk's
   # systemd-boot entry, not the live ISO (the domain boots --boot cdrom,hd).
-  _vm_eject_cdroms
+  _core_vm_eject_cdroms
   # Feature Audit boots the installed system itself, with its own serial
   # capture + unlock answerer, so the first boot is observed (ADR 0152).
   [[ -n "${VM_SKIP_FINAL_BOOT:-}" ]] && return 0
-  _vm_boot
+  _core_vm_boot
 
-  _report_ssh_access
+  _flow_persistent_report_ssh_access
 
   section "Done"
   info "VM '${VM_NAME}' is booting into the installed system."
@@ -528,35 +528,35 @@ flow_run() {
 # inspected — SSH/serial reach the live env (ticket 01's channels) and the
 # half-installed pool can be imported (ADR 0099). Does not reinstall or touch the
 # installed disk.
-flow_rescue() {
-  trap '_stop_console_capture; _stop_http_server' EXIT
-  flow_persistent_deps
-  _ensure_libvirt_group
-  _ensure_libvirtd
-  _ensure_libvirt_reachable
-  _vm_exists || error "No VM '${VM_NAME}' to rescue — create one first."
+vm_flow_persistent_rescue() {
+  trap '_core_stop_console_capture; _flow_persistent_stop_http_server' EXIT
+  vm_flow_persistent_dependencies
+  _core_ensure_libvirt_group
+  _core_ensure_libvirtd
+  _core_ensure_libvirt_reachable
+  _core_vm_exists || error "No VM '${VM_NAME}' to rescue — create one first."
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
-  _harness_ensure_key
+  _flow_persistent_ensure_key
 
   section "Resolving Arch ISO"
-  local iso; iso="$(core_resolve_iso "$ISO_DIR")"
+  local iso; iso="$(vm_resolve_iso "$ISO_DIR")"
 
   section "Rebuilding live-ISO access seed"
-  local pubkey; pubkey="$(cat "$(_harness_key_path).pub")"
+  local pubkey; pubkey="$(cat "$(_flow_persistent_key_path).pub")"
   local seed; seed="$(_flow_build_seed "$pubkey")"
-  _refresh_pool_for_path "$iso"
-  _refresh_pool_for_path "$seed"
+  _core_refresh_pool_for_path "$iso"
+  _core_refresh_pool_for_path "$seed"
 
   section "Re-attaching install ISO + seed (rescue boot into live ISO)"
-  _vm_insert_cdroms "$iso" "$seed"
-  _vm_boot
+  _core_vm_insert_cdroms "$iso" "$seed"
+  _core_vm_boot
 
   section "Waiting for live system"
-  local vm_ip; vm_ip="$(_get_vm_ip)"
+  local vm_ip; vm_ip="$(_flow_persistent_get_vm_ip)"
   info "VM IP: ${vm_ip}"
-  _wait_for_ssh "$vm_ip"
+  _flow_persistent_wait_for_ssh "$vm_ip"
 
-  local key; key="$(_harness_key_path)"
+  local key; key="$(_flow_persistent_key_path)"
   section "Rescue live ISO ready"
   info "SSH (live ISO):  ssh -i ${key}" \
        "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \

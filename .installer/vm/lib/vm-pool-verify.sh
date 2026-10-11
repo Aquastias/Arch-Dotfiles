@@ -24,14 +24,14 @@ vm_pool_imported() {
 }
 
 # 0 if the directory at <mountpoint> is owned by <user>.
-vm_dir_owned_by() {
+vm_directory_owned_by() {
   local mp="$1" user="$2"
   [[ "$(stat -c '%U' "$mp" 2>/dev/null)" == "$user" ]]
 }
 
 # 0 if <user> can write to <mountpoint> (the point of pool ownership — being
 # able to save files without sudo). Tested as the user so ACL grants count.
-vm_dir_writable_by() {
+vm_directory_writable_by() {
   local mp="$1" user="$2"
   su - "$user" -c "test -w '$mp'" >/dev/null 2>&1
 }
@@ -47,7 +47,7 @@ vm_dataset_mounted_at() {
 # 0 if something is currently mounted at <mountpoint>. Non-ZFS data groups
 # (ADR 0043: ext4/xfs/btrfs disks) have no zpool/dataset to query — their mount
 # is confirmed via findmnt.
-vm_fs_mounted_at() {
+vm_filesystem_mounted_at() {
   findmnt -rno TARGET "$1" >/dev/null 2>&1
 }
 
@@ -93,7 +93,7 @@ vm_pool_verify() {
   done
   for entry in "${VM_VERIFY_FS_MOUNTS[@]:-}"; do
     [[ -n "$entry" ]] || continue
-    if ! vm_fs_mounted_at "$entry"; then
+    if ! vm_filesystem_mounted_at "$entry"; then
       echo "NOT MOUNTED (fs): $entry" >&2
       rc=1
     fi
@@ -102,10 +102,10 @@ vm_pool_verify() {
     [[ -n "$entry" ]] || continue
     mp="${entry%:*}"
     local user="${entry##*:}"
-    if ! vm_dir_owned_by "$mp" "$user"; then
+    if ! vm_directory_owned_by "$mp" "$user"; then
       echo "NOT OWNED: $mp by $user" >&2
       rc=1
-    elif ! vm_dir_writable_by "$mp" "$user"; then
+    elif ! vm_directory_writable_by "$mp" "$user"; then
       echo "NOT WRITABLE: $mp by $user" >&2
       rc=1
     fi

@@ -15,7 +15,7 @@
 # =============================================================================
 
 # shellcheck source=../../vm/lib/core.sh
-[[ "$(type -t _vm_running)" == function ]] \
+[[ "$(type -t _core_vm_running)" == function ]] \
   || source "$INSTALLER_DIR/vm/lib/core.sh"
 # shellcheck source=../../vm/lib/console-answerer.sh
 source "$INSTALLER_DIR/vm/lib/console-answerer.sh"
@@ -74,7 +74,7 @@ feature_audit_stage_repo() {
 feature_audit_wait_ssh() {
   local timeout="$1" elapsed=0 ip
   while ((elapsed < timeout)); do
-    ip="$(_vm_ip_now)"
+    ip="$(_core_vm_ip_now)"
     if [[ -n "$ip" ]] && feature_audit_agent sudo true >/dev/null 2>&1; then
       return 0
     fi
@@ -87,16 +87,16 @@ feature_audit_wait_ssh() {
 # for the whole time the domain runs (survives guest reboots).
 feature_audit_serial_start() {
   local log="$1" dev
-  _start_console_capture "$log" >/dev/null
+  _core_start_console_capture "$log" >/dev/null
   dev="$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" || dev=""
   if [[ -n "$dev" ]]; then
-    console_answerer_watch "$log" "$dev" &
+    vm_console_answerer_watch "$log" "$dev" &
     FA_ANSWER_PID=$!
   fi
 }
 
 feature_audit_serial_stop() {
-  _stop_console_capture
+  _core_stop_console_capture
   [[ -n "$FA_ANSWER_PID" ]] || return 0
   kill "$FA_ANSWER_PID" 2>/dev/null || true
   wait "$FA_ANSWER_PID" 2>/dev/null || true
@@ -107,7 +107,7 @@ feature_audit_serial_stop() {
 # host-capacity guard (ADR 0099); a refusal is this variant's fatal, not the
 # run's.
 feature_audit_vm_start() {
-  if ! ( _vm_capacity_preflight ) >/dev/null 2>&1; then
+  if ! ( _core_vm_capacity_preflight ) >/dev/null 2>&1; then
     feature_audit_fatal "$1" "host capacity: ${VM_RAM_MB:-?} MiB VM refused"
     return 1
   fi

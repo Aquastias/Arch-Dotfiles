@@ -3,7 +3,7 @@
 # lib/sentinel-watcher.sh — Installer-completion sentinel reader
 # =============================================================================
 # Public:
-#   sentinel_watcher_wait LOG_PATH TIMEOUT_SEC
+#   vm_sentinel_watcher_wait LOG_PATH TIMEOUT_SEC
 #       Watch LOG_PATH for the first line matching the exact form
 #       `===INSTALLER-EXIT-N===` (where N is a non-negative integer; trailing
 #       whitespace tolerated). Returns N as the function's exit status.
@@ -12,11 +12,11 @@
 #       The log file may not exist when called; the function tolerates a
 #       file that appears mid-window. The log is never modified or deleted.
 #
-#   sentinel_watcher_wait_marker LOG_PATH MARKER TIMEOUT_SEC
+#   vm_sentinel_watcher_wait_marker LOG_PATH MARKER TIMEOUT_SEC
 #       Watch LOG_PATH for the first line CONTAINING the literal MARKER
 #       (fixed-string substring, so serial CRLF and surrounding noise are
 #       tolerated). Returns 0 on match, 124 on timeout, 2 on bad args. Same
-#       late-creation / no-mutation contract as sentinel_watcher_wait. Used by
+#       late-creation / no-mutation contract as vm_sentinel_watcher_wait. Used by
 #       the VM boot-verify phase to wait for the installed system's first-boot
 #       sentinel (===FIRSTBOOT-OK===).
 #
@@ -36,7 +36,7 @@
 # inside other text.
 SENTINEL_WATCHER_REGEX='^===INSTALLER-EXIT-([0-9]+)===[[:space:]]*$'
 
-sentinel_watcher_wait() {
+vm_sentinel_watcher_wait() {
   local log_path="$1" timeout_sec="$2"
 
   [[ -n "$log_path" ]] || {
@@ -70,7 +70,7 @@ sentinel_watcher_wait() {
   return 124
 }
 
-sentinel_watcher_wait_marker() {
+vm_sentinel_watcher_wait_marker() {
   local log_path="$1" marker="$2" timeout_sec="$3"
 
   [[ -n "$log_path" ]] || {

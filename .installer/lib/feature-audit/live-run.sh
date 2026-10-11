@@ -92,7 +92,7 @@ feature_audit_install() {
 
 feature_audit_destroy_vm() {
   feature_audit_serial_stop
-  VM_NAME="$VM_NAME" _vm_destroy_undefine >/dev/null 2>&1 || true
+  VM_NAME="$VM_NAME" _core_vm_destroy_undefine >/dev/null 2>&1 || true
 }
 
 # feature_audit_run_guided <variant-dir> <profile-ref> — the menu-driven path
@@ -114,7 +114,7 @@ feature_audit_run_guided() {
     --recreate > "$directory/install/harness.txt" 2>&1 || rc=$?
   ((rc == 0)) || feature_audit_fatal "$directory/install" \
     "guided install or boot-verify failed (vm.sh exit $rc; see harness.txt)"
-  VM_NAME="$guided_name" _vm_destroy_undefine >/dev/null 2>&1 || true
+  VM_NAME="$guided_name" _core_vm_destroy_undefine >/dev/null 2>&1 || true
 }
 
 # feature_audit_phase_wanted <variant-dir> <phase> — run this phase?
@@ -175,7 +175,7 @@ _live_bring_up_variant() {
   local directory="$1" profile="$2" id="$3"
   if [[ -n "${FA_REUSE:-}" ]]; then
     mkdir -p "$directory/boot1"
-    _vm_running || feature_audit_vm_start "$directory/boot1" || return 1
+    _core_vm_running || feature_audit_vm_start "$directory/boot1" || return 1
     feature_audit_serial_start "$directory/boot1/serial.log"
     feature_audit_wait_ssh "$FA_BOOT_TIMEOUT_SEC" \
       || { feature_audit_fatal "$directory/boot1" "reused VM never reached SSH"
@@ -225,7 +225,7 @@ feature_audit_run() {
       *) echo "feature-audit: unknown run option '$1'" >&2; return 2 ;;
     esac
   done
-  _ensure_libvirt_reachable
+  _core_ensure_libvirt_reachable
   VM_NAME="$(feature_audit_manifest_json | jq -r .vm_name)"
   export VM_NAME
   local -a ids=() all

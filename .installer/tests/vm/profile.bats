@@ -26,7 +26,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # ── inline install source ────────────────────────────────────────────────────
 
-@test "profile_resolve_config: inline install object is emitted verbatim" {
+@test "vm_profile_resolve_config: inline install object is emitted verbatim" {
   profile='{
     "name": "t",
     "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
@@ -36,7 +36,7 @@ teardown() { rm -rf "$TEST_DIR"; }
       "disk": "/dev/sda"
     }
   }'
-  run profile_resolve_config "$profile"
+  run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.system.hostname')" = "inline-host" ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
@@ -45,7 +45,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # ── "repo" install source ────────────────────────────────────────────────────
 
-@test "profile_resolve_config: repo resolves as the default host_profile, single" {
+@test "vm_profile_resolve_config: repo resolves as the default host_profile, single" {
   # install:"repo" ≡ host_profile: $VM_DEFAULT_HOST_PROFILE at single — the
   # shipped-default smoke survives the loss of the committed install.jsonc.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/$VM_DEFAULT_HOST_PROFILE"
@@ -68,10 +68,10 @@ JSONC
     "host_profile": "'"$VM_DEFAULT_HOST_PROFILE"'",
     "layout": { "mode": "single" }
   }'
-  run profile_resolve_config "$repo"
+  run vm_profile_resolve_config "$repo"
   [ "$status" -eq 0 ]
   # identical to resolving the default host directly, single-disk
-  expected="$(profile_resolve_config "$via_host")"
+  expected="$(vm_profile_resolve_config "$via_host")"
   [ "$(echo "$output" | jq -S .)" = "$(echo "$expected" | jq -S .)" ]
   [ "$(echo "$output" | jq -c '.host_programs')" = '["cups","reflector"]' ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
@@ -80,7 +80,7 @@ JSONC
 
 # ── host_profile resolves the unified profile.jsonc (profile_loader_load) ───────────
 
-@test "profile_resolve_config: host_profile single resolves via profile_loader_load" {
+@test "vm_profile_resolve_config: host_profile single resolves via profile_loader_load" {
   # A real profile.jsonc-backed host — proves the resolver reads the unified
   # profile (merged over core) via profile_loader_load.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/myhost"
@@ -98,7 +98,7 @@ JSONC
     "host_profile": "myhost",
     "layout": { "mode": "single" }
   }'
-  run profile_resolve_config "$profile"
+  run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
@@ -110,7 +110,7 @@ JSONC
   [ "$(echo "$output" | jq -c '.environment.desktop')" = '["kde"]' ]
 }
 
-@test "profile_resolve_config: host_profile pinned multi uses the profile topology" {
+@test "vm_profile_resolve_config: host_profile pinned multi uses the profile topology" {
   # A multi host pins mode + os_pool.topology in its profile (ADR 0029); the VM
   # ships no layout.mode. All picked disks land in the OS pool at that topology.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/securehost"
@@ -125,7 +125,7 @@ JSONC
     "hardware": { "disks": [40, 40], "ram_mb": 6144, "vcpus": 4 },
     "host_profile": "securehost"
   }'
-  run profile_resolve_config "$profile"
+  run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
   [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
@@ -133,7 +133,7 @@ JSONC
   [ "$(echo "$output" | jq -r '.system.hostname')" = "securehost" ]
 }
 
-@test "profile_resolve_config: host_profile multi slices disks per disk_count" {
+@test "vm_profile_resolve_config: host_profile multi slices disks per disk_count" {
   # ADR 0037: a multi host declares disk_count per group; the VM's /dev/sdX
   # list is sliced onto os_pool → storage_groups[] → data_pools[] in declared
   # order, so a multi-data-pool host (arch-data-shaped) assembles.
@@ -156,7 +156,7 @@ JSONC
     "hardware": { "disks": [20, 20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
     "host_profile": "datahost"
   }'
-  run profile_resolve_config "$profile"
+  run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
   [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/sda"]' ]
@@ -165,7 +165,7 @@ JSONC
       = '["/dev/sdc","/dev/sdd"]' ]
 }
 
-@test "profile_resolve_config: VM disk count != sum(disk_count) aborts" {
+@test "vm_profile_resolve_config: VM disk count != sum(disk_count) aborts" {
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/datahost"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
 { "os_pool": { "pool_name": "rpool" } }
@@ -182,12 +182,12 @@ JSONC
     "hardware": { "disks": [20, 20], "ram_mb": 4096, "vcpus": 2 },
     "host_profile": "datahost"
   }'
-  run profile_resolve_config "$profile"
+  run vm_profile_resolve_config "$profile"
   [ "$status" -ne 0 ]
   [[ "$output" == *"expected 3"* ]]
 }
 
-@test "profile_resolve_config: unpinned host with a multi layout.mode is rejected" {
+@test "vm_profile_resolve_config: unpinned host with a multi layout.mode is rejected" {
   # Decision X: multi topology comes only from the profile's os_pool pin. An
   # unpinned host can't conjure a topology from layout.mode — it must pin.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/plainhost"
@@ -203,7 +203,7 @@ JSONC
     "host_profile": "plainhost",
     "layout": { "mode": "mirror" }
   }'
-  run profile_resolve_config "$profile"
+  run vm_profile_resolve_config "$profile"
   [ "$status" -ne 0 ]
   [[ "$output" == *os_pool* ]]
 }

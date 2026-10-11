@@ -1,7 +1,7 @@
 // VM test: the SAME multi-data-pool layout as data-pools/plain, but driven by
 // the real unified profile (top-level host_profile: arch-data) instead of an
 // inline install with hand-written disks. This is the real-prize path for
-// issue 12 / ADR 0037: profile_resolve_config → _profile_resolve_host →
+// issue 12 / ADR 0037: vm_profile_resolve_config → _profile_resolve_host →
 // picker_build_assignment slices the VM's 4 × /dev/sdX onto the declared
 // groups by disk_count (os_pool none 1, tank0 stripe 1, tank1 mirror 2) in
 // declared order — exactly what `install.sh --profile arch-data` produces:

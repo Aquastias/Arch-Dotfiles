@@ -21,7 +21,7 @@ FLOW_TEST_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 # core.sh provides the shared host-side functions + defaults; guard-source so
 # vm.sh sourcing core first does not double-source.
 # shellcheck source=./core.sh
-[[ "$(type -t core_resolve_iso)" == function ]] \
+[[ "$(type -t vm_resolve_iso)" == function ]] \
   || source "${FLOW_TEST_DIR}/core.sh"
 # shellcheck source=./seed-generator.sh
 source "${FLOW_TEST_DIR}/seed-generator.sh"
@@ -94,7 +94,7 @@ _flow_render_user_data() {
     if [ "\$rc" -eq 0 ]; then
       poweroff -f
     else
-$(_serial_autologin_root_lines)
+$(_core_serial_autologin_root_lines)
     fi
 HOLD
 )"
@@ -172,8 +172,8 @@ _flow_build_seed() {
   printf '%s\n' "${seed_iso}"
 }
 
-# Serial console capture (_start_console_capture / _console_capture_loop /
-# _stop_console_capture / _wait_for_serial_pty) is shared with the persistent
+# Serial console capture (_core_start_console_capture / _core_console_capture_loop /
+# _core_stop_console_capture / _core_wait_for_serial_pty) is shared with the persistent
 # flow and lives in core.sh (ADR 0099).
 
 # CONSOLE ANSWERER — supply the disk-unlock passphrase over serial so encrypted
@@ -183,16 +183,16 @@ _flow_build_seed() {
 # prompts. The pure matcher lives in console-answerer.sh (unit-tested).
 CONSOLE_ANSWERER_PID=""
 
-_start_console_answerer() {
+_flow_test_start_console_answerer() {
   local dev; dev="$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" || return 0
   [[ -n "$dev" ]] || return 0
-  console_answerer_watch "$BOOT_LOG_FILE" "$dev" &
+  vm_console_answerer_watch "$BOOT_LOG_FILE" "$dev" &
   CONSOLE_ANSWERER_PID=$!
   info "Console Answerer watching for unlock prompts → ${dev}."
 }
 
 # shellcheck disable=SC2329
-_stop_console_answerer() {
+_flow_test_stop_console_answerer() {
   [[ -n "$CONSOLE_ANSWERER_PID" ]] || return 0
   kill "$CONSOLE_ANSWERER_PID" 2>/dev/null || true
   wait "$CONSOLE_ANSWERER_PID" 2>/dev/null || true
@@ -203,16 +203,16 @@ _stop_console_answerer() {
 # gateway, so the in-guest Secrets Module can fetch the Test Age Key
 # (http://<gateway>:<port>/key.age) during a secure install. No-op when the
 # profile declares no fixtures. Static files via serve-http.sh (socat, no python).
-# _flow_repo_on_http_root — true when REPO_URL is served from this flow's own
+# _flow_test_repo_on_http_root — true when REPO_URL is served from this flow's own
 # HTTP root (the Feature Audit's dumb-HTTP repo, ADR 0152), so the server must
 # run even with no fixtures declared.
-_flow_repo_on_http_root() {
+_flow_test_repo_on_http_root() {
   [[ "${REPO_URL:-}" == "http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/"* ]]
 }
 
-_start_fixture_http_server() {
-  _fixture_http_should_serve || _flow_repo_on_http_root || return 0
-  _stage_fixture_files
+_flow_test_start_fixture_http_server() {
+  _core_fixture_http_should_serve || _flow_test_repo_on_http_root || return 0
+  _core_stage_fixture_files
   "${FLOW_TEST_DIR}/serve-http.sh" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
     "${HTTP_PORT}" >/dev/null 2>&1 &
   _HTTP_PID=$!
@@ -220,15 +220,15 @@ _start_fixture_http_server() {
 }
 
 # shellcheck disable=SC2329
-_stop_fixture_http_server() {
+_flow_test_stop_fixture_http_server() {
   [[ -n "${_HTTP_PID}" ]] || return 0
   kill "${_HTTP_PID}" 2>/dev/null || true
   _HTTP_PID=""
 }
 
 # shellcheck disable=SC2329
-_on_signal() { _stop_console_answerer; _stop_console_capture; \
-  _stop_fixture_http_server; exit "$((128 + ${1:-2}))"; }
+_flow_test_on_signal() { _flow_test_stop_console_answerer; _core_stop_console_capture; \
+  _flow_test_stop_fixture_http_server; exit "$((128 + ${1:-2}))"; }
 
 # =============================================================================
 # BOOT VERIFY (opt-in)
@@ -236,7 +236,7 @@ _on_signal() { _stop_console_answerer; _stop_console_capture; \
 # Permute data-disk backing files on the (shut-off) domain so the installed
 # system boots with a different /dev/sdX order than it installed under. The OS
 # disk stays put. reorder-disks.sh is pure + unit-tested (vm-reorder-disks.bats).
-_reorder_boot_disks() {
+_flow_test_reorder_boot_disks() {
   local reordered="${CACHE_DIR}/${VM_NAME}-reordered.xml"
   info "Reordering data disks before boot (multi-disk reorder repro)."
   virsh dumpxml --inactive "$VM_NAME" \
@@ -249,20 +249,20 @@ _reorder_boot_disks() {
 # Boots the installed disk and waits for SEED_GENERATOR_FIRSTBOOT_MARKER on the
 # serial console. Returns 0 if the marker appears within BOOT_TIMEOUT_SEC, 125
 # otherwise (distinct from installer exit codes and the 124 timeout).
-_run_boot_verify() {
+_flow_test_run_boot_verify() {
   section "Verifying installed system boots (timeout: ${BOOT_TIMEOUT_SEC}s)"
-  _vm_eject_cdroms
-  _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
+  _core_vm_eject_cdroms
+  _core_vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
   if [[ "${VM_REORDER_BOOT_DISKS}" == "true" ]]; then
-    _reorder_boot_disks \
+    _flow_test_reorder_boot_disks \
       || warn "Disk reorder failed — boot uses the original disk order."
   fi
 
   info "Booting installed disk → ${BOOT_LOG_FILE}"
   virsh start "$VM_NAME" >/dev/null
-  _wait_for_serial_pty
-  _start_console_capture "$BOOT_LOG_FILE"
-  _start_console_answerer
+  _core_wait_for_serial_pty
+  _core_start_console_capture "$BOOT_LOG_FILE"
+  _flow_test_start_console_answerer
 
   # Session-login profiles self-reboot through each desktop and finish on
   # ===SESSION-VERIFY-DONE===; plain profiles finish on the first-boot sentinel.
@@ -271,14 +271,14 @@ _run_boot_verify() {
 
   local brc=0
   set +e
-  sentinel_watcher_wait_marker \
+  vm_sentinel_watcher_wait_marker \
     "$BOOT_LOG_FILE" "$wait_marker" "$BOOT_TIMEOUT_SEC"
   brc=$?
   set -e
 
-  _stop_console_answerer
-  _stop_console_capture
-  _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
+  _flow_test_stop_console_answerer
+  _core_stop_console_capture
+  _core_vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
 
   ((brc == 0)) || return 125
 
@@ -330,54 +330,54 @@ _run_boot_verify() {
 # =============================================================================
 # ENTRY POINT
 # =============================================================================
-flow_test_deps() { _harness_ensure_deps script:util-linux; }
+vm_flow_test_dependencies() { _core_ensure_dependencies script:util-linux; }
 
 flow_run() {
-  trap '_stop_console_answerer; _stop_console_capture; \
-    _stop_fixture_http_server' EXIT
-  trap '_on_signal 2'  INT
-  trap '_on_signal 15' TERM
+  trap '_flow_test_stop_console_answerer; _core_stop_console_capture; \
+    _flow_test_stop_fixture_http_server' EXIT
+  trap '_flow_test_on_signal 2'  INT
+  trap '_flow_test_on_signal 15' TERM
 
-  flow_test_deps
-  _ensure_libvirt_group
-  _ensure_libvirtd
-  _ensure_libvirt_reachable
+  vm_flow_test_dependencies
+  _core_ensure_libvirt_group
+  _core_ensure_libvirtd
+  _core_ensure_libvirt_reachable
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
 
   # Secure profiles fetch the Test Age Key over HTTP during install; stand the
   # server up before the VM boots (no-op when no fixtures are declared).
-  _start_fixture_http_server
+  _flow_test_start_fixture_http_server
 
   section "Resolving Arch ISO"
-  local iso; iso="$(core_resolve_iso "$ISO_DIR")"
+  local iso; iso="$(vm_resolve_iso "$ISO_DIR")"
 
   section "Building cloud-init seed"
   local seed; seed="$(_flow_build_seed)"
   info "Seed: ${seed}"
 
   section "VM lifecycle"
-  $RECREATE && _vm_destroy_undefine
-  if _vm_exists; then
-    local current_iso; current_iso="$(_vm_install_iso_path)"
+  $RECREATE && _core_vm_destroy_undefine
+  if _core_vm_exists; then
+    local current_iso; current_iso="$(_core_vm_install_iso_path)"
     if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
       info "Existing VM points at stale ISO (${current_iso}); recreating."
-      _vm_destroy_undefine
+      _core_vm_destroy_undefine
     fi
   fi
-  _vm_exists || _vm_create "$iso" "$seed"
-  _vm_boot
+  _core_vm_exists || _core_vm_create "$iso" "$seed"
+  _core_vm_boot
 
   section "Capturing installer log → ${LOG_FILE}"
-  _wait_for_serial_pty
-  _start_console_capture "$LOG_FILE"
+  _core_wait_for_serial_pty
+  _core_start_console_capture "$LOG_FILE"
 
   section "Waiting for installer (timeout: ${TIMEOUT_SEC}s)"
   local rc=0
   set +e
-  sentinel_watcher_wait "$LOG_FILE" "$TIMEOUT_SEC"
+  vm_sentinel_watcher_wait "$LOG_FILE" "$TIMEOUT_SEC"
   rc=$?
   set -e
-  _stop_console_capture
+  _core_stop_console_capture
 
   if   ((rc == 124)); then warn "Installer timed out after ${TIMEOUT_SEC}s."
   elif ((rc == 0));   then info "Installer completed successfully (exit 0)."
@@ -386,7 +386,7 @@ flow_run() {
   info "Log: ${LOG_FILE}"
 
   if ((rc == 0)) && [[ "$VERIFY_BOOT" == "true" ]]; then
-    if _run_boot_verify; then
+    if _flow_test_run_boot_verify; then
       info "Installed system reached the first-boot sentinel — boot OK."
     else
       warn "Installed system did NOT reach the first-boot sentinel" \
@@ -399,7 +399,7 @@ flow_run() {
   # Hold-on-fail (ADR 0099): a failed cell skipped its poweroff and gave ttyS0 a
   # root autologin shell, so it is left running for inspection over serial. Never
   # auto-destroyed — it IS the evidence; the user reaps it when done.
-  if ((rc != 0)) && [[ "$HOLD_ON_FAIL" == "true" ]] && _vm_running; then
+  if ((rc != 0)) && [[ "$HOLD_ON_FAIL" == "true" ]] && _core_vm_running; then
     section "Inspect the failed cell (VM held up)"
     info "Cell failed (exit ${rc}) — the VM is left running for inspection."
     info "Serial console:  virsh console ${VM_NAME}" \

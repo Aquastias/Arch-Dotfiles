@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for the VM_FIXTURE_FILES staging hook in .installer/vm/lib/core.sh.
 #
-# Drives `_stage_fixture_files` in isolation — no libvirt, no HTTP server,
+# Drives `_core_stage_fixture_files` in isolation — no libvirt, no HTTP server,
 # no python. Each test sets VM_SCRIPT_DIR + CACHE_DIR + VM_FIXTURE_FILES
 # in a child shell, sources the harness, invokes the staging fn, and
 # asserts on the resulting CACHE_DIR contents (or the error stream).
@@ -17,7 +17,7 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# Run _stage_fixture_files in a child bash. Arguments become entries in the
+# Run _core_stage_fixture_files in a child bash. Arguments become entries in the
 # VM_FIXTURE_FILES array (one per arg). `run` captures status/output.
 _stage() {
   local args=""
@@ -30,7 +30,7 @@ _stage() {
     declare -a VM_FIXTURE_FILES=($args)
     # silence harness 'info' output during the test
     source '$HARNESS' >/dev/null 2>&1
-    _stage_fixture_files
+    _core_stage_fixture_files
   "
 }
 
@@ -88,7 +88,7 @@ _stage() {
     CACHE_DIR='$CACHE_DIR'
     unset VM_FIXTURE_FILES
     source '$HARNESS' >/dev/null 2>&1
-    _stage_fixture_files
+    _core_stage_fixture_files
   "
   [ "$status" -eq 0 ]
   [ -z "$(ls -A "$CACHE_DIR")" ]
@@ -101,7 +101,7 @@ _stage() {
     CACHE_DIR='$CACHE_DIR'
     declare -a VM_FIXTURE_FILES=()
     source '$HARNESS' >/dev/null 2>&1
-    _stage_fixture_files
+    _core_stage_fixture_files
   "
   [ "$status" -eq 0 ]
   [ -z "$(ls -A "$CACHE_DIR")" ]
@@ -115,7 +115,7 @@ _stage() {
   diff -q "$VM_SCRIPT_DIR/rel-fix.txt" "$CACHE_DIR/rel-fix.txt"
 }
 
-# ── _fixture_http_should_serve — gate the fixture HTTP server ────────────────
+# ── _core_fixture_http_should_serve — gate the fixture HTTP server ────────────────
 # The test flow serves staged fixtures (e.g. the secure profile's Test Age Key)
 # over HTTP only when fixtures are declared. Same guard shape as staging.
 
@@ -124,7 +124,7 @@ _should_serve() {
     set +e
     source '$HARNESS' >/dev/null 2>&1
     $1
-    _fixture_http_should_serve
+    _core_fixture_http_should_serve
   "
 }
 

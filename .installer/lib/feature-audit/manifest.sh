@@ -131,7 +131,7 @@ feature_audit_variant_config() {
         else _manifest_original_profile_loader_load "$1"; fi
       }
     fi
-    profile_resolve_config "$profile"
+    vm_profile_resolve_config "$profile"
   )
 }
 

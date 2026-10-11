@@ -3,7 +3,7 @@
 # lib/seed-generator.sh — Cloud-init NoCloud seed-ISO builder
 # =============================================================================
 # Public:
-#   seed_generator_build REPO_URL HOSTNAME OUTPUT_DIR
+#   vm_seed_generator_build REPO_URL HOSTNAME OUTPUT_DIR
 #       Render a cloud-init `user-data` document parameterised by REPO_URL
 #       and HOSTNAME, build a NoCloud `seed.iso` from it via cloud-localds,
 #       and print the absolute path of the produced ISO on stdout.
@@ -46,7 +46,7 @@
 
 # Marker the test-only first-boot unit echoes to /dev/ttyS0 once the installed
 # system boots. The host boot-verify phase waits for it via
-# sentinel_watcher_wait_marker. A hard contract like INSTALLER-EXIT — keep it
+# vm_sentinel_watcher_wait_marker. A hard contract like INSTALLER-EXIT — keep it
 # in sync with vm/lib/flow-test.sh.
 SEED_GENERATOR_FIRSTBOOT_MARKER='===FIRSTBOOT-OK==='
 
@@ -672,7 +672,7 @@ EOF
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-seed_generator_build() {
+vm_seed_generator_build() {
   local repo_url="$1" hostname="$2" out_dir="$3"
 
   [[ -n "$repo_url" ]] || {

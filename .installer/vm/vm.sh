@@ -110,19 +110,19 @@ main() {
   profile_validate "$profile_json" "$hosts_dir" || exit 1
 
   if ((print_config)); then
-    profile_resolve_config "$profile_json"
+    vm_profile_resolve_config "$profile_json"
     return 0
   fi
 
   # ── Map the profile into the harness contract (env overrides win) ───────────
   VM_NAME="$(jq -r '.name' <<<"$profile_json")"
-  # shellcheck disable=SC2034 # consumed by core.sh _vm_create via the flow
+  # shellcheck disable=SC2034 # consumed by core.sh _core_vm_create via the flow
   mapfile -t VM_DISK_SIZES < <(jq -r '.hardware.disks[]' <<<"$profile_json")
   VM_RAM_MB="${VM_RAM_MB:-$(jq -r '.hardware.ram_mb' <<<"$profile_json")}"
   VM_VCPUS="${VM_VCPUS:-$(jq -r '.hardware.vcpus' <<<"$profile_json")}"
-  INSTALL_CONFIG_CONTENT="$(profile_resolve_config "$profile_json")"
+  INSTALL_CONFIG_CONTENT="$(vm_profile_resolve_config "$profile_json")"
 
-  # shellcheck disable=SC2034 # both consumed by core.sh _stage_fixture_files
+  # shellcheck disable=SC2034 # both consumed by core.sh _core_stage_fixture_files
   mapfile -t VM_FIXTURE_FILES < <(jq -r '.fixtures[]?' <<<"$profile_json")
   # shellcheck disable=SC2034
   VM_SCRIPT_DIR="$INSTALLER_DIR/vm"
@@ -200,7 +200,7 @@ main() {
   if ((rescue)); then
     # shellcheck source=lib/flow-persistent.sh
     source "$SELF_DIR/lib/flow-persistent.sh"
-    flow_rescue
+    vm_flow_persistent_rescue
     return
   fi
   if ((guided)); then

@@ -7,7 +7,7 @@
 #     directly via the _seed_generator_render_user_data seam, so they do not
 #     require cloud-localds.
 #   - The missing-cloud-localds test stubs PATH so cloud-localds is not
-#     resolvable, then asserts seed_generator_build exits non-zero with a
+#     resolvable, then asserts vm_seed_generator_build exits non-zero with a
 #     clear message.
 
 setup() {
@@ -511,7 +511,7 @@ teardown() {
 
 @test "missing cloud-localds: returns non-zero with a clear message" {
   PATH="/this/does/not/exist" \
-    run seed_generator_build "$REPO_URL" "$HOSTNAME_FIXTURE" "$OUT_DIR"
+    run vm_seed_generator_build "$REPO_URL" "$HOSTNAME_FIXTURE" "$OUT_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "cloud-localds not found" ]]
 }
@@ -519,19 +519,19 @@ teardown() {
 # ── empty inputs are rejected ────────────────────────────────────────────────
 
 @test "empty repo URL: returns non-zero" {
-  run seed_generator_build "" "$HOSTNAME_FIXTURE" "$OUT_DIR"
+  run vm_seed_generator_build "" "$HOSTNAME_FIXTURE" "$OUT_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "REPO_URL is empty" ]]
 }
 
 @test "empty hostname: returns non-zero" {
-  run seed_generator_build "$REPO_URL" "" "$OUT_DIR"
+  run vm_seed_generator_build "$REPO_URL" "" "$OUT_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "HOSTNAME is empty" ]]
 }
 
 @test "missing output dir: returns non-zero" {
-  run seed_generator_build "$REPO_URL" "$HOSTNAME_FIXTURE" "$TEST_DIR/nope"
+  run vm_seed_generator_build "$REPO_URL" "$HOSTNAME_FIXTURE" "$TEST_DIR/nope"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "output directory does not exist" ]]
 }

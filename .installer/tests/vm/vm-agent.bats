@@ -48,10 +48,10 @@ _call() { run bash -c "source '$AGENT'; $1"; }
   [ "$output" = "/x/.vm-cache/harness_ed25519" ]
 }
 
-@test "agent_ssh_mux_opts: one multiplexed connection per guest" {
+@test "agent_ssh_mux_options: one multiplexed connection per guest" {
   # ufw's `limit ssh` rejects a 6th connection in 30s; one TCP connection
   # per command tripped it (Audit Run 20260929, ufw variant).
-  _call 'agent_ssh_mux_opts /run/mux'
+  _call 'agent_ssh_mux_options /run/mux'
   [ "$status" -eq 0 ]
   [[ "$output" == *"ControlPath=/run/mux/%C"* ]]
   [[ "$output" == *"ServerAliveInterval="* ]]
@@ -60,7 +60,7 @@ _call() { run bash -c "source '$AGENT'; $1"; }
 @test "session env carries the locale (no Qt locale-C fallback)" {
   # Agent-launched Qt apps logged "Detected locale C" (Audit Run 20260929):
   # the session env import dropped LANG/LC_*.
-  _call '_remote_env_fn'
+  _call '_remote_environment_function'
   [[ "$output" == *"LANG=*"* ]]
   [[ "$output" == *"LC_*=*"* ]]
 }
@@ -99,8 +99,8 @@ _call() { run bash -c "source '$AGENT'; $1"; }
 
 # Impermanence guests roll /etc back to @blank on boot, so the autologin
 # change must be baked into @blank before the reboot or it is lost.
-@test "agent_bake_blank_cmd runs the resnapshot helper only when present" {
-  _call "agent_bake_blank_cmd"
+@test "agent_bake_blank_command runs the resnapshot helper only when present" {
+  _call "agent_bake_blank_command"
   [[ "$output" == *"/usr/lib/impermanence/resnapshot.sh"* ]]
   [[ "$output" == *"-x /usr/lib/impermanence/resnapshot.sh"* ]]
   # one argv for sudo: a bare `||` would run the helper outside sudo
@@ -110,7 +110,7 @@ _call() { run bash -c "source '$AGENT'; $1"; }
 # _stub_io — replace every guest-touching helper with a logger to $LOG.
 _stub_io='
   LOG="$BATS_TEST_TMPDIR/io.log"; : > "$LOG"
-  _guest_dm()   { echo sddm; }
+  _guest_display_manager()   { echo sddm; }
   _stage()      { cat >/dev/null; echo "stage $1" >> "$LOG"; }
   _sudo()       { echo "sudo $*" >> "$LOG"; }
   _ssh()        { echo "ssh $*" >> "$LOG"; }
@@ -145,13 +145,13 @@ _stub_io='
 # ── Feature Audit verbs (ADR 0152) ───────────────────────────────────────────
 
 @test "pull: guest tar streams the path's basename from its parent" {
-  _call "agent_pull_cmd /var/log/journal"
+  _call "agent_pull_command /var/log/journal"
   [ "$status" -eq 0 ]
   [ "$output" = "tar -C '/var/log' -cf - 'journal'" ]
 }
 
 @test "pull: a relative guest path is rejected" {
-  _call "agent_pull_cmd var/log"
+  _call "agent_pull_command var/log"
   [ "$status" -ne 0 ]
 }
 
@@ -163,20 +163,20 @@ _stub_io='
 }
 
 @test "net off: drops the default route, saving it for restore" {
-  _call "agent_net_cmd off"
+  _call "agent_network_command off"
   [ "$status" -eq 0 ]
   [[ "$output" == *"ip route show default"* ]]
   [[ "$output" == *"ip route del default"* ]]
 }
 
 @test "net on: restores the saved default route" {
-  _call "agent_net_cmd on"
+  _call "agent_network_command on"
   [ "$status" -eq 0 ]
   [[ "$output" == *"ip route replace"* ]]
 }
 
 @test "net: only on|off" {
-  _call "agent_net_cmd sideways"
+  _call "agent_network_command sideways"
   [ "$status" -ne 0 ]
 }
 

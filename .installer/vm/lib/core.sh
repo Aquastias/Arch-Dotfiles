@@ -38,9 +38,9 @@ source "${CORE_DIR}/host-capacity.sh"
 # =============================================================================
 # DEPENDENCY / ENVIRONMENT CHECKS
 # =============================================================================
-# _harness_ensure_deps "cmd:pkg"… — ensure the common libvirt toolchain plus any
+# _core_ensure_dependencies "cmd:pkg"… — ensure the common libvirt toolchain plus any
 # flow-specific extras are installed. pacman --needed, so idempotent.
-_harness_ensure_deps() {
+_core_ensure_dependencies() {
   local common=(virt-install:virt-install virsh:libvirt \
                 cloud-localds:cloud-image-utils jq:jq)
   local missing=() pair cmd pkg
@@ -54,7 +54,7 @@ _harness_ensure_deps() {
   fi
 }
 
-_ensure_libvirt_group() {
+_core_ensure_libvirt_group() {
   if ! id -nG "$USER" | tr ' ' '\n' | grep -qx libvirt; then
     error "User '$USER' is not in the 'libvirt' group.
   Run:  sudo usermod -aG libvirt $USER
@@ -62,7 +62,7 @@ _ensure_libvirt_group() {
   fi
 }
 
-_ensure_libvirtd() {
+_core_ensure_libvirtd() {
   if ! systemctl is-active --quiet libvirtd; then
     info "libvirtd is inactive — starting it now (sudo)."
     sudo systemctl enable --now libvirtd
@@ -74,7 +74,7 @@ _ensure_libvirtd() {
 # being down, so the agent knows to retry the command outside the sandbox (ADR
 # 0099; see docs/agents/vm-sandbox.md). Best-effort probe: `virsh uri` connects
 # to the daemon without touching any domain.
-_ensure_libvirt_reachable() {
+_core_ensure_libvirt_reachable() {
   local err
   err="$(virsh uri 2>&1 >/dev/null)" && return 0
   if systemctl is-active --quiet libvirtd 2>/dev/null; then
@@ -97,20 +97,20 @@ blocks the socket, retry with the sandbox disabled (docs/agents/vm-sandbox.md)."
 # VM STATE PREDICATES
 # =============================================================================
 # Current DHCP lease of the domain's first NIC, or empty if none yet.
-_vm_ip_now() {
+_core_vm_ip_now() {
   virsh domifaddr "$VM_NAME" 2>/dev/null \
     | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' \
     | head -1
 }
 
-_vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
-_vm_running() {
+_core_vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
+_core_vm_running() {
   [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]
 }
 
 # Source file path of the first cdrom attached to the domain, or empty if none.
 # Used to detect stale ISO references.
-_vm_install_iso_path() {
+_core_vm_install_iso_path() {
   virsh dumpxml "$VM_NAME" 2>/dev/null |
     sed -n "/device='cdrom'/,/<\/disk>/p" |
     grep -oE "source file='[^']+\.iso'" |
@@ -122,7 +122,7 @@ _vm_install_iso_path() {
 # ISO RESOLUTION
 # =============================================================================
 # Pinned-override download: cache <downloads_dir>/<basename>, fetch if absent.
-_resolve_pinned_iso() {
+_core_resolve_pinned_iso() {
   local url="$1" downloads_dir="$2"
   local filename="${url##*/}"
   local target="${downloads_dir%/}/${filename}"
@@ -136,12 +136,12 @@ _resolve_pinned_iso() {
   printf '%s\n' "$target"
 }
 
-# core_resolve_iso <iso_dir> — pinned override else newest archzfs-compatible.
+# vm_resolve_iso <iso_dir> — pinned override else newest archzfs-compatible.
 # Prints the ISO path on stdout; status/info on stderr.
-core_resolve_iso() {
+vm_resolve_iso() {
   local iso_dir="$1" iso
   if [[ -n "$ISO_URL_OVERRIDE" ]]; then
-    iso="$(_resolve_pinned_iso "$ISO_URL_OVERRIDE" "$iso_dir")"
+    iso="$(_core_resolve_pinned_iso "$ISO_URL_OVERRIDE" "$iso_dir")"
     info "ISO (pinned): ${iso}" >&2
   else
     info "Picking newest archived ISO whose kernel archzfs supports." >&2
@@ -154,7 +154,7 @@ core_resolve_iso() {
 # =============================================================================
 # STORAGE POOL HELPERS
 # =============================================================================
-_pool_for_dir() {
+_core_pool_for_directory() {
   local dir
   dir="$(realpath "$1")"
   local name target
@@ -171,9 +171,9 @@ _pool_for_dir() {
 
 # Refresh the libvirt storage pool backing <path>'s directory, so a freshly
 # downloaded ISO/seed is visible to the domain. No-op when not pool-backed.
-_refresh_pool_for_path() {
+_core_refresh_pool_for_path() {
   local pool
-  pool="$(_pool_for_dir "$(dirname "$1")" 2>/dev/null)" || return 0
+  pool="$(_core_pool_for_directory "$(dirname "$1")" 2>/dev/null)" || return 0
   virsh pool-refresh "$pool" >/dev/null
 }
 
@@ -184,9 +184,9 @@ _refresh_pool_for_path() {
 # seed cdroms) and its NVRAM. libvirt manages ~/Downloads as a pool, so a blanket
 # --remove-all-storage would delete the reused Arch ISO; --storage on the disk
 # targets keeps it.
-_vm_destroy_undefine() {
-  _vm_exists || return 0
-  _vm_running && {
+_core_vm_destroy_undefine() {
+  _core_vm_exists || return 0
+  _core_vm_running && {
     info "Force-stopping VM '${VM_NAME}'."
     virsh destroy "$VM_NAME" >/dev/null
   }
@@ -204,7 +204,7 @@ _vm_destroy_undefine() {
 # Creates the libvirt domain with one qcow2 per entry in VM_DISK_SIZES[], plus
 # two read-only cdroms (install ISO + seed). The flow module supplies the
 # graphics/video/channel flags via FLOW_GRAPHICS_ARGS[].
-_vm_create() {
+_core_vm_create() {
   local iso="$1" seed="$2"
   local disk_args=() i
   for i in "${!VM_DISK_SIZES[@]}"; do
@@ -243,7 +243,7 @@ _vm_create() {
 }
 
 # Host RAM (MiB) from /proc/meminfo; empty when unreadable.
-_host_total_mb() {
+_core_host_total_mb() {
   awk '/^MemTotal:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null
 }
 
@@ -251,18 +251,18 @@ _host_total_mb() {
 # single oversized VM never thrashes the host (ADR 0099). A direct `vm.sh` launch
 # bypasses the Combination Matrix's own parallel guard, so this is the general
 # gate every flow gets. Best-effort: if MemTotal can't be probed, don't block.
-_vm_capacity_preflight() {
-  local host_mb; host_mb="$(_host_total_mb)"
+_core_vm_capacity_preflight() {
+  local host_mb; host_mb="$(_core_host_total_mb)"
   [[ "$host_mb" =~ ^[0-9]+$ && "$host_mb" -gt 0 ]] || return 0
-  host_capacity_admit "$VM_RAM_MB" "$host_mb" || error \
+  vm_host_capacity_admit "$VM_RAM_MB" "$host_mb" || error \
     "VM RAM ${VM_RAM_MB} MiB exceeds ${HOST_CAP_SAFE_PCT}% of host RAM \
 (${host_mb} MiB) — lower VM_RAM_MB or free host memory before launching."
 }
 
 # Start the domain, force-stopping a stale running instance first.
-_vm_boot() {
-  _vm_capacity_preflight
-  _vm_running && {
+_core_vm_boot() {
+  _core_vm_capacity_preflight
+  _core_vm_running && {
     info "VM is running — force-stopping for a clean start."
     virsh destroy "$VM_NAME" >/dev/null
   }
@@ -274,7 +274,7 @@ _vm_boot() {
 # falls through to the installed disk's systemd-boot entry instead of the live
 # ISO (the domain is created --boot cdrom,hd). Shared by both flows; operates on
 # the persistent config so it survives the next start. Best-effort, never fatal.
-_vm_eject_cdroms() {
+_core_vm_eject_cdroms() {
   local tgt
   while read -r tgt; do
     [[ -n "$tgt" ]] || continue
@@ -292,10 +292,10 @@ _vm_eject_cdroms() {
 # hang and hold the VM for inspection (ADR 0099).
 CONSOLE_WRAP_PID=""
 
-_start_console_capture() {
+_core_start_console_capture() {
   local log="${1:?console capture needs a log path}"
   : > "$log"
-  _console_capture_loop "$log" &
+  _core_console_capture_loop "$log" &
   CONSOLE_WRAP_PID=$!
   info "Console capture running — \`tail -F ${log}\` to watch live."
 }
@@ -306,16 +306,16 @@ _start_console_capture() {
 # would then miss a marker printed afterwards (the VM runs fine but the capture
 # dies and the log stays empty). Re-attaching until poweroff makes the capture
 # robust. Stops as soon as the domain is no longer running.
-_console_capture_loop() {
+_core_console_capture_loop() {
   local log="$1"
   while :; do
     script -qafc "virsh console --force \"$VM_NAME\"" "$log" >/dev/null 2>&1
-    _vm_running || break
+    _core_vm_running || break
     sleep 0.3
   done
 }
 
-_stop_console_capture() {
+_core_stop_console_capture() {
   [[ -n "$CONSOLE_WRAP_PID" ]] || return 0
   kill     "$CONSOLE_WRAP_PID" 2>/dev/null || true  # stop the re-attach loop
   pkill -P "$CONSOLE_WRAP_PID" 2>/dev/null || true  # and its live script/virsh
@@ -328,7 +328,7 @@ _stop_console_capture() {
 # `virsh console` (ADR 0099). Expanded at render time into a seed's user-data;
 # single-quoted heredoc so $TERM stays literal (systemd expands it) and nothing
 # resolves host-side. 4-space indent to sit inside a `runcmd: - |` block.
-_serial_autologin_root_lines() {
+_core_serial_autologin_root_lines() {
   cat <<'LINES'
     install -d /etc/systemd/system/serial-getty@ttyS0.service.d
     printf '%s\n' \
@@ -344,7 +344,7 @@ LINES
 
 # Poll virsh ttyconsole until the serial PTY is assigned, so console capture
 # attaches to a live pty instead of dying on "PTY device is not yet assigned".
-_wait_for_serial_pty() {
+_core_wait_for_serial_pty() {
   local _
   for _ in $(seq 1 50); do
     [[ -n "$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" ]] && return 0
@@ -354,11 +354,11 @@ _wait_for_serial_pty() {
 }
 
 # Re-insert media into the domain's cdrom drives (the reverse of
-# _vm_eject_cdroms): <iso> into the first cdrom drive, <seed> into the second, so
+# _core_vm_eject_cdroms): <iso> into the first cdrom drive, <seed> into the second, so
 # a rescue boot lands back on the live ISO with the seed's SSH + serial channels
 # (ADR 0099). The drives persist across an eject (only their media is removed);
 # operates on the persistent config so it survives the next start. Best-effort.
-_vm_insert_cdroms() {
+_core_vm_insert_cdroms() {
   local iso="$1" seed="${2:-}"
   local -a tgts=()
   mapfile -t tgts < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
@@ -378,17 +378,17 @@ _vm_insert_cdroms() {
 # serve it (e.g. the secure profile's Test Age Key). Relative entries resolve
 # against VM_SCRIPT_DIR. Basenames must be unique and must not collide with the
 # installer 'run' script. Unset/empty array is a no-op.
-# _fixture_http_should_serve — true (0) iff any fixture is declared, so a flow
+# _core_fixture_http_should_serve — true (0) iff any fixture is declared, so a flow
 # only stands up the fixture HTTP server when something needs serving. Same
-# unset/empty guard as _stage_fixture_files; pure (reads VM_FIXTURE_FILES only).
-_fixture_http_should_serve() {
+# unset/empty guard as _core_stage_fixture_files; pure (reads VM_FIXTURE_FILES only).
+_core_fixture_http_should_serve() {
   local entries=("${VM_FIXTURE_FILES[@]:-}")
   ((${#entries[@]} == 0)) && return 1
   [[ -z "${entries[0]:-}" && ${#entries[@]} -eq 1 ]] && return 1
   return 0
 }
 
-_stage_fixture_files() {
+_core_stage_fixture_files() {
   local entries=("${VM_FIXTURE_FILES[@]:-}")
   ((${#entries[@]} == 0)) && return 0
   [[ -z "${entries[0]:-}" && ${#entries[@]} -eq 1 ]] && return 0

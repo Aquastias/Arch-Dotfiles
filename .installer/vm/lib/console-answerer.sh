@@ -13,15 +13,15 @@
 # Pure: text in, decision out — no serial device, no VM.
 #
 # Public API:
-#   console_answerer_variant <serial_text>
+#   vm_console_answerer_variant <serial_text>
 #       → prints the unlock variant (encrypt-hook | systemd-cryptsetup |
 #         zfs-native) and exit 0 when a disk-unlock prompt is present; else
 #         exit 1 with no output.
-#   console_answerer_passphrase [variant]
+#   vm_console_answerer_passphrase [variant]
 #       → the passphrase to send for that variant (the test passphrase).
-#   console_answerer_reply <serial_text>
+#   vm_console_answerer_reply <serial_text>
 #       → print the passphrase and exit 0 when a prompt is present; else exit 1.
-#   console_answerer_watch <log_path> <char_device> [poll_interval]
+#   vm_console_answerer_watch <log_path> <char_device> [poll_interval]
 #       → the IO loop: tail the serial log and write the passphrase to the char
 #         device once per unlock prompt (runs in the background during boot).
 # =============================================================================
@@ -31,9 +31,9 @@
 # door open for distinct secrets without changing the call sites.
 : "${CONSOLE_ANSWERER_PASSPHRASE:=${INSTALL_ENC_PASSPHRASE:-testtest}}"
 
-# console_answerer_variant <serial_text> — classify a line of serial output.
+# vm_console_answerer_variant <serial_text> — classify a line of serial output.
 # Matching is substring-based so serial CRLF and surrounding noise are OK.
-console_answerer_variant() {
+vm_console_answerer_variant() {
   local text="$1"
   # zfs load-key names the pool in single quotes: Enter passphrase for 'rpool':
   if [[ "$text" == *"Enter passphrase for '"* ]]; then
@@ -51,18 +51,18 @@ console_answerer_variant() {
   return 1
 }
 
-# console_answerer_passphrase [variant] — the passphrase for the unlock variant.
-console_answerer_passphrase() {
+# vm_console_answerer_passphrase [variant] — the passphrase for the unlock variant.
+vm_console_answerer_passphrase() {
   printf '%s\n' "$CONSOLE_ANSWERER_PASSPHRASE"
 }
 
-# console_answerer_reply <serial_text> — the whole matcher decision: when the
+# vm_console_answerer_reply <serial_text> — the whole matcher decision: when the
 # line is a disk-unlock prompt, print the passphrase to send and exit 0; else
 # exit 1 with no output. This is what the IO watcher writes to the char device.
-console_answerer_reply() {
+vm_console_answerer_reply() {
   local variant
-  variant="$(console_answerer_variant "$1")" || return 1
-  console_answerer_passphrase "$variant"
+  variant="$(vm_console_answerer_variant "$1")" || return 1
+  vm_console_answerer_passphrase "$variant"
 }
 
 # _console_answerer_replies — read serial text on stdin, print one passphrase
@@ -72,17 +72,17 @@ console_answerer_reply() {
 _console_answerer_replies() {
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
-    console_answerer_reply "$line" || true
+    vm_console_answerer_reply "$line" || true
   done
 }
 
-# console_answerer_watch <log_path> <char_device> [poll_interval] — the IO loop.
+# vm_console_answerer_watch <log_path> <char_device> [poll_interval] — the IO loop.
 # Re-scans the serial log each tick, writing the passphrase to the char device
 # for every prompt not yet answered (tracked by count, so each prompt is
 # answered exactly once and multi-disk / re-prompted unlocks are all handled).
 # Runs until killed; the boot-verify phase bounds it with its own timeout, so a
 # missed unlock surfaces as a boot-fail rather than a hang.
-console_answerer_watch() {
+vm_console_answerer_watch() {
   local log="$1" dev="$2" interval="${3:-0.3}" answered=0
   local -a reps
   while :; do

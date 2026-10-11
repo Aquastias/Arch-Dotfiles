@@ -18,7 +18,7 @@ setup() {
       screenshot) echo img > "$3" ;;
     esac
   }
-  _vm_capacity_preflight() { :; }
+  _core_vm_capacity_preflight() { :; }
 }
 
 teardown() { rm -rf "$T"; }

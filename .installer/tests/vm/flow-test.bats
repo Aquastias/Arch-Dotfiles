@@ -55,12 +55,12 @@ setup() {
 _boot_verify_with_log() { # <log content>: run the marker assertions only
   BOOT_LOG_FILE="$BATS_TEST_TMPDIR/boot.log"
   printf '%s\n' "$1" > "$BOOT_LOG_FILE"
-  _vm_eject_cdroms() { :; }; _vm_running() { return 1; }
-  virsh() { :; }; _wait_for_serial_pty() { :; }
-  _start_console_capture() { :; }; _stop_console_capture() { :; }
-  _start_console_answerer() { :; }; _stop_console_answerer() { :; }
-  sentinel_watcher_wait_marker() { return 0; }
-  run _run_boot_verify
+  _core_vm_eject_cdroms() { :; }; _core_vm_running() { return 1; }
+  virsh() { :; }; _core_wait_for_serial_pty() { :; }
+  _core_start_console_capture() { :; }; _core_stop_console_capture() { :; }
+  _flow_test_start_console_answerer() { :; }; _flow_test_stop_console_answerer() { :; }
+  vm_sentinel_watcher_wait_marker() { return 0; }
+  run _flow_test_run_boot_verify
 }
 
 @test "boot verify: a failed audit fails the VM run" {
@@ -76,7 +76,7 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
 }
 
 @test "flow: every console capture is given its log path (regression)" {
-  run grep -nE '^[[:space:]]*_start_console_capture[[:space:]]*$' \
+  run grep -nE '^[[:space:]]*_core_start_console_capture[[:space:]]*$' \
     "$BATS_TEST_DIRNAME/../../vm/lib/flow-test.sh" \
     "$BATS_TEST_DIRNAME/../../vm/lib/flow-persistent.sh"
   [ "$status" -eq 1 ]
@@ -94,9 +94,9 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
   # fixtures declared nothing was served (Audit Run 20260929, exit 128).
   LIBVIRT_GATEWAY=192.168.122.1 HTTP_PORT=9876
   REPO_URL=http://192.168.122.1:9876/feature-audit-repo.git
-  run _flow_repo_on_http_root
+  run _flow_test_repo_on_http_root
   [ "$status" -eq 0 ]
   REPO_URL=https://github.com/x/y.git
-  run _flow_repo_on_http_root
+  run _flow_test_repo_on_http_root
   [ "$status" -ne 0 ]
 }
