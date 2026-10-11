@@ -24,18 +24,18 @@ agent_ssh_mux_options() {
 
 # _agent_mux_directory — private socket dir for agent_ssh_mux_options.
 _agent_mux_directory() {
-  local d="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/vm-agent-mux"
-  mkdir -p "$d" && chmod 700 "$d" && printf '%s\n' "$d"
+  local directory="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/vm-agent-mux"
+  mkdir -p "$directory" && chmod 700 "$directory" && printf '%s\n' "$directory"
 }
 
 # agent_resolve_name <selector> — VM domain name from a --profile ref (read
 # .name from the profile jsonc) or a bare --vm name (verbatim).
 agent_resolve_name() {
-  local kind="$1" ref="$2"
-  if [[ "$kind" == vm ]]; then printf '%s\n' "$ref"; return 0; fi
+  local kind="$1" reference="$2"
+  if [[ "$kind" == vm ]]; then printf '%s\n' "$reference"; return 0; fi
   local file
-  if [[ "$ref" == /* && -f "$ref" ]]; then file="$ref"
-  else file="$INSTALLER_DIR/vm/profiles/$ref.jsonc"; fi
+  if [[ "$reference" == /* && -f "$reference" ]]; then file="$reference"
+  else file="$INSTALLER_DIR/vm/profiles/$reference.jsonc"; fi
   [[ -f "$file" ]] || die "profile not found: $file"
   jsonc_strip "$file" | jq -er '.name' \
     || die "profile has no .name: $file"
@@ -66,8 +66,8 @@ agent_session_command() {
 # body for the resolved greeter (ADR 0069/0091). sddm → a drop-in [Autologin]
 # block; greetd → an [initial_session] table.
 agent_autologin_config() {
-  local dm="$1" session="$2" user="$3"
-  case "$dm" in
+  local display_manager="$1" session="$2" user="$3"
+  case "$display_manager" in
     sddm)
       printf '[Autologin]\nUser=%s\nSession=%s\nRelogin=true\n' \
         "$user" "$(agent_session_desktop "$session")" ;;
@@ -82,8 +82,8 @@ agent_autologin_config() {
 # impermanence guest (no-op elsewhere). Its /etc rolls back on boot, so an
 # autologin edit not baked into @blank is lost on the reboot (ADR 0144).
 agent_bake_blank_command() {
-  local h=/usr/lib/impermanence/resnapshot.sh
-  printf "sh -c '[ ! -x %s ] || %s'\n" "$h" "$h"
+  local helper=/usr/lib/impermanence/resnapshot.sh
+  printf "sh -c '[ ! -x %s ] || %s'\n" "$helper" "$helper"
 }
 
 # agent_shot_tool <compositor> — screenshot tool for the running compositor.
@@ -109,12 +109,14 @@ agent_pull_command() {
 # internet while host↔guest SSH stays up: drop the default route (saved) / put
 # it back. A link-down would sever the very SSH channel driving the guest.
 agent_network_command() {
-  local s=/run/vm-agent-default-route
+  local saved_route=/run/vm-agent-default-route
   case "$1" in
-    off) printf '%s' "sh -c '[ -s $s ] || ip route show default > $s;" \
+    off) printf '%s' \
+      "sh -c '[ -s $saved_route ] || ip route show default > $saved_route;" \
            " ip route del default 2>/dev/null; true'" ;;
-    on)  printf '%s' "sh -c '[ -s $s ] && while read -r r;" \
-           " do ip route replace \$r; done < $s; rm -f $s; true'" ;;
+    on)  printf '%s' "sh -c '[ -s $saved_route ] && while read -r r;" \
+           " do ip route replace \$r; done < $saved_route;" \
+           " rm -f $saved_route; true'" ;;
     *) return 1 ;;
   esac
   printf '\n'
@@ -124,47 +126,48 @@ agent_network_command() {
 # in press order. Mod/Super/Meta/Win are the logo key. Fails on a key QEMU
 # cannot inject (brightness, mic-mute, ...), so a caller can mark it SKIP.
 agent_key_qcodes() {
-  local tok q; local -a qs=()
+  local token qcode; local -a qcodes=()
   local IFS=+
-  for tok in $1; do
-    tok="${tok// /}"
-    case "${tok,,}" in
-      mod|super|meta|win|logo) q=meta_l ;;
-      ctrl|control) q=ctrl ;;  shift) q="shift" ;;  alt) q=alt ;;
-      return|enter) q=ret ;;  escape|esc) q=esc ;;  space) q=spc ;;
-      tab) q=tab ;;  backspace) q=backspace ;;  delete) q=delete ;;
-      left|right|up|down|home|end|insert) q="${tok,,}" ;;
-      page_up|prior|pageup|pgup) q=pgup ;;
-      page_down|next|pagedown|pgdown|pgdn) q=pgdn ;;
-      print) q=print ;;  minus) q=minus ;;  equal) q=equal ;;
-      bracketleft) q=bracket_left ;;  bracketright) q=bracket_right ;;
-      comma) q=comma ;;  period) q="dot" ;;  slash) q=slash ;;
-      backslash) q=backslash ;;  semicolon) q=semicolon ;;
-      apostrophe) q=apostrophe ;;  grave) q=grave_accent ;;
-      xf86audioraisevolume|volumeup) q=volumeup ;;
-      xf86audiolowervolume|volumedown) q=volumedown ;;
-      xf86audiomute|volumemute) q=audiomute ;;
-      xf86audioplay|mediaplay) q=audioplay ;;
-      xf86audionext|medianext) q=audionext ;;
-      xf86audioprev|mediaprevious) q=audioprev ;;
-      xf86audiostop|mediastop) q=audiostop ;;
-      plus) q="shift equal" ;;  '~'|asciitilde) q="shift grave_accent" ;;
-      '`') q=grave_accent ;;  '=') q=equal ;;  '-') q=minus ;;
-      [a-z0-9]) q="${tok,,}" ;;
-      f[0-9]|f1[0-2]) q="${tok,,}" ;;
+  for token in $1; do
+    token="${token// /}"
+    case "${token,,}" in
+      mod|super|meta|win|logo) qcode=meta_l ;;
+      ctrl|control) qcode=ctrl ;;  shift) qcode="shift" ;;  alt) qcode=alt ;;
+      return|enter) qcode=ret ;;  escape|esc) qcode=esc ;;  space) qcode=spc ;;
+      tab) qcode=tab ;;  backspace) qcode=backspace ;;  delete) qcode=delete ;;
+      left|right|up|down|home|end|insert) qcode="${token,,}" ;;
+      page_up|prior|pageup|pgup) qcode=pgup ;;
+      page_down|next|pagedown|pgdown|pgdn) qcode=pgdn ;;
+      print) qcode=print ;;  minus) qcode=minus ;;  equal) qcode=equal ;;
+      bracketleft) qcode=bracket_left ;;  bracketright) qcode=bracket_right ;;
+      comma) qcode=comma ;;  period) qcode="dot" ;;  slash) qcode=slash ;;
+      backslash) qcode=backslash ;;  semicolon) qcode=semicolon ;;
+      apostrophe) qcode=apostrophe ;;  grave) qcode=grave_accent ;;
+      xf86audioraisevolume|volumeup) qcode=volumeup ;;
+      xf86audiolowervolume|volumedown) qcode=volumedown ;;
+      xf86audiomute|volumemute) qcode=audiomute ;;
+      xf86audioplay|mediaplay) qcode=audioplay ;;
+      xf86audionext|medianext) qcode=audionext ;;
+      xf86audioprev|mediaprevious) qcode=audioprev ;;
+      xf86audiostop|mediastop) qcode=audiostop ;;
+      plus) qcode="shift equal" ;;  '~'|asciitilde) \
+        qcode="shift grave_accent" ;;
+      '`') qcode=grave_accent ;;  '=') qcode=equal ;;  '-') qcode=minus ;;
+      [a-z0-9]) qcode="${token,,}" ;;
+      f[0-9]|f1[0-2]) qcode="${token,,}" ;;
       *) return 1 ;;
     esac
-    qs+=("$q")
+    qcodes+=("$qcode")
   done
   local IFS=' '
-  printf '%s\n' "${qs[*]}"
+  printf '%s\n' "${qcodes[*]}"
 }
 
 # agent_key_qmp <down|up> "<qcodes>" — the QMP input-send-event batch;
 # releases go in reverse so modifiers are held around the key.
 agent_key_qmp() {
-  local dir="$1" codes="$2"
-  jq -cn --arg d "$dir" --arg c "$codes" '
+  local direction="$1" codes="$2"
+  jq -cn --arg d "$direction" --arg c "$codes" '
     ($c | split(" ") | if $d == "up" then reverse else . end) as $k
     | { execute: "input-send-event",
         arguments: { events: [ $k[] | { type: "key",
