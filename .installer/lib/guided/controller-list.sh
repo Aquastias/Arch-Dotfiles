@@ -10,10 +10,12 @@
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
 # guided_controller_list — the current screen's item list on stdout.
 guided_controller_list() {
-  _controller_autocommit   # snapshot any edit for undo/redo (single choke point)
-  local nav state base screen
-  nav="$(_controller_navigation)"; state="$(_controller_state)"; base="$(_controller_baseline)"
-  screen="$(navigation_screen "$nav")"
+  _controller_autocommit \
+      # snapshot any edit for undo/redo (single choke point)
+  local navigation state base screen
+  navigation="$(_controller_navigation)"; state="$(_controller_state)"; \
+    base="$(_controller_baseline)"
+  screen="$(navigation_screen "$navigation")"
   case "$screen" in
   top) _controller_list_top ;;
   profiles) _controller_list_profiles ;;
@@ -43,7 +45,7 @@ guided_controller_list() {
 }
 
 # _controller_list_top — the `top` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_top() {
   # Profiles picker (ADR 0055/0063): a `Profiles ▸` row leads the screen, set
   # off by its own divider above the categories. Unconditional now — even a
@@ -81,7 +83,7 @@ _controller_list_top() {
 }
 
 # _controller_list_profiles — the `profiles` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_profiles() {
   # The picker leads with `↺ Reset to blank` (a confirm-gated full session
   # reset, ADR 0063), then the installable Host Profiles (ADR 0055) one row
@@ -94,7 +96,7 @@ _controller_list_profiles() {
 }
 
 # _controller_list_new_host — the `newhost` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_new_host() {
   # The `+ New host` confirmation (ADR 0063): a full session reset discards
   # ALL session work, so it is confirm-gated. Enter on the confirm row resets;
@@ -104,9 +106,9 @@ _controller_list_new_host() {
 }
 
 # _controller_list_category — the `category` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_category() {
-  local category; category="$(navigation_get "$nav" category)"
+  local category; category="$(navigation_get "$navigation" category)"
   # Live ESP budget warning (ADR 0078): surfaced on the Kernels + Disks
   # screens where kernels / esp_size are picked, not only at Proceed.
   if [[ "$category" == "Disks" || "$category" == "Kernels" ]]; then
@@ -232,7 +234,8 @@ _controller_list_encryption_row() {
     return 0
   fi
   printf 'Encryption ▸ %s%s\n' \
-    "$(_controller_encryption_label "$(_controller_effective "$state" "$base")" \
+    "$(_controller_encryption_label \
+      "$(_controller_effective "$state" "$base")" \
       "$(_controller_secret_tag enc)")" "$mark"
 }
 
@@ -251,21 +254,22 @@ _controller_list_impermanence_row() {
 }
 
 # _controller_list_package_category — the `pkgcat` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_package_category() {
   # The categories inside one slot, each with its package count — mirroring
   # the Categorized List shape so the screen matches the file.
-  local _pslot; _pslot="$(navigation_get "$nav" slot)"
-  local _peff; _peff="$(_controller_effective "$state" "$base")"
-  local _pk _pn
-  while IFS= read -r _pk; do
-    [[ -n "$_pk" ]] || continue
-    _pn="$(_controller_package_union "$_peff" "$_pslot" "$_pk" | grep -c .)"
-    printf '%s ▸ %s\n' "$_pk" "$_pn"
-  done < <(_controller_package_categories "$_peff" "$_pslot")
+  local slot; slot="$(navigation_get "$navigation" slot)"
+  local effective; effective="$(_controller_effective "$state" "$base")"
+  local package_category package_count
+  while IFS= read -r package_category; do
+    [[ -n "$package_category" ]] || continue
+    package_count="$(_controller_package_union "$effective" "$slot" \
+      "$package_category" | grep -c .)"
+    printf '%s ▸ %s\n' "$package_category" "$package_count"
+  done < <(_controller_package_categories "$effective" "$slot")
   # Both slots open the in-place browser (ADR 0086): repo from the local sync
   # DB, aur from the fetched packages.gz list.
-  if [[ "$_pslot" == "aur" ]]; then
+  if [[ "$slot" == "aur" ]]; then
     _controller_action_row "+ Add package ▸ browse all aur packages"
   else
     _controller_action_row "+ Add package ▸ browse all repo packages"
@@ -274,50 +278,52 @@ _controller_list_package_category() {
 }
 
 # _controller_list_packages — the `pkgs` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_packages() {
   # Package toggles with three-state provenance. An inherited entry renders
   # checked WITHOUT a dot; anything this profile or session touched carries
   # one, whether it was added or excluded.
-  local _pslot _pcat _peff
-  _pslot="$(navigation_get "$nav" slot)"; _pcat="$(navigation_get "$nav" pkgcat)"
-  _peff="$(_controller_effective "$state" "$base")"
-  local _pp _mark _dot
-  while IFS= read -r _pp; do
-    [[ -n "$_pp" ]] || continue
-    if _controller_package_excluded "$_peff" "$_pp"; then
-      _mark="[ ]"; _dot="  ●"          # excluded by this profile
+  local slot package_category effective
+  slot="$(navigation_get "$navigation" slot)"; \
+    package_category="$(navigation_get "$navigation" pkgcat)"
+  effective="$(_controller_effective "$state" "$base")"
+  local package mark override_mark
+  while IFS= read -r package; do
+    [[ -n "$package" ]] || continue
+    if _controller_package_excluded "$effective" "$package"; then
+      mark="[ ]"; override_mark="  ●"          # excluded by this profile
     else
-      _mark="[x]"
-      if _controller_package_in_core "$_pslot" "$_pcat" "$_pp"; then
-        _dot=""                        # inherited from Host Core
+      mark="[x]"
+      if _controller_package_in_core "$slot" "$package_category" \
+        "$package"; then
+        override_mark=""                        # inherited from Host Core
       else
-        _dot="  ●"                     # added here
+        override_mark="  ●"                     # added here
       fi
     fi
-    printf '%s %s%s\n' "$_mark" "$_pp" "$_dot"
-  done < <(_controller_package_union "$_peff" "$_pslot" "$_pcat")
+    printf '%s %s%s\n' "$mark" "$package" "$override_mark"
+  done < <(_controller_package_union "$effective" "$slot" "$package_category")
   _controller_action_row "← Back"
 }
 
 # _controller_list_package_browse — the `pkgbrowse` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_package_browse() {
   # Every package in the slot as toggle rows IN this fzf (ADR 0086) — no
   # execute() hand-off, so no bare-tty flash. repo reads the local prewarm
   # cache (pacman -Slq); aur lazily fetches packages.gz. Back leads (the list
   # runs to ~15k/~100k rows, so trailing Back is unreachable; Esc backs too).
   _controller_action_row "← Back"
-  local _bslot _blist
-  _bslot="$(navigation_get "$nav" slot)"
-  if [[ "$_bslot" == "aur" ]]; then
-    _blist="$(_controller_aur_list)"
+  local slot package_list
+  slot="$(navigation_get "$navigation" slot)"
+  if [[ "$slot" == "aur" ]]; then
+    package_list="$(_controller_aur_list)"
   else
-    _blist="$(cat "${GUIDED_PKGLIST_FILE:-/dev/null}" 2>/dev/null)"
-    [[ -n "$_blist" ]] || _blist="$(pacman -Slq 2>/dev/null)"
+    package_list="$(cat "${GUIDED_PKGLIST_FILE:-/dev/null}" 2>/dev/null)"
+    [[ -n "$package_list" ]] || package_list="$(pacman -Slq 2>/dev/null)"
   fi
-  if [[ -z "$_blist" ]]; then
-    if [[ "$_bslot" == "aur" ]]; then
+  if [[ -z "$package_list" ]]; then
+    if [[ "$slot" == "aur" ]]; then
       printf '%s\n' \
         "(no AUR list — offline? type a package name and press Enter to add)"
     else
@@ -327,14 +333,15 @@ _controller_list_package_browse() {
     # Mark the ~15k rows in one awk pass off precomputed sets (a per-row jq
     # would fork per package). `●` flags a session/profile-touched row; `⟲`
     # a package another choice already pulls in (derived, read-only here).
-    local _beff _bcore _bextra _bexcl _bderiv
-    _beff="$(_controller_effective "$state" "$base")"
-    _bcore="$(jq -rn --argjson c "$(config_state_host_core)" --arg s "$_bslot" \
+    local effective _bcore _bextra _bexcl _bderiv
+    effective="$(_controller_effective "$state" "$base")"
+    _bcore="$(jq -rn --argjson c "$(config_state_host_core)" --arg s "$slot" \
       '($c.packages[$s] // {}) | [ .[] | .[]? ] | unique | .[]')"
-    _bextra="$(jq -rn --argjson e "$_beff" --arg s "$_bslot" \
+    _bextra="$(jq -rn --argjson e "$effective" --arg s "$slot" \
       '($e.packages[$s].extra // []) | .[]')"
-    _bexcl="$(jq -rn --argjson e "$_beff" '($e.packages.exclude // [])|.[]')"
-    _bderiv="$(_controller_package_derived_names "$_beff")"
+    _bexcl="$(jq -rn --argjson e "$effective" \
+      '($e.packages.exclude // [])|.[]')"
+    _bderiv="$(_controller_package_derived_names "$effective")"
     awk -v core="$_bcore" -v extra="$_bextra" -v excl="$_bexcl" \
         -v deriv="$_bderiv" -v dot='  ●' -v der='  ⟲ derived' '
       BEGIN{ n=split(core,a,"\n"); for(i=1;i<=n;i++) if(a[i]!="") C[a[i]]=1
@@ -347,47 +354,49 @@ _controller_list_package_browse() {
         else if (X[p]) print "[x] " p dot   # added here
         else if (D[p]) print "[x] " p der   # derived by another choice
         else           print "[ ] " p }     # available to add
-    ' <<<"$_blist"
+    ' <<<"$package_list"
   fi
 }
 
 # _controller_list_package_derived — the `pkgderived` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_package_derived() {
   # Read-only (ADR 0021 keeps the DE adapter owning its own package set).
   # Each row names the category that drives it, so the operator knows where
   # to go to change it.
   # Resolve ONCE, then count per source — the resolver is the expensive part
   # of this render and the loop used to re-run it for every source.
-  local _drows
-  _drows="$(_controller_package_derived "$(_controller_effective "$state" "$base")")"
-  local _dsrc _dn
-  while IFS= read -r _dsrc; do
-    [[ -n "$_dsrc" ]] || continue
-    _dn="$(awk -F'\t' -v s="$_dsrc" '$1 == s { print $3 }' <<<"$_drows" \
+  local derived_rows
+  derived_rows="$(_controller_package_derived "$(_controller_effective \
+    "$state" "$base")")"
+  local source_name derived_count
+  while IFS= read -r source_name; do
+    [[ -n "$source_name" ]] || continue
+    derived_count="$(awk -F'\t' -v s="$source_name" '$1 == s { print $3 }' \
+      <<<"$derived_rows" \
       | sort -u | grep -c .)"
-    [[ "$_dn" -gt 0 ]] || continue
-    printf '%s ▸ %s   (from %s)\n' "$_dsrc" "$_dn" \
-      "$(package_resolver_source_origin "$_dsrc")"
+    [[ "$derived_count" -gt 0 ]] || continue
+    printf '%s ▸ %s   (from %s)\n' "$source_name" "$derived_count" \
+      "$(package_resolver_source_origin "$source_name")"
   done < <(package_resolver_sources 2>/dev/null)
   _controller_action_row "← Back"
 }
 
-# _controller_list_package_derived_source — the `pkgderivedsrc` screen's rows (reads the
-# caller's nav/state/base).
+# _controller_list_package_derived_source — the `pkgderivedsrc` screen's rows
+# (reads the caller's nav/state/base).
 _controller_list_package_derived_source() {
   # One derived source's package list. Not toggleable — these are
   # consequences of choices made elsewhere in the menu.
-  local _dsrc2; _dsrc2="$(navigation_get "$nav" source)"
+  local _dsrc2; _dsrc2="$(navigation_get "$navigation" source)"
   _controller_package_derived "$(_controller_effective "$state" "$base")" \
     | awk -F'\t' -v s="$_dsrc2" '$1 == s { print "    " $3 }' | sort -u
   _controller_action_row "← Back"
 }
 
 # _controller_list_values — the `values` screen's rows (reads the
-# caller's nav/state/base).
+# caller's navigation/state/base).
 _controller_list_values() {
-  local field; field="$(navigation_get "$nav" field)"
+  local field; field="$(navigation_get "$navigation" field)"
   if [[ "$field" == "sysctl" ]]; then
     _controller_sysctl_lines "$state" "$base"
     _controller_action_row "+ Add sysctl (key=value)"
@@ -411,14 +420,16 @@ _controller_list_values() {
   elif [[ "$(_controller_field_kind "$field")" == "toggle" ]]; then
     if _controller_display_values "$field"; then
       local marked_option; while IFS= read -r marked_option; do
-        printf '%s %s\n' "${marked_option:0:3}" "$(display_label "${marked_option:4}")"
+        printf '%s %s\n' "${marked_option:0:3}" \
+          "$(display_label "${marked_option:4}")"
       done < <(_controller_marked_options "$field" "$state" "$base")
     else
       _controller_marked_options "$field" "$state" "$base"
     fi
   else
     if _controller_display_values "$field"; then
-      local option; while IFS= read -r option; do display_label "$option"; done \
+      local option; while IFS= read -r option; do display_label \
+        "$option"; done \
         < <(_controller_enum_options "$field")
     else
       _controller_enum_options "$field"

@@ -12,116 +12,125 @@
 # parent column (the siblings, current item marked "▶", the rest dimmed) above
 # the highlighted item's detail. Pure: reads state + nav from files like
 # guided_controller_list, so it is asserted headless (tests/guided/detail.bats).
-_CONTROLLER_DIM=$'\033[2m'; _CONTROLLER_BOLD=$'\033[1m'; _CONTROLLER_RESET=$'\033[0m'
+_CONTROLLER_DIM=$'\033[2m'; _CONTROLLER_BOLD=$'\033[1m'; \
+  _CONTROLLER_RESET=$'\033[0m'
 
-# _controller_detail_column <current> < "name\toverridden"-lines — the parent column:
-# each name a row, the one equal to <current> marked "▶", the rest dimmed, and a
-# "●" appended to any overridden sibling (user story 14).
+# _controller_detail_column <current> < "name\toverridden"-lines — the parent
+# column: each name a row, the one equal to <current> marked "▶", the rest
+# dimmed, and a "●" appended to any overridden sibling (user story 14).
 _controller_detail_column() {
-  local current="$1" n ov dot
-  while IFS=$'\t' read -r n ov; do
-    dot=""; [[ "$ov" == true ]] && dot="  ●"
-    if [[ -n "$current" && "$n" == "$current" ]]; then
-      printf '  %s▶ %s%s%s\n' "$_CONTROLLER_BOLD" "$n" "$dot" "$_CONTROLLER_RESET"
+  local current="$1" count overridden dot
+  while IFS=$'\t' read -r count overridden; do
+    dot=""; [[ "$overridden" == true ]] && dot="  ●"
+    if [[ -n "$current" && "$count" == "$current" ]]; then
+      printf '  %s▶ %s%s%s\n' "$_CONTROLLER_BOLD" "$count" "$dot" \
+        "$_CONTROLLER_RESET"
     else
-      printf '%s    %s%s%s\n' "$_CONTROLLER_DIM" "$n" "$dot" "$_CONTROLLER_RESET"
+      printf '%s    %s%s%s\n' "$_CONTROLLER_DIM" "$count" "$dot" \
+        "$_CONTROLLER_RESET"
     fi
   done
 }
 
-# _controller_detail_leaf <field> <state> <base> — one field's leaf detail, shared by
-# the category-screen field row and the field editor screens: its label, current
-# value (● when overridden), then either its option set (enumerable) or a
-# free-text hint (a text field). Pure.
+# _controller_detail_leaf <field> <state> <base> — one field's leaf detail,
+# shared by the category-screen field row and the field editor screens: its
+# label, current value (● when overridden), then either its option set
+# (enumerable) or a free-text hint (a text field). Pure.
 _controller_detail_leaf() {
-  local field="$1" state="$2" base="$3" row label val ov dot opts
+  local field="$1" state="$2" base="$3" row label value overridden dot options
   row="$(menu_rows "$state" "$base" \
     | jq -c --arg p "$field" 'first(.[] | select(.field == $p)) // {}')"
   label="$(jq -r '.label // ""' <<<"$row")"
-  val="$(jq -r '.value // ""' <<<"$row")"
-  ov="$(jq -r '.overridden // false' <<<"$row")"
-  dot=""; [[ "$ov" == true ]] && dot="  ●"
-  printf '%s%s%s\n  %s: %s%s\n' "$_CONTROLLER_BOLD" "$label" "$_CONTROLLER_RESET" \
-    "$label" "${val:-(none)}" "$dot"
+  value="$(jq -r '.value // ""' <<<"$row")"
+  overridden="$(jq -r '.overridden // false' <<<"$row")"
+  dot=""; [[ "$overridden" == true ]] && dot="  ●"
+  printf '%s%s%s\n  %s: %s%s\n' "$_CONTROLLER_BOLD" "$label" \
+    "$_CONTROLLER_RESET" \
+    "$label" "${value:-(none)}" "$dot"
   if [[ "$(_controller_field_kind "$field")" == text ]]; then
-    printf '%s  (free text — type a value)%s\n' "$_CONTROLLER_DIM" "$_CONTROLLER_RESET"
+    printf '%s  (free text — type a value)%s\n' "$_CONTROLLER_DIM" \
+      "$_CONTROLLER_RESET"
     return 0
   fi
   # A Cycle Field has no menu_enum_options list; render its two values with the
   # current one marked so Enter-flips-here stays discoverable (ADR 0075).
   if _controller_is_cycle_field "$field"; then
     printf '%sCycle:%s\n' "$_CONTROLLER_DIM" "$_CONTROLLER_RESET"
-    local o
-    for o in true false; do
-      if [[ "$o" == "$val" ]]; then printf '  ● %s\n' "$o"
-      else printf '    %s\n' "$o"; fi
+    local option
+    for option in true false; do
+      if [[ "$option" == "$value" ]]; then printf '  ● %s\n' "$option"
+      else printf '    %s\n' "$option"; fi
     done
     return 0
   fi
-  opts="$(menu_enum_options "$field")"
-  [[ -n "$opts" ]] || return 0
+  options="$(menu_enum_options "$field")"
+  [[ -n "$options" ]] || return 0
   printf '%sOptions:%s\n' "$_CONTROLLER_DIM" "$_CONTROLLER_RESET"
-  printf '%s\n' "  ${opts//$'\n'/$'\n'  }"
+  printf '%s\n' "  ${options//$'\n'/$'\n'  }"
 }
 
-# _controller_detail_reflector_note <category> — the reflector consumer line, shown
-# only under Mirrors & Repositories: the countries feed reflector's ranking.
+# _controller_detail_reflector_note <category> — the reflector consumer line,
+# shown only under Mirrors & Repositories: the countries feed reflector's
+# ranking.
 _controller_detail_reflector_note() {
   [[ "$1" == "Mirrors & Repositories" ]] || return 0
   printf '%s  countries → reflector --country --latest 10 --sort rate%s\n' \
     "$_CONTROLLER_DIM" "$_CONTROLLER_RESET"
 }
 
-# _controller_detail_user_table <state> <base> — the Users account table for the detail
-# pane (ticket 03): root's row plus each user's shell/sudo/groups panel, reusing
-# the existing _controller_user_panel builder (no new render). Disabled users show as
-# such. Mirrors the flattened Users screen's rows.
+# _controller_detail_user_table <state> <base> — the Users account table for the
+# detail pane (ticket 03): root's row plus each user's shell/sudo/groups panel,
+# reusing the existing _controller_user_panel builder (no new render). Disabled
+# users show as such. Mirrors the flattened Users screen's rows.
 _controller_detail_user_table() {
-  local state="$1" base="$2" um un
+  local state="$1" base="$2" marked_user user
   printf '\n%sAccounts%s\n' "$_CONTROLLER_BOLD" "$_CONTROLLER_RESET"
-  printf 'root — %s · pw %s\n' "$(_controller_root_shell)" "$(_controller_secret_tag root)"
-  while IFS= read -r um; do
-    un="${um:4}"
-    [[ -n "$un" ]] || continue
-    if [[ "${um:0:3}" == "[x]" ]]; then _controller_user_panel "$un"
-    else printf '%s — disabled\n' "$un"; fi
+  printf 'root — %s · pw %s\n' "$(_controller_root_shell)" \
+    "$(_controller_secret_tag root)"
+  while IFS= read -r marked_user; do
+    user="${marked_user:4}"
+    [[ -n "$user" ]] || continue
+    if [[ "${marked_user:0:3}" == "[x]" ]]; then _controller_user_panel "$user"
+    else printf '%s — disabled\n' "$user"; fi
   done < <(_controller_user_marked "$state" "$base")
 }
 
-# _controller_detail_top <line> <state> <base> — top-screen preview: the highlighted
-# category's OWN detail only. The category parent column is gone (ADR 0082) —
-# the
-# current selection is marked by the fzf triangle pointer in the main list, so
-# the pane no longer duplicates the category list. Users shows its table (ticket
-# 03); every other category shows its fields as "label: value" (● on overrides).
-# A non-category row (Profiles/Proceed/a bucket header/…) previews nothing.
+# _controller_detail_top <line> <state> <base> — top-screen preview: the
+# highlighted category's OWN detail only. The category parent column is gone
+# (ADR 0082) — the current selection is marked by the fzf triangle pointer in
+# the main list, so the pane no longer duplicates the category list. Users shows
+# its table (ticket 03); every other category shows its fields as "label: value"
+# (● on overrides). A non-category row (Profiles/Proceed/a bucket header/…)
+# previews nothing.
 _controller_detail_top() {
-  local line="$1" state="$2" base="$3" cur rows
-  cur="${line%% — *}"
-  if [[ "$cur" == "Users" ]]; then
+  local line="$1" state="$2" base="$3" current rows
+  current="${line%% — *}"
+  if [[ "$current" == "Users" ]]; then
     _controller_detail_user_table "$state" "$base"; return 0
   fi
-  rows="$(menu_category_rows "$cur" "$state" "$base" 2>/dev/null)"
+  rows="$(menu_category_rows "$current" "$state" "$base" 2>/dev/null)"
   [[ -n "$rows" && "$rows" != "[]" ]] || return 0
-  printf '%s%s%s\n' "$_CONTROLLER_BOLD" "$cur" "$_CONTROLLER_RESET"
+  printf '%s%s%s\n' "$_CONTROLLER_BOLD" "$current" "$_CONTROLLER_RESET"
   jq -r '.[] | "  \(.label): \(.value // "")"
                + (if .overridden then "  ●" else "" end)' <<<"$rows"
-  _controller_detail_reflector_note "$cur"
+  _controller_detail_reflector_note "$current"
 }
 
-# _controller_detail_category <line> <state> <base> <cat> — category-screen preview:
-# the sibling-field parent column + the highlighted leaf's value and options.
+# _controller_detail_category <line> <state> <base> <cat> — category-screen
+# preview: the sibling-field parent column + the highlighted leaf's value and
+# options.
 _controller_detail_category() {
-  local line="$1" state="$2" base="$3" cat="$4" label rows cur_field cur_label
+  local line="$1" state="$2" base="$3" cat="$4" label rows current_field \
+    current_label
   label="${line%%:*}"; label="${label%% ▸*}"
-  cur_field="$(_controller_field_for_label "$cat" "$label")"
+  current_field="$(_controller_field_for_label "$cat" "$label")"
   rows="$(menu_category_rows "$cat" "$state" "$base")"
-  cur_label=""
-  [[ -n "$cur_field" ]] && cur_label="$(jq -r --arg p "$cur_field" \
+  current_label=""
+  [[ -n "$current_field" ]] && current_label="$(jq -r --arg p "$current_field" \
     'first(.[] | select(.field == $p) | .label) // ""' <<<"$rows")"
   printf '%s%s%s\n' "$_CONTROLLER_BOLD" "$cat" "$_CONTROLLER_RESET"
   jq -r '.[] | "\(.label)\t\(.overridden)"' <<<"$rows" \
-    | _controller_detail_column "$cur_label"
+    | _controller_detail_column "$current_label"
   _controller_detail_reflector_note "$cat"
   # The Disks Layout row is a synthetic leaf: preview the live ZFS pool tree,
   # reusing the layout-graph builder (ticket 03).
@@ -130,25 +139,27 @@ _controller_detail_category() {
     _controller_layout_graph "$(_controller_effective "$state" "$base")"
     return 0
   fi
-  [[ -n "$cur_field" ]] || return 0
+  [[ -n "$current_field" ]] || return 0
   printf '\n'
-  _controller_detail_leaf "$cur_field" "$state" "$base"
+  _controller_detail_leaf "$current_field" "$state" "$base"
 }
 
-# _controller_detail_pane <line> — the master-detail preview for the top / category
-# screens (ADR 0071); empty on any other screen (they keep their own preview).
+# _controller_detail_pane <line> — the master-detail preview for the top /
+# category screens (ADR 0071); empty on any other screen (they keep their own
+# preview).
 _controller_detail_pane() {
-  local line="$1" nav state base
-  nav="$(_controller_navigation)"; state="$(_controller_state)"; base="$(_controller_baseline)"
-  case "$(navigation_screen "$nav")" in
+  local line="$1" navigation state base
+  navigation="$(_controller_navigation)"; state="$(_controller_state)"; \
+    base="$(_controller_baseline)"
+  case "$(navigation_screen "$navigation")" in
   top)      _controller_detail_top "$line" "$state" "$base" ;;
   category) _controller_detail_category "$line" "$state" "$base" \
-              "$(navigation_get "$nav" category)" ;;
+              "$(navigation_get "$navigation" category)" ;;
   esac
 }
 
-# guided_controller_preview <line> — the fzf preview body. On the top + category +
-# field screens it is the always-on master-detail pane (ADR 0071); on the
+# guided_controller_preview <line> — the fzf preview body. On the top + category
+# + field screens it is the always-on master-detail pane (ADR 0071); on the
 # layout / profiles / users screens it is that screen's own rich preview (the
 # layout graph, profile tree, per-user panel); empty elsewhere.
 guided_controller_preview() {
@@ -174,7 +185,7 @@ guided_controller_preview() {
 # _controller_live_layout_graph — the layout graph of the live effective state.
 _controller_live_layout_graph() {
   _controller_layout_graph \
-    "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")"
+    "$(_controller_live_effective)"
 }
 
 # _controller_preview_profile <line> — a deep ASCII tree of the resolved
@@ -282,8 +293,8 @@ _controller_preview_layout() {
 # _controller_hosts_root — the hosts/ tree the Profiles picker enumerates.
 _controller_hosts_root() { printf '%s' "${INSTALLER_DIR:-.}/hosts"; }
 
-# _controller_profiles_available — rc 0 when at least one installable Host Profile
-# exists (so the top-screen `Profiles ▸` row is shown), rc 1 otherwise.
+# _controller_profiles_available — rc 0 when at least one installable Host
+# Profile exists (so the top-screen `Profiles ▸` row is shown), rc 1 otherwise.
 _controller_profiles_available() {
   [[ -n "$(profiles_list "$(_controller_hosts_root)" 2>/dev/null)" ]]
 }

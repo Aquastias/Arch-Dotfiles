@@ -8,10 +8,12 @@
 # =============================================================================
 
 _controller_enter_swap_edit() {
-  local line="$1" nav cat; nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
+  local line="$1" navigation cat; navigation="$(_controller_navigation)"; \
+    cat="$(navigation_get "$navigation" category)"
   case "$line" in
   "← Back")
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
+    _controller_write_navigation \
+      "$(navigation_back "$navigation")"; echo render; return ;;
   "enabled:"*)
     # flip options.swap; has("swap") keeps an explicit false from being read as
     # the default true (jq `//` false-swallow gotcha).
@@ -20,7 +22,8 @@ _controller_enter_swap_edit() {
       | .options.swap = ($c | not)' <<<"$(_controller_state)")"
     echo refresh; return ;;
   "size:"*)
-    _controller_write_navigation "$(navigation_to_text "$cat" options.swap_size "swap size")"
+    _controller_write_navigation \
+      "$(navigation_to_text "$cat" options.swap_size "swap size")"
     echo render; return ;;
   "zswap:"*)
     _controller_write_state "$(jq '
@@ -46,40 +49,48 @@ _controller_enter_swap_edit() {
   echo refresh
 }
 
-# _controller_enter_data_pools <line> — the data-pools list editor: add a tank<N> pool
-# (auto-named, default mirror ×2; forces multi + a default OS pool), or open a
-# pool by name. STAYS on the list after an add (refresh).
+# _controller_enter_data_pools <line> — the data-pools list editor: add a
+# tank<N> pool (auto-named, default mirror ×2; forces multi + a default OS
+# pool), or open a pool by name. STAYS on the list after an add (refresh).
 _controller_enter_data_pools() {
-  local line="$1" nav cat name idx
-  nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
+  local line="$1" navigation cat name index
+  navigation="$(_controller_navigation)"; \
+    cat="$(navigation_get "$navigation" category)"
   case "$line" in
-  "← Back") _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
+  "← Back") _controller_write_navigation \
+    "$(navigation_back "$navigation")"; echo render; return ;;
   "+ Add storage"*)
-    _controller_write_state "$(_controller_add_storage_group "$(_controller_state)")"
+    _controller_write_state \
+      "$(_controller_add_storage_group "$(_controller_state)")"
     echo refresh; return ;;
   "+ Add"*)
-    _controller_write_state "$(_controller_add_data_pool "$(_controller_state)")"
+    _controller_write_state \
+      "$(_controller_add_data_pool "$(_controller_state)")"
     echo refresh; return ;;
   "OS pool:"*)
     # the singleton OS pool editor (topology + disks, ADR 0047).
-    _controller_write_navigation "$(navigation_to_pool_edit "$cat" 0 os)"; echo render; return ;;
+    _controller_write_navigation \
+      "$(navigation_to_pool_edit "$cat" 0 os)"; echo render; return ;;
   *" (storage):"*)
     # a preset storage group (binding-only): parse its name, resolve its index.
     name="${line%% (storage):*}"
-    idx="$(jq -r --arg n "$name" \
+    index="$(jq -r --arg n "$name" \
       '[(.storage_groups // [])[] | .name] | (index($n) // -1)' \
       <<<"$(_controller_state)")"
-    if [[ "$idx" =~ ^[0-9]+$ ]]; then
-      _controller_write_navigation "$(navigation_to_pool_edit "$cat" "$idx" storage)"
+    if [[ "$index" =~ ^[0-9]+$ ]]; then
+      _controller_write_navigation \
+        "$(navigation_to_pool_edit "$cat" "$index" storage)"
       echo render; return
     fi
     echo refresh; return ;;
   esac
   name="${line%%:*}"
-  idx="$(jq -r --arg n "$name" \
-    '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$(_controller_state)")"
-  if [[ "$idx" =~ ^[0-9]+$ ]]; then
-    _controller_write_navigation "$(navigation_to_pool_edit "$cat" "$idx" data)"; echo render; return
+  index="$(jq -r --arg n "$name" \
+    '[(.data_pools // [])[] | .name] | (index($n) // -1)' \
+    <<<"$(_controller_state)")"
+  if [[ "$index" =~ ^[0-9]+$ ]]; then
+    _controller_write_navigation \
+      "$(navigation_to_pool_edit "$cat" "$index" data)"; echo render; return
   fi
   echo refresh
 }
@@ -188,92 +199,102 @@ _controller_cycle_pool_disks() {
   echo refresh
 }
 
-# _controller_pool_disks_resolve <tail> — the full by-id path whose basename matches the
-# label tail (enumeration includes bound disks — they are still physically
-# present — so this resolves both a bind and an unbind).
+# _controller_pool_disks_resolve <tail> — the full by-id path whose basename
+# matches the label tail (enumeration includes bound disks — they are still
+# physically present — so this resolves both a bind and an unbind).
 _controller_pool_disks_resolve() {
   picker_enum_disks "$(_controller_live_set)" | awk -v t="$1" '
     { n = $0; sub(/.*\//, "", n); if (n == t) { print; exit } }'
 }
 
-# _controller_line_to_disk <line> — the full by-id path a picked disk row resolves to:
-# strip the 4-char mark ("[x] "/"[ ] "/"(*) "/"( ) "), take the by-id tail (the
-# segment after the last " · "), and resolve it. Empty when it doesn't resolve.
+# _controller_line_to_disk <line> — the full by-id path a picked disk row
+# resolves to: strip the 4-char mark ("[x] "/"[ ] "/"(*) "/"( ) "), take the
+# by-id tail (the segment after the last " · "), and resolve it. Empty when it
+# doesn't resolve.
 _controller_line_to_disk() {
   local tail="${1:4}"; tail="${tail##* · }"
   _controller_pool_disks_resolve "$tail"
 }
 
-# _controller_enter_pool_disks <line> — the disk sub-screen: Enter toggles one disk's
-# binding (STAY, refresh re-marks in place); ← Back returns to the pool editor.
+# _controller_enter_pool_disks <line> — the disk sub-screen: Enter toggles one
+# disk's binding (STAY, refresh re-marks in place); ← Back returns to the pool
+# editor.
 _controller_enter_pool_disks() {
-  local line="$1" nav cat i kind path p
-  nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
-  i="$(navigation_get "$nav" index)"; kind="$(_controller_pool_kind "$nav")"
+  local line="$1" navigation cat i kind path pool
+  navigation="$(_controller_navigation)"; \
+    cat="$(navigation_get "$navigation" category)"
+  i="$(navigation_get "$navigation" index)"; \
+    kind="$(_controller_pool_kind "$navigation")"
   if [[ "$line" == "← Back" ]]; then
-    _controller_write_navigation "$(navigation_to_pool_edit "$cat" "$i" "$kind")"
+    _controller_write_navigation \
+      "$(navigation_to_pool_edit "$cat" "$i" "$kind")"
     echo render; return
   fi
   path="$(_controller_line_to_disk "$line")"
   [[ -n "$path" ]] || { echo refresh; return; }
-  p="$(_controller_pool_get "$(_controller_state)" "$kind" "$i")"
-  _controller_write_state "$(_controller_pool_set "$(_controller_state)" "$kind" "$i" \
-    "$(_controller_pool_toggle_disk "$p" "$path")")"
+  pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$i")"
+  _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
+    "$kind" "$i" \
+    "$(_controller_pool_toggle_disk "$pool" "$path")")"
   echo refresh
 }
 
-# _controller_enter_root_disk <line> — the single-disk-root picker: Enter sets root_disk
-# to the picked disk (single-select — replaces any prior) and returns to the
-# category, since one pick is the whole job; ← Back → category.
+# _controller_enter_root_disk <line> — the single-disk-root picker: Enter sets
+# root_disk to the picked disk (single-select — replaces any prior) and returns
+# to the category, since one pick is the whole job; ← Back → category.
 _controller_enter_root_disk() {
-  local line="$1" nav cat path
-  nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
+  local line="$1" navigation cat path
+  navigation="$(_controller_navigation)"; \
+    cat="$(navigation_get "$navigation" category)"
   if [[ "$line" == "← Back" ]]; then
-    _controller_write_navigation "$(navigation_to_category "$cat")"; echo render; return
+    _controller_write_navigation \
+      "$(navigation_to_category "$cat")"; echo render; return
   fi
   path="$(_controller_line_to_disk "$line")"
   [[ -n "$path" ]] || { echo refresh; return; }
-  _controller_write_state "$(config_state_set "$(_controller_state)" root_disk "\"$path\"")"
+  _controller_write_state \
+    "$(config_state_set "$(_controller_state)" root_disk "\"$path\"")"
   _controller_write_navigation "$(navigation_to_category "$cat")"
   echo render
 }
 
-# guided_controller_back — Esc: back one screen, or abort the whole menu at the top.
+# guided_controller_back — Esc: back one screen, or abort the whole menu at the
+# top.
 guided_controller_back() {
-  local nav; nav="$(_controller_navigation)"
-  if [[ "$(navigation_screen "$nav")" == "top" ]]; then echo abort; return; fi
-  _controller_write_navigation "$(navigation_back "$nav")"; echo render
+  local navigation; navigation="$(_controller_navigation)"
+  if [[ "$(navigation_screen "$navigation")" == \
+    "top" ]]; then echo abort; return; fi
+  _controller_write_navigation "$(navigation_back "$navigation")"; echo render
 }
 
 # ── ^A / ^X context actions (ADR 0047 rich chrome) ───────────────────────────
-# _controller_data_pools_line_reference <line> — the "<kind> <index>" of the pool a
-# highlighted
-# datapools list row addresses, or empty for a non-pool row (OS pool / + Add / ←
-# Back). Shared by ^X-on-list removal. Pure: reads state to resolve name→index.
+# _controller_data_pools_line_reference <line> — the "<kind> <index>" of the
+# pool a highlighted datapools list row addresses, or empty for a non-pool row
+# (OS pool / + Add / ← Back). Shared by ^X-on-list removal. Pure: reads state to
+# resolve name→index.
 _controller_data_pools_line_reference() {
-  local line="$1" name idx state; state="$(_controller_state)"
+  local line="$1" name index state; state="$(_controller_state)"
   case "$line" in
   "OS pool:"* | "+ Add"* | "← Back") return 0 ;;
   *" (storage):"*)
     name="${line%% (storage):*}"
-    idx="$(jq -r --arg n "$name" \
+    index="$(jq -r --arg n "$name" \
       '[(.storage_groups // [])[] | .name] | (index($n) // -1)' <<<"$state")"
-    [[ "$idx" =~ ^[0-9]+$ ]] && printf 'storage %s' "$idx" ;;
+    [[ "$index" =~ ^[0-9]+$ ]] && printf 'storage %s' "$index" ;;
   *)
     name="${line%%:*}"
-    idx="$(jq -r --arg n "$name" \
+    index="$(jq -r --arg n "$name" \
       '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$state")"
-    [[ "$idx" =~ ^[0-9]+$ ]] && printf 'data %s' "$idx" ;;
+    [[ "$index" =~ ^[0-9]+$ ]] && printf 'data %s' "$index" ;;
   esac
 }
 
 # The add/create/remove affordances that legacy chrome puts in the list ride on
-# keybindings in rich mode. guided_controller_action <add|add-storage|remove> [<line>]
-# runs the current screen's context action and returns a directive (like the
-# enter handlers), so ^A/^S/^X work identically to the legacy action rows.
-# <line>
-# is the highlighted row (used by ^X on the datapools list). A screen with no
-# matching action returns `noop`.
+# keybindings in rich mode. guided_controller_action <add|add-storage|remove>
+# [<line>] runs the current screen's context action and returns a directive
+# (like the enter handlers), so ^A/^S/^X work identically to the legacy action
+# rows. <line> is the highlighted row (used by ^X on the datapools list). A
+# screen with no matching action returns `noop`.
 guided_controller_action() {
   local kind="$1" line="${2:-}" navigation screen category
   navigation="$(_controller_navigation)"
@@ -301,7 +322,8 @@ _controller_add_action() {
   local screen="$1" navigation="$2" category="$3"
   case "$screen" in
   datapools)
-    _controller_write_state "$(_controller_add_data_pool "$(_controller_state)")"
+    _controller_write_state \
+      "$(_controller_add_data_pool "$(_controller_state)")"
     echo refresh ;;
   values)
     case "$(navigation_get "$navigation" field)" in

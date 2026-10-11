@@ -178,8 +178,8 @@ _controller_enter_enum_value() {
   _controller_write_navigation "$(navigation_back "$navigation")"; echo render
 }
 
-# _controller_enter_text <query> — commit the typed query into the field, then back.
-# Empty query (Esc-less cancel via Enter) just returns without a change.
+# _controller_enter_text <query> — commit the typed query into the field, then
+# back. Empty query (Esc-less cancel via Enter) just returns without a change.
 _controller_enter_text() {
   local query="$1" navigation path category
   navigation="$(_controller_navigation)"
@@ -302,21 +302,23 @@ _controller_append_user() {
     "$(jq -cn --arg v "$1" --argjson a "$users_json" '$a + [$v]')")"
 }
 
-# _controller_enter_swap_edit <line> — the swap sub-editor: toggle swap on/off, toggle
-# zswap, cycle the zswap compressor (zstd→lz4→lzo) and max pool % (5→…→60), or
-# open the free-text size editor. Toggles/cycles STAY on the screen (refresh);
-# size opens the text screen (which returns here — see _controller_enter_text).
-# _controller_enter_encryption <line> — the Encryption Editor (ADR 0059): flip the
-# enablement toggle in place (strict delta — landing back on the baseline drops
-# the override), or drop the passphrase row into the shared masked capture (rich
-# fzf enters the masked screen; older fzf falls back to the execute() prompt).
-# The capture carries this screen as its origin, so a confirmed passphrase
-# returns here. Setting a passphrase never touches the toggle.
+# _controller_enter_swap_edit <line> — the swap sub-editor: toggle swap on/off,
+# toggle zswap, cycle the zswap compressor (zstd→lz4→lzo) and max pool %
+# (5→…→60), or open the free-text size editor. Toggles/cycles STAY on the screen
+# (refresh); size opens the text screen (which returns here — see
+# _controller_enter_text). _controller_enter_encryption <line> — the Encryption
+# Editor (ADR 0059): flip the enablement toggle in place (strict delta — landing
+# back on the baseline drops the override), or drop the passphrase row into the
+# shared masked capture (rich fzf enters the masked screen; older fzf falls back
+# to the execute() prompt). The capture carries this screen as its origin, so a
+# confirmed passphrase returns here. Setting a passphrase never touches the
+# toggle.
 _controller_enter_encryption() {
-  local line="$1" nav; nav="$(_controller_navigation)"
+  local line="$1" navigation; navigation="$(_controller_navigation)"
   case "$line" in
   "← Back")
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
+    _controller_write_navigation \
+      "$(navigation_back "$navigation")"; echo render; return ;;
   "enabled:"*)
     # flip options.encryption; has() keeps an explicit value from being read as
     # the default (false). Normalise so toggling back to the baseline (off)
@@ -326,25 +328,29 @@ _controller_enter_encryption() {
       (if (.options // {} | has("encryption")) then .options.encryption
        else false end) as $c
       | .options.encryption = ($c | not)' <<<"$(_controller_state)")"
-    _controller_write_state "$(_controller_normalise_default "$_flipped" options.encryption)"
+    _controller_write_state \
+      "$(_controller_normalise_default "$_flipped" options.encryption)"
     echo refresh; return ;;
   "password:"*)
-    if _controller_rich_chrome; then _controller_open_secret enc; else echo "secret-enc"; fi
+    if _controller_rich_chrome; then _controller_open_secret enc; else echo \
+      "secret-enc"; fi
     return ;;
   esac
   echo refresh
 }
 
-# _controller_enter_impermanence <line> — the Impermanence Editor dispatch (ADR 0066):
-# flip options.impermanence.enabled in place (strict delta — landing on the
-# baseline drops the override, like the encryption toggle) or open the
-# __persist__ add-a-directory text screen. The read-only curated-defaults row
-# is inert. Modelled on the encryption sub-editor.
+# _controller_enter_impermanence <line> — the Impermanence Editor dispatch (ADR
+# 0066): flip options.impermanence.enabled in place (strict delta — landing on
+# the baseline drops the override, like the encryption toggle) or open the
+# __persist__ add-a-directory text screen. The read-only curated-defaults row is
+# inert. Modelled on the encryption sub-editor.
 _controller_enter_impermanence() {
-  local line="$1" nav cat; nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
+  local line="$1" navigation cat; navigation="$(_controller_navigation)"; \
+    cat="$(navigation_get "$navigation" category)"
   case "$line" in
   "← Back")
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
+    _controller_write_navigation \
+      "$(navigation_back "$navigation")"; echo render; return ;;
   "enabled:"*)
     local _flipped
     _flipped="$(jq '
@@ -352,16 +358,19 @@ _controller_enter_impermanence() {
        then .options.impermanence.enabled else false end) as $c
       | .options.impermanence.enabled = ($c | not)' <<<"$(_controller_state)")"
     _controller_write_state \
-      "$(_controller_normalise_default "$_flipped" options.impermanence.enabled)"
+      "$(_controller_normalise_default "$_flipped" \
+        options.impermanence.enabled)"
     echo refresh; return ;;
   "Add persist"*)
-    _controller_write_navigation "$(navigation_to_text "$cat" __persist__ "persist dir")"
+    _controller_write_navigation \
+      "$(navigation_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
   "curated defaults:"*)
     echo refresh; return ;;   # read-only summary line
   esac
   # Any other row is a user-added persist directory (ADR 0066): drop it. A stray
   # line that isn't in the list is a harmless no-op (edit returns it unchanged).
-  _controller_write_state "$(edit_remove_persist "$(_controller_state)" "$line" || true)"
+  _controller_write_state \
+    "$(edit_remove_persist "$(_controller_state)" "$line" || true)"
   echo refresh
 }

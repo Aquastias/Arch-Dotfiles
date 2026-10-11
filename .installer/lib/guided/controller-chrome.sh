@@ -9,47 +9,48 @@
 
 # ── per-screen header + prompt (so every screen says how to go back) ─────────
 _controller_navigation_header() {
-  local b
+  local keys
   case "$(navigation_screen "$1")" in
-  top)      b='Enter open   Esc quit' ;;
-  profiles) b='Enter seed from profile   Esc back' ;;
-  newhost)  b='Enter confirm reset   Esc cancel' ;;
-  rooteditor) b='Enter edit/cycle   Esc back' ;;
-  category) b='Enter edit / cycle   Esc back' ;;
+  top)      keys='Enter open   Esc quit' ;;
+  profiles) keys='Enter seed from profile   Esc back' ;;
+  newhost)  keys='Enter confirm reset   Esc cancel' ;;
+  rooteditor) keys='Enter edit/cycle   Esc back' ;;
+  category) keys='Enter edit / cycle   Esc back' ;;
   values)
     if [[ "$(navigation_get "$1" field)" == "users" ]]; then
-      b='Enter toggle / set pw   Esc back'
-    elif [[ "$(_controller_field_kind "$(navigation_get "$1" field)")" == "toggle" ]]; then
-      b='Enter toggle ✓   Esc done'
+      keys='Enter toggle / set pw   Esc back'
+    elif [[ "$(_controller_field_kind "$(navigation_get "$1" field)")" == \
+      "toggle" ]]; then
+      keys='Enter toggle ✓   Esc done'
     else
-      b='Enter choose   Esc back'
+      keys='Enter choose   Esc back'
     fi ;;
-  text)     b='Type a value, Enter save   Esc back' ;;
-  swapedit)  b='Enter edit/toggle   Esc back' ;;
-  manualparts) b='Enter open / cfdisk   Esc back' ;;
-  partedit)  b='Enter cycle/toggle   Esc back' ;;
-  encryption) b='Enter edit/toggle   Esc back' ;;
-  impermanence) b='Enter edit/toggle/remove   Esc back' ;;
-  datapools) b='Enter open/add   Esc back' ;;
-  pooledit)  b='Enter cycle/remove   Esc back' ;;
-  pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
-  rootdisk)  b='Enter pick   Esc back' ;;
-  useredit)  b='Enter edit/toggle   Esc back' ;;
+  text)     keys='Type a value, Enter save   Esc back' ;;
+  swapedit)  keys='Enter edit/toggle   Esc back' ;;
+  manualparts) keys='Enter open / cfdisk   Esc back' ;;
+  partedit)  keys='Enter cycle/toggle   Esc back' ;;
+  encryption) keys='Enter edit/toggle   Esc back' ;;
+  impermanence) keys='Enter edit/toggle/remove   Esc back' ;;
+  datapools) keys='Enter open/add   Esc back' ;;
+  pooledit)  keys='Enter cycle/remove   Esc back' ;;
+  pooldisks) keys='Enter bind/unbind ✓   Esc back' ;;
+  rootdisk)  keys='Enter pick   Esc back' ;;
+  useredit)  keys='Enter edit/toggle   Esc back' ;;
   userfield)
     case "$(_controller_user_field_kind "$(navigation_get "$1" field)")" in
-    multi) b='Enter toggle ✓   Esc back' ;;
-    text)  b='Type a value, Enter save   Esc back' ;;
-    list)  b='Enter add   Esc back' ;;
+    multi) keys='Enter toggle ✓   Esc back' ;;
+    text)  keys='Type a value, Enter save   Esc back' ;;
+    list)  keys='Enter add   Esc back' ;;
     esac ;;
-  secret)    b='Type the password, Enter continues   Esc cancels' ;;
-  pkgcat)    b='Enter open / add   Esc back' ;;
-  pkgs)      b='Enter toggle ✓   Esc back' ;;
-  pkgbrowse) b='Type to filter · Enter add/remove ✓   Esc back' ;;
-  pkgderived)    b='Enter open (read-only)   Esc back' ;;
-  pkgderivedsrc) b='Read-only — change it in Environment/Security/Backup' ;;
-  *)        b='Esc back' ;;
+  secret)    keys='Type the password, Enter continues   Esc cancels' ;;
+  pkgcat)    keys='Enter open / add   Esc back' ;;
+  pkgs)      keys='Enter toggle ✓   Esc back' ;;
+  pkgbrowse) keys='Type to filter · Enter add/remove ✓   Esc back' ;;
+  pkgderived)    keys='Enter open (read-only)   Esc back' ;;
+  pkgderivedsrc) keys='Read-only — change it in Environment/Security/Backup' ;;
+  *)        keys='Esc back' ;;
   esac
-  printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
+  printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$keys"
 }
 _controller_navigation_prompt() {
   case "$(navigation_screen "$1")" in
@@ -81,28 +82,30 @@ _controller_navigation_prompt() {
   esac
 }
 
-# _controller_esp_budget_warn <effective-json> → a one-line ⚠ when a PINNED esp_size is
-# too small for the selected kernels on an ESP-mirroring loader (ADR 0078), so
-# the conflict shows live on the Kernels / Disks screens, not only at Proceed.
-# Nothing when esp_size is auto, the loader is grub, or the pin fits.
+# _controller_esp_budget_warn <effective-json> → a one-line ⚠ when a PINNED
+# esp_size is too small for the selected kernels on an ESP-mirroring loader (ADR
+# 0078), so the conflict shows live on the Kernels / Disks screens, not only at
+# Proceed. Nothing when esp_size is auto, the loader is grub, or the pin fits.
 _controller_esp_budget_warn() {
-  local eff="$1" size n fs bl
-  size="$(jq -r '.options.esp_size // "auto"' <<<"$eff")"
+  local effective="$1" size kernel_count filesystem bootloader
+  size="$(jq -r '.options.esp_size // "auto"' <<<"$effective")"
   [[ "$size" == auto ]] && return 0
-  n="$(jq -r '(.options.kernel // ["lts"])
-              | if type == "string" then 1 else length end' <<<"$eff")"
-  fs="$(jq -r '.filesystem // "zfs"' <<<"$eff")"
-  bl="$(jq -r '.options.bootloader // "systemd-boot"' <<<"$eff")"
-  esp_budget_fits_size "$size" "$n" "$fs" "$bl" && return 0
+  kernel_count="$(jq -r '(.options.kernel // ["lts"])
+              | if type == "string" then 1 else length end' <<<"$effective")"
+  filesystem="$(jq -r '.filesystem // "zfs"' <<<"$effective")"
+  bootloader="$(jq -r '.options.bootloader // "systemd-boot"' <<<"$effective")"
+  esp_budget_fits_size "$size" "$kernel_count" "$filesystem" "$bootloader" \
+    && return 0
   printf '⚠ ESP too small: %s %s kernel(s) need ≥ %s (esp size is %s)\n' \
-    "$n" "$bl" "$(esp_budget_auto_size "$n" "$fs" "$bl")" "$size"
+    "$kernel_count" "$bootloader" \
+    "$(esp_budget_auto_size "$kernel_count" "$filesystem" "$bootloader")" \
+    "$size"
 }
 
-# _controller_layout_label <effective-json> → a one-line description of the current
-# disk
-# layout, so the Disks "Disk layout" row reflects the chosen preset instead of a
-# static "choose preset". single → "single"; multi → "os <topo> ×<n>" plus any
-# storage / data pool counts.
+# _controller_layout_label <effective-json> → a one-line description of the
+# current disk layout, so the Disks "Disk layout" row reflects the chosen preset
+# instead of a static "choose preset". single → "single"; multi → "os <topo>
+# ×<n>" plus any storage / data pool counts.
 _controller_layout_label() {
   jq -r '
     if (.mode // "single") != "multi" then "single disk"
@@ -115,28 +118,29 @@ _controller_layout_label() {
     end' <<<"$1"
 }
 
-# _controller_swap_on <effective-json> → "true"/"false": is swap enabled (default
-# true)?
-# has("swap") so an explicit `swap:false` is not swallowed by jq's `//` (which
-# treats false like null) — see [[dotfiles_jq_alternative_false]].
+# _controller_swap_on <effective-json> → "true"/"false": is swap enabled
+# (default true)? has("swap") so an explicit `swap:false` is not swallowed by
+# jq's `//` (which treats false like null) — see
+# [[dotfiles_jq_alternative_false]].
 _controller_swap_on() {
   jq -r '(.options // {}) as $o
     | if ($o | has("swap")) then $o.swap else true end' <<<"$1"
 }
 
-# _controller_zswap_on <effective-json> → "true"/"false": is zswap enabled (default
-# true)? has("enabled") so an explicit false is honoured, not read as default.
+# _controller_zswap_on <effective-json> → "true"/"false": is zswap enabled
+# (default true)? has("enabled") so an explicit false is honoured, not read as
+# default.
 _controller_zswap_on() {
   jq -r '(.options.zswap // {}) as $z
     | if ($z | has("enabled")) then $z.enabled else true end' <<<"$1"
 }
 
-# _controller_swap_label <effective-json> → the one-line swap summary for the Disks
-# swap
-# row: "off" when swap is disabled, else the size (default "auto") plus a zswap
-# suffix — "· zswap <compressor>" when zswap is on, "· no zswap" when off (so a
-# deviation from the zswap-on default is visible). NOTE: a stored false must
-# survive — jq's `//` treats false like null, so test membership with has().
+# _controller_swap_label <effective-json> → the one-line swap summary for the
+# Disks swap row: "off" when swap is disabled, else the size (default "auto")
+# plus a zswap suffix — "· zswap <compressor>" when zswap is on, "· no zswap"
+# when off (so a deviation from the zswap-on default is visible). NOTE: a stored
+# false must survive — jq's `//` treats false like null, so test membership with
+# has().
 _controller_swap_label() {
   jq -r '
     (.options // {}) as $o
@@ -151,15 +155,15 @@ _controller_swap_label() {
       end' <<<"$1"
 }
 
-# _controller_encryption_label <effective-json> <tag> → the one-line summary for the
-# collapsed Disks Encryption row (ADR 0059): "off" when encryption is disabled,
-# else "on · <tag>" where <tag> is the source tag (default <value> / custom /
-# from age) computed by the caller. Pure: JSON + a string in, a string out — so
-# the row text is testable without fzf or the secrets file, the way _controller_swap_
-# label is.
+# _controller_encryption_label <effective-json> <tag> → the one-line summary for
+# the collapsed Disks Encryption row (ADR 0059): "off" when encryption is
+# disabled, else "on · <tag>" where <tag> is the source tag (default <value> /
+# custom / from age) computed by the caller. Pure: JSON + a string in, a string
+# out — so the row text is testable without fzf or the secrets file, the way
+# _controller_swap_ label is.
 _controller_encryption_label() {
-  local eff="$1" tag="$2"
-  if [[ "$(config_state_get "$eff" options.encryption)" == "true" ]]; then
+  local effective="$1" tag="$2"
+  if [[ "$(config_state_get "$effective" options.encryption)" == "true" ]]; then
     printf 'on · %s' "$tag"
   else
     printf 'off'
@@ -212,13 +216,12 @@ _controller_add_data_pool() {
     ' <<<"$1"
 }
 
-# _controller_add_storage_group <state> → state with one more storage group appended,
-# forcing multi mode + a default OS pool. Storage groups fold into the shared
-# `dpool` (each a redundant data area at /<name>), so a new one defaults to
-# mirror ×2; the user cycles to raidz1 ×3 to rebuild the os-mirror-raidz1
-# preset.
-# The first group is auto-named "data" at /data (preset parity), then data1, …
-# Shared by the data-pools editor's "+ Add storage group".
+# _controller_add_storage_group <state> → state with one more storage group
+# appended, forcing multi mode + a default OS pool. Storage groups fold into the
+# shared `dpool` (each a redundant data area at /<name>), so a new one defaults
+# to mirror ×2; the user cycles to raidz1 ×3 to rebuild the os-mirror-raidz1
+# preset. The first group is auto-named "data" at /data (preset parity), then
+# data1, … Shared by the data-pools editor's "+ Add storage group".
 _controller_add_storage_group() {
   jq '
     (.storage_groups // []) as $sg
@@ -238,14 +241,15 @@ _controller_add_storage_group() {
 # is os (singleton) | storage | data; index selects within the array kinds. Pure
 # resolvers: state + kind + index in, group JSON / new state out.
 
-# _controller_pool_kind <nav> — the group kind carried by a pooledit nav, defaulting to
-# data (so a nav authored before this reference existed still resolves).
+# _controller_pool_kind <nav> — the group kind carried by a pooledit nav,
+# defaulting to data (so a nav authored before this reference existed still
+# resolves).
 _controller_pool_kind() {
-  local k; k="$(navigation_get "$1" kind)"; printf '%s' "${k:-data}"
+  local kind; kind="$(navigation_get "$1" kind)"; printf '%s' "${kind:-data}"
 }
 
-# _controller_pool_get <state> <kind> <index> — the group object at (kind, index), or
-# {} when absent.
+# _controller_pool_get <state> <kind> <index> — the group object at (kind,
+# index), or {} when absent.
 _controller_pool_get() {
   case "$2" in
   os)      jq -c '.os_pool // {}' <<<"$1" ;;
@@ -266,8 +270,9 @@ _controller_pool_set() {
   esac
 }
 
-# _controller_pool_delete <state> <kind> <index> — state with the group at (kind, index)
-# removed. The OS pool is structural, not removable — a del on os is a no-op.
+# _controller_pool_delete <state> <kind> <index> — state with the group at
+# (kind, index) removed. The OS pool is structural, not removable — a del on os
+# is a no-op.
 _controller_pool_delete() {
   case "$2" in
   os)      jq -c '.' <<<"$1" ;;
@@ -283,17 +288,19 @@ _controller_pool_delete() {
 # in GUIDED_DEVICE_MODE) and read here; GUIDED_LIVE_SET carries the live-medium
 # disks to exclude, so the controller never probes hardware itself.
 
-# _controller_live_set — the newline-separated live-medium whole-disk set to exclude
-# from enumeration (empty when unset — no exclusion).
+# _controller_live_set — the newline-separated live-medium whole-disk set to
+# exclude from enumeration (empty when unset — no exclusion).
 _controller_live_set() { printf '%s' "${GUIDED_LIVE_SET-}"; }
 
-# _controller_detect_device_mode — "1" when any install disk is enumerable, else "0".
-# guided.sh calls this once at launch; the pure result drives the cached flag.
+# _controller_detect_device_mode — "1" when any install disk is enumerable, else
+# "0". guided.sh calls this once at launch; the pure result drives the cached
+# flag.
 _controller_detect_device_mode() {
   [[ -n "$(picker_enum_disks "$(_controller_live_set)")" ]] && echo 1 || echo 0
 }
 
-# _controller_device_mode — rc 0 when In-Menu Disk Binding is active (the cached flag).
+# _controller_device_mode — rc 0 when In-Menu Disk Binding is active (the cached
+# flag).
 _controller_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
 
 # ── Rich chrome version gate (ADR 0047) ──────────────────────────────────────
@@ -309,30 +316,29 @@ _controller_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
 # is ≥ 0.62 (any major > 0 qualifies). Pure: the first token's first two dotted
 # fields, base-10 to dodge a leading-zero octal read.
 _controller_fzf_rich_for_version() {
-  local v="${1%% *}" major minor
-  major="${v%%.*}"; v="${v#*.}"; minor="${v%%.*}"
+  local version="${1%% *}" major minor
+  major="${version%%.*}"; version="${version#*.}"; minor="${version%%.*}"
   [[ "$major" =~ ^[0-9]+$ ]] || major=0
   [[ "$minor" =~ ^[0-9]+$ ]] || minor=0
   (( 10#$major > 0 || 10#$minor >= 62 ))
 }
 
-# _controller_detect_rich_chrome — "1" when the installed fzf supports rich chrome,
-# else
-# "0" (also 0 when fzf is absent — legacy is the safe floor). guided.sh calls
-# this
-# once at launch; the pure result drives the cached flag.
+# _controller_detect_rich_chrome — "1" when the installed fzf supports rich
+# chrome, else "0" (also 0 when fzf is absent — legacy is the safe floor).
+# guided.sh calls this once at launch; the pure result drives the cached flag.
 _controller_detect_rich_chrome() {
-  local ver; ver="$(fzf --version 2>/dev/null)"
-  [[ -n "$ver" ]] && _controller_fzf_rich_for_version "$ver" && echo 1 || echo 0
+  local version; version="$(fzf --version 2>/dev/null)"
+  [[ -n "$version" ]] && _controller_fzf_rich_for_version "$version" \
+    && echo 1 || echo 0
 }
 
-# _controller_rich_chrome — rc 0 when the rich chrome is active (the cached flag).
-# Unset
-# defaults to legacy, so every non-interactive seam renders action rows.
+# _controller_rich_chrome — rc 0 when the rich chrome is active (the cached
+# flag). Unset defaults to legacy, so every non-interactive seam renders action
+# rows.
 _controller_rich_chrome() { [[ "${GUIDED_RICH_CHROME:-0}" == "1" ]]; }
 
-# _controller_action_row <line...> — emit action rows (Back/Add/remove/create) as
-# visible list rows in BOTH chromes (ADR 0063, amends 0047). Rich fzf still
+# _controller_action_row <line...> — emit action rows (Back/Add/remove/create)
+# as visible list rows in BOTH chromes (ADR 0063, amends 0047). Rich fzf still
 # keeps the ^A/^X/Esc keybindings + footer as accelerators, but the rows render
 # too, so every action is discoverable at a glance (a footer-only ^A proved
 # invisible — the only way to add a user was an undocumented shortcut). Rich
@@ -340,15 +346,16 @@ _controller_rich_chrome() { [[ "${GUIDED_RICH_CHROME:-0}" == "1" ]]; }
 _controller_action_row() { printf '%s\n' "$@"; }
 
 # ── rich-chrome footer + breadcrumb (ADR 0047) ───────────────────────────────
-# _controller_breadcrumb <nav> — the location breadcrumb for the list border-label
-# (`--list-label`): Guided ▸ Category ▸ … . Pure: reads the nav (+ the pool name
-# from state for the pool screens).
+# _controller_breadcrumb <nav> — the location breadcrumb for the list
+# border-label (`--list-label`): Guided ▸ Category ▸ … . Pure: reads the nav (+
+# the pool name from state for the pool screens).
 _controller_breadcrumb() {
-  local nav="$1" cat pool; cat="$(navigation_get "$nav" category)"
-  case "$(navigation_screen "$nav")" in
+  local navigation="$1" cat pool; cat="$(navigation_get "$navigation" category)"
+  case "$(navigation_screen "$navigation")" in
   top)         printf ' Guided ' ;;
   category)    printf ' Guided ▸ %s ' "$cat" ;;
-  values|text) printf ' Guided ▸ %s ▸ %s ' "$cat" "$(navigation_get "$nav" label)" ;;
+  values|text) printf ' Guided ▸ %s ▸ %s ' "$cat" \
+    "$(navigation_get "$navigation" label)" ;;
   swapedit)    printf ' Guided ▸ %s ▸ swap ' "$cat" ;;
   manualparts) printf ' Guided ▸ %s ▸ partitions ' "$cat" ;;
   partedit)    printf ' Guided ▸ %s ▸ partition ' "$cat" ;;
@@ -356,47 +363,48 @@ _controller_breadcrumb() {
   rootdisk)    printf ' Guided ▸ %s ▸ root disk ' "$cat" ;;
   pooledit | pooldisks)
     pool="$(jq -r '.name // .pool_name // "pool"' <<<"$(_controller_pool_get \
-      "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")" \
-      "$(_controller_pool_kind "$nav")" "$(navigation_get "$nav" index)")")"
+      "$(_controller_live_effective)" \
+      "$(_controller_pool_kind "$navigation")" \
+      "$(navigation_get "$navigation" index)")")"
     printf ' Guided ▸ %s ▸ layout ▸ %s ' "$cat" "$pool" ;;
   *) printf ' Guided ' ;;
   esac
 }
 
-# _controller_footer_summary <nav> — the live one-line summary for the footer. On a
-# pool
-# screen it describes THAT pool ("tank0 · mirror · 2 bound"); elsewhere it is
-# the
-# whole-layout label. Pure: reads state.
+# _controller_footer_summary <nav> — the live one-line summary for the footer.
+# On a pool screen it describes THAT pool ("tank0 · mirror · 2 bound");
+# elsewhere it is the whole-layout label. Pure: reads state.
 _controller_footer_summary() {
-  local nav="$1" eff
-  case "$(navigation_screen "$nav")" in
+  local navigation="$1" effective
+  case "$(navigation_screen "$navigation")" in
   pooledit | pooldisks)
-    eff="$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")"
-    jq -r --arg k "$(_controller_pool_kind "$nav")" \
+    effective="$(_controller_live_effective)"
+    jq -r --arg k "$(_controller_pool_kind "$navigation")" \
       '. as $g
        | "\($g.name // $g.pool_name // "pool") · \($g.topology // "?") · "
        + (if ($g.devices // null) != null
           then "\($g.devices | length) bound"
           else "\($g.disk_count // "?") disks" end)' \
-      <<<"$(_controller_pool_get "$eff" "$(_controller_pool_kind "$nav")" \
-            "$(navigation_get "$nav" index)")" ;;
+      <<<"$(_controller_pool_get "$effective" \
+        "$(_controller_pool_kind "$navigation")" \
+            "$(navigation_get "$navigation" index)")" ;;
   *)
     # The OS layout label belongs to the Disks context only — printed on every
     # screen's footer it read as a stray "single disk" on Locales/Kernels/etc.
-    [[ "$(navigation_get "$nav" category)" == "Disks" ]] || return 0
-    _controller_layout_label "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")" ;;
+    [[ "$(navigation_get "$navigation" category)" == "Disks" ]] || return 0
+    _controller_layout_label \
+      "$(_controller_live_effective)" ;;
   esac
 }
 
-# _controller_footer <nav> — the rich-chrome footer: this screen's context actions and
-# a live summary, separated by a bar. Pure: reads the nav + state.
+# _controller_footer <nav> — the rich-chrome footer: this screen's context
+# actions and a live summary, separated by a bar. Pure: reads the nav + state.
 _controller_footer() {
-  local nav="$1" acts
-  case "$(navigation_screen "$nav")" in
+  local navigation="$1" acts
+  case "$(navigation_screen "$navigation")" in
   datapools) acts='^A data pool · ^S storage group · ^X remove · Esc back' ;;
   pooledit)
-    case "$(_controller_pool_kind "$nav")" in
+    case "$(_controller_pool_kind "$navigation")" in
     data)    acts='^X remove pool · Esc back' ;;
     storage) acts='^X remove group · Esc back' ;;
     *)       acts='Esc back' ;;
@@ -404,7 +412,7 @@ _controller_footer() {
   pooldisks) acts='Enter bind/unbind · Esc back' ;;
   rootdisk)  acts='Enter pick · Esc back' ;;
   values)
-    case "$(navigation_get "$nav" field)" in
+    case "$(navigation_get "$navigation" field)" in
     sysctl | users) acts='^A add · Esc back' ;;
     *)              acts='Enter choose · Esc back' ;;
     esac ;;
@@ -412,7 +420,7 @@ _controller_footer() {
   pkgbrowse) acts='Enter add/remove · Esc back' ;;
   *)         acts='Esc back' ;;
   esac
-  local sum; sum="$(_controller_footer_summary "$nav")"
+  local sum; sum="$(_controller_footer_summary "$navigation")"
   if [[ -n "$sum" ]]; then printf '%s   │   %s' "$acts" "$sum"
   else printf '%s' "$acts"; fi
 }
