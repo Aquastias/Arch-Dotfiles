@@ -18,6 +18,8 @@
 #
 # Public API:
 #   menu_owned_programs → every Menu-Owned Program name, sorted-unique, one/line
+#
+# Used by: lib/guided/controller.sh.
 # =============================================================================
 
 # shellcheck source=./printing.sh
@@ -36,15 +38,15 @@ declare -F post_install_owned_programs >/dev/null 2>&1 \
 declare -F mirrors_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/mirrors.sh"
 
-# bootloader_owned_programs — the one bootloader that is also a registry Program
-# (`grub`); the Bootloader enum is its home. State-independent, like
+# menu_owned_bootloader_programs — the one bootloader that is also a registry
+# Program (`grub`); the Bootloader enum is its home. State-independent, like
 # power_owned_programs — grub is never a free-standing pickable program.
-bootloader_owned_programs() { printf '%s\n' grub; }
+menu_owned_bootloader_programs() { printf '%s\n' grub; }
 
-# secrets_owned_programs — the secrets-activated `sops` Program; the Runner
+# menu_owned_secrets_programs — the secrets-activated `sops` Program; the Runner
 # selects it when install-state records secrets (ADR 0025), so it is never
 # picker-chosen.
-secrets_owned_programs() { printf '%s\n' sops; }
+menu_owned_secrets_programs() { printf '%s\n' sops; }
 
 # menu_owned_programs — the union of every control, sorted-unique. The single
 # set both guided program pickers subtract, so a new control-owned program is
@@ -54,8 +56,8 @@ menu_owned_programs() {
     bluetooth_owned_programs
     power_owned_programs
     post_install_owned_programs
-    bootloader_owned_programs
-    secrets_owned_programs
+    menu_owned_bootloader_programs
+    menu_owned_secrets_programs
     mirrors_owned_programs
   } | sort -u
 }

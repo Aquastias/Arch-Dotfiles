@@ -11,10 +11,10 @@
 # guided_ctl_back). No fzf is needed to drive it — state files in, files + a
 # directive out — so the dispatch is unit-testable without a tty.
 #
-# Screens (nav.sh): top, category, values (enum picks, toggles, list editors,
-# the Disk-layout preset picker), text (typed into fzf's query line). Everything
-# commits in place, so the menu never leaves fzf; ^Z/^Y/^R drive undo/redo/reset
-# over a snapshot history.
+# Screens (navigation.sh): top, category, values (enum picks, toggles, list
+# editors, the Disk-layout preset picker), text (typed into fzf's query line).
+# Everything commits in place, so the menu never leaves fzf; ^Z/^Y/^R drive
+# undo/redo/reset over a snapshot history.
 #
 # Directives (one per guided_ctl_enter / guided_ctl_back call):
 #   render             re-list + re-prompt + re-header the current screen
@@ -34,12 +34,12 @@ declare -F config_state_get >/dev/null 2>&1 \
 # shellcheck source=../config/config-store.sh
 declare -F config_store_state >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/config-store.sh"
-# shellcheck source=../config/nav.sh
-declare -F nav_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/nav.sh"
-# shellcheck source=../config/edits.sh
+# shellcheck source=../config/navigation.sh
+declare -F navigation_new >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/navigation.sh"
+# shellcheck source=../config/edit.sh
 declare -F edit_set_bool >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/edits.sh"
+  || source "${BASH_SOURCE[0]%/*}/../config/edit.sh"
 # shellcheck source=../config/menu.sh
 declare -F menu_categories >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/menu.sh"
@@ -50,7 +50,7 @@ declare -F guided_row_inert >/dev/null 2>&1 \
 declare -F esp_budget_fits_size >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/esp-budget.sh"
 # shellcheck source=../config/manual-partition.sh
-declare -F manual_kind_active >/dev/null 2>&1 \
+declare -F manual_partition_kind_active >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/manual-partition.sh"
 # shellcheck source=../config/skeleton.sh
 declare -F skeleton_preset >/dev/null 2>&1 \
@@ -59,7 +59,7 @@ declare -F skeleton_preset >/dev/null 2>&1 \
 declare -F picker_enum_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 # shellcheck source=../config/history.sh
-declare -F hist_new >/dev/null 2>&1 \
+declare -F history_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/history.sh"
 # shellcheck source=../config/display.sh
 declare -F display_label >/dev/null 2>&1 \
@@ -365,19 +365,19 @@ _ctl_biglist_options() {
   local out
   case "$1" in
   system.keymap)
-    out="$(locale_list_keymaps)" ;;
+    out="$(locale_source_keymaps)" ;;
   system.timezone)
     out="$(timedatectl list-timezones 2>/dev/null)"
     [[ -n "$out" ]] || out="$(find /usr/share/zoneinfo -type f -printf '%P\n' \
       2>/dev/null | grep -E '^[A-Z][A-Za-z_]+/' | sort)" ;;
   __language__)
-    out="$(locale_list_languages)" ;;
+    out="$(locale_source_languages)" ;;
   __encoding__)
     # only the encodings valid for the currently-chosen language (ADR 0076).
-    out="$(locale_list_encodings \
-      "$(locale_language "$(_ctl_locale_current)")")" ;;
+    out="$(locale_source_encodings \
+      "$(locale_parts_language "$(_ctl_locale_current)")")" ;;
   system.console_font)
-    out="$(locale_list_console_fonts)" ;;
+    out="$(locale_source_console_fonts)" ;;
   esac
   [[ -n "$out" ]] && printf '%s\n' "$out"
 }
@@ -400,12 +400,12 @@ _ctl_locale_current() {
 _ctl_apply_locale_part() {
   local state="$1" which="$2" val="$3" cur lang enc newloc locjson
   cur="$(_ctl_locale_current)"
-  lang="$(locale_language "$cur")"; enc="$(locale_encoding "$cur")"
+  lang="$(locale_parts_language "$cur")"; enc="$(locale_parts_encoding "$cur")"
   case "$which" in
   __language__) lang="$val" ;;
   __encoding__) enc="$val" ;;
   esac
-  newloc="$(locale_compose "$lang" "$enc")"
+  newloc="$(locale_parts_compose "$lang" "$enc")"
   locjson="$(jq -c --arg n "$newloc" '
     (.system.locale) as $l
     | if ($l | type) == "array" and ($l | length) > 1 then ([$n] + $l[1:])
@@ -467,7 +467,7 @@ _ctl_apply_text() {
     config_state_set "$state" users "$(jq -cn --argjson a "$_cur" --arg v "$val" \
       'if any($a[]; . == $v) then $a else ($a + [$v]) end')" ;;
   # sysctl / custom mirror Server / custom repository — the routing-heavy adds
-  # share one implementation with the replay helpers via edits.sh (ADR 0072).
+  # share one implementation with the replay helpers via edit.sh (ADR 0072).
   sysctl)                      edit_add_sysctl_pair "$state" "$val" ;;
   options.mirror_servers)      edit_add_mirror_server "$state" "$val" ;;
   options.custom_repositories) edit_add_custom_repository "$state" "$val" ;;
@@ -931,16 +931,16 @@ _ctl_field_display() {
 # ── per-screen header + prompt (so every screen says how to go back) ─────────
 _ctl_nav_header() {
   local b
-  case "$(nav_screen "$1")" in
+  case "$(navigation_screen "$1")" in
   top)      b='Enter open   Esc quit' ;;
   profiles) b='Enter seed from profile   Esc back' ;;
   newhost)  b='Enter confirm reset   Esc cancel' ;;
   rooteditor) b='Enter edit/cycle   Esc back' ;;
   category) b='Enter edit / cycle   Esc back' ;;
   values)
-    if [[ "$(nav_get "$1" field)" == "users" ]]; then
+    if [[ "$(navigation_get "$1" field)" == "users" ]]; then
       b='Enter toggle / set pw   Esc back'
-    elif [[ "$(_ctl_field_kind "$(nav_get "$1" field)")" == "toggle" ]]; then
+    elif [[ "$(_ctl_field_kind "$(navigation_get "$1" field)")" == "toggle" ]]; then
       b='Enter toggle ✓   Esc done'
     else
       b='Enter choose   Esc back'
@@ -957,7 +957,7 @@ _ctl_nav_header() {
   rootdisk)  b='Enter pick   Esc back' ;;
   useredit)  b='Enter edit/toggle   Esc back' ;;
   userfield)
-    case "$(_ctl_userfield_kind "$(nav_get "$1" field)")" in
+    case "$(_ctl_userfield_kind "$(navigation_get "$1" field)")" in
     multi) b='Enter toggle ✓   Esc back' ;;
     text)  b='Type a value, Enter save   Esc back' ;;
     list)  b='Enter add   Esc back' ;;
@@ -973,13 +973,13 @@ _ctl_nav_header() {
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
 }
 _ctl_nav_prompt() {
-  case "$(nav_screen "$1")" in
+  case "$(navigation_screen "$1")" in
   top)         printf 'guided> ' ;;
   profiles)    printf 'profiles> ' ;;
   newhost)     printf 'reset> ' ;;
   rooteditor)  printf 'root> ' ;;
-  category)    printf '%s> ' "$(nav_get "$1" category)" ;;
-  values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
+  category)    printf '%s> ' "$(navigation_get "$1" category)" ;;
+  values|text) printf '%s> ' "$(navigation_get "$1" label)" ;;
   swapedit)    printf 'swap> ' ;;
   manualparts) printf 'partitions> ' ;;
   partedit)    printf 'partition> ' ;;
@@ -989,15 +989,15 @@ _ctl_nav_prompt() {
   pooledit)    printf 'pool> ' ;;
   pooldisks)   printf 'disks> ' ;;
   rootdisk)    printf 'root disk> ' ;;
-  useredit)    printf '%s> ' "$(nav_get "$1" user)" ;;
-  userfield)   printf '%s> ' "$(nav_get "$1" label)" ;;
+  useredit)    printf '%s> ' "$(navigation_get "$1" user)" ;;
+  userfield)   printf '%s> ' "$(navigation_get "$1" label)" ;;
   secret)      printf 'password> ' ;;
-  pkgcat)        printf '%s> ' "$(nav_get "$1" slot)" ;;
-  pkgs)          printf '%s/%s> ' "$(nav_get "$1" slot)" \
-                   "$(nav_get "$1" pkgcat)" ;;
-  pkgbrowse)     printf '%s pkg> ' "$(nav_get "$1" slot)" ;;
+  pkgcat)        printf '%s> ' "$(navigation_get "$1" slot)" ;;
+  pkgs)          printf '%s/%s> ' "$(navigation_get "$1" slot)" \
+                   "$(navigation_get "$1" pkgcat)" ;;
+  pkgbrowse)     printf '%s pkg> ' "$(navigation_get "$1" slot)" ;;
   pkgderived)    printf 'derived> ' ;;
-  pkgderivedsrc) printf 'derived/%s> ' "$(nav_get "$1" source)" ;;
+  pkgderivedsrc) printf 'derived/%s> ' "$(navigation_get "$1" source)" ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -1162,7 +1162,7 @@ _ctl_add_storage_group() {
 # _ctl_pool_kind <nav> — the group kind carried by a pooledit nav, defaulting to
 # data (so a nav authored before this reference existed still resolves).
 _ctl_pool_kind() {
-  local k; k="$(nav_get "$1" kind)"; printf '%s' "${k:-data}"
+  local k; k="$(navigation_get "$1" kind)"; printf '%s' "${k:-data}"
 }
 
 # _ctl_pool_get <state> <kind> <index> — the group object at (kind, index), or
@@ -1664,10 +1664,10 @@ _ctl_detail_category() {
 _ctl_detail_pane() {
   local line="$1" nav state base
   nav="$(_ctl_nav)"; state="$(_ctl_state)"; base="$(_ctl_baseline)"
-  case "$(nav_screen "$nav")" in
+  case "$(navigation_screen "$nav")" in
   top)      _ctl_detail_top "$line" "$state" "$base" ;;
   category) _ctl_detail_category "$line" "$state" "$base" \
-              "$(nav_get "$nav" category)" ;;
+              "$(navigation_get "$nav" category)" ;;
   esac
 }
 
@@ -1678,13 +1678,13 @@ _ctl_detail_pane() {
 guided_ctl_preview() {
   local line="$1" nav field
   nav="$(_ctl_nav)"
-  case "$(nav_screen "$nav")" in
+  case "$(navigation_screen "$nav")" in
   top | category) _ctl_detail_pane "$line"; return 0 ;;
   esac
   # The data-pools editor screens graph the LIVE state (not a preset line) so
   # the
   # tree reflects pools/disks as you add and cycle them.
-  case "$(nav_screen "$nav")" in
+  case "$(navigation_screen "$nav")" in
   datapools | pooledit)
     _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     return 0 ;;
@@ -1705,7 +1705,7 @@ guided_ctl_preview() {
   text)
     # The free-text editor screen (hostname / URL / size / package name): the
     # shared leaf detail so the pane is populated here too (ADR 0071).
-    _ctl_detail_leaf "$(nav_get "$nav" field)" \
+    _ctl_detail_leaf "$(navigation_get "$nav" field)" \
       "$(_ctl_state)" "$(_ctl_baseline)"
     return 0 ;;
   pkgbrowse)
@@ -1715,15 +1715,15 @@ guided_ctl_preview() {
     [[ "$line" == "← Back" || "${line:0:1}" != "[" ]] && return 0
     local _bpkg; _bpkg="${line:4}"; _bpkg="${_bpkg%%  *}"
     [[ -n "$_bpkg" ]] || return 0
-    if [[ "$(nav_get "$nav" slot)" == "aur" ]]; then
+    if [[ "$(navigation_get "$nav" slot)" == "aur" ]]; then
       _ctl_aur_preview "$_bpkg"
     else
       pacman -Si "$_bpkg" 2>/dev/null
     fi
     return 0 ;;
   esac
-  [[ "$(nav_screen "$nav")" == "values" ]] || return 0
-  field="$(nav_get "$nav" field)"
+  [[ "$(navigation_screen "$nav")" == "values" ]] || return 0
+  field="$(navigation_get "$nav" field)"
   # A field with no dedicated selection panel (kernel, bootloader, gpu, a bool)
   # gets the shared leaf detail, so every field screen shows a populated pane.
   if ! _ctl_field_has_preview "$field"; then
@@ -1773,7 +1773,7 @@ guided_ctl_preview() {
     local cur
     cur="$(_ctl_field_display "$field" "$(_ctl_state)" "$(_ctl_baseline)")"
     printf 'Selected %s:\n  %s\n\nHighlighted:\n  %s\n' \
-      "$(nav_get "$nav" label)" "${cur:-(none)}" "$line" ;;
+      "$(navigation_get "$nav" label)" "${cur:-(none)}" "$line" ;;
   esac
 }
 
@@ -1793,7 +1793,7 @@ guided_ctl_list() {
   _ctl_autocommit   # snapshot any edit for undo/redo (single choke point)
   local nav state base screen
   nav="$(_ctl_nav)"; state="$(_ctl_state)"; base="$(_ctl_baseline)"
-  screen="$(nav_screen "$nav")"
+  screen="$(navigation_screen "$nav")"
   case "$screen" in
   top)
     # Profiles picker (ADR 0055/0063): a `Profiles ▸` row leads the screen, set
@@ -1820,7 +1820,7 @@ guided_ctl_list() {
     # Manual Partitioning is Proceed-only (ADR 0073): a hand-drawn partition
     # table cannot be replayed from a committed file, so Save and Export are
     # withheld while it is active.
-    if ! manual_kind_active "$state"; then
+    if ! manual_partition_kind_active "$state"; then
       printf '%s\n' \
         "Save profile ▸ write a device-less profile" \
         "Export config ▸ write a device-baked config"
@@ -1845,7 +1845,7 @@ guided_ctl_list() {
     printf '%s\n' "Yes — discard session work and start blank"
     _ctl_action_row "← Back" ;;
   category)
-    local cat; cat="$(nav_get "$nav" category)"
+    local cat; cat="$(navigation_get "$nav" category)"
     # Live ESP budget warning (ADR 0078): surfaced on the Kernels + Disks
     # screens where kernels / esp_size are picked, not only at Proceed.
     if [[ "$cat" == "Disks" || "$cat" == "Kernels" ]]; then
@@ -1853,7 +1853,7 @@ guided_ctl_list() {
     fi
     # Disks leads with the layout row (the headline storage choice), then
     # fields.
-    if [[ "$cat" == "Disks" ]] && manual_kind_active "$state"; then
+    if [[ "$cat" == "Disks" ]] && manual_partition_kind_active "$state"; then
       # Manual Partitioning (ADR 0073): the pool layout / root-disk / swap rows
       # are replaced by a single Partitions row that launches cfdisk and shows
       # how many partitions the operator has assigned so far.
@@ -1922,7 +1922,7 @@ guided_ctl_list() {
       if [[ "$cat" == "Disks" && "$_ffield" == "options.encryption" ]]; then
         # Manual Partitioning forces it off (ADR 0073); show that, not the
         # retained-but-locked override the operator can no longer edit.
-        if manual_kind_active "$state"; then
+        if manual_partition_kind_active "$state"; then
           printf 'Encryption ▸ off (manual)\n'
         else
           printf 'Encryption ▸ %s%s\n' \
@@ -1937,7 +1937,7 @@ guided_ctl_list() {
       # bool row plus a separate Add-persist action. Carries the override dot.
       if [[ "$cat" == "Disks" \
             && "$_ffield" == "options.impermanence.enabled" ]]; then
-        if manual_kind_active "$state"; then
+        if manual_partition_kind_active "$state"; then
           printf 'Impermanence ▸ off (manual)\n'   # forced off (ADR 0073)
           continue
         fi
@@ -1968,7 +1968,7 @@ guided_ctl_list() {
   pkgcat)
     # The categories inside one slot, each with its package count — mirroring
     # the Categorized List shape so the screen matches the file.
-    local _pslot; _pslot="$(nav_get "$nav" slot)"
+    local _pslot; _pslot="$(navigation_get "$nav" slot)"
     local _peff; _peff="$(_ctl_effective "$state" "$base")"
     local _pk _pn
     while IFS= read -r _pk; do
@@ -1989,7 +1989,7 @@ guided_ctl_list() {
     # checked WITHOUT a dot; anything this profile or session touched carries
     # one, whether it was added or excluded.
     local _pslot _pcat _peff
-    _pslot="$(nav_get "$nav" slot)"; _pcat="$(nav_get "$nav" pkgcat)"
+    _pslot="$(navigation_get "$nav" slot)"; _pcat="$(navigation_get "$nav" pkgcat)"
     _peff="$(_ctl_effective "$state" "$base")"
     local _pp _mark _dot
     while IFS= read -r _pp; do
@@ -2014,7 +2014,7 @@ guided_ctl_list() {
     # runs to ~15k/~100k rows, so trailing Back is unreachable; Esc backs too).
     _ctl_action_row "← Back"
     local _bslot _blist
-    _bslot="$(nav_get "$nav" slot)"
+    _bslot="$(navigation_get "$nav" slot)"
     if [[ "$_bslot" == "aur" ]]; then
       _blist="$(_ctl_aur_list)"
     else
@@ -2075,12 +2075,12 @@ guided_ctl_list() {
   pkgderivedsrc)
     # One derived source's package list. Not toggleable — these are
     # consequences of choices made elsewhere in the menu.
-    local _dsrc2; _dsrc2="$(nav_get "$nav" source)"
+    local _dsrc2; _dsrc2="$(navigation_get "$nav" source)"
     _ctl_pkg_derived "$(_ctl_effective "$state" "$base")" \
       | awk -F'\t' -v s="$_dsrc2" '$1 == s { print "    " $3 }' | sort -u
     _ctl_action_row "← Back" ;;
   values)
-    local vf; vf="$(nav_get "$nav" field)"
+    local vf; vf="$(navigation_get "$nav" field)"
     if [[ "$vf" == "sysctl" ]]; then
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
@@ -2140,7 +2140,7 @@ guided_ctl_list() {
     _ctl_action_row "← Back" ;;
   text)
     local path cur
-    path="$(nav_get "$nav" field)"
+    path="$(navigation_get "$nav" field)"
     # the menu-displayed value (effective, else the field default) so a
     # defaulted
     # field shows e.g. "current: 2G" rather than "current: (unset)".
@@ -2178,14 +2178,14 @@ guided_ctl_list() {
     fi
     _ctl_action_row "⟳ Run cfdisk (edit the partition table)"
     jq -c '.[]' <<< "$_pj" | while IFS= read -r _p; do
-      manual_row_label "$_p"; printf '\n'
+      manual_partition_row_label "$_p"; printf '\n'
     done
     _ctl_action_row "← Back" ;;
   partedit)
     # Per-partition editor: mountpoint / filesystem / format, each cycled by
     # Enter. Only supported values are offered (ADR 0073).
     local _dev _mp _fs _fmt
-    _dev="$(nav_get "$nav" device)"
+    _dev="$(navigation_get "$nav" device)"
     _mp="$(_ctl_manual_field "$state" "$_dev" mountpoint)"
     _fs="$(_ctl_manual_field "$state" "$_dev" fs)"
     _fmt="$(_ctl_manual_field "$state" "$_dev" format)"
@@ -2258,7 +2258,7 @@ guided_ctl_list() {
     _ctl_action_row "← Back" ;;
   pooledit)
     local i kind p _eff _rootfs
-    i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+    i="$(navigation_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
     _eff="$(_ctl_effective "$state" "$base")"
     p="$(_ctl_pool_get "$_eff" "$kind" "$i")"
     # A group with no explicit filesystem inherits the root's (ADR 0043), so the
@@ -2308,7 +2308,7 @@ guided_ctl_list() {
     esac ;;
   pooldisks)
     local i kind p _eff d
-    i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+    i="$(navigation_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
     _eff="$(_ctl_effective "$state" "$base")"
     p="$(_ctl_pool_get "$_eff" "$kind" "$i")"
     # Bound disks first (marked), then the still-free ones (unmarked) — an
@@ -2349,7 +2349,7 @@ guided_ctl_list() {
     # full profile — shell, sudo, groups, git identity, ssh keys, programs —
     # read
     # from the effective (committed `*` install-scoped override) view.
-    local un ueff; un="$(nav_get "$nav" user)"
+    local un ueff; un="$(navigation_get "$nav" user)"
     ueff="$(_ctl_user_effective "$un")"
     if _ctl_user_is_committed "$un"; then
       local _en; _en="$(jq -r --arg u "$un" \
@@ -2382,7 +2382,7 @@ guided_ctl_list() {
     # against the effective value; text (git.name/git.email) shows current +
     # hint;
     # list (ssh) shows the keys + an add action.
-    local un field; un="$(nav_get "$nav" user)"; field="$(nav_get "$nav" field)"
+    local un field; un="$(navigation_get "$nav" user)"; field="$(navigation_get "$nav" field)"
     case "$(_ctl_userfield_kind "$field")" in
     multi)
       local _sel _opt
@@ -2416,9 +2416,9 @@ guided_ctl_list() {
     # file
     # on Enter, never shown here.
     local _tgt _ph _who
-    _tgt="$(nav_get "$nav" target)"; _ph="$(nav_get "$nav" phase)"
+    _tgt="$(navigation_get "$nav" target)"; _ph="$(navigation_get "$nav" phase)"
     case "$_tgt" in
-    user) _who="$(nav_get "$nav" user)" ;;
+    user) _who="$(navigation_get "$nav" user)" ;;
     enc)  _who="encryption" ;;
     *)    _who="root" ;;
     esac
@@ -2435,7 +2435,7 @@ guided_ctl_list() {
 # guided_ctl_enter <line> [<query>] — <query> is fzf's typed text, used only on
 # the text screen (the value being entered).
 guided_ctl_enter() {
-  local line="$1" query="${2:-}" screen; screen="$(nav_screen "$(_ctl_nav)")"
+  local line="$1" query="${2:-}" screen; screen="$(navigation_screen "$(_ctl_nav)")"
   case "$screen" in
   top)       _ctl_enter_top "$line" ;;
   category)  _ctl_enter_category "$line" ;;
@@ -2470,16 +2470,16 @@ guided_ctl_enter() {
 # outside the declared union arrives here rather than as a toggle.
 _ctl_enter_pkgcat() {
   local line="$1" query="${2:-}" nav cat slot
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
-  slot="$(nav_get "$nav" slot)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
+  slot="$(navigation_get "$nav" slot)"
   case "$line" in
-  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "← Back") _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "+ Add package"*)
     # Both slots open the in-place browser (ADR 0086): repo lists the local
     # pacman -Slq universe; aur lazily fetches the packages.gz names. Either way
     # a typed name that matches nothing still adds (query-as-add, aur), so a
     # brand-new/offline AUR package is never locked out.
-    _ctl_write_nav "$(nav_to_pkgbrowse "$cat" "$slot")"
+    _ctl_write_nav "$(navigation_to_package_browse "$cat" "$slot")"
     echo render
     return ;;
   esac
@@ -2489,7 +2489,7 @@ _ctl_enter_pkgcat() {
       "$(_ctl_route_package_entry "$(_ctl_state)" "$query")"
     echo refresh; return
   fi
-  _ctl_write_nav "$(nav_to_pkgs "$cat" "$slot" "${line%% ▸*}")"
+  _ctl_write_nav "$(navigation_to_packages "$cat" "$slot" "${line%% ▸*}")"
   echo render
 }
 
@@ -2499,10 +2499,10 @@ _ctl_enter_pkgcat() {
 # this session added just drops it from the override.
 _ctl_enter_pkgs() {
   local line="$1" nav cat slot pcat pkg
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
-  slot="$(nav_get "$nav" slot)"; pcat="$(nav_get "$nav" pkgcat)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
+  slot="$(navigation_get "$nav" slot)"; pcat="$(navigation_get "$nav" pkgcat)"
   [[ "$line" == "← Back" ]] && {
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return; }
 
   # strip the "[x] " / "[ ] " mark and any trailing override dot
   pkg="${line:4}"; pkg="${pkg%%  ●}"
@@ -2551,9 +2551,9 @@ _ctl_pkg_in_core_any() {
 # package — mirroring _ctl_enter_pkgs without a per-category context.
 _ctl_enter_pkgbrowse() {
   local line="$1" query="${2:-}" nav slot pkg state
-  nav="$(_ctl_nav)"; slot="$(nav_get "$nav" slot)"
+  nav="$(_ctl_nav)"; slot="$(navigation_get "$nav" slot)"
   [[ "$line" == "← Back" ]] && {
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return; }
   # query-as-add (aur only): a typed name matching no row still adds, so a
   # brand-new or offline AUR package is reachable when the list can't list it
   # (ADR 0086). repo is fully enumerable, so an unmatched repo name is a typo,
@@ -2606,17 +2606,17 @@ _ctl_enter_pkgbrowse() {
 # and Backup, and ADR 0021 gives the DE adapter ownership of its own set.
 _ctl_enter_pkgderived() {
   local line="$1" nav cat
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   [[ "$line" == "← Back" ]] && {
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
-  _ctl_write_nav "$(nav_to_pkgderivedsrc "$cat" "${line%% ▸*}")"
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return; }
+  _ctl_write_nav "$(navigation_to_package_derived_source "$cat" "${line%% ▸*}")"
   echo render
 }
 
 # _ctl_enter_pkgderivedsrc <line> — Back only; every other row is read-only.
 _ctl_enter_pkgderivedsrc() {
   [[ "$1" == "← Back" ]] && {
-    _ctl_write_nav "$(nav_back "$(_ctl_nav)")"; echo render; return; }
+    _ctl_write_nav "$(navigation_back "$(_ctl_nav)")"; echo render; return; }
   echo noop
 }
 
@@ -2634,8 +2634,8 @@ _ctl_open_secret() {
   # back here, whether that is the Disks category, the Users list, or the
   # Encryption Editor — no per-target conditional.
   local nav; nav="$(_ctl_nav)"
-  local cat; cat="$(nav_get "$nav" category)"
-  _ctl_write_nav "$(nav_to_secret "$cat" "$1" "${2:-}" entry "$nav")"
+  local cat; cat="$(navigation_get "$nav" category)"
+  _ctl_write_nav "$(navigation_to_secret "$cat" "$1" "${2:-}" entry "$nav")"
   echo render
 }
 
@@ -2647,9 +2647,9 @@ _ctl_open_secret() {
 # is refused (stay). Never echoes the value.
 _ctl_enter_secret() {
   local nav cat tgt user phase origin buf pending
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
-  tgt="$(nav_get "$nav" target)"; user="$(nav_get "$nav" user)"
-  phase="$(nav_get "$nav" phase)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
+  tgt="$(navigation_get "$nav" target)"; user="$(navigation_get "$nav" user)"
+  phase="$(navigation_get "$nav" phase)"
   # The return screen carried since open (ADR 0059); propagated across the
   # entry↔confirm phase rewrites so it survives to the save.
   origin="$(jq -c '.origin // empty' <<<"$nav")"
@@ -2664,14 +2664,14 @@ _ctl_enter_secret() {
     fi
     printf '%s' "$buf" > "${GUIDED_PWPENDING_FILE:-/dev/null}"
     : > "${GUIDED_PWBUF_FILE:-/dev/null}"
-    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" confirm "$origin")"
+    _ctl_write_nav "$(navigation_to_secret "$cat" "$tgt" "$user" confirm "$origin")"
     echo render; return
   fi
   pending="$(cat "${GUIDED_PWPENDING_FILE:-/dev/null}" 2>/dev/null)"
   if [[ "$buf" != "$pending" ]]; then
     : > "${GUIDED_PWBUF_FILE:-/dev/null}"
     : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
-    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" entry "$origin")"
+    _ctl_write_nav "$(navigation_to_secret "$cat" "$tgt" "$user" entry "$origin")"
     echo "secret-mismatch"; return
   fi
   case "$tgt" in
@@ -2683,7 +2683,7 @@ _ctl_enter_secret() {
   : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
   # Return to the screen the capture was opened from — the same place Esc lands,
   # read from the carried origin (ADR 0059).
-  _ctl_write_nav "$(nav_back "$nav")"
+  _ctl_write_nav "$(navigation_back "$nav")"
   echo render
 }
 
@@ -2708,10 +2708,10 @@ _ctl_user_committed_shell() {
 _ctl_enter_useredit() {
   local line="$1" nav cat un cur next
   nav="$(_ctl_nav)"
-  cat="$(nav_get "$nav" category)"; un="$(nav_get "$nav" user)"
+  cat="$(navigation_get "$nav" category)"; un="$(navigation_get "$nav" user)"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "enabled:"*)
     _ctl_write_state \
       "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" "$un")"
@@ -2727,19 +2727,19 @@ _ctl_enter_useredit() {
     _ctl_userform_set_strict "$un" sudo "$_ns" "$_com"
     echo refresh; return ;;
   "groups:"*)
-    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" groups groups)"
+    _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" groups groups)"
     echo render; return ;;
   "git name:"*)
-    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" git.name "git name")"
+    _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" git.name "git name")"
     echo render; return ;;
   "git email:"*)
-    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" git.email "git email")"
+    _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" git.email "git email")"
     echo render; return ;;
   "ssh keys:"*)
-    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" ssh "ssh keys")"
+    _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" ssh "ssh keys")"
     echo render; return ;;
   "programs:"*)
-    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" programs programs)"
+    _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" programs programs)"
     echo render; return ;;
   "shell:"*)
     [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
@@ -2756,7 +2756,7 @@ _ctl_enter_useredit() {
     # Clone (ADR 0064): drop to a name-entry text screen carrying THIS user
     # as the source. A valid name copies the source's account-shape into a new
     # ad-hoc user and lands in its editor.
-    _ctl_write_nav "$(nav_to_clone "$cat" "$un")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_clone "$cat" "$un")"; echo render; return ;;
   "✗ remove user")
     # Session-created user: drop it from the install list and its held-aside
     # form,
@@ -2766,7 +2766,7 @@ _ctl_enter_useredit() {
         <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")")"
     [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
       && guided_userform_clear "$GUIDED_USERFORMS_FILE" "$un"
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   esac
   echo refresh
 }
@@ -2777,10 +2777,10 @@ _ctl_enter_useredit() {
 # and an add commits then re-lists so more keys can follow.
 _ctl_enter_userfield() {
   local line="$1" query="${2:-}" nav cat un field
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
-  un="$(nav_get "$nav" user)"; field="$(nav_get "$nav" field)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
+  un="$(navigation_get "$nav" user)"; field="$(navigation_get "$nav" field)"
   if [[ "$line" == "← Back" ]]; then
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return
   fi
   case "$(_ctl_userfield_kind "$field")" in
   multi)
@@ -2789,15 +2789,15 @@ _ctl_enter_userfield() {
   text)
     if [[ "$field" == git.* ]]; then
       [[ -n "$query" ]] && _ctl_userfield_set_git "$un" "${field#git.}" "$query"
-      _ctl_write_nav "$(nav_to_useredit "$cat" "$un")"; echo render; return
+      _ctl_write_nav "$(navigation_to_user_edit "$cat" "$un")"; echo render; return
     fi
     # ssh.add: append the key, then return to the key list for more.
     [[ -n "$query" ]] && _ctl_userfield_add_ssh "$un" "$query"
-    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" ssh "ssh keys")"
+    _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" ssh "ssh keys")"
     echo render; return ;;
   list)
     [[ "$line" == "+ Add"* ]] && {
-      _ctl_write_nav "$(nav_to_userfield "$cat" "$un" ssh.add "ssh key")"
+      _ctl_write_nav "$(navigation_to_user_field "$cat" "$un" ssh.add "ssh key")"
       echo render; return; }
     echo refresh; return ;;   # an existing key row is display-only
   esac
@@ -2816,7 +2816,7 @@ _ctl_proceed_directive() {
   # (missing root/ESP, an unsupported filesystem or mountpoint). The full list
   # of problems is shown live on the Partitions screen; this just blocks Proceed
   # with a header notice. The back-end validator is the ultimate hard stop.
-  if manual_kind_active "$state"; then
+  if manual_partition_kind_active "$state"; then
     local _p; _p="$(config_state_get "$state" disk_config.partitions)"
     layout_manual_partition_problems "${_p:-[]}" >/dev/null || {
       echo "notice Manual layout not installable — fix it on Partitions ▸"
@@ -2830,7 +2830,7 @@ _ctl_enter_top() {
   local line="$1" cat
   case "$line" in
   "$_CTL_DIVIDER")  echo noop ;;
-  "Profiles ▸"*)    _ctl_write_nav "$(nav_to_profiles)"; echo render ;;
+  "Profiles ▸"*)    _ctl_write_nav "$(navigation_to_profiles)"; echo render ;;
   "Proceed"*)       _ctl_proceed_directive ;;
   "Save profile"*)  echo "terminal save" ;;
   "Export config"*) echo "terminal export" ;;
@@ -2843,11 +2843,11 @@ _ctl_enter_top() {
     cat="${line%% — *}"
     if [[ "$cat" == "Users" ]]; then
       # Flatten (slice 01): Users opens its list directly, skipping the
-      # single-row category screen. nav_back from here returns to top.
-      _ctl_write_nav "$(nav_to_values Users users users)"; echo render
+      # single-row category screen. navigation_back from here returns to top.
+      _ctl_write_nav "$(navigation_to_values Users users users)"; echo render
     elif menu_categories "$(_ctl_state)" "$(_ctl_baseline)" \
          | jq -e --arg c "$cat" 'any(.[]; .name == $c)' >/dev/null 2>&1; then
-      _ctl_write_nav "$(nav_to_category "$cat")"; echo render
+      _ctl_write_nav "$(navigation_to_category "$cat")"; echo render
     else
       echo noop
     fi ;;
@@ -2864,12 +2864,12 @@ _ctl_enter_profiles() {
   local line="$1" nav f profile
   nav="$(_ctl_nav)"
   if [[ "$line" == "← Back" ]]; then
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return
   fi
   # `↺ Reset to blank` (ADR 0063): a full session reset is destructive,
   # so drill into a confirm screen rather than resetting on the spot.
   if [[ "$line" == "↺ Reset to blank"* ]]; then
-    _ctl_write_nav "$(nav_to_newhost)"; echo render; return
+    _ctl_write_nav "$(navigation_to_new_host)"; echo render; return
   fi
   f="$(_ctl_hosts_root)/${line}/profile.jsonc"
   if ! profile="$(_program_registry_parse "$f" 2>/dev/null)"; then
@@ -2925,9 +2925,9 @@ _ctl_newhost_reset() {
   _ctl_session_stash
   if [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]]; then
     local hist; hist="$(<"$GUIDED_HIST_FILE")"
-    hist="$(hist_commit "$hist" '{}')"
+    hist="$(history_commit "$hist" '{}')"
     printf '%s\n' "$hist" >"$GUIDED_HIST_FILE"
-    _ctl_write_state "$(hist_present "$hist")"
+    _ctl_write_state "$(history_present "$hist")"
   else
     _ctl_write_state '{}'
   fi
@@ -2940,13 +2940,14 @@ _ctl_newhost_reset() {
 # confirm row runs the full session reset and returns to a blank top screen; any
 # other row (← Back) cancels back to the picker, session work intact.
 # _ctl_manual_set <state> <device> <field> <value> → state with one field of the
-# partition <device> changed (via the pure manual_set_field), re-stored under
-# disk_config.partitions. The single write path the assignment editor uses.
+# partition <device> changed (via the pure manual_partition_set_field),
+# re-stored under disk_config.partitions. The single write path the assignment
+# editor uses.
 _ctl_manual_set() {
   local st="$1" dev="$2" field="$3" val="$4" parts
   parts="$(config_state_get "$st" disk_config.partitions)"
-  manual_store_partitions "$st" \
-    "$(manual_set_field "${parts:-[]}" "$dev" "$field" "$val")"
+  manual_partition_store "$st" \
+    "$(manual_partition_set_field "${parts:-[]}" "$dev" "$field" "$val")"
 }
 
 # _ctl_manual_field <state> <device> <field> → the current value of <field> on
@@ -2962,9 +2963,9 @@ _ctl_manual_field() {
 # action, then one row per partition (opens its editor). cfdisk is gated in
 # --debug (ADR 0063: inspect-only, no disk touched).
 _ctl_enter_manualparts() {
-  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   case "$line" in
-  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "← Back") _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "⟳ Run cfdisk"*)
     [[ "${INSTALL_DEBUG:-0}" == "1" ]] \
       && { echo 'notice cfdisk is disabled in --debug — no disk is touched'
@@ -2972,7 +2973,7 @@ _ctl_enter_manualparts() {
     echo cfdisk; return ;;
   "/dev/"*)
     local dev="${line%%  *}"
-    _ctl_write_nav "$(nav_to_partedit "$cat" "$dev")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_partition_edit "$cat" "$dev")"; echo render; return ;;
   *) echo noop ;;
   esac
 }
@@ -2983,17 +2984,17 @@ _ctl_enter_manualparts() {
 # (the validator is the ultimate guard for anything hand-crafted).
 _ctl_enter_partedit() {
   local line="$1" nav dev st cur nxt
-  nav="$(_ctl_nav)"; dev="$(nav_get "$nav" device)"; st="$(_ctl_state)"
+  nav="$(_ctl_nav)"; dev="$(navigation_get "$nav" device)"; st="$(_ctl_state)"
   case "$line" in
-  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "← Back") _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "mountpoint:"*)
     cur="$(_ctl_manual_field "$st" "$dev" mountpoint)"
-    nxt="$(manual_cycle_mountpoint "$cur")"
+    nxt="$(manual_partition_cycle_mountpoint "$cur")"
     _ctl_write_state "$(_ctl_manual_set "$st" "$dev" mountpoint "$nxt")"
     echo refresh; return ;;
   "filesystem:"*)
     cur="$(_ctl_manual_field "$st" "$dev" fs)"
-    nxt="$(manual_cycle_fs "$cur")"
+    nxt="$(manual_partition_cycle_filesystem "$cur")"
     _ctl_write_state "$(_ctl_manual_set "$st" "$dev" fs "$nxt")"
     echo refresh; return ;;
   "format:"*)
@@ -3013,7 +3014,7 @@ _ctl_enter_newhost() {
     _ctl_write_nav '{"screen":"top"}'
     echo render ;;
   *)
-    _ctl_write_nav "$(nav_back "$nav")"; echo render ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render ;;
   esac
 }
 
@@ -3026,7 +3027,7 @@ _ctl_enter_rooteditor() {
   local line="$1" nav; nav="$(_ctl_nav)"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "password:"*)
     if _ctl_rich_chrome; then _ctl_open_secret root; else echo "secret-root"; fi
     return ;;
@@ -3047,15 +3048,15 @@ _ctl_enter_rooteditor() {
 
 _ctl_enter_category() {
   local line="$1" nav cat label path
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "Layout:"*)   # display_label "layout"
     # Manual Partitioning locks the pool-dependent Disks sub-editors (ADR 0073):
     # opening the layout editor is a no-op while it is on.
-    manual_kind_active "$(_ctl_state)" && { echo render; return; }
-    _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
+    manual_partition_kind_active "$(_ctl_state)" && { echo render; return; }
+    _ctl_write_nav "$(navigation_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
   "Manual partitioning:"*)   # on/off toggle over disk_config.kind (ADR 0073)
     local _mst _mcur _mnew
@@ -3066,23 +3067,23 @@ _ctl_enter_category() {
     [[ "$_mnew" == "manual" ]] && { echo manual-on; return; }
     echo refresh; return ;;
   "Partitions ▸"*)   # Manual Partitioning: open the assignment table (ADR 0073)
-    _ctl_write_nav "$(nav_to_manualparts "$cat")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_manual_partitions "$cat")"; echo render; return ;;
   "Swap:"*)     # display_label "swap"
-    manual_kind_active "$(_ctl_state)" && { echo render; return; }
-    _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
+    manual_partition_kind_active "$(_ctl_state)" && { echo render; return; }
+    _ctl_write_nav "$(navigation_to_swap_edit "$cat")"; echo render; return ;;
   "Root disk:"*)   # display_label "root disk"
-    _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_root_disk "$cat")"; echo render; return ;;
   "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
-    manual_kind_active "$(_ctl_state)" && { echo render; return; }
-    _ctl_write_nav "$(nav_to_encryption "$cat")"; echo render; return ;;
+    manual_partition_kind_active "$(_ctl_state)" && { echo render; return; }
+    _ctl_write_nav "$(navigation_to_encryption "$cat")"; echo render; return ;;
   "Impermanence ▸"*)   # the collapsed Disks impermanence row (ADR 0066)
-    manual_kind_active "$(_ctl_state)" && { echo render; return; }
-    _ctl_write_nav "$(nav_to_impermanence "$cat")"; echo render; return ;;
+    manual_partition_kind_active "$(_ctl_state)" && { echo render; return; }
+    _ctl_write_nav "$(navigation_to_impermanence "$cat")"; echo render; return ;;
   "repo ▸"* | "aur ▸"*)
-    _ctl_write_nav "$(nav_to_pkgcat "$cat" "${line%% *}")"
+    _ctl_write_nav "$(navigation_to_package_category "$cat" "${line%% *}")"
     echo render; return ;;
   "derived ▸"*)
-    _ctl_write_nav "$(nav_to_pkgderived "$cat")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_package_derived "$cat")"; echo render; return ;;
   esac
   label="${line%%:*}"
   path="$(_ctl_field_for_label "$cat" "$label")"
@@ -3105,9 +3106,9 @@ _ctl_enter_category() {
   fi
   case "$(_ctl_field_kind "$path")" in
   enum | toggle | list | users | biglist)
-    _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;
+    _ctl_write_nav "$(navigation_to_values "$cat" "$path" "$label")"; echo render ;;
   text)
-    _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
+    _ctl_write_nav "$(navigation_to_text "$cat" "$path" "$label")"; echo render ;;
   *)
     echo noop ;;   # unreachable: _ctl_field_kind returns only the kinds above
   esac
@@ -3115,9 +3116,9 @@ _ctl_enter_category() {
 
 _ctl_enter_values() {
   local line="$1" nav path sk new
-  nav="$(_ctl_nav)"; path="$(nav_get "$nav" field)"
+  nav="$(_ctl_nav)"; path="$(navigation_get "$nav" field)"
   if [[ "$line" == "← Back" ]]; then
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return
   fi
   if [[ "$(_ctl_field_kind "$path")" == "toggle" ]]; then
     # strip the "[x] "/"[ ] " mark, flip membership, and STAY on the screen so
@@ -3139,7 +3140,7 @@ _ctl_enter_values() {
   fi
   if [[ "$path" == "sysctl" ]]; then
     if [[ "$line" == "+ Add"* ]]; then
-      _ctl_write_nav "$(nav_to_text "$(nav_get "$nav" category)" sysctl sysctl)"
+      _ctl_write_nav "$(navigation_to_text "$(navigation_get "$nav" category)" sysctl sysctl)"
       echo render; return
     fi
     echo refresh; return   # an existing pair is display-only (re-list in place)
@@ -3150,7 +3151,7 @@ _ctl_enter_values() {
         || "$path" == "options.custom_repositories" ]]; then
     if [[ "$line" == "+ Add"* ]]; then
       _ctl_write_nav \
-        "$(nav_to_text "$(nav_get "$nav" category)" "$path" "$path")"
+        "$(navigation_to_text "$(navigation_get "$nav" category)" "$path" "$path")"
       echo render; return
     fi
     echo refresh; return
@@ -3160,7 +3161,7 @@ _ctl_enter_values() {
     # symmetric with a user row opening its User Editor. Handle it before the
     # toggle / user-row logic (its line is "root — <shell> · pw <tag>").
     if [[ "$line" == "root — "* ]]; then
-      _ctl_write_nav "$(nav_to_rooteditor "$(nav_get "$nav" category)")"
+      _ctl_write_nav "$(navigation_to_root_editor "$(navigation_get "$nav" category)")"
       echo render; return
     fi
     # Per-user credential rows: on a capable fzf (rich chrome ≥ 0.62) enter the
@@ -3174,7 +3175,7 @@ _ctl_enter_values() {
     fi
     if [[ "$line" == "+ Create"* ]]; then
       _ctl_write_nav \
-        "$(nav_to_text "$(nav_get "$nav" category)" __newuser__ "new user")"
+        "$(navigation_to_text "$(navigation_get "$nav" category)" __newuser__ "new user")"
       echo render; return
     fi
     # A user row opens its User Editor (ADR 0051): enable/disable + shell (and
@@ -3183,7 +3184,7 @@ _ctl_enter_values() {
     # "name — shell · pw …" (enabled) or "name — disabled", so the name is the
     # text before the " — " separator.
     local _uname="${line%% — *}"
-    _ctl_write_nav "$(nav_to_useredit "$(nav_get "$nav" category)" "$_uname")"
+    _ctl_write_nav "$(navigation_to_user_edit "$(navigation_get "$nav" category)" "$_uname")"
     echo render; return
   fi
   if [[ "$(_ctl_field_kind "$path")" == "biglist" ]]; then
@@ -3199,14 +3200,14 @@ _ctl_enter_values() {
       # Reject a font not installed on the medium (ADR 0076): an off-list value
       # is
       # only ever a typo that breaks the console at boot. Stay on the screen.
-      locale_list_console_fonts | grep -qxF "$line" || { echo noop; return; }
+      locale_source_console_fonts | grep -qxF "$line" || { echo noop; return; }
       _ctl_write_state "$(_ctl_normalise_default \
         "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")" ;;
     *)
       _ctl_write_state "$(_ctl_normalise_default \
         "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")" ;;
     esac
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return
   fi
   if [[ "$path" == "__layout__" ]]; then
     if [[ "$line" == "data-pools" ]]; then
@@ -3216,14 +3217,14 @@ _ctl_enter_values() {
       # editor.
       [[ "$(jq '(.data_pools // []) | length' <<<"$(_ctl_state)")" == "0" ]] \
         && _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"
-      _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
+      _ctl_write_nav "$(navigation_to_data_pools "$(navigation_get "$nav" category)")"
       echo render; return
     fi
     if [[ "$line" == "custom…" ]]; then
       # blank-canvas seed → straight into the unified editor (ADR 0047).
       _ctl_write_state \
         "$(edit_apply_skeleton "$(_ctl_state)" "$(skeleton_custom_seed)")"
-      _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
+      _ctl_write_nav "$(navigation_to_data_pools "$(navigation_get "$nav" category)")"
       echo render; return
     fi
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
@@ -3232,9 +3233,9 @@ _ctl_enter_values() {
     # A multi preset drops into the unified editor to bind disks / tweak pools;
     # single applies and backs out to the category (ADR 0047).
     if [[ "$(jq -r '.mode // "single"' <<<"$(_ctl_state)")" == "multi" ]]; then
-      _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
+      _ctl_write_nav "$(navigation_to_data_pools "$(navigation_get "$nav" category)")"
     else
-      _ctl_write_nav "$(nav_back "$nav")"
+      _ctl_write_nav "$(navigation_back "$nav")"
     fi
     echo render; return
   fi
@@ -3248,24 +3249,24 @@ _ctl_enter_values() {
   if new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$_eval")"; then
     _ctl_write_state "$(_ctl_normalise_default "$new" "$path")"
   fi
-  _ctl_write_nav "$(nav_back "$nav")"; echo render
+  _ctl_write_nav "$(navigation_back "$nav")"; echo render
 }
 
 # _ctl_enter_text <query> — commit the typed query into the field, then back.
 # Empty query (Esc-less cancel via Enter) just returns without a change.
 _ctl_enter_text() {
   local query="$1" nav path cat
-  nav="$(_ctl_nav)"; path="$(nav_get "$nav" field)"
-  cat="$(nav_get "$nav" category)"
+  nav="$(_ctl_nav)"; path="$(navigation_get "$nav" field)"
+  cat="$(navigation_get "$nav" category)"
   # Pool mount is scoped to a data pool by the nav's index (ADR 0047): a typed
   # value commits to .data_pools[index].mount; a blank input keeps the /<name>
   # default (no key written). Either way return to that pool's editor.
   if [[ "$path" == "__poolmount__" ]]; then
-    local idx; idx="$(nav_get "$nav" index)"
+    local idx; idx="$(navigation_get "$nav" index)"
     [[ -n "$query" ]] \
       && _ctl_write_state "$(jq --argjson i "$idx" --arg m "$query" \
       '.data_pools[$i].mount = $m' <<<"$(_ctl_state)")"
-    _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
+    _ctl_write_nav "$(navigation_to_pool_edit "$cat" "$idx" data)"; echo render; return
   fi
   # Create user (ADR 0051): a typed name that isn't a duplicate is added to the
   # user list, seeded with the create defaults (bash / sudo on / wheel) in its
@@ -3273,7 +3274,7 @@ _ctl_enter_text() {
   # required password and anything else. A blank name backs out; a duplicate
   # (committed or already listed) is refused with a notice.
   if [[ "$path" == "__newuser__" ]]; then
-    [[ -n "$query" ]] || { _ctl_write_nav "$(nav_to_values "$cat" users users)"
+    [[ -n "$query" ]] || { _ctl_write_nav "$(navigation_to_values "$cat" users users)"
                            echo render; return; }
     if _ctl_user_is_committed "$query" || jq -e --arg v "$query" \
         '(.users // []) | any(. == $v)' \
@@ -3292,15 +3293,15 @@ _ctl_enter_text() {
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" sudo 'true'
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" groups '["wheel"]'
     fi
-    _ctl_write_nav "$(nav_to_useredit "$cat" "$query")"; echo render; return
+    _ctl_write_nav "$(navigation_to_user_edit "$cat" "$query")"; echo render; return
   fi
   # Clone user (ADR 0064): like create, but the new name is seeded with the
   # SOURCE user's account-shape (carried on the nav). Same blank-backs-out and
   # duplicate-refused rules, then drop INTO the clone's editor to set the pw.
   if [[ "$path" == "__cloneuser__" ]]; then
-    local _src _eff; _src="$(nav_get "$nav" user)"
+    local _src _eff; _src="$(navigation_get "$nav" user)"
     _eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
-    [[ -n "$query" ]] || { _ctl_write_nav "$(nav_to_values "$cat" users users)"
+    [[ -n "$query" ]] || { _ctl_write_nav "$(navigation_to_values "$cat" users users)"
                            echo render; return; }
     if _ctl_user_is_committed "$query" || jq -e --arg v "$query" \
         '(.users // []) | any(. == $v)' <<<"$_eff" >/dev/null; then
@@ -3310,7 +3311,7 @@ _ctl_enter_text() {
       "$(jq -cn --arg v "$query" --argjson a "$(jq -c '.users // []' \
         <<<"$_eff")" '$a + [$v]')")"
     _ctl_clone_seed "$_src" "$query"
-    _ctl_write_nav "$(nav_to_useredit "$cat" "$query")"; echo render; return
+    _ctl_write_nav "$(navigation_to_user_edit "$cat" "$query")"; echo render; return
   fi
   [[ -n "$query" ]] \
     && _ctl_write_state "$(_ctl_normalise_default \
@@ -3319,17 +3320,17 @@ _ctl_enter_text() {
   # return there (the new entry shows, more can be added); every other text
   # field backs out.
   case "$path" in
-  sysctl)            _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)" ;;
+  sysctl)            _ctl_write_nav "$(navigation_to_values "$cat" sysctl sysctl)" ;;
   options.mirror_servers)
-    _ctl_write_nav "$(nav_to_values "$cat" options.mirror_servers \
+    _ctl_write_nav "$(navigation_to_values "$cat" options.mirror_servers \
       "custom servers")" ;;
   options.custom_repositories)
-    _ctl_write_nav "$(nav_to_values "$cat" options.custom_repositories \
+    _ctl_write_nav "$(navigation_to_values "$cat" options.custom_repositories \
       "custom repositories")" ;;
-  __newuser__)       _ctl_write_nav "$(nav_to_values "$cat" users users)" ;;
-  __persist__)       _ctl_write_nav "$(nav_to_impermanence "$cat")" ;;
-  options.swap_size) _ctl_write_nav "$(nav_to_swapedit "$cat")" ;;
-  *)                 _ctl_write_nav "$(nav_back "$nav")" ;;
+  __newuser__)       _ctl_write_nav "$(navigation_to_values "$cat" users users)" ;;
+  __persist__)       _ctl_write_nav "$(navigation_to_impermanence "$cat")" ;;
+  options.swap_size) _ctl_write_nav "$(navigation_to_swap_edit "$cat")" ;;
+  *)                 _ctl_write_nav "$(navigation_back "$nav")" ;;
   esac
   echo render
 }
@@ -3348,7 +3349,7 @@ _ctl_enter_encryption() {
   local line="$1" nav; nav="$(_ctl_nav)"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "enabled:"*)
     # flip options.encryption; has() keeps an explicit value from being read as
     # the default (false). Normalise so toggling back to the baseline (off)
@@ -3373,10 +3374,10 @@ _ctl_enter_encryption() {
 # __persist__ add-a-directory text screen. The read-only curated-defaults row
 # is inert. Modelled on the encryption sub-editor.
 _ctl_enter_impermanence() {
-  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "enabled:"*)
     local _flipped
     _flipped="$(jq '
@@ -3387,7 +3388,7 @@ _ctl_enter_impermanence() {
       "$(_ctl_normalise_default "$_flipped" options.impermanence.enabled)"
     echo refresh; return ;;
   "Add persist"*)
-    _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
+    _ctl_write_nav "$(navigation_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
   "curated defaults:"*)
     echo refresh; return ;;   # read-only summary line
@@ -3399,10 +3400,10 @@ _ctl_enter_impermanence() {
 }
 
 _ctl_enter_swapedit() {
-  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "enabled:"*)
     # flip options.swap; has("swap") keeps an explicit false from being read as
     # the default true (jq `//` false-swallow gotcha).
@@ -3411,7 +3412,7 @@ _ctl_enter_swapedit() {
       | .options.swap = ($c | not)' <<<"$(_ctl_state)")"
     echo refresh; return ;;
   "size:"*)
-    _ctl_write_nav "$(nav_to_text "$cat" options.swap_size "swap size")"
+    _ctl_write_nav "$(navigation_to_text "$cat" options.swap_size "swap size")"
     echo render; return ;;
   "zswap:"*)
     _ctl_write_state "$(jq '
@@ -3442,9 +3443,9 @@ _ctl_enter_swapedit() {
 # pool by name. STAYS on the list after an add (refresh).
 _ctl_enter_datapools() {
   local line="$1" nav cat name idx
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   case "$line" in
-  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "← Back") _ctl_write_nav "$(navigation_back "$nav")"; echo render; return ;;
   "+ Add storage"*)
     _ctl_write_state "$(_ctl_add_storage_group "$(_ctl_state)")"
     echo refresh; return ;;
@@ -3453,7 +3454,7 @@ _ctl_enter_datapools() {
     echo refresh; return ;;
   "OS pool:"*)
     # the singleton OS pool editor (topology + disks, ADR 0047).
-    _ctl_write_nav "$(nav_to_pooledit "$cat" 0 os)"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_pool_edit "$cat" 0 os)"; echo render; return ;;
   *" (storage):"*)
     # a preset storage group (binding-only): parse its name, resolve its index.
     name="${line%% (storage):*}"
@@ -3461,7 +3462,7 @@ _ctl_enter_datapools() {
       '[(.storage_groups // [])[] | .name] | (index($n) // -1)' \
       <<<"$(_ctl_state)")"
     if [[ "$idx" =~ ^[0-9]+$ ]]; then
-      _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" storage)"
+      _ctl_write_nav "$(navigation_to_pool_edit "$cat" "$idx" storage)"
       echo render; return
     fi
     echo refresh; return ;;
@@ -3470,7 +3471,7 @@ _ctl_enter_datapools() {
   idx="$(jq -r --arg n "$name" \
     '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$(_ctl_state)")"
   if [[ "$idx" =~ ^[0-9]+$ ]]; then
-    _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
+    _ctl_write_nav "$(navigation_to_pool_edit "$cat" "$idx" data)"; echo render; return
   fi
   echo refresh
 }
@@ -3479,16 +3480,16 @@ _ctl_enter_datapools() {
 # (stripe→mirror→raidz1→raidz2), cycle the disk count (1-8), or remove the pool.
 _ctl_enter_pooledit() {
   local line="$1" nav cat i kind _rfs p
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
-  i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
+  i="$(navigation_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
   # The root filesystem a group inherits when it declares none (ADR 0043).
   _rfs="$(jq -r '.filesystem // "zfs"' <<<"$(_ctl_state)")"
   case "$line" in
   "← Back")
-    _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_data_pools "$cat")"; echo render; return ;;
   "✗ remove"*)
     _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$kind" "$i")"
-    _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_data_pools "$cat")"; echo render; return ;;
   "topology:"*)
     # The cycle follows the group's own filesystem (pool value, else the root
     # filesystem, else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay
@@ -3526,11 +3527,11 @@ _ctl_enter_pooledit() {
     # Only a data pool's mount is editable; a storage group's is preset-fixed
     # (display-only row, so Enter on it is a no-op).
     [[ "$kind" == "data" ]] || { echo refresh; return; }
-    _ctl_write_nav "$(nav_to_poolmount "$cat" "$i")"; echo render; return ;;
+    _ctl_write_nav "$(navigation_to_pool_mount "$cat" "$i")"; echo render; return ;;
   "disks:"*)
     # Device-mode: the disks row opens the bind sub-screen instead of cycling.
     if _ctl_device_mode; then
-      _ctl_write_nav "$(nav_to_pooldisks "$cat" "$i" "$kind")"
+      _ctl_write_nav "$(navigation_to_pool_disks "$cat" "$i" "$kind")"
       echo render; return
     fi
     # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
@@ -3566,10 +3567,10 @@ _ctl_line_to_disk() {
 # binding (STAY, refresh re-marks in place); ← Back returns to the pool editor.
 _ctl_enter_pooldisks() {
   local line="$1" nav cat i kind path p
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
-  i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
+  i="$(navigation_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
   if [[ "$line" == "← Back" ]]; then
-    _ctl_write_nav "$(nav_to_pooledit "$cat" "$i" "$kind")"
+    _ctl_write_nav "$(navigation_to_pool_edit "$cat" "$i" "$kind")"
     echo render; return
   fi
   path="$(_ctl_line_to_disk "$line")"
@@ -3585,22 +3586,22 @@ _ctl_enter_pooldisks() {
 # category, since one pick is the whole job; ← Back → category.
 _ctl_enter_rootdisk() {
   local line="$1" nav cat path
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  nav="$(_ctl_nav)"; cat="$(navigation_get "$nav" category)"
   if [[ "$line" == "← Back" ]]; then
-    _ctl_write_nav "$(nav_to_category "$cat")"; echo render; return
+    _ctl_write_nav "$(navigation_to_category "$cat")"; echo render; return
   fi
   path="$(_ctl_line_to_disk "$line")"
   [[ -n "$path" ]] || { echo refresh; return; }
   _ctl_write_state "$(config_state_set "$(_ctl_state)" root_disk "\"$path\"")"
-  _ctl_write_nav "$(nav_to_category "$cat")"
+  _ctl_write_nav "$(navigation_to_category "$cat")"
   echo render
 }
 
 # guided_ctl_back — Esc: back one screen, or abort the whole menu at the top.
 guided_ctl_back() {
   local nav; nav="$(_ctl_nav)"
-  if [[ "$(nav_screen "$nav")" == "top" ]]; then echo abort; return; fi
-  _ctl_write_nav "$(nav_back "$nav")"; echo render
+  if [[ "$(navigation_screen "$nav")" == "top" ]]; then echo abort; return; fi
+  _ctl_write_nav "$(navigation_back "$nav")"; echo render
 }
 
 # ── ^A / ^X context actions (ADR 0047 rich chrome) ───────────────────────────
@@ -3634,17 +3635,17 @@ _ctl_datapools_line_ref() {
 # matching action returns `noop`.
 guided_ctl_action() {
   local kind="$1" line="${2:-}" nav screen cat; nav="$(_ctl_nav)"
-  screen="$(nav_screen "$nav")"; cat="$(nav_get "$nav" category)"
+  screen="$(navigation_screen "$nav")"; cat="$(navigation_get "$nav" category)"
   case "$kind" in
   add)
     case "$screen" in
     datapools)
       _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"; echo refresh ;;
     values)
-      case "$(nav_get "$nav" field)" in
+      case "$(navigation_get "$nav" field)" in
       sysctl)
-        _ctl_write_nav "$(nav_to_text "$cat" sysctl sysctl)"; echo render ;;
-      users)  _ctl_write_nav "$(nav_to_text "$cat" __newuser__ "new user")"
+        _ctl_write_nav "$(navigation_to_text "$cat" sysctl sysctl)"; echo render ;;
+      users)  _ctl_write_nav "$(navigation_to_text "$cat" __newuser__ "new user")"
               echo render ;;
       *)      echo noop ;;
       esac ;;
@@ -3654,7 +3655,7 @@ guided_ctl_action() {
       if [[ "$(config_state_get \
         "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
         options.impermanence.enabled)" == "true" ]]; then
-        _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
+        _ctl_write_nav "$(navigation_to_text "$cat" __persist__ "persist dir")"
         echo render
       else echo noop; fi ;;
     *) echo noop ;;
@@ -3671,10 +3672,10 @@ guided_ctl_action() {
     case "$screen" in
     pooledit)
       # Data pools and storage groups are removable; the OS pool is structural.
-      local i k; i="$(nav_get "$nav" index)"; k="$(_ctl_pool_kind "$nav")"
+      local i k; i="$(navigation_get "$nav" index)"; k="$(_ctl_pool_kind "$nav")"
       [[ "$k" == "data" || "$k" == "storage" ]] || { echo noop; return; }
       _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"
-      _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render ;;
+      _ctl_write_nav "$(navigation_to_data_pools "$cat")"; echo render ;;
     datapools)
       # ^X on a highlighted pool row removes it in place (stay on the list). A
       # non-pool row (OS pool / + Add / ← Back) resolves to nothing → noop.
@@ -3694,11 +3695,11 @@ guided_ctl_action() {
 # (`--list-label`): Guided ▸ Category ▸ … . Pure: reads the nav (+ the pool name
 # from state for the pool screens).
 _ctl_breadcrumb() {
-  local nav="$1" cat pool; cat="$(nav_get "$nav" category)"
-  case "$(nav_screen "$nav")" in
+  local nav="$1" cat pool; cat="$(navigation_get "$nav" category)"
+  case "$(navigation_screen "$nav")" in
   top)         printf ' Guided ' ;;
   category)    printf ' Guided ▸ %s ' "$cat" ;;
-  values|text) printf ' Guided ▸ %s ▸ %s ' "$cat" "$(nav_get "$nav" label)" ;;
+  values|text) printf ' Guided ▸ %s ▸ %s ' "$cat" "$(navigation_get "$nav" label)" ;;
   swapedit)    printf ' Guided ▸ %s ▸ swap ' "$cat" ;;
   manualparts) printf ' Guided ▸ %s ▸ partitions ' "$cat" ;;
   partedit)    printf ' Guided ▸ %s ▸ partition ' "$cat" ;;
@@ -3707,7 +3708,7 @@ _ctl_breadcrumb() {
   pooledit | pooldisks)
     pool="$(jq -r '.name // .pool_name // "pool"' <<<"$(_ctl_pool_get \
       "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
-      "$(_ctl_pool_kind "$nav")" "$(nav_get "$nav" index)")")"
+      "$(_ctl_pool_kind "$nav")" "$(navigation_get "$nav" index)")")"
     printf ' Guided ▸ %s ▸ layout ▸ %s ' "$cat" "$pool" ;;
   *) printf ' Guided ' ;;
   esac
@@ -3720,7 +3721,7 @@ _ctl_breadcrumb() {
 # whole-layout label. Pure: reads state.
 _ctl_footer_summary() {
   local nav="$1" eff
-  case "$(nav_screen "$nav")" in
+  case "$(navigation_screen "$nav")" in
   pooledit | pooldisks)
     eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     jq -r --arg k "$(_ctl_pool_kind "$nav")" \
@@ -3730,11 +3731,11 @@ _ctl_footer_summary() {
           then "\($g.devices | length) bound"
           else "\($g.disk_count // "?") disks" end)' \
       <<<"$(_ctl_pool_get "$eff" "$(_ctl_pool_kind "$nav")" \
-            "$(nav_get "$nav" index)")" ;;
+            "$(navigation_get "$nav" index)")" ;;
   *)
     # The OS layout label belongs to the Disks context only — printed on every
     # screen's footer it read as a stray "single disk" on Locales/Kernels/etc.
-    [[ "$(nav_get "$nav" category)" == "Disks" ]] || return 0
+    [[ "$(navigation_get "$nav" category)" == "Disks" ]] || return 0
     _ctl_layout_label "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" ;;
   esac
 }
@@ -3743,7 +3744,7 @@ _ctl_footer_summary() {
 # a live summary, separated by a bar. Pure: reads the nav + state.
 _ctl_footer() {
   local nav="$1" acts
-  case "$(nav_screen "$nav")" in
+  case "$(navigation_screen "$nav")" in
   datapools) acts='^A data pool · ^S storage group · ^X remove · Esc back' ;;
   pooledit)
     case "$(_ctl_pool_kind "$nav")" in
@@ -3754,7 +3755,7 @@ _ctl_footer() {
   pooldisks) acts='Enter bind/unbind · Esc back' ;;
   rootdisk)  acts='Enter pick · Esc back' ;;
   values)
-    case "$(nav_get "$nav" field)" in
+    case "$(navigation_get "$nav" field)" in
     sysctl | users) acts='^A add · Esc back' ;;
     *)              acts='Enter choose · Esc back' ;;
     esac ;;
@@ -3778,9 +3779,9 @@ _ctl_autocommit() {
   local hist now prev
   hist="$(<"$GUIDED_HIST_FILE")"
   now="$(_ctl_state | jq -cS .)"
-  prev="$(hist_present "$hist" | jq -cS .)"
+  prev="$(history_present "$hist" | jq -cS .)"
   [[ "$now" == "$prev" ]] && return 0
-  hist_commit "$hist" "$(_ctl_state)" >"$GUIDED_HIST_FILE"
+  history_commit "$hist" "$(_ctl_state)" >"$GUIDED_HIST_FILE"
   # A fresh edit voids the `+ New host` reset-undo stash: its side-state no
   # longer matches the current session, so a later undo must not resurrect it.
   rm -f "${GUIDED_SESSION_UNDO_FILE:-/nonexistent}"
@@ -3796,7 +3797,7 @@ _ctl_autocommit() {
 # nav out to its category; any other nav is returned unchanged.
 _ctl_nav_reconcile() {
   local nav="$1" state="$2" screen kind i exists
-  screen="$(nav_screen "$nav")"
+  screen="$(navigation_screen "$nav")"
   case "$screen" in
   datapools)
     # The unified layout editor only makes sense for a multi layout; after a
@@ -3804,12 +3805,12 @@ _ctl_nav_reconcile() {
     # out to the category (which shows the default "layout: single disk").
     if [[ "$(jq -r '.mode // "single"' <<<"$state")" == "multi" ]]; then
       printf '%s' "$nav"
-    else nav_to_category "$(nav_get "$nav" category)"; fi
+    else navigation_to_category "$(navigation_get "$nav" category)"; fi
     return ;;
   pooledit | pooldisks) ;;
   *) printf '%s' "$nav"; return ;;
   esac
-  kind="$(_ctl_pool_kind "$nav")"; i="$(nav_get "$nav" index)"; i="${i:-0}"
+  kind="$(_ctl_pool_kind "$nav")"; i="$(navigation_get "$nav" index)"; i="${i:-0}"
   case "$kind" in
   os)      exists="$(jq -r 'if .os_pool then 1 else 0 end' <<<"$state")" ;;
   storage) exists="$(jq -r --argjson i "$i" \
@@ -3819,7 +3820,7 @@ _ctl_nav_reconcile() {
              'if (.data_pools[$i] // null) then 1 else 0 end' <<<"$state")" ;;
   esac
   if [[ "$exists" == "1" ]]; then printf '%s' "$nav"
-  else nav_to_category "$(nav_get "$nav" category)"; fi
+  else navigation_to_category "$(navigation_get "$nav" category)"; fi
 }
 
 # guided_ctl_key <ctrl-z|ctrl-y|ctrl-r> — the global toolbar keys. ^Z undoes /
@@ -3834,16 +3835,16 @@ guided_ctl_key() {
   [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]] || { echo noop; return; }
   hist="$(<"$GUIDED_HIST_FILE")"
   case "$k" in
-  ctrl-z) hist="$(hist_undo "$hist")"
+  ctrl-z) hist="$(history_undo "$hist")"
           # The first undo after a `+ New host` reset also restores the stashed
           # userforms + secrets (the side-state the Config-State stack omits).
           _ctl_session_unstash ;;
-  ctrl-y) hist="$(hist_redo "$hist")" ;;
-  ctrl-r) hist="$(hist_commit "$hist" '{}')" ;;
+  ctrl-y) hist="$(history_redo "$hist")" ;;
+  ctrl-r) hist="$(history_commit "$hist" '{}')" ;;
   *)      echo noop; return ;;
   esac
   printf '%s\n' "$hist" >"$GUIDED_HIST_FILE"
-  state="$(hist_present "$hist")"
+  state="$(history_present "$hist")"
   _ctl_write_state "$state"
   _ctl_write_nav "$(_ctl_nav_reconcile "$(_ctl_nav)" "$state")"
   echo render
@@ -3899,7 +3900,7 @@ _guided_directive_to_action() {
     # graph command only runs where it's shown.
     nav="$(_ctl_nav)"
     local pv _showpv=0
-    case "$(nav_screen "$nav")" in
+    case "$(navigation_screen "$nav")" in
     top | category | values | text)   # the always-on master-detail pane (0071)
       _showpv=1 ;;
     datapools | pooledit) _showpv=1 ;;   # the live layout graph
@@ -3930,7 +3931,7 @@ _guided_directive_to_action() {
     # an already-(un)bound key/event is harmless, so this is safe on all
     # renders.
     local mask
-    if [[ "$(nav_screen "$nav")" == "secret" ]]; then
+    if [[ "$(navigation_screen "$nav")" == "secret" ]]; then
       mask='+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)'
     else
       mask='+unbind(change)+rebind(left)+rebind(right)+rebind(home)+rebind(end)'
@@ -3942,7 +3943,7 @@ _guided_directive_to_action() {
     # lands before `load` fires. A `+pos(N)` in this action string instead would
     # target the PRE-reload (child) list and clamp onto a spacer (fzf pty-proven).
     local _fpos
-    _fpos="$(_ctl_focus_pos "$(nav_get "$nav" focus)")"
+    _fpos="$(_ctl_focus_pos "$(navigation_get "$nav" focus)")"
     [[ -n "$_fpos" && -n "${GUIDED_POS_FILE:-}" ]] \
       && printf '%s' "$_fpos" >"$GUIDED_POS_FILE"
     printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s' \

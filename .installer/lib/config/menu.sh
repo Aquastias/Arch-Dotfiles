@@ -19,6 +19,9 @@
 # overridden it. The row VALUE is baseline*override (override wins, jq `*`), but
 # `overridden` reflects the OVERRIDE map only — so a seeded-but-untouched field
 # shows its value with no ● until the operator edits it.
+#
+# Used by: the Guided Installer (lib/guided/), lib/matrix/registry.sh,
+# lib/feature-audit/check.sh.
 # =============================================================================
 
 # shellcheck source=./config-state.sh
@@ -26,7 +29,7 @@ declare -F config_state_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 
 # shellcheck source=./locale-source.sh
-declare -F locale_list_keymaps >/dev/null 2>&1 \
+declare -F locale_source_keymaps >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/locale-source.sh"
 
 # shellcheck source=./fonts.sh
@@ -282,6 +285,31 @@ _menu_fields_json() {
   printf '%s' "$_MENU_FIELDS_JSON"
 }
 
+# The jq helpers menu_rows renders with: render (array→", ", object→"k=v",
+# scalar→string, empty→default) and the locale projection.
+_MENU_ROWS_JQ_DEFINITIONS='
+  def render($v; $d):
+    (if   $v == null            then null
+     elif ($v | type) == "array"  then
+       ($v | map(if type == "string" then . else (.name // tostring) end)
+           | join(", "))
+     elif ($v | type) == "object" then
+       ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
+     else ($v | tostring) end) as $r
+    | if ($r == null or $r == "") then $d else $r end;
+  # Locale projection (ADR 0076): the canonical system.locale (element 0 when an
+  # array) split into its language identity (.CODESET dropped, @modifier kept)
+  # and its encoding (the CODESET). loc0 defaults to en_US.UTF-8 so the two
+  # leaves render their defaults on a fresh state.
+  def loc0($src): ($src.system.locale) as $l
+    | (if ($l | type) == "array" then ($l[0] // "") else ($l // "") end)
+    | if . == "" then "en_US.UTF-8" else . end;
+  def loc_lang($l): ($l | sub("\\.[^.@]+"; ""));
+  def loc_enc($l):
+    (if ($l | test("\\.[^.@]+")) then ($l | capture("\\.(?<e>[^.@]+)").e)
+     else "" end);
+'
+
 # menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
 # One jq call: merges baseline*override, derives the effective filesystem
 # (Impermanence hidden for ext4/xfs — ADR 0040), and per field renders the value
@@ -296,27 +324,8 @@ menu_rows() {
     --argjson override "$state" \
     --argjson baseline "$baseline" \
     --argjson lockpaths "$lockpaths" \
-    --argjson zfslock "$zfslock" "${_MENU_ANY_ZFS_JQ}"'
-    def render($v; $d):
-      (if   $v == null            then null
-       elif ($v | type) == "array"  then
-         ($v | map(if type == "string" then . else (.name // tostring) end)
-             | join(", "))
-       elif ($v | type) == "object" then
-         ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
-       else ($v | tostring) end) as $r
-      | if ($r == null or $r == "") then $d else $r end;
-    # Locale projection (ADR 0076): the canonical system.locale (element 0 when an
-    # array) split into its language identity (.CODESET dropped, @modifier kept)
-    # and its encoding (the CODESET). loc0 defaults to en_US.UTF-8 so the two
-    # leaves render their defaults on a fresh state.
-    def loc0($src): ($src.system.locale) as $l
-      | (if ($l | type) == "array" then ($l[0] // "") else ($l // "") end)
-      | if . == "" then "en_US.UTF-8" else . end;
-    def loc_lang($l): ($l | sub("\\.[^.@]+"; ""));
-    def loc_enc($l):
-      (if ($l | test("\\.[^.@]+")) then ($l | capture("\\.(?<e>[^.@]+)").e)
-       else "" end);
+    --argjson zfslock "$zfslock" \
+    "${_MENU_ANY_ZFS_JQ}${_MENU_ROWS_JQ_DEFINITIONS}"'
     ($baseline * $override) as $m
     | (if (($m.filesystem // "zfs")) == "" then "zfs"
        else ($m.filesystem // "zfs") end) as $fs

@@ -102,7 +102,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "entry key: ctrl-z emits a render action over the history file" {
-  bash -c '. "'"$BATS_TEST_DIRNAME"'/../../lib/config/history.sh"; hist_new "{}"' \
+  bash -c '. "'"$BATS_TEST_DIRNAME"'/../../lib/config/history.sh"; history_new "{}"' \
     > "$TEST_DIR/hist"
   export GUIDED_HIST_FILE="$TEST_DIR/hist"
   run bash "$ENTRY" key ctrl-z

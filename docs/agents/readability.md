@@ -222,7 +222,8 @@ lib/chroot/ (Chroot Configuration Modules; per-file stems)
 lib/config/ (per-file stems)
 - `accessors.sh` → rename `install-config.sh`; `install_config_` kept
 - `categorized-list.sh`: `categorized_` → `categorized_list_`
-- `config-apply.sh`: `ca_` → `config_apply_`
+- `config-apply.sh`: `ca_` → `config_apply_` (`ca_stow_opt_in_list` →
+  `config_apply_stow_opted_in_programs`)
 - `edits.sh` → rename `edit.sh`; `edit_` kept
 - `emit.sh`: `guided_*_delta`, `guided_user_profile`, `emit_effective` →
   `emit_`
@@ -238,7 +239,9 @@ lib/config/ (per-file stems)
 - `locale-source.sh`: `locale_` → `locale_source_`
 - `manual-partition.sh`: `manual_` → `manual_partition_`
 - `menu-owned.sh`: `*_owned_programs`, `menu_owned_` → `menu_owned_`
-- `nav.sh` → rename `navigation.sh`; `nav_` → `navigation_`
+- `nav.sh` → rename `navigation.sh`; `nav_` → `navigation_`, the screen
+  words spelled out (`nav_to_pkgcat` → `navigation_to_package_category`); the
+  screen strings in the nav JSON stay as-is
 - `post-install.sh`: `post_` → `post_install_`
 - `profile.sh` (Profile Loader) → rename `profile-loader.sh`;
   `profile_loader_`

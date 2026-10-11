@@ -13,6 +13,8 @@
 #
 # Public API:
 #   timezone_resolve <config-json> → the effective IANA zone (one line)
+#
+# Used by: 03-install.sh (via install_config_timezone).
 # =============================================================================
 
 # timezone_fetch — print the geo-IP IANA zone, or nothing on any failure. A
@@ -31,8 +33,9 @@ timezone_fetch() {
 # empty and any path-traversal so a hostile/garbled geo-IP reply cannot point
 # /etc/localtime outside the zoneinfo tree. Root overridable for tests.
 timezone_valid() {
-  local z="$1" dir="${TIMEZONE_ZONEINFO_DIR:-/usr/share/zoneinfo}"
-  [[ -n "$z" && "$z" != *..* && -f "$dir/$z" ]]
+  local zone="$1"
+  local zoneinfo_directory="${TIMEZONE_ZONEINFO_DIR:-/usr/share/zoneinfo}"
+  [[ -n "$zone" && "$zone" != *..* && -f "$zoneinfo_directory/$zone" ]]
 }
 
 # timezone_resolve <config-json> — the effective zone (ADR 0118). An explicit
@@ -40,13 +43,14 @@ timezone_valid() {
 # validated geo-IP autodetect; otherwise Europe/Bucharest. The fallback keeps an
 # offline install functional.
 timezone_resolve() {
-  local cfg="${1:-{\}}" explicit detected
-  explicit="$(jq -r '.system.timezone // empty' <<<"$cfg" 2>/dev/null)"
+  local config="${1:-{\}}" explicit detected
+  explicit="$(jq -r '.system.timezone // empty' <<<"$config" 2>/dev/null)"
   if [[ -n "$explicit" ]]; then
     printf '%s\n' "$explicit"
     return 0
   fi
-  detected="$(timezone_fetch | head -n1 | tr -d '[:space:]')"
+  detected="$(timezone_fetch \
+    | awk 'NR == 1 { gsub(/[[:space:]]/, ""); print; exit }')"
   if timezone_valid "$detected"; then
     printf '%s\n' "$detected"
     return 0

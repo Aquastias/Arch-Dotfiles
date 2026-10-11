@@ -1162,7 +1162,7 @@ SH
 
 @test "guided_build: the manual review says the table is kept, not erased" {
   source "$BATS_TEST_DIRNAME/../../lib/config/manual-partition.sh"
-  manual_lsblk_json() { printf '%s' '{"blockdevices":[{"path":"/dev/vda",
+  manual_partition_lsblk_json() { printf '%s' '{"blockdevices":[{"path":"/dev/vda",
     "type":"disk","children":[{"path":"/dev/vda1","type":"part",
     "fstype":null,"parttype":"0fc63daf-8483-4772-8e79-3d69d8477de4",
     "parttypename":"Linux filesystem"}]}]}'; }

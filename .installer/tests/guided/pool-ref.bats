@@ -7,8 +7,8 @@
 
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
@@ -21,20 +21,20 @@ setup() {
 
 # ── nav carries the kind ─────────────────────────────────────────────────────
 
-@test "nav_to_pooledit: kind defaults to data when omitted" {
-  [ "$(nav_get "$(nav_to_pooledit Disks 0)" kind)" = "data" ]
+@test "navigation_to_pool_edit: kind defaults to data when omitted" {
+  [ "$(navigation_get "$(navigation_to_pool_edit Disks 0)" kind)" = "data" ]
 }
 
-@test "nav_to_pooledit: carries an explicit group kind" {
-  local p; p="$(nav_to_pooledit Disks 2 storage)"
-  [ "$(nav_get "$p" kind)" = "storage" ]
-  [ "$(nav_get "$p" index)" = "2" ]
-  [ "$(nav_get "$(nav_to_pooledit Disks 0 os)" kind)" = "os" ]
+@test "navigation_to_pool_edit: carries an explicit group kind" {
+  local p; p="$(navigation_to_pool_edit Disks 2 storage)"
+  [ "$(navigation_get "$p" kind)" = "storage" ]
+  [ "$(navigation_get "$p" index)" = "2" ]
+  [ "$(navigation_get "$(navigation_to_pool_edit Disks 0 os)" kind)" = "os" ]
 }
 
 @test "_ctl_pool_kind: reads the nav kind, defaulting to data" {
-  [ "$(_ctl_pool_kind "$(nav_to_pooledit Disks 0)")" = "data" ]
-  [ "$(_ctl_pool_kind "$(nav_to_pooledit Disks 0 os)")" = "os" ]
+  [ "$(_ctl_pool_kind "$(navigation_to_pool_edit Disks 0)")" = "data" ]
+  [ "$(_ctl_pool_kind "$(navigation_to_pool_edit Disks 0 os)")" = "os" ]
 }
 
 # ── _ctl_pool_get: resolve the group object for a (kind, index) ──────────────

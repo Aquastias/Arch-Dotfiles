@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for .installer/lib/config/config-apply.sh — the Config Apply Planner
-# (ADR 0134). ca_plan is pure JSON-in/JSON-out; ca_ships_home_list walks a
+# (ADR 0134). config_apply_plan is pure JSON-in/JSON-out; config_apply_ships_home_list walks a
 # programs tree. Every assertion is external: given these inputs, this plan.
 #
 # Apply rule (from the design prototype):
@@ -11,7 +11,7 @@ setup() {
 }
 
 # plan <programs> <ships_home> <exclude> — compact plan output.
-plan() { ca_plan "$1" "$2" "$3" | jq -c .; }
+plan() { config_apply_plan "$1" "$2" "$3" | jq -c .; }
 
 @test "plan: a selected program that ships home and is not excluded applies" {
   run plan '["kitty"]' '["kitty"]' '[]'
@@ -43,7 +43,7 @@ plan() { ca_plan "$1" "$2" "$3" | jq -c .; }
   echo "$output" | jq -e '. == ["zsh"]'
 }
 
-# ── ca_ships_home_list walks a programs tree ────────────────────────────────
+# ── config_apply_ships_home_list walks a programs tree ────────────────────────────────
 
 @test "ships_home_list: lists exactly the programs that have a home/ dir" {
   root="$BATS_TEST_TMPDIR/programs"
@@ -53,7 +53,7 @@ plan() { ca_plan "$1" "$2" "$3" | jq -c .; }
   touch "$root/system/kitty/home/.config/kitty/kitty.conf"
 
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
-               ca_ships_home_list '$root' | jq -c 'sort'"
+               config_apply_ships_home_list '$root' | jq -c 'sort'"
   echo "$output" | jq -e '. == ["kitty","zsh"]'
 }
 
@@ -61,7 +61,7 @@ plan() { ca_plan "$1" "$2" "$3" | jq -c .; }
   root="$BATS_TEST_TMPDIR/programs"
   mkdir -p "$root/system/kitty/home"
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
-               ca_home_dir '$root' kitty"
+               config_apply_home_directory '$root' kitty"
   [ "$status" -eq 0 ]
   [[ "$output" == "$root/system/kitty/home" ]]
 }
@@ -70,13 +70,13 @@ plan() { ca_plan "$1" "$2" "$3" | jq -c .; }
   root="$BATS_TEST_TMPDIR/programs"
   mkdir -p "$root/dev/ccache"
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
-               ca_home_dir '$root' ccache"
+               config_apply_home_directory '$root' ccache"
   [ "$status" -ne 0 ]
 }
 
-# ── ca_stow_selection — the ./stow-configs.sh wrapper's pure brain ──────────────
+# ── config_apply_stow_selection — the ./stow-configs.sh wrapper's pure brain ──────────────
 # select <ships> <except> <only> — compact selection output.
-select_() { ca_stow_selection "$1" "$2" "$3" | jq -c .; }
+select_() { config_apply_stow_selection "$1" "$2" "$3" | jq -c .; }
 
 @test "selection: no except and no positional args stows every home program" {
   run select_ '["kitty","lazygit","zsh"]' '[]' '[]'
@@ -104,7 +104,7 @@ select_() { ca_stow_selection "$1" "$2" "$3" | jq -c .; }
 }
 
 # ── stow opt-in (ADR 0148) ──────────────────────────────────────────────────
-select4_() { ca_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
+select4_() { config_apply_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
 
 @test "selection: an opt-in program is skipped when no names are given" {
   run select4_ '["kitty","vscodium","zsh"]' '[]' '[]' '["vscodium"]'
@@ -128,7 +128,7 @@ select4_() { ca_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
     >"$root/dev/vscodium/config.jsonc"
   printf '{ "name": "kitty" }\n' >"$root/system/kitty/config.jsonc"
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
-               ca_stow_opt_in_list '$root'"
+               config_apply_stow_opted_in_programs '$root'"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '. == ["vscodium"]'
 }
@@ -140,7 +140,7 @@ select4_() { ca_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
     >"$root/dev/a/config.jsonc"
   printf '{ "name": "b", "stow_opt_in": false }\n' >"$root/dev/b/config.jsonc"
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
-               ca_stow_opt_in_list '$root'"
+               config_apply_stow_opted_in_programs '$root'"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '. == ["a"]'
 }

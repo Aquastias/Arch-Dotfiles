@@ -2017,11 +2017,11 @@ single source; both the Config Apply Pass (install-time) and `stow-configs.sh`
 (day-2) read it.
 
 ### Config Apply Planner
-`.installer/lib/config/config-apply.sh` — pure logic (`ca_plan`,
-`ca_ships_home_list`, `ca_stow_selection`) that decides which selected Programs'
-`home/` config applies for a user: `apply = selected && ships_home(program) &&
-!config_exclude(program)`. No filesystem writes; the Runner Pass and
-`stow-configs.sh` share it ([ADR 0134]).
+`.installer/lib/config/config-apply.sh` — pure logic (`config_apply_plan`,
+`config_apply_ships_home_list`, `config_apply_stow_selection`) that decides
+which selected Programs' `home/` config applies for a user: `apply = selected &&
+ships_home(program) && !config_exclude(program)`. No filesystem writes; the
+Runner Pass and `stow-configs.sh` share it ([ADR 0134]).
 
 ### Config Apply Pass
 The Runner step ([ADR 0134]) that applies config, decoupled from package

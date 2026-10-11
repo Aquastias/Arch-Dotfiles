@@ -66,7 +66,7 @@ _runner_user_config_names_to_relative_paths() {
 # <sys-progs-json>
 #   → the ordered "<cat>/<name>" rel paths whose home/ config applies for this
 #   user: (user programs ∪ host programs) that ship a home/ and are not in the
-#   user's config_exclude. Pure planning delegated to ca_plan.
+#   user's config_exclude. Pure planning delegated to config_apply_plan.
 _runner_user_config_plan_relative_paths() {
   local user_json="$1" ships="$2" sysprogs="$3"
   local selected exclude plan
@@ -74,7 +74,7 @@ _runner_user_config_plan_relative_paths() {
     --argjson u "$(jq -c '.programs // []' <<<"$user_json")" \
     --argjson s "$sysprogs" '$s + $u')"
   exclude="$(jq -c '.config_exclude // []' <<<"$user_json")"
-  plan="$(ca_plan "$selected" "$ships" "$exclude")"
+  plan="$(config_apply_plan "$selected" "$ships" "$exclude")"
   _runner_user_config_names_to_relative_paths "$plan"
 }
 

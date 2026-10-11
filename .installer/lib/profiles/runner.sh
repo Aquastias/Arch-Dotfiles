@@ -432,7 +432,7 @@ _runner_install_primary_aur() {
 # programs tree still exists (before _runner_cleanup).
 _runner_config_apply_pass() {
   local ships_home system_programs_json
-  ships_home="$(ca_ships_home_list \
+  ships_home="$(config_apply_ships_home_list \
     "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/programs")"
   system_programs_json="$(printf '%s\n' \
       "${system_programs[@]+"${system_programs[@]}"}" \
@@ -467,7 +467,7 @@ _runner_seed_selected_defaults() {
     all_user_programs="$(jq -c -n --argjson a "$all_user_programs" \
       --argjson b "$(jq -c '.programs // []' <<<"$user_json")" '$a + $b')"
   done
-  runner_seed_skeleton_root "$(ca_plan \
+  runner_seed_skeleton_root "$(config_apply_plan \
     "$(jq -c -n --argjson s "$system_programs_json" \
        --argjson u "$all_user_programs" '$s + $u')" "$ships_home" '[]')"
 }

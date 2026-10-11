@@ -35,9 +35,9 @@ declare -F config_store_state >/dev/null 2>&1 \
 # shellcheck source=../config/layer-resolver.sh
 declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/layer-resolver.sh"
-# shellcheck source=../config/edits.sh
+# shellcheck source=../config/edit.sh
 declare -F edit_set_scalar >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../config/edits.sh"
+  || source "${BASH_SOURCE[0]%/*}/../config/edit.sh"
 # shellcheck source=../config/emit.sh
 declare -F emit_effective >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
@@ -45,13 +45,13 @@ declare -F emit_effective >/dev/null 2>&1 \
 declare -F menu_rows >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/menu.sh"
 # shellcheck source=../config/history.sh
-declare -F hist_new >/dev/null 2>&1 \
+declare -F history_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/history.sh"
 # shellcheck source=../config/skeleton.sh
 declare -F skeleton_preset >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/skeleton.sh"
 # shellcheck source=../config/manual-partition.sh
-declare -F manual_scan_and_store >/dev/null 2>&1 \
+declare -F manual_partition_scan_and_store >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/manual-partition.sh"
 # shellcheck source=../picker.sh
 declare -F picker_enum_disks >/dev/null 2>&1 \
@@ -233,7 +233,7 @@ _guided_edit_manual() {
   local d="${_GUIDED_ANSWERS[manual_disk]-}"
   [[ -n "$d" ]] || return 1
   _GUIDED_STATE="$(edit_set_scalar "$_GUIDED_STATE" disk_config.kind manual)"
-  _GUIDED_STATE="$(manual_scan_and_store "$_GUIDED_STATE" "$d")" || return 1
+  _GUIDED_STATE="$(manual_partition_scan_and_store "$_GUIDED_STATE" "$d")" || return 1
   _GUIDED_DISK="$d"
 }
 
@@ -1060,9 +1060,9 @@ guided_run_persistent() {
 
   config_store_write_baseline "$_GUIDED_BASELINE"
   config_store_write_state "$_GUIDED_STATE"
-  config_store_write_navigation "$(nav_new)"
+  config_store_write_navigation "$(navigation_new)"
   : >"$GUIDED_RESULT_FILE"
-  hist_new "$_GUIDED_STATE" >"$GUIDED_HIST_FILE"   # undo/redo seed
+  history_new "$_GUIDED_STATE" >"$GUIDED_HIST_FILE"   # undo/redo seed
 
   # The header + prompt are updated per screen by the controller's `render`
   # directive (change-header/change-prompt), so they always say how to go back.
@@ -1402,7 +1402,7 @@ guided_build() {
   mode="$(config_state_get "$(_guided_effective)" mode)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
-  if manual_kind_active "$_GUIDED_STATE"; then
+  if manual_partition_kind_active "$_GUIDED_STATE"; then
     printf '  MANUAL:      your partitions on %s (no wipe)\n' \
       "$(jq -r '.disk // ""' <<<"$assignment")" >&2
   elif [[ "$mode" == "multi" ]]; then

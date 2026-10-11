@@ -20,6 +20,9 @@
 #                                            folded into .host_programs
 #   power_owned_programs                  → every program the enum can own,
 #                                            state-independent (picker filter)
+#
+# Used by: lib/config/{emit,menu-owned,profile-loader}.sh,
+# lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
 # power_profile <config-json> — the selected backend. Absent/null/empty ⇒
@@ -45,15 +48,15 @@ power_programs() {
 # into .host_programs (order-preserving, idempotent). A no-op when power
 # yields nothing (`none`). Pure: JSON in, compact JSON out.
 power_inject() {
-  local cfg="${1:-{\}}" progs
-  progs="$(power_programs "$cfg")"
-  [[ -n "$progs" ]] || { jq -c . <<<"$cfg"; return; }
-  jq -c --arg progs "$progs" '
+  local config="${1:-{\}}" programs
+  programs="$(power_programs "$config")"
+  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
+  jq -c --arg progs "$programs" '
     ($progs | split("\n") | map(select(length > 0))) as $add
     | .host_programs = ((.host_programs // []) as $sp
         | reduce $add[] as $p ($sp;
             if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$cfg"
+  ' <<<"$config"
 }
 
 # power_owned_programs — every Host Program the Power enum can own, regardless

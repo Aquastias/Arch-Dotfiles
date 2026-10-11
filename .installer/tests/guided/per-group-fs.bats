@@ -22,8 +22,8 @@ setup() {
   export -f jsonc_strip config_optional config_required error info section warn
 
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
@@ -41,9 +41,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # validate the assembled config. With an empty baseline the authored Config State
 # IS the Effective Config, so we validate it directly.
 @test "AC4: a guided-authored zfs-root + encrypted ext4 data group validates" {
-  set_nav "$(nav_to_datapools Disks)"
+  set_nav "$(navigation_to_data_pools Disks)"
   guided_ctl_enter "+ Add data pool" >/dev/null      # tank0: zfs stripe ×1
-  set_nav "$(nav_to_pooledit Disks 0)"
+  set_nav "$(navigation_to_pool_edit Disks 0)"
   guided_ctl_enter "filesystem: zfs   (Enter cycles)"   >/dev/null  # → btrfs
   guided_ctl_enter "filesystem: btrfs   (Enter cycles)" >/dev/null  # → ext4 (pins)
   guided_ctl_enter "encryption: false   (Enter toggles)" >/dev/null # → true
@@ -64,9 +64,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # A btrfs group authored with native raid also validates (raid1 is legal btrfs).
 @test "AC4: a guided-authored btrfs raid1 data group validates" {
-  set_nav "$(nav_to_datapools Disks)"
+  set_nav "$(navigation_to_data_pools Disks)"
   guided_ctl_enter "+ Add data pool" >/dev/null      # tank0: zfs stripe ×1
-  set_nav "$(nav_to_pooledit Disks 0)"
+  set_nav "$(navigation_to_pool_edit Disks 0)"
   guided_ctl_enter "filesystem: zfs   (Enter cycles)" >/dev/null    # → btrfs (topo→single)
   guided_ctl_enter "topology: single   (Enter cycles)" >/dev/null   # → raid0
   guided_ctl_enter "topology: raid0   (Enter cycles)"  >/dev/null   # → raid1

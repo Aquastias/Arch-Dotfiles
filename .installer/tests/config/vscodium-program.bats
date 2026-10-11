@@ -139,9 +139,9 @@ ext_ids() { data_rows "$EXTS"; }
 @test "a no-name ./stow-configs.sh sweep skips vscodium (ADR 0148)" {
   source "$REPO/.installer/lib/config/config-apply.sh"
   local root="$REPO/.installer/programs"
-  ca_stow_opt_in_list "$root" | jq -e 'index("vscodium") != null'
-  ca_stow_selection "$(ca_ships_home_list "$root")" '[]' '[]' \
-    "$(ca_stow_opt_in_list "$root")" | jq -e 'index("vscodium") == null'
+  config_apply_stow_opted_in_programs "$root" | jq -e 'index("vscodium") != null'
+  config_apply_stow_selection "$(config_apply_ships_home_list "$root")" '[]' '[]' \
+    "$(config_apply_stow_opted_in_programs "$root")" | jq -e 'index("vscodium") == null'
 }
 
 # ── languages on the system toolchain (ADR 0148) ─────────────────────────────

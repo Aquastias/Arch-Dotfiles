@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/edits.sh — the Guided Installer's pure edit
+# Tests for .installer/lib/config/edit.sh — the Guided Installer's pure edit
 # setters
 # (ADR 0042). Each setter is JSON-in/JSON-out with no TTY, so behaviour is
 # asserted through the public interface: a state + value in, the new state out,
@@ -8,7 +8,7 @@
 
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
 }
 
 # ── scalar / bool / array ───────────────────────────────────────────────────

@@ -18,6 +18,10 @@
 #   post_install_default               → the secure-baseline object (JSON)
 #   post_install_programs   <json>     → ordered Program names, one per line
 #   post_install_validate   <json>     → 0 when shape-valid, else error() + 1
+#
+# Used by: 03-install.sh, lib/config/{config-state,install-config,lifecycle,
+# menu-owned,profile-loader}.sh, lib/packages/package-resolver.sh,
+# lib/profiles/runner.sh, lib/feature-audit/manifest.sh.
 # =============================================================================
 
 # post_install_default — the secure baseline a fresh guided run pre-ticks:
@@ -111,10 +115,10 @@ post_install_validate() {
 # calls error() with an actionable message and returns 1.
 post_install_guard_users() {
   local pi_json="${1:-{\}}" count="${2:-0}"
-  local -a progs=()
-  local _ex; _ex="$(post_install_programs "$pi_json")" || return 1
-  [[ -n "$_ex" ]] && mapfile -t progs <<< "$_ex"
-  if ((${#progs[@]} > 0)) && (("$count" == 0)); then
+  local -a programs=()
+  local extras; extras="$(post_install_programs "$pi_json")" || return 1
+  [[ -n "$extras" ]] && mapfile -t programs <<< "$extras"
+  if ((${#programs[@]} > 0)) && (("$count" == 0)); then
     error "Security/Backup Extras install via paru and need a primary user —" \
           "add a user or clear the selections."
     return 1

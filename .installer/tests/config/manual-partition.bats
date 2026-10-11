@@ -28,72 +28,72 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 # ── seed / pre-fill ─────────────────────────────────────────────────────────
 
 @test "scan: every partition becomes an assignment entry" {
-  run manual_scan_partitions "$LSBLK"
+  run manual_partition_scan "$LSBLK"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq 'length')" = "4" ]
 }
 
 @test "scan: the ESP pre-fills /boot/efi + fat32" {
-  parts="$(manual_scan_partitions "$LSBLK")"
+  parts="$(manual_partition_scan "$LSBLK")"
   echo "$parts" | by_dev /dev/sda1 | jq -e '.mountpoint == "/boot/efi"'
   echo "$parts" | by_dev /dev/sda1 | jq -e '.fs == "fat32"'
 }
 
 @test "scan: a swap partition pre-fills [swap]" {
-  manual_scan_partitions "$LSBLK" | by_dev /dev/sda4 \
+  manual_partition_scan "$LSBLK" | by_dev /dev/sda4 \
     | jq -e '.mountpoint == "[swap]"'
 }
 
 @test "scan: a blank partition starts unassigned and formats by default" {
-  parts="$(manual_scan_partitions "$LSBLK")"
+  parts="$(manual_partition_scan "$LSBLK")"
   echo "$parts" | by_dev /dev/sda2 | jq -e '.mountpoint == ""'
   echo "$parts" | by_dev /dev/sda2 | jq -e '.format == true'
 }
 
 @test "scan: a partition with existing data defaults to keep (no format)" {
-  manual_scan_partitions "$LSBLK" | by_dev /dev/sda3 | jq -e '.format == false'
+  manual_partition_scan "$LSBLK" | by_dev /dev/sda3 | jq -e '.format == false'
 }
 
 @test "scan: a kept partition carries its existing filesystem" {
   # so the validator can judge whether the installer can mount it
-  manual_scan_partitions "$LSBLK" | by_dev /dev/sda3 | jq -e '.fs == "ext4"'
+  manual_partition_scan "$LSBLK" | by_dev /dev/sda3 | jq -e '.fs == "ext4"'
 }
 
 # ── filesystem cycle (editor primitive; supported values only) ──────────────
 
 @test "cycle_fs: advances ext4 → xfs → btrfs and wraps" {
-  [ "$(manual_cycle_fs ext4)"  = "xfs" ]
-  [ "$(manual_cycle_fs xfs)"   = "btrfs" ]
-  [ "$(manual_cycle_fs btrfs)" = "ext4" ]
-  [ "$(manual_cycle_fs '')"    = "ext4" ]
-  [ "$(manual_cycle_fs ntfs)"  = "ext4" ]   # unknown → first supported
+  [ "$(manual_partition_cycle_filesystem ext4)"  = "xfs" ]
+  [ "$(manual_partition_cycle_filesystem xfs)"   = "btrfs" ]
+  [ "$(manual_partition_cycle_filesystem btrfs)" = "ext4" ]
+  [ "$(manual_partition_cycle_filesystem '')"    = "ext4" ]
+  [ "$(manual_partition_cycle_filesystem ntfs)"  = "ext4" ]   # unknown → first supported
 }
 
 # ── edit ────────────────────────────────────────────────────────────────────
 
 @test "set_field: assign the blank partition as root" {
-  parts="$(manual_scan_partitions "$LSBLK")"
-  parts="$(manual_set_field "$parts" /dev/sda2 mountpoint /)"
+  parts="$(manual_partition_scan "$LSBLK")"
+  parts="$(manual_partition_set_field "$parts" /dev/sda2 mountpoint /)"
   echo "$parts" | by_dev /dev/sda2 | jq -e '.mountpoint == "/"'
 }
 
 @test "set_field: format is written as a JSON boolean, not a string" {
-  parts="$(manual_scan_partitions "$LSBLK")"
-  parts="$(manual_set_field "$parts" /dev/sda3 format true)"
+  parts="$(manual_partition_scan "$LSBLK")"
+  parts="$(manual_partition_set_field "$parts" /dev/sda3 format true)"
   echo "$parts" | by_dev /dev/sda3 | jq -e '.format == true'
 }
 
 @test "set_field: an unknown device leaves the table unchanged" {
-  parts="$(manual_scan_partitions "$LSBLK")"
-  run manual_set_field "$parts" /dev/nope mountpoint /
+  parts="$(manual_partition_scan "$LSBLK")"
+  run manual_partition_set_field "$parts" /dev/nope mountpoint /
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq 'length')" = "4" ]
 }
 
 @test "set_field output feeds straight into the layout planner shape" {
   # Assign root so the array is a valid planner input; assert the shape.
-  parts="$(manual_scan_partitions "$LSBLK")"
-  parts="$(manual_set_field "$parts" /dev/sda2 mountpoint /)"
+  parts="$(manual_partition_scan "$LSBLK")"
+  parts="$(manual_partition_set_field "$parts" /dev/sda2 mountpoint /)"
   echo "$parts" | jq -e 'all(.[]; has("device") and has("mountpoint")
                                    and has("fs") and has("format"))'
 }
@@ -102,12 +102,12 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 
 @test "kind_active: true when disk_config.kind is manual" {
   local s; s="$(config_state_set "$(config_state_new)" disk_config.kind '"manual"')"
-  run manual_kind_active "$s"
+  run manual_partition_kind_active "$s"
   [ "$status" -eq 0 ]
 }
 
 @test "kind_active: false on the default (auto) state" {
-  run manual_kind_active "$(config_state_new)"
+  run manual_partition_kind_active "$(config_state_new)"
   [ "$status" -ne 0 ]
 }
 
@@ -115,9 +115,9 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 
 @test "store: the assignment lands at disk_config.partitions in state" {
   local parts state
-  parts="$(manual_set_field "$(manual_scan_partitions "$LSBLK")" \
+  parts="$(manual_partition_set_field "$(manual_partition_scan "$LSBLK")" \
     /dev/sda2 mountpoint /)"
-  state="$(manual_store_partitions "$(config_state_new)" "$parts")"
+  state="$(manual_partition_store "$(config_state_new)" "$parts")"
   echo "$state" | jq -e '.disk_config.partitions | length == 4'
   echo "$state" | jq -e \
     '.disk_config.partitions[] | select(.device=="/dev/sda2") | .mountpoint == "/"'
@@ -125,8 +125,8 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
 
 @test "store: the stored shape is exactly the planner's input" {
   local parts state
-  parts="$(manual_scan_partitions "$LSBLK")"
-  state="$(manual_store_partitions "$(config_state_new)" "$parts")"
+  parts="$(manual_partition_scan "$LSBLK")"
+  state="$(manual_partition_store "$(config_state_new)" "$parts")"
   # round-trips back out via the accessor path shape
   echo "$state" | jq -e '.disk_config.partitions
     | all(.[]; has("device") and has("mountpoint") and has("fs")
@@ -146,7 +146,7 @@ LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
 
 @test "autoroot: assigns / to the largest unassigned partition, fs ext4" {
   local parts
-  parts="$(manual_autoassign_root "$(manual_scan_partitions "$LSBLK_SZ")")"
+  parts="$(manual_partition_autoassign_root "$(manual_partition_scan "$LSBLK_SZ")")"
   echo "$parts" | by_dev /dev/sda3 | jq -e '.mountpoint == "/"'
   echo "$parts" | by_dev /dev/sda3 | jq -e '.fs == "ext4"'
   echo "$parts" | by_dev /dev/sda3 | jq -e '.format == true'
@@ -156,9 +156,9 @@ LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
 
 @test "autoroot: a table that already names a root is unchanged" {
   local parts
-  parts="$(manual_set_field "$(manual_scan_partitions "$LSBLK_SZ")" \
+  parts="$(manual_partition_set_field "$(manual_partition_scan "$LSBLK_SZ")" \
     /dev/sda2 mountpoint /)"
-  run manual_autoassign_root "$parts"
+  run manual_partition_autoassign_root "$parts"
   [ "$status" -eq 0 ]
   echo "$output" | by_dev /dev/sda2 | jq -e '.mountpoint == "/"'
   echo "$output" | by_dev /dev/sda3 | jq -e '.mountpoint == ""'
@@ -167,17 +167,17 @@ LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
 # ── mountpoint cycle + row label (assignment editor primitives) ─────────────
 
 @test "cycle: mountpoint advances through the set and wraps" {
-  [ "$(manual_cycle_mountpoint '')"          = "/" ]
-  [ "$(manual_cycle_mountpoint '/')"         = "/boot/efi" ]
-  [ "$(manual_cycle_mountpoint '/boot/efi')" = "/home" ]
-  [ "$(manual_cycle_mountpoint '/home')"     = "[swap]" ]
-  [ "$(manual_cycle_mountpoint '[swap]')"    = "" ]
-  [ "$(manual_cycle_mountpoint 'bogus')"     = "" ]
+  [ "$(manual_partition_cycle_mountpoint '')"          = "/" ]
+  [ "$(manual_partition_cycle_mountpoint '/')"         = "/boot/efi" ]
+  [ "$(manual_partition_cycle_mountpoint '/boot/efi')" = "/home" ]
+  [ "$(manual_partition_cycle_mountpoint '/home')"     = "[swap]" ]
+  [ "$(manual_partition_cycle_mountpoint '[swap]')"    = "" ]
+  [ "$(manual_partition_cycle_mountpoint 'bogus')"     = "" ]
 }
 
 @test "row_label: renders device, mountpoint, fs and keep/format" {
   local r
-  r="$(manual_row_label \
+  r="$(manual_partition_row_label \
     '{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}')"
   [[ "$r" == *"/dev/sda2"* ]]
   [[ "$r" == *"/"* ]]
@@ -187,7 +187,7 @@ LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
 
 @test "row_label: an unassigned kept partition reads clearly" {
   local r
-  r="$(manual_row_label \
+  r="$(manual_partition_row_label \
     '{"device":"/dev/sda9","mountpoint":"","fs":"","format":false}')"
   [[ "$r" == *"(unassigned)"* ]]
   [[ "$r" == *"[keep]"* ]]

@@ -22,6 +22,9 @@
 #                                             folded into .host_programs
 #   printing_owned_programs                 → every program the toggle owns,
 #                                             state-independent (picker filter)
+#
+# Used by: lib/config/{emit,menu-owned,profile-loader}.sh,
+# lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
 # printing_enabled <config-json> — "true" unless the toggle is explicitly
@@ -47,17 +50,17 @@ printing_programs() {
 # when printing is on. A no-op when printing yields nothing. Pure: JSON in,
 # compact JSON out.
 printing_inject() {
-  local cfg="${1:-{\}}" progs
-  progs="$(printing_programs "$cfg")"
+  local config="${1:-{\}}" programs
+  programs="$(printing_programs "$config")"
   # Nothing derived (printing off) → the config is untouched, not given an empty
   # host_programs it never had.
-  [[ -n "$progs" ]] || { jq -c . <<<"$cfg"; return; }
-  jq -c --arg progs "$progs" '
+  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
+  jq -c --arg progs "$programs" '
     ($progs | split("\n") | map(select(length > 0))) as $add
     | .host_programs = ((.host_programs // []) as $sp
         | reduce $add[] as $p ($sp;
             if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$cfg"
+  ' <<<"$config"
 }
 
 # printing_owned_programs — every Host Program the Printing toggle owns,

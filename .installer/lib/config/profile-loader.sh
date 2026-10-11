@@ -268,6 +268,38 @@ _PROFILE_SCHEMA_user=(
 _PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" \
   "conflicts[]" "system_services[]" "user_services[]" "stow_opt_in" )
 
+# The closed-schema check: the first (shortest) config path no schema pattern
+# admits, rendered dotted ("a.b[].c"); empty when every path is allowed.
+_PROFILE_LOADER_SCHEMA_JQ='
+  def parse_pat:
+    split(".")
+    | map(if   . == "*"        then ["*"]
+          elif endswith("[]")  then [.[0:length-2], "[]"]
+          else [.] end)
+    | add;
+  def tokmatch($p; $t):
+    if   $t == "[]" then ($p|type) == "number"
+    elif $t == "*"  then ($p|type) == "string"
+    else ($p|type) == "string" and $p == $t end;
+  def okprefix($P; $path):
+    any($P[];
+      . as $t
+      | ($path|length) <= ($t|length)
+      and all(range(0; $path|length); tokmatch($path[.]; $t[.])));
+  def render:
+    . as $a
+    | reduce range(0; ($a|length)) as $i ("";
+        ($a[$i]) as $s
+        | if   ($s|type) == "number" then . + "[]"
+          elif $i == 0                then ($s|tostring)
+          else . + "." + ($s|tostring) end);
+  ($pats | split("\n") | map(select(length > 0) | parse_pat)) as $P
+  | [ $cfg | paths ]
+  | map(select(okprefix($P; .) | not))
+  | sort_by(length)
+  | if length == 0 then "" else (.[0] | render) end
+'
+
 # profile_loader_validate_schema <kind> <json> — kind ∈ {host, user, program}.
 # Emits nothing and returns 0 when every key is enumerated; otherwise calls
 # error() with the shortest offending path and returns non-zero. Pure: reads
@@ -280,46 +312,20 @@ profile_loader_validate_schema() {
      return 1 ;;
   esac
 
-  local -n _pats="_PROFILE_SCHEMA_${kind}"
-  local pats
-  printf -v pats '%s\n' "${_pats[@]}"
+  local -n schema_patterns="_PROFILE_SCHEMA_${kind}"
+  local patterns
+  printf -v patterns '%s\n' "${schema_patterns[@]}"
 
-  local bad
-  bad="$(jq -rn --argjson cfg "$json" --arg pats "$pats" '
-    def parse_pat:
-      split(".")
-      | map(if   . == "*"        then ["*"]
-            elif endswith("[]")  then [.[0:length-2], "[]"]
-            else [.] end)
-      | add;
-    def tokmatch($p; $t):
-      if   $t == "[]" then ($p|type) == "number"
-      elif $t == "*"  then ($p|type) == "string"
-      else ($p|type) == "string" and $p == $t end;
-    def okprefix($P; $path):
-      any($P[];
-        . as $t
-        | ($path|length) <= ($t|length)
-        and all(range(0; $path|length); tokmatch($path[.]; $t[.])));
-    def render:
-      . as $a
-      | reduce range(0; ($a|length)) as $i ("";
-          ($a[$i]) as $s
-          | if   ($s|type) == "number" then . + "[]"
-            elif $i == 0                then ($s|tostring)
-            else . + "." + ($s|tostring) end);
-    ($pats | split("\n") | map(select(length > 0) | parse_pat)) as $P
-    | [ $cfg | paths ]
-    | map(select(okprefix($P; .) | not))
-    | sort_by(length)
-    | if length == 0 then "" else (.[0] | render) end
-  ')" || {
+  local first_unknown_path
+  first_unknown_path="$(jq -rn --argjson cfg "$json" --arg pats "$patterns" \
+    "$_PROFILE_LOADER_SCHEMA_JQ")" || {
     error "profile_loader_validate_schema: jq failed for ${kind} schema"
     return 1
   }
 
-  if [[ -n "$bad" ]]; then
-    error "Unknown key '${bad}' in ${kind} config (closed schema, ADR 0036)." \
+  if [[ -n "$first_unknown_path" ]]; then
+    error "Unknown key '${first_unknown_path}' in ${kind} config" \
+          "(closed schema, ADR 0036)." \
           "Fix the typo or remove it before any disk is touched."
     return 1
   fi

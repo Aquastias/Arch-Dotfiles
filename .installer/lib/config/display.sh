@@ -17,12 +17,14 @@
 #   4. Technical / free-text tokens pass through unchanged: anything containing
 #      / = : . , a digit, or starting with a non-letter (/dev/sda,
 #      en_US.UTF-8, key=value, a typed hostname like legion5, 2G).
+#
+# Used by: lib/config/environment.sh, lib/guided/controller.sh.
 # =============================================================================
 
 # _display_curated <token> → the curated Display Label for <token> (matched
 # case-insensitively), or non-zero when <token> has no curated entry.
 _display_curated() {
-  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+  case "${1,,}" in
   kde)          echo KDE ;;
   hyprland)     echo Hyprland ;;
   niri)         echo niri ;;
@@ -51,43 +53,45 @@ _display_curated() {
 # _display_passthrough <token> → 0 when the token is technical / free-text and
 # must be shown verbatim.
 _display_passthrough() {
-  local t="$1"
-  [[ -z "$t" ]]              && return 0
-  [[ "$t" == *[/=:.]* ]]     && return 0
-  [[ "$t" == *[0-9]* ]]      && return 0
-  [[ "$t" == [!A-Za-z]* ]]   && return 0
+  local token="$1"
+  [[ -z "$token" ]]              && return 0
+  [[ "$token" == *[/=:.]* ]]     && return 0
+  [[ "$token" == *[0-9]* ]]      && return 0
+  [[ "$token" == [!A-Za-z]* ]]   && return 0
   return 1
 }
 
 # _display_word <word> → the word's display form: curated acronym, else
 # first-letter-uppercase with the rest lower-cased. Assumes a single word.
 _display_word() {
-  local w c lower
-  if c="$(_display_curated "$1")"; then printf '%s' "$c"; return; fi
-  lower="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
-  printf '%s%s' \
-    "$(printf '%s' "${lower:0:1}" | tr '[:lower:]' '[:upper:]')" "${lower:1}"
+  local curated lower
+  if curated="$(_display_curated "$1")"; then printf '%s' "$curated"; return; fi
+  lower="${1,,}"
+  printf '%s' "${lower^}"
 }
 
 # display_label <token> → the Display Label for <token>. See file header.
 display_label() {
-  local token="$1" c
+  local token="$1" curated
   # Whole-token curated first (covers hyphenated names like systemd-boot).
-  if c="$(_display_curated "$token")"; then printf '%s\n' "$c"; return; fi
+  if curated="$(_display_curated "$token")"; then
+    printf '%s\n' "$curated"
+    return
+  fi
   if _display_passthrough "$token"; then printf '%s\n' "$token"; return; fi
 
   local -a words; read -ra words <<<"$token"
-  local out="" i w disp
+  local out="" i word display_word
   for i in "${!words[@]}"; do
-    w="${words[$i]}"
-    if disp="$(_display_curated "$w")"; then
+    word="${words[$i]}"
+    if display_word="$(_display_curated "$word")"; then
       : # curated acronym word (ESP, URL, ZFS, …) — keep as-is
     elif [[ "$i" -eq 0 ]]; then
-      disp="$(_display_word "$w")"                             # first word
+      display_word="$(_display_word "$word")"        # first word
     else
-      disp="$(printf '%s' "$w" | tr '[:upper:]' '[:lower:]')"  # rest: lower
+      display_word="${word,,}"                       # rest: lower
     fi
-    out+="${out:+ }$disp"
+    out+="${out:+ }$display_word"
   done
   printf '%s\n' "$out"
 }
@@ -97,10 +101,10 @@ display_label() {
 # candidate matches. The format-aware inverse used by the controller's reverse
 # lookups so a re-cased row still resolves to its stored value.
 display_reverse() {
-  local want="$1" r; shift
-  for r in "$@"; do
-    [[ "$(display_label "$r")" == "$want" ]] \
-      && { printf '%s\n' "$r"; return 0; }
+  local want="$1" candidate; shift
+  for candidate in "$@"; do
+    [[ "$(display_label "$candidate")" == "$want" ]] \
+      && { printf '%s\n' "$candidate"; return 0; }
   done
   return 1
 }

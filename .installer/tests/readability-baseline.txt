@@ -19,8 +19,6 @@ file-length	.installer/tests/vm/seed-generator.bats	-
 file-length	.installer/vm/lib/flow-persistent.sh	-
 file-length	.installer/vm/lib/seed-generator.sh	-
 file-length	.installer/vm/vm-agent.sh	-
-function-length	.installer/lib/config/menu.sh	menu_rows
-function-length	.installer/lib/config/profile-loader.sh	profile_loader_validate_schema
 function-length	.installer/lib/feature-audit/binds-guest.sh	fa_bsetup
 function-length	.installer/lib/feature-audit/binds.sh	_fa_parse_hyprland
 function-length	.installer/lib/feature-audit/live.sh	_fa_bind_one
@@ -67,49 +65,6 @@ function-name	.installer/extras/desktop/kde/audit.sh	_fa_kde_scheme
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-function-name	.installer/lib/config/config-apply.sh	ca_home_dir
-function-name	.installer/lib/config/config-apply.sh	ca_plan
-function-name	.installer/lib/config/config-apply.sh	ca_ships_home_list
-function-name	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list
-function-name	.installer/lib/config/config-apply.sh	ca_stow_selection
-function-name	.installer/lib/config/history.sh	hist_can_redo
-function-name	.installer/lib/config/history.sh	hist_can_undo
-function-name	.installer/lib/config/history.sh	hist_commit
-function-name	.installer/lib/config/history.sh	hist_new
-function-name	.installer/lib/config/history.sh	hist_present
-function-name	.installer/lib/config/history.sh	hist_redo
-function-name	.installer/lib/config/history.sh	hist_undo
-function-name	.installer/lib/config/manual-partition.sh	manual_cycle_fs
-function-name	.installer/lib/config/nav.sh	nav_back
-function-name	.installer/lib/config/nav.sh	nav_get
-function-name	.installer/lib/config/nav.sh	nav_new
-function-name	.installer/lib/config/nav.sh	nav_screen
-function-name	.installer/lib/config/nav.sh	nav_secret_return
-function-name	.installer/lib/config/nav.sh	nav_to_category
-function-name	.installer/lib/config/nav.sh	nav_to_clone
-function-name	.installer/lib/config/nav.sh	nav_to_datapools
-function-name	.installer/lib/config/nav.sh	nav_to_encryption
-function-name	.installer/lib/config/nav.sh	nav_to_impermanence
-function-name	.installer/lib/config/nav.sh	nav_to_manualparts
-function-name	.installer/lib/config/nav.sh	nav_to_newhost
-function-name	.installer/lib/config/nav.sh	nav_to_partedit
-function-name	.installer/lib/config/nav.sh	nav_to_pkgbrowse
-function-name	.installer/lib/config/nav.sh	nav_to_pkgcat
-function-name	.installer/lib/config/nav.sh	nav_to_pkgderived
-function-name	.installer/lib/config/nav.sh	nav_to_pkgderivedsrc
-function-name	.installer/lib/config/nav.sh	nav_to_pkgs
-function-name	.installer/lib/config/nav.sh	nav_to_pooldisks
-function-name	.installer/lib/config/nav.sh	nav_to_pooledit
-function-name	.installer/lib/config/nav.sh	nav_to_poolmount
-function-name	.installer/lib/config/nav.sh	nav_to_profiles
-function-name	.installer/lib/config/nav.sh	nav_to_rootdisk
-function-name	.installer/lib/config/nav.sh	nav_to_rooteditor
-function-name	.installer/lib/config/nav.sh	nav_to_secret
-function-name	.installer/lib/config/nav.sh	nav_to_swapedit
-function-name	.installer/lib/config/nav.sh	nav_to_text
-function-name	.installer/lib/config/nav.sh	nav_to_useredit
-function-name	.installer/lib/config/nav.sh	nav_to_userfield
-function-name	.installer/lib/config/nav.sh	nav_to_values
 function-name	.installer/lib/feature-audit/binds-guest.sh	_fa_act
 function-name	.installer/lib/feature-audit/binds-guest.sh	_fa_audio
 function-name	.installer/lib/feature-audit/binds-guest.sh	fa_bbaseline
@@ -534,77 +489,6 @@ local-name	.installer/extras/desktop/kde/kde.sh	_seed_write:dst
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	-:d
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env:p
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir:p
-local-name	.installer/lib/config/bluetooth.sh	bluetooth_inject:cfg
-local-name	.installer/lib/config/bluetooth.sh	bluetooth_inject:progs
-local-name	.installer/lib/config/config-apply.sh	ca_home_dir:d
-local-name	.installer/lib/config/config-apply.sh	ca_home_dir:d
-local-name	.installer/lib/config/config-apply.sh	ca_ships_home_list:d
-local-name	.installer/lib/config/config-apply.sh	ca_ships_home_list:d
-local-name	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list:f
-local-name	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list:f
-local-name	.installer/lib/config/display.sh	display_label:c
-local-name	.installer/lib/config/display.sh	display_label:w
-local-name	.installer/lib/config/display.sh	_display_passthrough:t
-local-name	.installer/lib/config/display.sh	display_reverse:r
-local-name	.installer/lib/config/display.sh	display_reverse:r
-local-name	.installer/lib/config/display.sh	_display_word:c
-local-name	.installer/lib/config/display.sh	_display_word:w
-local-name	.installer/lib/config/edits.sh	edit_add_custom_repository:rf
-local-name	.installer/lib/config/edits.sh	edit_append_persist:dir
-local-name	.installer/lib/config/edits.sh	edit_apply_skeleton:sk
-local-name	.installer/lib/config/edits.sh	edit_remove_persist:dir
-local-name	.installer/lib/config/edits.sh	edit_set_bool:v
-local-name	.installer/lib/config/edits.sh	edit_set_gpu:p
-local-name	.installer/lib/config/edits.sh	edit_set_gpu:p
-local-name	.installer/lib/config/edits.sh	edit_set_scalar:v
-local-name	.installer/lib/config/edits.sh	edit_set_sysctl:k
-local-name	.installer/lib/config/edits.sh	edit_set_sysctl:v
-local-name	.installer/lib/config/fonts.sh	fonts_aur_packages:pkg
-local-name	.installer/lib/config/fonts.sh	fonts_default_selection:pkg
-local-name	.installer/lib/config/fonts.sh	_fonts_kind:pkg
-local-name	.installer/lib/config/fonts.sh	fonts_repo_packages:pkg
-local-name	.installer/lib/config/fonts.sh	fonts_selected:cfg
-local-name	.installer/lib/config/locale-parts.sh	locale_compose:enc
-local-name	.installer/lib/config/locale-source.sh	locale_list_encodings:f
-local-name	.installer/lib/config/locale-source.sh	locale_list_languages:f
-local-name	.installer/lib/config/manual-partition.sh	manual_cycle_fs:cur
-local-name	.installer/lib/config/manual-partition.sh	manual_cycle_fs:f
-local-name	.installer/lib/config/manual-partition.sh	manual_cycle_mountpoint:cur
-local-name	.installer/lib/config/manual-partition.sh	manual_cycle_mountpoint:n
-local-name	.installer/lib/config/manual-partition.sh	manual_set_field:jval
-local-name	.installer/lib/config/manual-partition.sh	manual_set_field:val
-local-name	.installer/lib/config/mirrors.sh	mirrors_inject:cfg
-local-name	.installer/lib/config/mirrors.sh	mirrors_inject:progs
-local-name	.installer/lib/config/nav.sh	nav_to_secret:c
-local-name	.installer/lib/config/nav.sh	nav_to_secret:o
-local-name	.installer/lib/config/nav.sh	nav_to_secret:p
-local-name	.installer/lib/config/nav.sh	nav_to_secret:t
-local-name	.installer/lib/config/nav.sh	nav_to_secret:u
-local-name	.installer/lib/config/post-install.sh	post_install_guard_users:_ex
-local-name	.installer/lib/config/post-install.sh	post_install_guard_users:progs
-local-name	.installer/lib/config/power.sh	power_inject:cfg
-local-name	.installer/lib/config/power.sh	power_inject:progs
-local-name	.installer/lib/config/printing.sh	printing_inject:cfg
-local-name	.installer/lib/config/printing.sh	printing_inject:progs
-local-name	.installer/lib/config/profiles.sh	profiles_header:f
-local-name	.installer/lib/config/profiles.sh	profiles_list:d
-local-name	.installer/lib/config/profiles.sh	profiles_list:d
-local-name	.installer/lib/config/skeleton.sh	skeleton_add_data_pool:skel
-local-name	.installer/lib/config/skeleton.sh	skeleton_add_storage:skel
-local-name	.installer/lib/config/skeleton.sh	skeleton_build_assignment:c
-local-name	.installer/lib/config/skeleton.sh	skeleton_build_assignment:dp_json
-local-name	.installer/lib/config/skeleton.sh	skeleton_build_assignment:n
-local-name	.installer/lib/config/skeleton.sh	skeleton_build_assignment:sg_json
-local-name	.installer/lib/config/skeleton.sh	skeleton_build_assignment:skel
-local-name	.installer/lib/config/skeleton.sh	_skeleton_group:dc
-local-name	.installer/lib/config/skeleton.sh	_skeleton_group:topo
-local-name	.installer/lib/config/skeleton.sh	skeleton_validate:dc
-local-name	.installer/lib/config/skeleton.sh	skeleton_validate:n
-local-name	.installer/lib/config/skeleton.sh	skeleton_validate:skel
-local-name	.installer/lib/config/skeleton.sh	skeleton_validate:topo
-local-name	.installer/lib/config/timezone.sh	timezone_resolve:cfg
-local-name	.installer/lib/config/timezone.sh	timezone_valid:dir
-local-name	.installer/lib/config/timezone.sh	timezone_valid:z
 local-name	.installer/lib/feature-audit/binds-guest.sh	fa_beval:a
 local-name	.installer/lib/feature-audit/binds-guest.sh	fa_beval:arg
 local-name	.installer/lib/feature-audit/binds-guest.sh	fa_beval:b
@@ -1005,8 +889,6 @@ local-name	.installer/lib/guided/controller.sh	guided_ctl_preview:sk
 local-name	.installer/lib/guided/controller.sh	_guided_directive_to_action:d
 local-name	.installer/lib/guided/controller.sh	_guided_directive_to_action:nav
 local-name	.installer/lib/guided/controller.sh	_guided_directive_to_action:pv
-local-name	.installer/lib/guided/controller.sh	-:hist_new
-local-name	.installer/lib/guided/controller.sh	-:nav_new
 local-name	.installer/lib/guided/mask.sh	guided_mask_apply:buf
 local-name	.installer/lib/guided/mask.sh	guided_mask_apply:c
 local-name	.installer/lib/guided/mask.sh	guided_mask_apply:q
@@ -1110,7 +992,6 @@ local-name	.installer/lib/guided/shell.sh	_guided_user_names:d
 local-name	.installer/lib/guided/shell.sh	_guided_user_names:n
 local-name	.installer/lib/guided/shell.sh	-:_GUIDED_USER_PW
 local-name	.installer/lib/guided/shell.sh	_guided_users_reset:_GUIDED_USER_PW
-local-name	.installer/lib/guided/shell.sh	-:hist_new
 local-name	.installer/lib/guided/userforms.sh	guided_userform_clear:f
 local-name	.installer/lib/guided/userforms.sh	guided_userform_clear:n
 local-name	.installer/lib/guided/userforms.sh	guided_userform_clear:tmp
@@ -1421,13 +1302,13 @@ local-name	.installer/tests/config/guided-flatten.bats	@test skeleton_flatten_de
 local-name	.installer/tests/config/guided-flatten.bats	@test skeleton_flatten_devices: derives count, drops devices + root_disk:s
 local-name	.installer/tests/config/guided-flatten.bats	@test skeleton_validate: a mirror with one bound disk is rejected:s
 local-name	.installer/tests/config/guided-menu.bats	@test menu_top_lines: emits each bucket header once, before its categories:b
-local-name	.installer/tests/config/guided-nav.bats	@test nav_back: text → its category:n
-local-name	.installer/tests/config/guided-nav.bats	@test nav_back: values → its category:n
-local-name	.installer/tests/config/guided-nav.bats	@test nav_to_category: enters a category, screen + category set:n
-local-name	.installer/tests/config/guided-nav.bats	@test nav_to_datapools: enters the data-pools editor, back → category:n
-local-name	.installer/tests/config/guided-nav.bats	@test nav_to_pooledit: carries the index, back → datapools:p
-local-name	.installer/tests/config/guided-nav.bats	@test nav_to_text: carries category, field, label:n
-local-name	.installer/tests/config/guided-nav.bats	@test nav_to_values: carries category, field, label:n
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_back: text → its category:n
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_back: values → its category:n
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_to_category: enters a category, screen + category set:n
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_to_data_pools: enters the data-pools editor, back → category:n
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_to_pool_edit: carries the index, back → datapools:p
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_to_text: carries category, field, label:n
+local-name	.installer/tests/config/guided-nav.bats	@test navigation_to_values: carries category, field, label:n
 local-name	.installer/tests/config/guided-skeleton.bats	@test skeleton_validate: every preset is installable:p
 local-name	.installer/tests/config/install-config.bats	@test schema rows: default emitted when path absent, value emitted when present:d
 local-name	.installer/tests/config/install-config.bats	@test schema rows: default emitted when path absent, value emitted when present:n
@@ -1511,7 +1392,7 @@ local-name	.installer/tests/config/layered-profiles.bats	@test the VM fixtures s
 local-name	.installer/tests/config/layered-profiles.bats	@test the VM fixtures still inherit Host Core's sysctl:h
 local-name	.installer/tests/config/layer-resolver.bats	@test the resolver is deterministic for the same inputs:a
 local-name	.installer/tests/config/layer-resolver.bats	@test the resolver is deterministic for the same inputs:b
-local-name	.installer/tests/config/locale-source.bats	@test locale_compose: splices the encoding in, exactly once (no doubling):l
+local-name	.installer/tests/config/locale-source.bats	@test locale_parts_compose: splices the encoding in, exactly once (no doubling):l
 local-name	.installer/tests/config/manual-partition.bats	@test kind_active: true when disk_config.kind is manual:s
 local-name	.installer/tests/config/manual-partition.bats	@test row_label: an unassigned kept partition reads clearly:r
 local-name	.installer/tests/config/manual-partition.bats	@test row_label: renders device, mountpoint, fs and keep/format:r
@@ -1696,7 +1577,7 @@ local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: data repla
 local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: data replaces one pool, siblings intact:s
 local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: os replaces the os_pool:g
 local-name	.installer/tests/guided/pool-ref.bats	@test _ctl_pool_set: os replaces the os_pool:s
-local-name	.installer/tests/guided/pool-ref.bats	@test nav_to_pooledit: carries an explicit group kind:p
+local-name	.installer/tests/guided/pool-ref.bats	@test navigation_to_pool_edit: carries an explicit group kind:p
 local-name	.installer/tests/guided/profiles-menu.bats	@test a seeded profile matches profile_loader_load exactly:d
 local-name	.installer/tests/guided/profiles-menu.bats	@test preview(profiles): expands a user to shell·groups:d
 local-name	.installer/tests/guided/profiles-menu.bats	@test preview(profiles): resolves over Host Core, not the raw delta:d
@@ -2141,52 +2022,6 @@ prefix	.installer/extras/desktop/kde/kde.sh	_seed_write
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-prefix	.installer/lib/config/config-apply.sh	ca_home_dir
-prefix	.installer/lib/config/config-apply.sh	ca_plan
-prefix	.installer/lib/config/config-apply.sh	ca_ships_home_list
-prefix	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list
-prefix	.installer/lib/config/config-apply.sh	ca_stow_selection
-prefix	.installer/lib/config/edits.sh	edit_add_custom_repository
-prefix	.installer/lib/config/edits.sh	edit_add_mirror_server
-prefix	.installer/lib/config/edits.sh	edit_add_sysctl_pair
-prefix	.installer/lib/config/edits.sh	edit_append_host_programs
-prefix	.installer/lib/config/edits.sh	edit_append_packages
-prefix	.installer/lib/config/edits.sh	edit_append_persist
-prefix	.installer/lib/config/edits.sh	edit_apply_skeleton
-prefix	.installer/lib/config/edits.sh	edit_remove_persist
-prefix	.installer/lib/config/edits.sh	edit_set_array
-prefix	.installer/lib/config/edits.sh	edit_set_bool
-prefix	.installer/lib/config/edits.sh	edit_set_gpu
-prefix	.installer/lib/config/edits.sh	edit_set_scalar
-prefix	.installer/lib/config/edits.sh	edit_set_sysctl
-prefix	.installer/lib/config/edits.sh	edit_set_users
-prefix	.installer/lib/config/history.sh	hist_can_redo
-prefix	.installer/lib/config/history.sh	hist_can_undo
-prefix	.installer/lib/config/history.sh	hist_commit
-prefix	.installer/lib/config/history.sh	hist_new
-prefix	.installer/lib/config/history.sh	hist_present
-prefix	.installer/lib/config/history.sh	hist_redo
-prefix	.installer/lib/config/history.sh	hist_undo
-prefix	.installer/lib/config/locale-parts.sh	locale_compose
-prefix	.installer/lib/config/locale-parts.sh	locale_encoding
-prefix	.installer/lib/config/locale-parts.sh	locale_language
-prefix	.installer/lib/config/locale-source.sh	locale_list_console_fonts
-prefix	.installer/lib/config/locale-source.sh	locale_list_encodings
-prefix	.installer/lib/config/locale-source.sh	locale_list_keymaps
-prefix	.installer/lib/config/locale-source.sh	locale_list_languages
-prefix	.installer/lib/config/manual-partition.sh	manual_autoassign_root
-prefix	.installer/lib/config/manual-partition.sh	manual_cycle_fs
-prefix	.installer/lib/config/manual-partition.sh	manual_cycle_mountpoint
-prefix	.installer/lib/config/manual-partition.sh	manual_kind_active
-prefix	.installer/lib/config/manual-partition.sh	manual_lsblk_json
-prefix	.installer/lib/config/manual-partition.sh	manual_row_label
-prefix	.installer/lib/config/manual-partition.sh	manual_scan_and_store
-prefix	.installer/lib/config/manual-partition.sh	manual_scan_partitions
-prefix	.installer/lib/config/manual-partition.sh	manual_set_field
-prefix	.installer/lib/config/manual-partition.sh	manual_store_partitions
-prefix	.installer/lib/config/manual-partition.sh	manual_target_disk
-prefix	.installer/lib/config/menu-owned.sh	bootloader_owned_programs
-prefix	.installer/lib/config/menu-owned.sh	secrets_owned_programs
 prefix	.installer/lib/feature-audit/binds-guest.sh	_fa_act
 prefix	.installer/lib/feature-audit/binds-guest.sh	_fa_audio
 prefix	.installer/lib/feature-audit/binds-guest.sh	fa_bbaseline
@@ -2661,12 +2496,6 @@ prefix	.installer/vm/lib/profile.sh	profile_resolve_config
 prefix	.installer/vm/lib/seed-generator.sh	seed_generator_build
 prefix	.installer/vm/lib/sentinel-watcher.sh	sentinel_watcher_wait
 prefix	.installer/vm/lib/sentinel-watcher.sh	sentinel_watcher_wait_marker
-sed-not-inplace	.installer/lib/config/locale-parts.sh	-:sed
-sed-not-inplace	.installer/lib/config/locale-parts.sh	-:sed
-sed-not-inplace	.installer/lib/config/locale-source.sh	locale_list_console_fonts:sed
-sed-not-inplace	.installer/lib/config/locale-source.sh	locale_list_keymaps:sed
-sed-not-inplace	.installer/lib/config/locale-source.sh	locale_list_languages:sed
-sed-not-inplace	.installer/lib/config/locale-source.sh	locale_list_languages:sed
 sed-not-inplace	.installer/lib/feature-audit/binds-guest.sh	_fa_kwin_windows:sed
 sed-not-inplace	.installer/lib/feature-audit/check.sh	fa_audit_check:sed
 sed-not-inplace	.installer/lib/feature-audit/manifest.sh	fa_validate_config:sed
@@ -2732,18 +2561,6 @@ tool	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env:t
 tool	.installer/extras/desktop/niri/niri.sh	-:dirname
 tool	.installer/extras/dm/greetd/greetd.sh	-:dirname
 tool	.installer/extras/dm/sddm/sddm.sh	-:dirname
-tool	.installer/lib/config/config-apply.sh	ca_ships_home_list:basename
-tool	.installer/lib/config/config-apply.sh	ca_ships_home_list:dirname
-tool	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list:basename
-tool	.installer/lib/config/config-apply.sh	ca_stow_opt_in_list:dirname
-tool	.installer/lib/config/display.sh	_display_curated:tr
-tool	.installer/lib/config/display.sh	display_label:tr
-tool	.installer/lib/config/display.sh	_display_word:tr
-tool	.installer/lib/config/display.sh	_display_word:tr
-tool	.installer/lib/config/manual-partition.sh	manual_target_disk:head
-tool	.installer/lib/config/profiles.sh	profiles_list:basename
-tool	.installer/lib/config/timezone.sh	timezone_resolve:head
-tool	.installer/lib/config/timezone.sh	timezone_resolve:tr
 tool	.installer/lib/feature-audit/binds-guest.sh	_fa_audio:tr
 tool	.installer/lib/feature-audit/binds-guest.sh	fa_bstate:wc
 tool	.installer/lib/feature-audit/binds-guest.sh	_fa_kwin_windows:tail
@@ -2871,7 +2688,7 @@ tool	.installer/tests/config/clamav-program.bats	-:head
 tool	.installer/tests/config/guided-menu.bats	@test menu_top_lines: a blank line separates the buckets:head
 tool	.installer/tests/config/guided-menu.bats	@test menu_top_lines: a blank line separates the buckets:head
 tool	.installer/tests/config/guided-menu.bats	@test menu_top_lines: emits each bucket header once, before its categories:tail
-tool	.installer/tests/config/locale-source.bats	@test locale_list_console_fonts: names before the first dot, unique:wc
+tool	.installer/tests/config/locale-source.bats	@test locale_source_console_fonts: names before the first dot, unique:wc
 tool	.installer/tests/config/menu-enum.bats	@test menu_enum_options: mirror countries keep multi-word entries intact:head
 tool	.installer/tests/config/noctalia-stow.bats	@test config.toml enabled list mirrors the shared core plugin set:tr
 tool	.installer/tests/config/nvim-program.bats	@test the program installs neovim itself before the plugin restore:cut

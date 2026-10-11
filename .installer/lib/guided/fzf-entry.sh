@@ -98,7 +98,7 @@ cfdisk)
   # cfdisk on the target disk, then scan the resulting table + store the
   # assignment into the guided state. The controller (sourced above) already
   # pulled in manual-partition.sh + picker.sh. VM/HITL-verified glue.
-  _mdisk="$(manual_target_disk)" || exit 0
+  _mdisk="$(manual_partition_target_disk)" || exit 0
   _mcur="$(config_store_state)"
   if _mnew="$(manual_partition_flow "$_mcur" "$_mdisk")"; then
     config_store_write_state "$_mnew"

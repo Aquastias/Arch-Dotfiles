@@ -20,6 +20,9 @@
 #   fonts_selected       <cfg>    → the selected fonts (absent ⇒ defaults)
 #   fonts_repo_packages  <cfg>    → selected fonts routed to pacstrap
 #   fonts_aur_packages   <cfg>    → selected fonts routed to the paru pass
+#
+# Used by: lib/config/{config-state,menu}.sh, lib/packages/package-list.sh,
+# lib/packages/package-resolver.sh, lib/profiles/runner.sh.
 # =============================================================================
 
 # Catalog rows: package|kind|default  (kind: repo|aur; default: on|off).
@@ -53,10 +56,10 @@ fonts_catalog_tokens() {
 # baseline an untouched install lands, seeded into the guided baseline and
 # applied when options.fonts is absent.
 fonts_default_selection() {
-  local spec pkg def
+  local spec package def
   for spec in "${_FONTS_CATALOG[@]}"; do
-    IFS='|' read -r pkg _ def <<<"$spec"
-    [[ "$def" == "on" ]] && printf '%s\n' "$pkg"
+    IFS='|' read -r package _ def <<<"$spec"
+    [[ "$def" == "on" ]] && printf '%s\n' "$package"
   done
   return 0
 }
@@ -72,10 +75,10 @@ fonts_default_selection_json() {
 # repo by the routers below (matching the "free-text extra ⇒ packages.repo"
 # convention).
 _fonts_kind() {
-  local want="$1" spec pkg kind
+  local want="$1" spec package kind
   for spec in "${_FONTS_CATALOG[@]}"; do
-    IFS='|' read -r pkg kind _ <<<"$spec"
-    [[ "$pkg" == "$want" ]] && { printf '%s\n' "$kind"; return; }
+    IFS='|' read -r package kind _ <<<"$spec"
+    [[ "$package" == "$want" ]] && { printf '%s\n' "$kind"; return; }
   done
 }
 
@@ -84,8 +87,8 @@ _fonts_kind() {
 # explicit empty array (`[]`) is honoured as "no fonts", mirroring
 # optional_repos' null-vs-[] distinction.
 fonts_selected() {
-  local cfg="${1:-{\}}" raw
-  raw="$(jq -c '.options.fonts // null' <<<"$cfg")"
+  local config="${1:-{\}}" raw
+  raw="$(jq -c '.options.fonts // null' <<<"$config")"
   if [[ "$raw" == "null" ]]; then
     fonts_default_selection
   else
@@ -96,10 +99,10 @@ fonts_selected() {
 # fonts_repo_packages <config-json> — the selected fonts routed to pacstrap
 # (repo kind, plus any unknown/authored font), one per line.
 fonts_repo_packages() {
-  local pkg
-  while IFS= read -r pkg; do
-    [[ -n "$pkg" ]] || continue
-    [[ "$(_fonts_kind "$pkg")" == "aur" ]] || printf '%s\n' "$pkg"
+  local package
+  while IFS= read -r package; do
+    [[ -n "$package" ]] || continue
+    [[ "$(_fonts_kind "$package")" == "aur" ]] || printf '%s\n' "$package"
   done < <(fonts_selected "${1:-{\}}")
   return 0
 }
@@ -107,10 +110,10 @@ fonts_repo_packages() {
 # fonts_aur_packages <config-json> — the selected fonts routed to the paru pass
 # (aur kind), one per line. Today only ttf-ms-fonts.
 fonts_aur_packages() {
-  local pkg
-  while IFS= read -r pkg; do
-    [[ -n "$pkg" ]] || continue
-    [[ "$(_fonts_kind "$pkg")" == "aur" ]] && printf '%s\n' "$pkg"
+  local package
+  while IFS= read -r package; do
+    [[ -n "$package" ]] || continue
+    [[ "$(_fonts_kind "$package")" == "aur" ]] && printf '%s\n' "$package"
   done < <(fonts_selected "${1:-{\}}")
   return 0
 }

@@ -12,8 +12,8 @@ setup() {
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/skeleton.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"

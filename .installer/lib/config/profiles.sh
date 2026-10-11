@@ -19,6 +19,8 @@
 #                                            comment (// stripped), or nothing
 #   profiles_seed   <state> <profile-json>→ <state> with the profile merged over
 #                                            it (profile wins), devices flattened
+#
+# Used by: lib/guided/controller.sh.
 # =============================================================================
 
 # shellcheck source=./skeleton.sh
@@ -30,12 +32,13 @@ declare -F skeleton_flatten_devices >/dev/null 2>&1 \
 # installable alone) and `vm` (harness fixtures, ADR 0035 — its profiles nest a
 # level deeper and are never immediate here anyway). Alphabetical, stable.
 profiles_list() {
-  local root="${1:?profiles_list needs a hosts root}" d name
-  for d in "$root"/*/; do
-    [[ -d "$d" ]] || continue
-    name="$(basename "$d")"
+  local root="${1:?profiles_list needs a hosts root}" host_directory name
+  for host_directory in "$root"/*/; do
+    [[ -d "$host_directory" ]] || continue
+    name="${host_directory%/}"
+    name="${name##*/}"
     [[ "$name" == "core" || "$name" == "vm" ]] && continue
-    [[ -f "${d}profile.jsonc" ]] || continue
+    [[ -f "${host_directory}profile.jsonc" ]] || continue
     printf '%s\n' "$name"
   done | LC_ALL=C sort
 }
@@ -45,9 +48,9 @@ profiles_list() {
 # for the picker's preview pane. Emits nothing when the file has no leading
 # comment (the caller renders the "(no description …)" fallback) or is missing.
 profiles_header() {
-  local root="${1:?}" name="${2:?}" f
-  f="${root%/}/${name}/profile.jsonc"
-  [[ -f "$f" ]] || return 0
+  local root="${1:?}" name="${2:?}" profile_file
+  profile_file="${root%/}/${name}/profile.jsonc"
+  [[ -f "$profile_file" ]] || return 0
   awk '
     /^[[:space:]]*\/\// {
       sub(/^[[:space:]]*\/\/[[:space:]]?/, "")
@@ -55,7 +58,7 @@ profiles_header() {
       next
     }
     { exit }
-  ' "$f"
+  ' "$profile_file"
 }
 
 # profiles_seed <state> <profile-json> — the Config State with <profile-json>

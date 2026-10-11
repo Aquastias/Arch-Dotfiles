@@ -19,6 +19,9 @@
 #                                           folded into .host_programs
 #   mirrors_owned_programs                → every program the section owns
 #                                           (picker filter)
+#
+# Used by: lib/config/{emit,menu-owned,profile-loader}.sh,
+# lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
 # mirrors_programs <config-json> — the section-derived Host Programs, one per
@@ -34,15 +37,15 @@ mirrors_programs() {
 # idempotent), so the Runner installs reflector exactly as an authored Host
 # Program. Pure: JSON in, compact JSON out.
 mirrors_inject() {
-  local cfg="${1:-{\}}" progs
-  progs="$(mirrors_programs "$cfg")"
-  [[ -n "$progs" ]] || { jq -c . <<<"$cfg"; return; }
-  jq -c --arg progs "$progs" '
+  local config="${1:-{\}}" programs
+  programs="$(mirrors_programs "$config")"
+  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
+  jq -c --arg progs "$programs" '
     ($progs | split("\n") | map(select(length > 0))) as $add
     | .host_programs = ((.host_programs // []) as $sp
         | reduce $add[] as $p ($sp;
             if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$cfg"
+  ' <<<"$config"
 }
 
 # mirrors_owned_programs — every Host Program the Mirrors & Repositories section

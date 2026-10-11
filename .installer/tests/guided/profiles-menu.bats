@@ -11,8 +11,8 @@ setup() {
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
@@ -59,7 +59,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(top): the Profiles row drills to the profiles screen" {
   run guided_ctl_enter "Profiles ▸ start from a saved machine"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
 }
 
 # ── profiles screen: lists the installable profiles + Back ──────────────────
@@ -86,7 +86,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav '{"screen":"profiles"}'
   run guided_ctl_enter "← Back"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
 
 # ── preview pane: a deep tree of the resolved machine (ADR 0063) ─────────────
@@ -151,7 +151,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav '{"screen":"profiles"}'
   run guided_ctl_enter "↺ Reset to blank"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "newhost" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "newhost" ]
 }
 
 @test "enter(newhost): Back cancels to the picker, session intact" {
@@ -159,7 +159,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav '{"screen":"newhost"}'
   run guided_ctl_enter "← Back"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
   jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"      # untouched
 }
 
@@ -176,12 +176,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$GUIDED_STATE_FILE"
   printf '%s\n' '{"alice":{"shell":"/bin/fish"}}' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":{"alice":{"password":"p"}}}' > "$GUIDED_SECRETS_FILE"
-  hist_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
+  history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
 
   set_nav '{"screen":"newhost"}'
   run guided_ctl_enter "Yes — discard session work and start blank"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
   jq -e '. == {}' "$GUIDED_STATE_FILE"                  # Config State → baseline
   jq -e '. == {}' "$GUIDED_USERFORMS_FILE"              # editor forms cleared
   jq -e '. == {}' "$GUIDED_SECRETS_FILE"                # secret overrides cleared
@@ -197,7 +197,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   printf '%s\n' '{"alice":{"shell":"/bin/fish"}}' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":{"alice":{"password":"p"}}}' > "$GUIDED_SECRETS_FILE"
-  hist_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
+  history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
 
   set_nav '{"screen":"newhost"}'
   guided_ctl_enter "Yes — discard session work and start blank" >/dev/null
@@ -215,7 +215,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav '{"screen":"profiles"}'
   run guided_ctl_enter desktop
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
   jq -e '.system.hostname == "eterniox"' "$GUIDED_STATE_FILE"
   jq -e '.options.encryption == true' "$GUIDED_STATE_FILE"
   jq -e '.filesystem == "zfs"' "$GUIDED_STATE_FILE"
@@ -257,7 +257,7 @@ JSON
   export INSTALLER_DIR="$d"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
-  set_nav "$(nav_to_profiles)"
+  set_nav "$(navigation_to_profiles)"
   run guided_ctl_enter "desktop"
   [ "$status" -eq 0 ]
 
@@ -280,7 +280,7 @@ JSON
   export INSTALLER_DIR="$d"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
-  set_nav "$(nav_to_profiles)"
+  set_nav "$(navigation_to_profiles)"
   guided_ctl_enter "desktop" >/dev/null
 
   source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"

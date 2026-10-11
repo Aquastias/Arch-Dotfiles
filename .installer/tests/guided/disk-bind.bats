@@ -13,8 +13,8 @@ setup() {
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
@@ -119,7 +119,7 @@ STUB
   printf '%s\n' \
     '{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"]}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_pooldisks Disks 0 data)"
+  set_nav "$(navigation_to_pool_disks Disks 0 data)"
   run guided_ctl_list
   echo "$output" | grep -q '^\[x\] nvme-Disk_One'
   echo "$output" | grep -q '^\[ \] nvme-Disk_Two'
@@ -128,7 +128,7 @@ STUB
 
 @test "enter(pooldisks): toggling a free disk binds it (refresh)" {
   printf '%s\n' '{"data_pools":[{"name":"tank0"}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_pooldisks Disks 0 data)"
+  set_nav "$(navigation_to_pool_disks Disks 0 data)"
   run guided_ctl_enter "[ ] nvme-Disk_Two"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].devices[0]' "$GUIDED_STATE_FILE")" \
@@ -138,7 +138,7 @@ STUB
 
 @test "enter(pooldisks): a '<size> <model> · <tail>' label binds by its tail" {
   printf '%s\n' '{"data_pools":[{"name":"tank0"}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_pooldisks Disks 0 data)"
+  set_nav "$(navigation_to_pool_disks Disks 0 data)"
   run guided_ctl_enter "[ ] 512G Foo SSD 980 · nvme-Disk_Two"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].devices[0]' "$GUIDED_STATE_FILE")" \
@@ -146,11 +146,11 @@ STUB
 }
 
 @test "enter(pooldisks): ← Back returns to the pool editor (render)" {
-  set_nav "$(nav_to_pooldisks Disks 0 data)"
+  set_nav "$(navigation_to_pool_disks Disks 0 data)"
   run guided_ctl_enter "← Back"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" index)" = "0" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
+  [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" index)" = "0" ]
 }
 
 # ── pooledit disks row: device-mode opens the sub-screen; count-mode cycles ──
@@ -159,17 +159,17 @@ STUB
   GUIDED_DEVICE_MODE=1
   printf '%s\n' '{"data_pools":[{"name":"tank0","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_pooledit Disks 0)"
+  set_nav "$(navigation_to_pool_edit Disks 0)"
   run guided_ctl_enter "disks: 0 bound   (Enter to edit)"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pooldisks" ]
+  [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooldisks" ]
 }
 
 @test "list(pooledit): device-mode 'N bound' vs count-mode cycle" {
   printf '%s\n' \
     '{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"],
       "disk_count":1}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_pooledit Disks 0)"
+  set_nav "$(navigation_to_pool_edit Disks 0)"
   GUIDED_DEVICE_MODE=1 run guided_ctl_list
   echo "$output" | grep -q "disks: 1 bound"
   GUIDED_DEVICE_MODE=0 run guided_ctl_list
@@ -180,7 +180,7 @@ STUB
   GUIDED_DEVICE_MODE=0
   printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror",
     "disk_count":2}]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_pooledit Disks 0)"
+  set_nav "$(navigation_to_pool_edit Disks 0)"
   run guided_ctl_enter "disks: 2   (Enter cycles 1-8)"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]

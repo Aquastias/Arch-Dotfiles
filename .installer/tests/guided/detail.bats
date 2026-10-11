@@ -16,8 +16,8 @@ setup() {
   export INSTALLER_DIR="$TEST_DIR"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/edit.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/userforms.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
@@ -89,14 +89,14 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 # ── category screen: parent column of sibling fields + the leaf's detail ─────
 
 @test "detail(category): the parent column lists the category's fields, marked" {
-  set_nav "$(nav_to_category Kernels)"
+  set_nav "$(navigation_to_category Kernels)"
   run guided_ctl_preview "Kernel: lts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE '▶ +kernel'
 }
 
 @test "detail(category): a leaf shows its current value and its option set" {
-  set_nav "$(nav_to_category Kernels)"
+  set_nav "$(navigation_to_category Kernels)"
   run guided_ctl_preview "Kernel: lts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'kernel: +lts'
@@ -106,7 +106,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 }
 
 @test "detail(category): the Back row previews the sibling column, no leaf" {
-  set_nav "$(nav_to_category Kernels)"
+  set_nav "$(navigation_to_category Kernels)"
   run guided_ctl_preview "← Back"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'kernel'
@@ -114,7 +114,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(category): an overridden field carries a ● in the pane" {
   printf '%s\n' '{"options":{"kernel":["zen"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_category Kernels)"
+  set_nav "$(navigation_to_category Kernels)"
   run guided_ctl_preview "Kernel: zen"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'kernel.*●'          # parent column + leaf
@@ -123,7 +123,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 # ── every field screen is populated (ADR 0071): values + text editors ───────
 
 @test "detail(values): a plain enum field screen shows value + options" {
-  set_nav "$(nav_to_values Bootloader options.bootloader bootloader)"
+  set_nav "$(navigation_to_values Bootloader options.bootloader bootloader)"
   run guided_ctl_preview "[x] systemd-boot"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'bootloader: +systemd-boot'
@@ -132,7 +132,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(text): a free-text field screen shows value + a free-text hint" {
   printf '%s\n' '{"system":{"hostname":"eterniox"}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_text System system.hostname hostname)"
+  set_nav "$(navigation_to_text System system.hostname hostname)"
   run guided_ctl_preview "eterniox"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +eterniox'
@@ -142,7 +142,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 # ── the pane is empty on screens that own their own preview (unchanged) ──────
 
 @test "detail: the datapools screen keeps its live layout graph, not the pane" {
-  set_nav "$(nav_to_datapools Disks)"
+  set_nav "$(navigation_to_data_pools Disks)"
   run guided_ctl_preview "single"
   [ "$status" -eq 0 ]
   # no category parent-column header leaks onto the layout screen
@@ -178,7 +178,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
   printf '%s\n' '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},
     "data_pools":[{"name":"tank9","topology":"mirror","disk_count":2}]}' \
     > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_category Disks)"
+  set_nav "$(navigation_to_category Disks)"
   run guided_ctl_preview "Layout: custom"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -q "tank9"                 # reused layout graph

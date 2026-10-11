@@ -18,6 +18,9 @@
 #                                             folded into .host_programs
 #   bluetooth_owned_programs                → every program the toggle owns,
 #                                             state-independent (picker filter)
+#
+# Used by: lib/config/{emit,menu-owned,profile-loader}.sh,
+# lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
 # bluetooth_enabled <config-json> — "true" unless the toggle is explicitly
@@ -40,15 +43,15 @@ bluetooth_programs() {
 # Programs folded into .host_programs (order-preserving, idempotent). A no-op
 # when bluetooth yields nothing. Pure: JSON in, compact JSON out.
 bluetooth_inject() {
-  local cfg="${1:-{\}}" progs
-  progs="$(bluetooth_programs "$cfg")"
-  [[ -n "$progs" ]] || { jq -c . <<<"$cfg"; return; }
-  jq -c --arg progs "$progs" '
+  local config="${1:-{\}}" programs
+  programs="$(bluetooth_programs "$config")"
+  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
+  jq -c --arg progs "$programs" '
     ($progs | split("\n") | map(select(length > 0))) as $add
     | .host_programs = ((.host_programs // []) as $sp
         | reduce $add[] as $p ($sp;
             if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$cfg"
+  ' <<<"$config"
 }
 
 # bluetooth_owned_programs — every Host Program the Bluetooth toggle owns,

@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/edits.sh — Guided Installer pure edit setters (ADR 0042)
+# lib/config/edit.sh — Guided Installer pure edit setters (ADR 0042)
 # =============================================================================
 # The SET half of every guided editor, extracted into pure functions shared by
-# two callers: the replay helpers in lib/guided/shell.sh (which GET a value through
-# the selection seam, then SET it) and the persistent-fzf controller (which GETs
-# a value from fzf, then SETs it). Centralizing the bespoke jq here means the
-# path/value writes have one tested implementation — the controller never
-# re-derives them.
+# two callers: the replay helpers in lib/guided/shell.sh (which GET a value
+# through the selection seam, then SET it) and the persistent-fzf controller
+# (which GETs a value from fzf, then SETs it). Centralizing the bespoke jq here
+# means the path/value writes have one tested implementation — the controller
+# never re-derives them.
 #
 # Each setter takes a Config State (the sparse override map) plus a raw value
 # and prints the new state on stdout. A no-op input (empty / nothing to add)
 # prints the state UNCHANGED and returns rc 1, so a caller can `new="$(edit_…)"
 # || return 1` to skip a commit. Pure: JSON in/out, no TTY.
+#
+# Used by: lib/guided/controller.sh, lib/guided/shell.sh.
 # =============================================================================
 
 # shellcheck source=./config-state.sh
@@ -22,17 +24,18 @@ declare -F config_state_set >/dev/null 2>&1 \
 # edit_set_scalar <state> <path> <str> — a string scalar at a dotted path.
 # rc 1 (unchanged) on empty input.
 edit_set_scalar() {
-  local state="$1" path="$2" v="$3"
-  [[ -n "$v" ]] || { printf '%s' "$state"; return 1; }
-  config_state_set "$state" "$path" "$(jq -n --arg x "$v" '$x')"
+  local state="$1" path="$2" value="$3"
+  [[ -n "$value" ]] || { printf '%s' "$state"; return 1; }
+  config_state_set "$state" "$path" "$(jq -n --arg x "$value" '$x')"
 }
 
 # edit_set_bool <state> <path> <true|false> — a JSON bool at a dotted path.
 # rc 1 (unchanged) when the value is neither literal.
 edit_set_bool() {
-  local state="$1" path="$2" v="$3"
-  [[ "$v" == "true" || "$v" == "false" ]] || { printf '%s' "$state"; return 1; }
-  config_state_set "$state" "$path" "$v"
+  local state="$1" path="$2" value="$3"
+  [[ "$value" == "true" || "$value" == "false" ]] \
+    || { printf '%s' "$state"; return 1; }
+  config_state_set "$state" "$path" "$value"
 }
 
 # edit_set_array <state> <path> <val...> — a JSON string array at a dotted path
@@ -50,9 +53,9 @@ edit_set_array() {
 edit_set_gpu() {
   local state="$1"; shift
   (($#)) || { printf '%s' "$state"; return 1; }
-  local p
-  for p in "$@"; do
-    [[ "$p" == "auto" ]] \
+  local vendor
+  for vendor in "$@"; do
+    [[ "$vendor" == "auto" ]] \
       && { config_state_set "$state" environment.gpu '"auto"'; return 0; }
   done
   config_state_set "$state" environment.gpu \
@@ -63,9 +66,10 @@ edit_set_gpu() {
 # is a LITERAL object key (a dotted `vm.swappiness` is NOT a nested path), and a
 # numeric value is stored as a number. rc 1 (unchanged) on an empty key.
 edit_set_sysctl() {
-  local state="$1" k="$2" v="$3"
-  [[ -n "$k" ]] || { printf '%s' "$state"; return 1; }
-  jq --arg k "$k" --arg v "$v" '.sysctl[$k] = ($v | (tonumber? // .))' <<<"$state"
+  local state="$1" key="$2" value="$3"
+  [[ -n "$key" ]] || { printf '%s' "$state"; return 1; }
+  jq --arg k "$key" --arg v "$value" \
+    '.sysctl[$k] = ($v | (tonumber? // .))' <<<"$state"
 }
 
 # edit_append_packages <state> <raw> — whitespace-split package name(s) appended
@@ -92,9 +96,9 @@ edit_append_host_programs() {
 # edit_append_persist <state> <dir> — append one absolute directory to
 # persist.directories. rc 1 (unchanged) on empty input.
 edit_append_persist() {
-  local state="$1" dir="$2"
-  [[ -n "$dir" ]] || { printf '%s' "$state"; return 1; }
-  jq --arg p "$dir" \
+  local state="$1" directory="$2"
+  [[ -n "$directory" ]] || { printf '%s' "$state"; return 1; }
+  jq --arg p "$directory" \
     '.persist.directories = ((.persist.directories // []) + [$p])' <<<"$state"
 }
 
@@ -102,11 +106,11 @@ edit_append_persist() {
 # persist.directories (ADR 0066). rc 1 (unchanged) on empty input or a dir not
 # in the list; removing the last entry leaves an empty list.
 edit_remove_persist() {
-  local state="$1" dir="$2"
-  [[ -n "$dir" ]] || { printf '%s' "$state"; return 1; }
-  jq -e --arg p "$dir" '(.persist.directories // []) | index($p)' \
+  local state="$1" directory="$2"
+  [[ -n "$directory" ]] || { printf '%s' "$state"; return 1; }
+  jq -e --arg p "$directory" '(.persist.directories // []) | index($p)' \
     <<<"$state" >/dev/null || { printf '%s' "$state"; return 1; }
-  jq --arg p "$dir" \
+  jq --arg p "$directory" \
     '.persist.directories = ((.persist.directories // []) - [$p])' <<<"$state"
 }
 
@@ -114,8 +118,8 @@ edit_remove_persist() {
 # keys, then merge the new skeleton in (switching layouts never leaves a stale
 # group behind).
 edit_apply_skeleton() {
-  local state="$1" sk="$2"
-  jq --argjson sk "$sk" \
+  local state="$1" skeleton="$2"
+  jq --argjson sk "$skeleton" \
     'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$state"
 }
 
@@ -127,8 +131,8 @@ edit_add_sysctl_pair() {
   edit_set_sysctl "$state" "${raw%%=*}" "${raw#*=}"
 }
 
-# edit_add_mirror_server <state> <url> — dedup-append a custom mirror Server= URL
-# to options.mirror_servers (ADR 0072). rc 1 (unchanged) on empty input.
+# edit_add_mirror_server <state> <url> — dedup-append a custom mirror Server=
+# URL to options.mirror_servers (ADR 0072). rc 1 (unchanged) on empty input.
 edit_add_mirror_server() {
   local state="$1" url="$2"
   [[ -n "$url" ]] || { printf '%s' "$state"; return 1; }
@@ -137,17 +141,17 @@ edit_add_mirror_server() {
     --arg v "$url" 'if any($a[]; . == $v) then $a else $a + [$v] end')"
 }
 
-# edit_add_custom_repository <state> <"name url [sign_check] [sign_option]"> — an
-# archinstall-style custom repo appended dedup by name (ADR 0072); sign_check /
-# sign_option default to Required / TrustedOnly. rc 1 on fewer than 2 tokens.
+# edit_add_custom_repository <state> <"name url [sign_check] [sign_option]"> —
+# an archinstall-style custom repo appended dedup by name (ADR 0072); sign_check
+# / sign_option default to Required / TrustedOnly. rc 1 on fewer than 2 tokens.
 edit_add_custom_repository() {
   local state="$1" raw="$2"
-  local -a rf; read -ra rf <<<"$raw"
-  [[ ${#rf[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
+  local -a fields; read -ra fields <<<"$raw"
+  [[ ${#fields[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
   config_state_set "$state" options.custom_repositories "$(jq -cn \
     --argjson a "$(jq -c '.options.custom_repositories // []' <<<"$state")" \
-    --arg n "${rf[0]}" --arg u "${rf[1]}" \
-    --arg c "${rf[2]:-Required}" --arg o "${rf[3]:-TrustedOnly}" \
+    --arg n "${fields[0]}" --arg u "${fields[1]}" \
+    --arg c "${fields[2]:-Required}" --arg o "${fields[3]:-TrustedOnly}" \
     'if any($a[]; .name == $n) then $a
      else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')"
 }
