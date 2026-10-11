@@ -17,24 +17,28 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
+INSTALLER_DIR="${SCRIPT_DIR%/*}"
 
 profile="${1:-${SAVE_PKGLIST_PROFILE:-$(hostname)}}"
-host_dir="${INSTALLER_DIR}/hosts/${profile}"
-[[ -d "$host_dir" ]] || host_dir="${INSTALLER_DIR}/hosts/vm/${profile}"
+host_directory="${INSTALLER_DIR}/hosts/${profile}"
+[[ -d "$host_directory" ]] \
+  || host_directory="${INSTALLER_DIR}/hosts/vm/${profile}"
 
-if [[ ! -d "$host_dir" ]]; then
+if [[ ! -d "$host_directory" ]]; then
   {
     echo "save-pkglist: no profile '${profile}' under ${INSTALLER_DIR}/hosts/"
     echo "This takes a PROFILE name (a hosts/<name>/ directory), not a"
     echo "hostname — ADR 0020 decoupled the two."
     echo "Available profiles:"
-    for d in "${INSTALLER_DIR}"/hosts/*/ "${INSTALLER_DIR}"/hosts/vm/*/; do
-      [[ -f "${d}profile.jsonc" ]] || continue
-      n="$(basename "$d")"
-      [[ "$n" == "core" ]] && continue
-      echo "  - $n"
+    for directory in "${INSTALLER_DIR}"/hosts/*/ \
+                     "${INSTALLER_DIR}"/hosts/vm/*/; do
+      [[ -f "${directory}profile.jsonc" ]] || continue
+      name="${directory%/}"; name="${name##*/}"
+      [[ "$name" == "core" ]] && continue
+      echo "  - $name"
     done
   } >&2
   exit 1
@@ -53,7 +57,9 @@ _stamp() {
   printf '#   tools/explain-packages.sh %s\n' "$profile"
 }
 
-{ _stamp "repo (pacman -Qqen)"; pacman -Qqen; } > "${host_dir}/pkglist-repo.txt"
-{ _stamp "aur (pacman -Qqem)";  pacman -Qqem; } > "${host_dir}/pkglist-aur.txt"
+{ _stamp "repo (pacman -Qqen)"; pacman -Qqen; } \
+  > "${host_directory}/pkglist-repo.txt"
+{ _stamp "aur (pacman -Qqem)";  pacman -Qqem; } \
+  > "${host_directory}/pkglist-aur.txt"
 
-echo "Saved drift snapshot to ${host_dir}/"
+echo "Saved drift snapshot to ${host_directory}/"

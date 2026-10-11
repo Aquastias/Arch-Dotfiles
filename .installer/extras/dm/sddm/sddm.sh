@@ -19,7 +19,9 @@
 # =============================================================================
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 SDDM_CONF_DIR="${SDDM_CONF_DIR:-/etc/sddm.conf.d}"
 XORG_CONF_DIR="${XORG_CONF_DIR:-/etc/X11/xorg.conf.d}"
 _WS_DIR_DEFAULT=/usr/local/share/wayland-sessions

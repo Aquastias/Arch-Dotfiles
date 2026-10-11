@@ -27,7 +27,9 @@
 # =============================================================================
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 # The Noctalia preset toggles are SHARED with the Hyprland adapter (ADR 0097),
 # so the file lives one level up (extras/desktop/), not under this DE.
 NIRI_JSON="${NIRI_JSON:-${SCRIPT_DIR}/../install-noctalia.jsonc}"

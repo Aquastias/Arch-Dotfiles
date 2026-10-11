@@ -53,10 +53,10 @@ EOF2
 }
 
 main() {
-  local cmd="${1:-}"
-  [[ -n "$cmd" ]] || { usage >&2; exit 2; }
+  local verb="${1:-}"
+  [[ -n "$verb" ]] || { usage >&2; exit 2; }
   shift
-  case "$cmd" in
+  case "$verb" in
     run)
       # shellcheck source=../lib/feature-audit/live.sh
       source "$INSTALLER_DIR/lib/feature-audit/live.sh"

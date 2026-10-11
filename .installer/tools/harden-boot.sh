@@ -17,7 +17,8 @@
 
 # Repo .installer dir, resolved from this script's location (tools/ ->
 # .installer/).
-_HB_OS_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." 2>/dev/null && pwd || true)"
+_HARDEN_BOOT_INSTALLER_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." 2>/dev/null \
+  && pwd || true)"
 
 # Detect the bootloader under <root>: "systemd-boot" if the ESP carries a
 # loader/entries dir, "grub" if /boot/grub exists, else "" (unknown).
@@ -41,8 +42,8 @@ harden_boot_should_drop_fallback() {
 # Emit the planned retrofit actions for <bootloader> on an ESP of <esp_mib>, one
 # action token per line. Drives both --dry-run (printed) and apply (executed).
 harden_boot_plan() {
-  local bl="$1" esp_mib="$2"
-  case "$bl" in
+  local bootloader="$1" esp_mib="$2"
+  case "$bootloader" in
   systemd-boot)
     echo install-esp-kernel-sync
     echo install-warn-hook
@@ -65,18 +66,22 @@ set -Eeuo pipefail
 # ── apply helpers ─────────────────────────────────────────────────────────────
 # Selected kernel bases for the warn hook: derive from what the system is set to
 # boot — the loader entries' vmlinuz (systemd-boot) or GRUB_TOP_LEVEL (grub).
-_hb_selected_kernels() {
-  local f
-  for f in "$ESP"/loader/entries/*.conf; do
-    [[ -f "$f" ]] || continue
-    awk '$1 == "linux" { print $2 }' "$f"
-  done 2>/dev/null | sed 's#.*/vmlinuz-##' | sort -u
+_harden_boot_selected_kernels() {
+  local entry_file
+  for entry_file in "$ESP"/loader/entries/*.conf; do
+    [[ -f "$entry_file" ]] || continue
+    awk '$1 == "linux" { sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
+      "$entry_file"
+  done 2>/dev/null | sort -u
   [[ -f "$ROOT/etc/default/grub" ]] &&
-    sed -n 's/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-\(.*\)".*/\1/p' \
-      "$ROOT/etc/default/grub"
+    awk '/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-.*".*/ {
+      sub(/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-/, ""); sub(/"[^"]*$/, "")
+      print
+    }' "$ROOT/etc/default/grub"
 }
 
-_hb_write_hook() { # _hb_write_hook <name> <when> <exec> <desc>
+# _harden_boot_write_hook <name> <when> <exec> <desc> [extra]
+_harden_boot_write_hook() {
   mkdir -p "$ROOT/etc/pacman.d/hooks"
   cat >"$ROOT/etc/pacman.d/hooks/$1" <<HOOK
 [Trigger]
@@ -93,33 +98,34 @@ ${5:-}
 HOOK
 }
 
-_hb_install_esp_kernel_sync() {
-  install -Dm755 "$_HB_OS_DIR/lib/boot/esp-kernel-sync.sh" \
+_harden_boot_install_esp_kernel_sync() {
+  install -Dm755 "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/esp-kernel-sync.sh" \
     "$ROOT/usr/local/lib/archzfs/esp-kernel-sync.sh"
-  _hb_write_hook 93-esp-kernel-sync-preflight.hook PreTransaction \
+  _harden_boot_write_hook 93-esp-kernel-sync-preflight.hook PreTransaction \
     "/usr/local/lib/archzfs/esp-kernel-sync.sh preflight" \
     "Checking ESP free space for new boot images..." "AbortOnFail"
-  _hb_write_hook 94-esp-kernel-sync.hook PostTransaction \
+  _harden_boot_write_hook 94-esp-kernel-sync.hook PostTransaction \
     "/usr/local/lib/archzfs/esp-kernel-sync.sh" \
     "Syncing kernel and initramfs to ESP..."
 }
 
-_hb_install_warn_hook() {
-  install -Dm755 "$_HB_OS_DIR/lib/boot/stray-kernel.sh" \
+_harden_boot_install_warn_hook() {
+  install -Dm755 "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/stray-kernel.sh" \
     "$ROOT/usr/local/lib/archzfs/stray-kernel.sh"
-  install -Dm644 "$_HB_OS_DIR/lib/zfs/verify.sh" \
+  install -Dm644 "$_HARDEN_BOOT_INSTALLER_DIR/lib/zfs/verify.sh" \
     "$ROOT/usr/local/lib/archzfs/verify.sh"
-  _hb_selected_kernels >"$ROOT/usr/local/lib/archzfs/selected-kernels"
-  _hb_write_hook 97-stray-kernel-warn.hook PostTransaction \
+  _harden_boot_selected_kernels \
+    >"$ROOT/usr/local/lib/archzfs/selected-kernels"
+  _harden_boot_write_hook 97-stray-kernel-warn.hook PostTransaction \
     "/usr/local/lib/archzfs/stray-kernel.sh warn" \
     "Checking for stray / zfs.ko-less kernels..."
 }
 
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.
-_hb_reconcile_microcode() {
-  local e
-  for e in "$ESP"/loader/entries/*.conf; do
-    [[ -f "$e" ]] || continue
+_harden_boot_reconcile_microcode() {
+  local entry_file
+  for entry_file in "$ESP"/loader/entries/*.conf; do
+    [[ -f "$entry_file" ]] || continue
     awk -v esp="$ESP" '
       $1 == "initrd" {
         f = $2; sub(/^\//, "", f)
@@ -127,101 +133,125 @@ _hb_reconcile_microcode() {
             system("test -f \"" esp "/" f "\"") != 0) next
       }
       { print }
-    ' "$e" >"$e.tmp" && mv "$e.tmp" "$e"
+    ' "$entry_file" >"$entry_file.tmp" && mv "$entry_file.tmp" "$entry_file"
   done
 }
 
-_hb_drop_fallback() {
+_harden_boot_drop_fallback() {
   rm -f "$ESP"/initramfs-*-fallback.img
-  local e
-  for e in "$ESP"/loader/entries/*.conf; do
-    [[ -f "$e" ]] || continue
-    grep -q 'fallback' "$e" && rm -f "$e"
+  local entry_file
+  for entry_file in "$ESP"/loader/entries/*.conf; do
+    [[ -f "$entry_file" ]] || continue
+    grep -q 'fallback' "$entry_file" && rm -f "$entry_file"
   done
 }
 
-_hb_pin_grub_default() {
+_harden_boot_pin_grub_default() {
   # shellcheck source=../lib/grub-common.sh
-  source "$_HB_OS_DIR/lib/grub-common.sh"
+  source "$_HARDEN_BOOT_INSTALLER_DIR/lib/grub-common.sh"
   local pool_root primary_base primary_vmlinuz=""
   pool_root="$(findmnt -n -o SOURCE "$ROOT" 2>/dev/null || true)"
-  # Prefer linux-lts when present, else the first installed kernel's pkgbase.
-  primary_base="$(
-    for m in "$ROOT"/usr/lib/modules/*/pkgbase; do
-      [[ -f "$m" ]] && cat "$m"
-    done 2>/dev/null | sort | grep -m1 -x linux-lts ||
-      for m in "$ROOT"/usr/lib/modules/*/pkgbase; do
-        [[ -f "$m" ]] && {
-          cat "$m"
-          break
-        }
-      done 2>/dev/null
-  )"
+  primary_base="$(_harden_boot_primary_kernel_base)"
   [[ -n "$primary_base" ]] && primary_vmlinuz="/boot/vmlinuz-${primary_base}"
   _grub_common_default_config "$pool_root" "$primary_vmlinuz" \
     >"$ROOT/etc/default/grub"
   ZPOOL_VDEV_NAME_PATH=YES grub-mkconfig -o "$ROOT/boot/grub/grub.cfg"
 }
 
+# _harden_boot_primary_kernel_base — linux-lts when installed, else the first
+# installed kernel's pkgbase.
+_harden_boot_primary_kernel_base() {
+  local pkgbase_file
+  for pkgbase_file in "$ROOT"/usr/lib/modules/*/pkgbase; do
+    [[ -f "$pkgbase_file" ]] && cat "$pkgbase_file"
+  done 2>/dev/null | sort | grep -m1 -x linux-lts ||
+    for pkgbase_file in "$ROOT"/usr/lib/modules/*/pkgbase; do
+      [[ -f "$pkgbase_file" ]] && {
+        cat "$pkgbase_file"
+        break
+      }
+    done 2>/dev/null
+}
+
 # ── main ──────────────────────────────────────────────────────────────────────
-DRY=0
-ROOT=/
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-  --dry-run) DRY=1 ;;
-  --root)
-    ROOT="$2"
+main() {
+  DRY=0
+  ROOT=/
+  harden_boot_parse_arguments "$@"
+  ROOT="${ROOT%/}"
+  ESP="$ROOT/boot/efi"
+
+  [[ -n "$_HARDEN_BOOT_INSTALLER_DIR" ]] || {
+    echo "harden-boot: cannot locate the repo .installer dir" >&2
+    exit 1
+  }
+
+  local bootloader esp_mib
+  bootloader="$(harden_boot_detect_bootloader "${ROOT:-/}")"
+  [[ -n "$bootloader" ]] || {
+    echo "harden-boot: could not detect a bootloader under ${ROOT:-/}" >&2
+    exit 1
+  }
+  esp_mib="$(harden_boot_esp_mib)"
+
+  echo "harden-boot: bootloader=$bootloader ESP=${esp_mib}MiB root=${ROOT:-/}$(
+    ((DRY)) && echo ' (dry-run)'
+  )"
+  harden_boot_apply "$bootloader" "$esp_mib"
+  echo "harden-boot: done."
+}
+
+# harden_boot_parse_arguments <argument…> — sets DRY and ROOT.
+harden_boot_parse_arguments() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --dry-run) DRY=1 ;;
+    --root)
+      ROOT="$2"
+      shift
+      ;;
+    -h | --help)
+      echo "usage: harden-boot.sh [--dry-run] [--root DIR]"
+      exit 0
+      ;;
+    *)
+      echo "harden-boot: unknown arg '$1'" >&2
+      exit 2
+      ;;
+    esac
     shift
-    ;;
-  -h | --help)
-    echo "usage: harden-boot.sh [--dry-run] [--root DIR]"
-    exit 0
-    ;;
-  *)
-    echo "harden-boot: unknown arg '$1'" >&2
-    exit 2
-    ;;
-  esac
-  shift
-done
-ROOT="${ROOT%/}"
-[[ -z "$ROOT" ]] && ROOT=""
-ESP="$ROOT/boot/efi"
-
-[[ -n "$_HB_OS_DIR" ]] || {
-  echo "harden-boot: cannot locate the repo .installer dir" >&2
-  exit 1
+  done
 }
 
-bl="$(harden_boot_detect_bootloader "${ROOT:-/}")"
-[[ -n "$bl" ]] || {
-  echo "harden-boot: could not detect a bootloader under ${ROOT:-/}" >&2
-  exit 1
-}
-
-esp_mib=0
-if [[ -d "$ESP" ]]; then
-  esp_mib="$(df -BM --output=size "$ESP" 2>/dev/null | tail -1 | tr -dc '0-9')"
-fi
-esp_mib="${esp_mib:-0}"
-
-echo "harden-boot: bootloader=$bl ESP=${esp_mib}MiB root=${ROOT:-/}$(
-  ((DRY)) && echo ' (dry-run)'
-)"
-
-while IFS= read -r action; do
-  if ((DRY)); then
-    echo "  would: $action"
-    continue
+# harden_boot_esp_mib — the ESP size in MiB, 0 when there is no ESP.
+harden_boot_esp_mib() {
+  local esp_mib=""
+  if [[ -d "$ESP" ]]; then
+    esp_mib="$(df -BM --output=size "$ESP" 2>/dev/null \
+      | awk '{ last = $0 }
+             END { gsub(/[^0-9]/, "", last); printf "%s", last }')"
   fi
-  echo "  applying: $action"
-  case "$action" in
-  install-esp-kernel-sync) _hb_install_esp_kernel_sync ;;
-  install-warn-hook) _hb_install_warn_hook ;;
-  reconcile-microcode) _hb_reconcile_microcode ;;
-  drop-fallback) _hb_drop_fallback ;;
-  pin-grub-default) _hb_pin_grub_default ;;
-  esac
-done < <(harden_boot_plan "$bl" "$esp_mib")
+  printf '%s\n' "${esp_mib:-0}"
+}
 
-echo "harden-boot: done."
+# harden_boot_apply <bootloader> <esp-mib> — run (or, under --dry-run, list)
+# each planned action.
+harden_boot_apply() {
+  local action
+  while IFS= read -r action; do
+    if ((DRY)); then
+      echo "  would: $action"
+      continue
+    fi
+    echo "  applying: $action"
+    case "$action" in
+    install-esp-kernel-sync) _harden_boot_install_esp_kernel_sync ;;
+    install-warn-hook) _harden_boot_install_warn_hook ;;
+    reconcile-microcode) _harden_boot_reconcile_microcode ;;
+    drop-fallback) _harden_boot_drop_fallback ;;
+    pin-grub-default) _harden_boot_pin_grub_default ;;
+    esac
+  done < <(harden_boot_plan "$1" "$2")
+}
+
+main "$@"

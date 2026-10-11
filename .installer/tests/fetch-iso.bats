@@ -22,7 +22,7 @@ teardown() {
 # ── output directory resolution ──────────────────────────────────────────────
 
 @test "out-dir: no arg defaults to ~/Downloads and creates it" {
-  run fetch_iso_out_dir
+  run fetch_iso_output_directory
   [ "$status" -eq 0 ]
   [ "$output" = "$HOME/Downloads" ]
   [ -d "$HOME/Downloads" ]
@@ -30,7 +30,7 @@ teardown() {
 
 @test "out-dir: positional arg is used and created" {
   out="$TEST_DIR/custom/iso-out"
-  run fetch_iso_out_dir "$out"
+  run fetch_iso_output_directory "$out"
   [ "$status" -eq 0 ]
   [ "$output" = "$out" ]
   [ -d "$out" ]

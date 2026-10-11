@@ -28,7 +28,9 @@
 # =============================================================================
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 _WS_DIR_DEFAULT=/usr/local/share/wayland-sessions
 WAYLAND_SESSIONS_DIR="${WAYLAND_SESSIONS_DIR:-$_WS_DIR_DEFAULT}"
 ROOT="${ROOT:-}"
@@ -129,8 +131,8 @@ DESKTOP
 # desktop set, so it is independent of adapter execution order.
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
 _has_kde=false
-for _de in "${_desktops[@]}"; do
-  [[ "$_de" == "kde" ]] && { _has_kde=true; break; }
+for _desktop in "${_desktops[@]}"; do
+  [[ "$_desktop" == "kde" ]] && { _has_kde=true; break; }
 done
 
 section "Hyprland curated sessions"
@@ -182,13 +184,13 @@ info "blueman installed; autostart set NotShowIn=KDE (Hyprland sessions only)."
 # environment.sh (ADR 0050 placement smell): it is Hyprland/aquamarine-specific
 # and inert to KWin. AQ_DRM_DEVICES splits on ':' and PCI by-path names contain
 # ':' while cardN numbers aren't stable across boots — hence the udev symlink.
-_hypr_gpu_vendors() {
+_hyprland_gpu_vendors() {
   local state="${STATE:-/root/lib-chroot/install-state.json}"
   [[ -f "$state" ]] || return 0
   jq -r '.gpu[]?' "$state" 2>/dev/null
 }
 
-_hypr_aq_udev_rule() {
+_hyprland_aquamarine_udev_rule() {
   cat <<'RULES'
 # Stable, colon-free DRM card symlinks for AQ_DRM_DEVICES (Hyprland/aquamarine).
 # The gate is amd+nvidia, so resolve by PCI vendor: 0x1002 amd (iGPU), 0x10de
@@ -198,20 +200,20 @@ KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x10d
 RULES
 }
 
-_hypr_aq_pin() {
+_hyprland_aquamarine_pin() {
   local vendors=()
-  mapfile -t vendors < <(_hypr_gpu_vendors)
+  mapfile -t vendors < <(_hyprland_gpu_vendors)
   _gpu_should_harden "${vendors[@]+"${vendors[@]}"}" || {
     info "Not an amd+nvidia hybrid — aquamarine DRM pin skipped."
     return 0
   }
   section "Aquamarine DRM pinning (hybrid GPU)"
   local rule="${ROOT}/usr/lib/udev/rules.d/60-aq-drm-devices.rules"
-  mkdir -p "$(dirname "$rule")"
-  _hypr_aq_udev_rule > "$rule"
+  mkdir -p "${rule%/*}"
+  _hyprland_aquamarine_udev_rule > "$rule"
 
   local env="${ROOT}/etc/environment"
-  mkdir -p "$(dirname "$env")"
+  mkdir -p "${env%/*}"
   [[ -f "$env" ]] && sed -i \
     '/# >>> arch-dotfiles gpu/,/# <<< arch-dotfiles gpu/d' "$env"
   {
@@ -224,7 +226,7 @@ _hypr_aq_pin() {
   info "Aquamarine pinned to the iGPU (AQ_DRM_DEVICES)."
 }
 
-_hypr_aq_pin
+_hyprland_aquamarine_pin
 
 # =============================================================================
 # NOCTALIA WORK PRESET (ADR 0097) — wayland_shell=noctalia only

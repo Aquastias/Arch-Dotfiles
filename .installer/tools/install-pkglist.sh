@@ -11,17 +11,20 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
+INSTALLER_DIR="${SCRIPT_DIR%/*}"
 
 # shellcheck source=../lib/aur-helper.sh
 source "${INSTALLER_DIR}/lib/aur-helper.sh"
 
 profile="${1:-${SAVE_PKGLIST_PROFILE:-$(hostname)}}"
-host_dir="${INSTALLER_DIR}/hosts/${profile}"
-[[ -d "$host_dir" ]] || host_dir="${INSTALLER_DIR}/hosts/vm/${profile}"
+host_directory="${INSTALLER_DIR}/hosts/${profile}"
+[[ -d "$host_directory" ]] \
+  || host_directory="${INSTALLER_DIR}/hosts/vm/${profile}"
 
-if [[ ! -d "$host_dir" ]]; then
+if [[ ! -d "$host_directory" ]]; then
   {
     echo "install-pkglist: no profile '${profile}' under ${INSTALLER_DIR}/hosts/"
     echo "This takes a PROFILE name (a hosts/<name>/ directory), not a"
@@ -30,8 +33,8 @@ if [[ ! -d "$host_dir" ]]; then
   exit 1
 fi
 
-repo_list="${host_dir}/pkglist-repo.txt"
-aur_list="${host_dir}/pkglist-aur.txt"
+repo_list="${host_directory}/pkglist-repo.txt"
+aur_list="${host_directory}/pkglist-aur.txt"
 
 if [[ ! -f "$repo_list" ]]; then
   echo "No repo list at ${repo_list} — run save-pkglist.sh first" >&2
@@ -47,7 +50,7 @@ fi
 
 # Drop the drift-snapshot header and any blank lines. Pure bash — this runs
 # under a minimal PATH in the tests, so it must not need grep.
-_pkgs() {
+_list_packages() {
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
@@ -61,15 +64,15 @@ _pkgs() {
 read -ra repo_helper <<<"$(aur_helper_repo_command "$helper")"
 
 echo "Installing repo packages for profile ${profile}..."
-_pkgs "$repo_list" | "${repo_helper[@]}" -S --needed -
+_list_packages "$repo_list" | "${repo_helper[@]}" -S --needed -
 
-if [[ -f "$aur_list" ]] && [[ -n "$(_pkgs "$aur_list")" ]]; then
+if [[ -f "$aur_list" ]] && [[ -n "$(_list_packages "$aur_list")" ]]; then
   if ! aur_helper_vets_aur "$helper"; then
     echo "AUR packages need paru: vetting needs paru (ADR 0143)." >&2
     exit 1
   fi
   echo "Installing AUR packages for profile ${profile}..."
-  _pkgs "$aur_list" | "$helper" -S --needed -
+  _list_packages "$aur_list" | "$helper" -S --needed -
 fi
 
 echo "Done."

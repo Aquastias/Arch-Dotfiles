@@ -10,7 +10,9 @@
 
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 KDE_JSON="${KDE_JSON:-${SCRIPT_DIR}/install-kde.jsonc}"
 
 # shellcheck disable=SC2034  # read by chroot/extras-common.sh after sourcing
@@ -46,12 +48,12 @@ SEED_ROOT="${KDE_SEED_ROOT:-/}"
 # operator's arch-combined config, snapshotted here; tests override the source.
 KDE_SKEL_SRC="${KDE_SKEL_SRC:-${SCRIPT_DIR}/skel}"
 
-# _seed_write <relative-path> — write stdin to <SEED_ROOT>/<relative-path>,
+# _kde_seed_write <relative-path> — write stdin to <SEED_ROOT>/<relative-path>,
 # creating parent dirs. One place owns the skel/xdg write mechanics.
-_seed_write() {
-  local dst="${SEED_ROOT%/}/$1"
-  mkdir -p "$(dirname "$dst")"
-  cat > "$dst"
+_kde_seed_write() {
+  local destination="${SEED_ROOT%/}/$1"
+  mkdir -p "${destination%/*}"
+  cat > "$destination"
 }
 
 # =============================================================================
@@ -101,8 +103,9 @@ if [[ "$do_shell" == "true" ]]; then
     _skel_dst="${SEED_ROOT%/}/etc/skel/.config"
     mkdir -p "$_skel_dst"
     _seeded=0
-    for _cf in "${KDE_SKEL_SRC}/.config/"*; do
-      [[ -f "$_cf" ]] && { cp "$_cf" "$_skel_dst/"; _seeded=$((_seeded + 1)); }
+    for _config_file in "${KDE_SKEL_SRC}/.config/"*; do
+      [[ -f "$_config_file" ]] \
+        && { cp "$_config_file" "$_skel_dst/"; _seeded=$((_seeded + 1)); }
     done
     info "Seeded captured Plasma settings (${_seeded} files)."
   else
@@ -113,14 +116,14 @@ if [[ "$do_shell" == "true" ]]; then
   # it into each home; create-user.sh points the Primary User's AccountsService
   # record at it. Not a .config file, so copied on its own (binary-safe cat).
   if [[ -f "${KDE_SKEL_SRC}/.face" ]]; then
-    _seed_write etc/skel/.face < "${KDE_SKEL_SRC}/.face"
+    _kde_seed_write etc/skel/.face < "${KDE_SKEL_SRC}/.face"
     info "Seeded avatar (~/.face)."
   fi
 
   # GTK/X cursor: Bibata Modern Ice via ~/.icons/default (ADR 0098). KDE apps
   # follow the captured kcminputrc; this covers non-KDE toolkits, which read
   # ~/.icons/default, not kcminputrc.
-  _seed_write etc/skel/.icons/default/index.theme <<'EOF'
+  _kde_seed_write etc/skel/.icons/default/index.theme <<'EOF'
 [Icon Theme]
 Inherits=Bibata-Modern-Ice
 EOF
@@ -128,7 +131,7 @@ EOF
   # SDDM login theme, in its own drop-in so it merges with the Display Manager
   # Adapter's session-dirs file rather than clobbering it (ADR 0069). Only the
   # THEME is set here — package and enablement stay dm-sddm's (ADR 0088).
-  _seed_write etc/sddm.conf.d/20-kde-theme.conf <<'EOF'
+  _kde_seed_write etc/sddm.conf.d/20-kde-theme.conf <<'EOF'
 [Theme]
 Current=breeze
 EOF
@@ -138,7 +141,7 @@ EOF
   # breeze SDDM theme reads its background from theme.conf.user; an absolute path
   # to a Horos image that plasma-meta always ships (Horos ∈ oxygen → plasma-meta,
   # so it is present on every KDE install).
-  _seed_write usr/share/sddm/themes/breeze/theme.conf.user <<'EOF'
+  _kde_seed_write usr/share/sddm/themes/breeze/theme.conf.user <<'EOF'
 [General]
 background=/usr/share/wallpapers/Horos/contents/images/5120x2880.png
 type=image
@@ -156,7 +159,7 @@ EOF
 
   # Plasma Welcome Center: hide its autostart so a fresh session opens straight
   # to the desktop instead of the first-login wizard.
-  _seed_write etc/skel/.config/autostart/plasma-welcome.desktop <<'EOF'
+  _kde_seed_write etc/skel/.config/autostart/plasma-welcome.desktop <<'EOF'
 [Desktop Entry]
 Hidden=true
 EOF
@@ -167,7 +170,7 @@ EOF
   # on upgrade). A no-op if the package is somehow absent.
   _pw_ver="$(pacman -Q plasma-welcome 2>/dev/null | awk '{print $2}')"
   if [[ -n "$_pw_ver" ]]; then
-    _seed_write etc/skel/.config/plasma-welcomerc <<EOF
+    _kde_seed_write etc/skel/.config/plasma-welcomerc <<EOF
 [General]
 LastSeenVersion=$_pw_ver
 EOF
@@ -177,7 +180,8 @@ EOF
   # state is device-keyed, so instead of vendoring it, an idempotent autostart
   # raises the default sink AND source to full volume once the session's PipeWire
   # is up. `|| true` per node so a missing source never fails the session start.
-  _seed_write etc/skel/.config/autostart/kde-audio-full-volume.desktop <<'EOF'
+  _kde_seed_write \
+    etc/skel/.config/autostart/kde-audio-full-volume.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Set audio to 100% (KDE)
@@ -194,7 +198,7 @@ EOF
   # is guaranteed present. Fixed-path helper (the systemd XDG-autostart generator
   # mangles a $HOME script). Run-once via a stamp; a missing .desktop links to a
   # harmless dead row, so the same list is safe on any non-stock KDE host.
-  _seed_write usr/local/bin/kde-seed-favorites <<'EOF'
+  _kde_seed_write usr/local/bin/kde-seed-favorites <<'EOF'
 #!/bin/sh
 # Relink Kickoff favorites per Activity on first login (ADR 0126).
 stamp="${XDG_STATE_HOME:-$HOME/.local/state}/kde-favorites-seeded"
@@ -229,7 +233,7 @@ for a in codium.desktop org.kde.kommit.desktop neovide.desktop \
 mkdir -p "$(dirname "$stamp")"; : > "$stamp"
 EOF
   chmod 0755 "${SEED_ROOT%/}/usr/local/bin/kde-seed-favorites"
-  _seed_write etc/skel/.config/autostart/kde-seed-favorites.desktop <<'EOF'
+  _kde_seed_write etc/skel/.config/autostart/kde-seed-favorites.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Seed KDE favorites (per Activity)
@@ -256,7 +260,7 @@ EOF
   # read from kcminputrc so it honours the operator's KDE cursor, not a hardcode.
   _ed=" ${ENVIRONMENT_DESKTOP:-} "
   if [[ "$_ed" == *" niri "* || "$_ed" == *" hyprland "* ]]; then
-    _seed_write usr/local/bin/kde-session-reset <<'EOF'
+    _kde_seed_write usr/local/bin/kde-session-reset <<'EOF'
 #!/bin/sh
 # Combined box (ADR 0116/0123): reassert KDE's Breeze look on Plasma login after
 # a niri/Hyprland session left the shared theme/cursor state Noctalia-colored.
@@ -271,7 +275,7 @@ c=$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme)
 [ -n "$c" ] && gsettings set org.gnome.desktop.interface cursor-theme "$c"
 EOF
     chmod 0755 "${SEED_ROOT%/}/usr/local/bin/kde-session-reset"
-    _seed_write etc/skel/.config/autostart/kde-session-reset.desktop <<'EOF'
+    _kde_seed_write etc/skel/.config/autostart/kde-session-reset.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=KDE session reset (Breeze)
@@ -290,7 +294,8 @@ EOF
     # palette instead of Breeze. A Plasma env script (sourced by startplasma
     # before plasmashell) strips it so Plasma falls back to plasma-integration
     # (Breeze). A no-op on a fresh KDE boot (var unset). ONLY on a combined box.
-    _seed_write etc/skel/.config/plasma-workspace/env/kde-unset-qt-platformtheme.sh <<'EOF'
+    _kde_seed_write \
+      etc/skel/.config/plasma-workspace/env/kde-unset-qt-platformtheme.sh <<'EOF'
 # Combined box (ADR 0122): a prior niri/Hyprland session on this boot exported
 # QT_QPA_PLATFORMTHEME=qt6ct into the shared systemd --user / D-Bus activation
 # env, which outlives it. Strip it so Plasma uses plasma-integration (Breeze),
@@ -302,14 +307,14 @@ EOF
   fi
 
   # Baloo file indexing ON so desktop search works from first login.
-  _seed_write etc/skel/.config/baloofilerc <<'EOF'
+  _kde_seed_write etc/skel/.config/baloofilerc <<'EOF'
 [Basic Settings]
 Indexing-Enabled=true
 EOF
 
   # Konsole: the captured konsolerc points DefaultProfile at Default.profile, so
   # seed that profile (it is not one of the captured .config files).
-  _seed_write etc/skel/.local/share/konsole/Default.profile <<'EOF'
+  _kde_seed_write etc/skel/.local/share/konsole/Default.profile <<'EOF'
 [Appearance]
 ColorScheme=Breeze
 
@@ -328,7 +333,7 @@ EOF
   # the rest. The "Open Terminal" action is untouched — opening a folder in a
   # terminal still works; only the docked panel is gone. If a Qt/Dolphin update
   # ever rejects the blob it simply reverts to the default (harmless).
-  _seed_write etc/skel/.local/state/dolphinstaterc <<'EOF'
+  _kde_seed_write etc/skel/.local/state/dolphinstaterc <<'EOF'
 [State]
 State=AAAA/wAAAAD9AAAAAwAAAAAAAAC0AAACd/wCAAAAAvsAAAAWAGYAbwBsAGQAZQByAHMARABvAGMAawEAAABLAAABMQAAAFMA////+wAAABQAcABsAGEAYwBlAHMARABvAGMAawEAAAF9AAABRQAAAFMA////AAAAAQAAALQAAAJ3/AIAAAAB+wAAABAAaQBuAGYAbwBEAG8AYwBrAQAAAEsAAAJ3AAABCwD///8AAAADAAAE1AAAACT8AQAAAAH7AAAAGAB0AGUAcgBtAGkAbgBhAGwARABvAGMAawgAAAAAAAAE1AAAAK0A////AAADagAAAncAAAAEAAAABAAAAAgAAAAI/AAAAAEAAAACAAAAAQAAABYAbQBhAGkAbgBUAG8AbwBsAEIAYQByAQAAAAD/////AAAAAAAAAAA=
 EOF
@@ -353,12 +358,13 @@ if [[ "$do_apps" == "true" ]]; then
   # here (error() exit propagates under set -e); a process substitution would
   # swallow it. An absent section contributes nothing.
   kde_apps=()
-  for _sec in apps_list apps_extra plugins; do
-    _sec_json="$(jsonc "$KDE_JSON" | jq -c ".${_sec} // {}")"
-    [[ "$_sec_json" == "{}" ]] && continue
-    _sec_out="$(categorized_list_parse "$_sec_json" bool "$_sec")"
-    [[ -n "$_sec_out" ]] \
-      && mapfile -t -O "${#kde_apps[@]}" kde_apps <<< "$_sec_out"
+  for _section in apps_list apps_extra plugins; do
+    _section_json="$(jsonc "$KDE_JSON" | jq -c ".${_section} // {}")"
+    [[ "$_section_json" == "{}" ]] && continue
+    _section_output="$(categorized_list_parse "$_section_json" bool \
+      "$_section")"
+    [[ -n "$_section_output" ]] \
+      && mapfile -t -O "${#kde_apps[@]}" kde_apps <<< "$_section_output"
   done
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then

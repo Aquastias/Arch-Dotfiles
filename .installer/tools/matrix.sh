@@ -56,10 +56,10 @@ EOF
 }
 
 main() {
-  local cmd="${1:-}"
-  [[ -n "$cmd" ]] || { usage >&2; exit 2; }
+  local verb="${1:-}"
+  [[ -n "$verb" ]] || { usage >&2; exit 2; }
   shift
-  case "$cmd" in
+  case "$verb" in
     gen)  matrix_records_write ;;
     emit) matrix_emit "$@" ;;
     run)

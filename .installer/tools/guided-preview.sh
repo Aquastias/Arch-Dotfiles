@@ -17,7 +17,9 @@
 # =============================================================================
 set -Eeuo pipefail
 
-INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+INSTALLER_DIR="$(cd "${script_path%/*}/.." && pwd)"
 export INSTALLER_DIR
 # shellcheck source=../lib/guided/shell.sh
 source "${INSTALLER_DIR}/lib/guided/shell.sh"
