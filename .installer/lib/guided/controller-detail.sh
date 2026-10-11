@@ -152,105 +152,130 @@ _controller_detail_pane() {
 # layout / profiles / users screens it is that screen's own rich preview (the
 # layout graph, profile tree, per-user panel); empty elsewhere.
 guided_controller_preview() {
-  local line="$1" nav field
-  nav="$(_controller_navigation)"
-  case "$(navigation_screen "$nav")" in
-  top | category) _controller_detail_pane "$line"; return 0 ;;
-  esac
+  local line="$1" navigation
+  navigation="$(_controller_navigation)"
+  case "$(navigation_screen "$navigation")" in
+  top | category) _controller_detail_pane "$line" ;;
   # The data-pools editor screens graph the LIVE state (not a preset line) so
-  # the
-  # tree reflects pools/disks as you add and cycle them.
-  case "$(navigation_screen "$nav")" in
-  datapools | pooledit)
-    _controller_layout_graph "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")"
-    return 0 ;;
-  profiles)
-    # A deep ASCII tree of the resolved (Host-Core-merged) profile (ADR 0063),
-    # down to its leaves — replacing the header-comment-only preview. The
-    # Reset-to-blank / Back rows preview nothing.
-    [[ "$line" == "← Back" || "$line" == "↺ Reset to blank"* || -z "$line" ]] \
-      && return 0
-    local _pf _prof
-    _pf="$(_controller_hosts_root)/${line}/profile.jsonc"
-    if _prof="$(_program_registry_parse "$_pf" 2>/dev/null)"; then
-      _controller_profile_tree "$(layer_resolver_resolve host "$(config_state_host_core)" "$_prof")"
-    else
-      printf '\033[2m(no profile — hosts/%s/profile.jsonc)\033[0m\n' "$line"
-    fi
-    return 0 ;;
+  # the tree reflects pools/disks as you add and cycle them.
+  datapools | pooledit) _controller_live_layout_graph ;;
+  profiles) _controller_preview_profile "$line" ;;
   text)
     # The free-text editor screen (hostname / URL / size / package name): the
     # shared leaf detail so the pane is populated here too (ADR 0071).
-    _controller_detail_leaf "$(navigation_get "$nav" field)" \
-      "$(_controller_state)" "$(_controller_baseline)"
-    return 0 ;;
-  pkgbrowse)
-    # The highlighted package's detail (ADR 0086) — the browser keeps the
-    # master-detail pane the rest of the menu shows. repo uses pacman -Si; aur
-    # queries the RPC info endpoint (cached per package).
-    [[ "$line" == "← Back" || "${line:0:1}" != "[" ]] && return 0
-    local _bpkg; _bpkg="${line:4}"; _bpkg="${_bpkg%%  *}"
-    [[ -n "$_bpkg" ]] || return 0
-    if [[ "$(navigation_get "$nav" slot)" == "aur" ]]; then
-      _controller_aur_preview "$_bpkg"
-    else
-      pacman -Si "$_bpkg" 2>/dev/null
-    fi
-    return 0 ;;
+    _controller_detail_leaf "$(navigation_get "$navigation" field)" \
+      "$(_controller_state)" "$(_controller_baseline)" ;;
+  pkgbrowse) _controller_preview_package "$line" "$navigation" ;;
+  values) _controller_preview_value "$line" "$navigation"; return ;;
   esac
-  [[ "$(navigation_screen "$nav")" == "values" ]] || return 0
-  field="$(navigation_get "$nav" field)"
-  # A field with no dedicated selection panel (kernel, bootloader, gpu, a bool)
-  # gets the shared leaf detail, so every field screen shows a populated pane.
+  return 0
+}
+
+# _controller_live_layout_graph — the layout graph of the live effective state.
+_controller_live_layout_graph() {
+  _controller_layout_graph \
+    "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")"
+}
+
+# _controller_preview_profile <line> — a deep ASCII tree of the resolved
+# (Host-Core-merged) profile (ADR 0063), down to its leaves — replacing the
+# header-comment-only preview. The Reset-to-blank / Back rows preview nothing.
+_controller_preview_profile() {
+  local line="$1" profile_file profile
+  [[ "$line" == "← Back" || "$line" == "↺ Reset to blank"* || -z "$line" ]] \
+    && return 0
+  profile_file="$(_controller_hosts_root)/${line}/profile.jsonc"
+  if profile="$(_program_registry_parse "$profile_file" 2>/dev/null)"; then
+    _controller_profile_tree "$(layer_resolver_resolve host \
+      "$(config_state_host_core)" "$profile")"
+  else
+    printf '\033[2m(no profile — hosts/%s/profile.jsonc)\033[0m\n' "$line"
+  fi
+}
+
+# _controller_preview_package <line> <navigation> — the highlighted package's
+# detail (ADR 0086): the browser keeps the master-detail pane the rest of the
+# menu shows. repo uses pacman -Si; aur queries the RPC info endpoint (cached
+# per package).
+_controller_preview_package() {
+  local line="$1" navigation="$2" package
+  [[ "$line" == "← Back" || "${line:0:1}" != "[" ]] && return 0
+  package="${line:4}"; package="${package%%  *}"
+  [[ -n "$package" ]] || return 0
+  if [[ "$(navigation_get "$navigation" slot)" == "aur" ]]; then
+    _controller_aur_preview "$package"
+  else
+    pacman -Si "$package" 2>/dev/null
+  fi
+  return 0
+}
+
+# _controller_preview_value <line> <navigation> — the values screen's pane.
+# A field with no dedicated selection panel (kernel, bootloader, gpu, a bool)
+# gets the shared leaf detail, so every field screen shows a populated pane.
+_controller_preview_value() {
+  local line="$1" navigation="$2" field
+  field="$(navigation_get "$navigation" field)"
   if ! _controller_field_has_preview "$field"; then
-    _controller_detail_leaf "$field" "$(_controller_state)" "$(_controller_baseline)"
+    _controller_detail_leaf "$field" "$(_controller_state)" \
+      "$(_controller_baseline)"
     return 0
   fi
   case "$field" in
-  users)
-    # The hovered account's detail panel (ADR 0063). The root row shows its
-    # shell + password source; a user row shows the effective (core-merged,
-    # override-applied) User Profile — shell, sudo, groups, programs, git, ssh.
-    [[ "$line" == "+ Create"* || "$line" == "← Back" || -z "$line" ]] \
-      && return 0
-    if [[ "$line" == "root — "* ]]; then
-      printf 'root\n'
-      printf '  shell:    %s\n' "$(_controller_root_shell)"
-      printf '  password: %s\n' "$(_controller_secret_tag root)"
-      return 0
-    fi
-    # "name — shell · pw tag" (enabled) or "name — disabled": name before " — ".
-    local _pu; _pu="${line%% — *}"
-    [[ -n "$_pu" ]] && _controller_user_panel "$_pu" ;;
-  __layout__)
-    # A destructive preset row previews THAT preset ("what you'd get"). The
-    # data-pools row is additive (it opens the editor, keeping your pools) and
-    # ← Back is no choice at all — both graph the LIVE state so edits stay
-    # visible.
-    local sk
-    if [[ "$line" == "data-pools" || "$line" == "← Back" ]]; then
-      _controller_layout_graph "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")"
-    elif sk="$(skeleton_preset "$line" 2>/dev/null)"; then
-      _controller_layout_graph "$sk"
-    else
-      _controller_layout_graph "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")"
-    fi ;;
+  users) _controller_preview_account "$line" ;;
+  __layout__) _controller_preview_layout "$line" ;;
   system.keymap)
     # multi: the selected keymap array (+ the highlighted candidate, mark
     # stripped)
-    local sel; sel="$(jq -r \
+    local selected; selected="$(jq -r \
       '.system.keymap // [] | if type == "array" then . else [.] end | .[]' \
-      <<<"$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")")"
+      <<<"$(_controller_effective "$(_controller_state)" \
+        "$(_controller_baseline)")")"
     printf 'Selected keymaps:\n'
-    if [[ -n "$sel" ]]; then printf '%s\n' "  ${sel//$'\n'/$'\n'  }"
+    if [[ -n "$selected" ]]; then printf '%s\n' "  ${selected//$'\n'/$'\n'  }"
     else printf '  (none)\n'; fi
     printf '\nHighlighted:\n  %s\n' "${line:4}" ;;
   system.locale | system.timezone)
-    local cur
-    cur="$(_controller_field_display "$field" "$(_controller_state)" "$(_controller_baseline)")"
+    local current
+    current="$(_controller_field_display "$field" "$(_controller_state)" \
+      "$(_controller_baseline)")"
     printf 'Selected %s:\n  %s\n\nHighlighted:\n  %s\n' \
-      "$(navigation_get "$nav" label)" "${cur:-(none)}" "$line" ;;
+      "$(navigation_get "$navigation" label)" "${current:-(none)}" "$line" ;;
   esac
+}
+
+# _controller_preview_account <line> — the hovered account's detail panel (ADR
+# 0063). The root row shows its shell + password source; a user row shows the
+# effective (core-merged, override-applied) User Profile — shell, sudo,
+# groups, programs, git, ssh.
+_controller_preview_account() {
+  local line="$1" user
+  [[ "$line" == "+ Create"* || "$line" == "← Back" || -z "$line" ]] \
+    && return 0
+  if [[ "$line" == "root — "* ]]; then
+    printf 'root\n'
+    printf '  shell:    %s\n' "$(_controller_root_shell)"
+    printf '  password: %s\n' "$(_controller_secret_tag root)"
+    return 0
+  fi
+  # "name — shell · pw tag" (enabled) or "name — disabled": name before " — ".
+  user="${line%% — *}"
+  [[ -n "$user" ]] && _controller_user_panel "$user"
+}
+
+# _controller_preview_layout <line> — a destructive preset row previews THAT
+# preset ("what you'd get"). The data-pools row is additive (it opens the
+# editor, keeping your pools) and ← Back is no choice at all — both graph the
+# LIVE state so edits stay visible.
+_controller_preview_layout() {
+  local line="$1" skeleton
+  if [[ "$line" == "data-pools" || "$line" == "← Back" ]]; then
+    _controller_live_layout_graph
+  elif skeleton="$(skeleton_preset "$line" 2>/dev/null)"; then
+    _controller_layout_graph "$skeleton"
+  else
+    _controller_live_layout_graph
+  fi
 }
 
 # ── Profiles picker (ADR 0055) ───────────────────────────────────────────────

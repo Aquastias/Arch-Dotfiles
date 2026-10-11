@@ -87,71 +87,104 @@ _controller_enter_data_pools() {
 # _controller_enter_pool_edit <line> — edit data_pools[index]: cycle topology
 # (stripe→mirror→raidz1→raidz2), cycle the disk count (1-8), or remove the pool.
 _controller_enter_pool_edit() {
-  local line="$1" nav cat i kind _rfs p
-  nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
-  i="$(navigation_get "$nav" index)"; kind="$(_controller_pool_kind "$nav")"
+  local line="$1" navigation category index kind root_filesystem
+  navigation="$(_controller_navigation)"
+  category="$(navigation_get "$navigation" category)"
+  index="$(navigation_get "$navigation" index)"
+  kind="$(_controller_pool_kind "$navigation")"
   # The root filesystem a group inherits when it declares none (ADR 0043).
-  _rfs="$(jq -r '.filesystem // "zfs"' <<<"$(_controller_state)")"
+  root_filesystem="$(jq -r '.filesystem // "zfs"' <<<"$(_controller_state)")"
   case "$line" in
   "← Back")
-    _controller_write_navigation "$(navigation_to_data_pools "$cat")"; echo render; return ;;
+    _controller_write_navigation "$(navigation_to_data_pools "$category")"
+    echo render ;;
   "✗ remove"*)
-    _controller_write_state "$(_controller_pool_delete "$(_controller_state)" "$kind" "$i")"
-    _controller_write_navigation "$(navigation_to_data_pools "$cat")"; echo render; return ;;
+    _controller_write_state "$(_controller_pool_delete "$(_controller_state)" \
+      "$kind" "$index")"
+    _controller_write_navigation "$(navigation_to_data_pools "$category")"
+    echo render ;;
   "topology:"*)
-    # The cycle follows the group's own filesystem (pool value, else the root
-    # filesystem, else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay
-    # pinned to single (issue 09, ADR 0043).
-    local _fs _cur _next
-    p="$(_controller_pool_get "$(_controller_state)" "$kind" "$i")"
-    _fs="$(jq -r --arg r "$_rfs" '.filesystem // $r' <<<"$p")"
-    _cur="$(jq -r '.topology // ""' <<<"$p")"
-    _next="$(_controller_cycle_topology "$_fs" "$_cur")"
-    _controller_write_state "$(_controller_pool_set "$(_controller_state)" "$kind" "$i" \
-      "$(jq -c --arg t "$_next" '.topology = $t' <<<"$p")")"
-    echo refresh; return ;;
-  "filesystem:"*)
-    # Cycle the group's filesystem through the built adapters, then normalise
-    # the
-    # group for its new filesystem (ext4/xfs → single-disk; a topology invalid
-    # for
-    # the new fs resets to that fs's first) via _controller_pool_normalise_filesystem. Only
-    # data pools expose a filesystem row, so this stays index-scoped to data.
-    local _cur _next
-    _cur="$(jq -r '.filesystem // "zfs"' \
-      <<<"$(_controller_pool_get "$(_controller_state)" "$kind" "$i")")"
-    # shellcheck disable=SC2046 # word-split the built-fs list into cycle args
-    _next="$(_controller_cycle_next "$_cur" $(_controller_built_root_filesystems))"
-    _controller_write_state "$(_controller_pool_normalise_filesystem "$(_controller_state)" "$i" "$_next")"
-    echo refresh; return ;;
-  "encryption:"*)
-    # Storage groups inherit dpool's disk-wide encryption — no per-group toggle.
-    [[ "$kind" == "storage" ]] && { echo refresh; return; }
-    p="$(_controller_pool_get "$(_controller_state)" "$kind" "$i")"
-    _controller_write_state "$(_controller_pool_set "$(_controller_state)" "$kind" "$i" \
-      "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$p")")"
-    echo refresh; return ;;
+    _controller_cycle_pool_topology "$kind" "$index" "$root_filesystem" ;;
+  "filesystem:"*) _controller_cycle_pool_filesystem "$kind" "$index" ;;
+  "encryption:"*) _controller_toggle_pool_encryption "$kind" "$index" ;;
   "mount:"*)
     # Only a data pool's mount is editable; a storage group's is preset-fixed
     # (display-only row, so Enter on it is a no-op).
     [[ "$kind" == "data" ]] || { echo refresh; return; }
-    _controller_write_navigation "$(navigation_to_pool_mount "$cat" "$i")"; echo render; return ;;
+    _controller_write_navigation \
+      "$(navigation_to_pool_mount "$category" "$index")"
+    echo render ;;
   "disks:"*)
-    # Device-mode: the disks row opens the bind sub-screen instead of cycling.
-    if _controller_device_mode; then
-      _controller_write_navigation "$(navigation_to_pool_disks "$cat" "$i" "$kind")"
-      echo render; return
-    fi
-    # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
-    # so the cycle is a no-op there; other filesystems cycle 1-8.
-    p="$(_controller_pool_get "$(_controller_state)" "$kind" "$i")"
-    _controller_write_state "$(_controller_pool_set "$(_controller_state)" "$kind" "$i" \
-      "$(jq -c --arg r "$_rfs" '
-        (.filesystem // $r) as $fs
-        | if ($fs == "ext4" or $fs == "xfs") then .disk_count = 1
-          else .disk_count |= (if . >= 8 then 1 else . + 1 end) end' <<<"$p")")"
-    echo refresh; return ;;
+    _controller_cycle_pool_disks "$kind" "$index" "$category" \
+      "$root_filesystem" ;;
+  *) echo refresh ;;
   esac
+}
+
+# _controller_cycle_pool_topology <kind> <index> <root-filesystem> — the cycle
+# follows the group's own filesystem (pool value, else the root filesystem,
+# else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay pinned to single
+# (issue 09, ADR 0043).
+_controller_cycle_pool_topology() {
+  local kind="$1" index="$2" root_filesystem="$3" pool filesystem current next
+  pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
+  filesystem="$(jq -r --arg r "$root_filesystem" '.filesystem // $r' \
+    <<<"$pool")"
+  current="$(jq -r '.topology // ""' <<<"$pool")"
+  next="$(_controller_cycle_topology "$filesystem" "$current")"
+  _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
+    "$kind" "$index" "$(jq -c --arg t "$next" '.topology = $t' <<<"$pool")")"
+  echo refresh
+}
+
+# _controller_cycle_pool_filesystem <kind> <index> — cycle the group's
+# filesystem through the built adapters, then normalise the group for its new
+# filesystem (ext4/xfs → single-disk; a topology invalid for the new
+# filesystem resets to that filesystem's first) via
+# _controller_pool_normalise_filesystem. Only data pools expose a filesystem
+# row, so this stays index-scoped to data.
+_controller_cycle_pool_filesystem() {
+  local kind="$1" index="$2" current next
+  current="$(jq -r '.filesystem // "zfs"' \
+    <<<"$(_controller_pool_get "$(_controller_state)" "$kind" "$index")")"
+  # shellcheck disable=SC2046 # word-split the built-fs list into cycle args
+  next="$(_controller_cycle_next "$current" \
+    $(_controller_built_root_filesystems))"
+  _controller_write_state "$(_controller_pool_normalise_filesystem \
+    "$(_controller_state)" "$index" "$next")"
+  echo refresh
+}
+
+# _controller_toggle_pool_encryption <kind> <index> — storage groups inherit
+# dpool's disk-wide encryption — no per-group toggle.
+_controller_toggle_pool_encryption() {
+  local kind="$1" index="$2" pool
+  [[ "$kind" == "storage" ]] && { echo refresh; return; }
+  pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
+  _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
+    "$kind" "$index" \
+    "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$pool")")"
+  echo refresh
+}
+
+# _controller_cycle_pool_disks <kind> <index> <category> <root-filesystem> —
+# device-mode: the disks row opens the bind sub-screen instead of cycling.
+# ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
+# so the cycle is a no-op there; other filesystems cycle 1-8.
+_controller_cycle_pool_disks() {
+  local kind="$1" index="$2" category="$3" root_filesystem="$4" pool
+  if _controller_device_mode; then
+    _controller_write_navigation \
+      "$(navigation_to_pool_disks "$category" "$index" "$kind")"
+    echo render; return
+  fi
+  pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
+  _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
+    "$kind" "$index" "$(jq -c --arg r "$root_filesystem" '
+      (.filesystem // $r) as $fs
+      | if ($fs == "ext4" or $fs == "xfs") then .disk_count = 1
+        else .disk_count |= (if . >= 8 then 1 else . + 1 end) end' \
+      <<<"$pool")")"
   echo refresh
 }
 
@@ -242,58 +275,84 @@ _controller_data_pools_line_reference() {
 # is the highlighted row (used by ^X on the datapools list). A screen with no
 # matching action returns `noop`.
 guided_controller_action() {
-  local kind="$1" line="${2:-}" nav screen cat; nav="$(_controller_navigation)"
-  screen="$(navigation_screen "$nav")"; cat="$(navigation_get "$nav" category)"
+  local kind="$1" line="${2:-}" navigation screen category
+  navigation="$(_controller_navigation)"
+  screen="$(navigation_screen "$navigation")"
+  category="$(navigation_get "$navigation" category)"
   case "$kind" in
-  add)
-    case "$screen" in
-    datapools)
-      _controller_write_state "$(_controller_add_data_pool "$(_controller_state)")"; echo refresh ;;
-    values)
-      case "$(navigation_get "$nav" field)" in
-      sysctl)
-        _controller_write_navigation "$(navigation_to_text "$cat" sysctl sysctl)"; echo render ;;
-      users)  _controller_write_navigation "$(navigation_to_text "$cat" __newuser__ "new user")"
-              echo render ;;
-      *)      echo noop ;;
-      esac ;;
-    impermanence)
-      # Add persist — the editor's ^A accelerator (ADR 0066). Only meaningful
-      # with impermanence on (the add row only renders then; else noop).
-      if [[ "$(config_state_get \
-        "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")" \
-        options.impermanence.enabled)" == "true" ]]; then
-        _controller_write_navigation "$(navigation_to_text "$cat" __persist__ "persist dir")"
-        echo render
-      else echo noop; fi ;;
-    *) echo noop ;;
-    esac ;;
+  add) _controller_add_action "$screen" "$navigation" "$category" ;;
   add-storage)
     # ^S — add a storage group (only meaningful on the datapools editor).
-    case "$screen" in
-    datapools)
-      _controller_write_state "$(_controller_add_storage_group "$(_controller_state)")"
-      echo refresh ;;
-    *) echo noop ;;
-    esac ;;
+    if [[ "$screen" == datapools ]]; then
+      _controller_write_state \
+        "$(_controller_add_storage_group "$(_controller_state)")"
+      echo refresh
+    else
+      echo noop
+    fi ;;
   remove)
-    case "$screen" in
-    pooledit)
-      # Data pools and storage groups are removable; the OS pool is structural.
-      local i k; i="$(navigation_get "$nav" index)"; k="$(_controller_pool_kind "$nav")"
-      [[ "$k" == "data" || "$k" == "storage" ]] || { echo noop; return; }
-      _controller_write_state "$(_controller_pool_delete "$(_controller_state)" "$k" "$i")"
-      _controller_write_navigation "$(navigation_to_data_pools "$cat")"; echo render ;;
-    datapools)
-      # ^X on a highlighted pool row removes it in place (stay on the list). A
-      # non-pool row (OS pool / + Add / ← Back) resolves to nothing → noop.
-      local ref k i; ref="$(_controller_data_pools_line_reference "$line")"
-      [[ -n "$ref" ]] || { echo noop; return; }
-      k="${ref%% *}"; i="${ref##* }"
-      _controller_write_state "$(_controller_pool_delete "$(_controller_state)" "$k" "$i")"
-      echo refresh ;;
+    _controller_remove_action "$screen" "$navigation" "$category" "$line" ;;
+  *) echo noop ;;
+  esac
+}
+
+# _controller_add_action <screen> <navigation> <category> — ^A.
+_controller_add_action() {
+  local screen="$1" navigation="$2" category="$3"
+  case "$screen" in
+  datapools)
+    _controller_write_state "$(_controller_add_data_pool "$(_controller_state)")"
+    echo refresh ;;
+  values)
+    case "$(navigation_get "$navigation" field)" in
+    sysctl)
+      _controller_write_navigation \
+        "$(navigation_to_text "$category" sysctl sysctl)"
+      echo render ;;
+    users)
+      _controller_write_navigation \
+        "$(navigation_to_text "$category" __newuser__ "new user")"
+      echo render ;;
     *) echo noop ;;
     esac ;;
+  impermanence)
+    # Add persist — the editor's ^A accelerator (ADR 0066). Only meaningful
+    # with impermanence on (the add row only renders then; else noop).
+    if [[ "$(config_state_get "$(_controller_effective "$(_controller_state)" \
+          "$(_controller_baseline)")" options.impermanence.enabled)" \
+          == "true" ]]; then
+      _controller_write_navigation \
+        "$(navigation_to_text "$category" __persist__ "persist dir")"
+      echo render
+    else echo noop; fi ;;
+  *) echo noop ;;
+  esac
+}
+
+# _controller_remove_action <screen> <navigation> <category> <line> — ^X.
+_controller_remove_action() {
+  local screen="$1" navigation="$2" category="$3" line="$4"
+  local pool_kind index reference
+  case "$screen" in
+  pooledit)
+    # Data pools and storage groups are removable; the OS pool is structural.
+    index="$(navigation_get "$navigation" index)"
+    pool_kind="$(_controller_pool_kind "$navigation")"
+    [[ "$pool_kind" == "data" || "$pool_kind" == "storage" ]] \
+      || { echo noop; return; }
+    _controller_write_state "$(_controller_pool_delete "$(_controller_state)" \
+      "$pool_kind" "$index")"
+    _controller_write_navigation "$(navigation_to_data_pools "$category")"
+    echo render ;;
+  datapools)
+    # ^X on a highlighted pool row removes it in place (stay on the list). A
+    # non-pool row (OS pool / + Add / ← Back) resolves to nothing → noop.
+    reference="$(_controller_data_pools_line_reference "$line")"
+    [[ -n "$reference" ]] || { echo noop; return; }
+    pool_kind="${reference%% *}"; index="${reference##* }"
+    _controller_write_state "$(_controller_pool_delete "$(_controller_state)" \
+      "$pool_kind" "$index")"
+    echo refresh ;;
   *) echo noop ;;
   esac
 }

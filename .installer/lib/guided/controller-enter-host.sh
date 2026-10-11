@@ -228,69 +228,100 @@ _controller_enter_root_editor() {
 }
 
 _controller_enter_category() {
-  local line="$1" nav cat label path
-  nav="$(_controller_navigation)"; cat="$(navigation_get "$nav" category)"
-  case "$line" in
-  "← Back")
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
-  "Layout:"*)   # display_label "layout"
-    # Manual Partitioning locks the pool-dependent Disks sub-editors (ADR 0073):
-    # opening the layout editor is a no-op while it is on.
-    manual_partition_kind_active "$(_controller_state)" && { echo render; return; }
-    _controller_write_navigation "$(navigation_to_values "$cat" __layout__ "layout")"
-    echo render; return ;;
-  "Manual partitioning:"*)   # on/off toggle over disk_config.kind (ADR 0073)
-    local _mst _mcur _mnew
-    _mst="$(_controller_state)"; _mcur="$(config_state_get "$_mst" disk_config.kind)"
-    [[ "$_mcur" == "manual" ]] && _mnew=auto || _mnew=manual
-    _controller_write_state "$(_controller_apply_enum "$_mst" disk_config.kind "$_mnew")"
-    # Turning it on: reload + a header notice pointing at the Partitions row.
-    [[ "$_mnew" == "manual" ]] && { echo manual-on; return; }
-    echo refresh; return ;;
-  "Partitions ▸"*)   # Manual Partitioning: open the assignment table (ADR 0073)
-    _controller_write_navigation "$(navigation_to_manual_partitions "$cat")"; echo render; return ;;
-  "Swap:"*)     # display_label "swap"
-    manual_partition_kind_active "$(_controller_state)" && { echo render; return; }
-    _controller_write_navigation "$(navigation_to_swap_edit "$cat")"; echo render; return ;;
-  "Root disk:"*)   # display_label "root disk"
-    _controller_write_navigation "$(navigation_to_root_disk "$cat")"; echo render; return ;;
-  "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
-    manual_partition_kind_active "$(_controller_state)" && { echo render; return; }
-    _controller_write_navigation "$(navigation_to_encryption "$cat")"; echo render; return ;;
-  "Impermanence ▸"*)   # the collapsed Disks impermanence row (ADR 0066)
-    manual_partition_kind_active "$(_controller_state)" && { echo render; return; }
-    _controller_write_navigation "$(navigation_to_impermanence "$cat")"; echo render; return ;;
-  "repo ▸"* | "aur ▸"*)
-    _controller_write_navigation "$(navigation_to_package_category "$cat" "${line%% *}")"
-    echo render; return ;;
-  "derived ▸"*)
-    _controller_write_navigation "$(navigation_to_package_derived "$cat")"; echo render; return ;;
-  esac
+  local line="$1" navigation category label path
+  navigation="$(_controller_navigation)"
+  category="$(navigation_get "$navigation" category)"
+  _controller_enter_category_row "$line" "$navigation" "$category" && return
   label="${line%%:*}"
-  path="$(_controller_field_for_label "$cat" "$label")"
+  path="$(_controller_field_for_label "$category" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
-  # A Cycle Field (bare bool) flips in place and stays on the category screen —
-  # no values submenu (ADR 0075). Read the EFFECTIVE value (a default-true bool
-  # with no override must read true), flip it through the strict-delta apply so
-  # landing back on the default clears the override; a
-  # Manual-Partitioning-locked
-  # field is a silent no-op (the apply guard returns the state unchanged).
   if _controller_is_cycle_field "$path"; then
-    local _cur _next _new
-    _cur="$(menu_render_value \
-      "$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")" "$path")"
-    [[ "$_cur" == true ]] && _next=false || _next=true
-    if _new="$(_controller_apply_enum "$(_controller_state)" "$path" "$_next")"; then
-      _controller_write_state "$(_controller_normalise_default "$_new" "$path")"
-    fi
-    echo refresh; return
+    _controller_cycle_bool_field "$path"; return
   fi
   case "$(_controller_field_kind "$path")" in
   enum | toggle | list | users | biglist)
-    _controller_write_navigation "$(navigation_to_values "$cat" "$path" "$label")"; echo render ;;
+    _controller_write_navigation \
+      "$(navigation_to_values "$category" "$path" "$label")"
+    echo render ;;
   text)
-    _controller_write_navigation "$(navigation_to_text "$cat" "$path" "$label")"; echo render ;;
+    _controller_write_navigation \
+      "$(navigation_to_text "$category" "$path" "$label")"
+    echo render ;;
   *)
     echo noop ;;   # unreachable: _controller_field_kind returns only the kinds above
   esac
+}
+
+# _controller_enter_category_row <line> <navigation> <category> — the
+# category screen's non-field rows (back, layout, drill-downs); rc 1 for a
+# field row.
+_controller_enter_category_row() {
+  local line="$1" navigation="$2" category="$3" target
+  case "$line" in
+  "← Back") target="$(navigation_back "$navigation")" ;;
+  "Layout:"*)   # display_label "layout"
+    # Manual Partitioning locks the pool-dependent Disks sub-editors (ADR
+    # 0073): opening the layout editor is a no-op while it is on.
+    manual_partition_kind_active "$(_controller_state)" \
+      && { echo render; return 0; }
+    target="$(navigation_to_values "$category" __layout__ "layout")" ;;
+  "Manual partitioning:"*)   # on/off toggle over disk_config.kind (ADR 0073)
+    _controller_toggle_manual_partitioning; return 0 ;;
+  "Partitions ▸"*)   # Manual Partitioning: open the assignment table (ADR 0073)
+    target="$(navigation_to_manual_partitions "$category")" ;;
+  "Swap:"*)     # display_label "swap"
+    manual_partition_kind_active "$(_controller_state)" \
+      && { echo render; return 0; }
+    target="$(navigation_to_swap_edit "$category")" ;;
+  "Root disk:"*)   # display_label "root disk"
+    target="$(navigation_to_root_disk "$category")" ;;
+  "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
+    manual_partition_kind_active "$(_controller_state)" \
+      && { echo render; return 0; }
+    target="$(navigation_to_encryption "$category")" ;;
+  "Impermanence ▸"*)   # the collapsed Disks impermanence row (ADR 0066)
+    manual_partition_kind_active "$(_controller_state)" \
+      && { echo render; return 0; }
+    target="$(navigation_to_impermanence "$category")" ;;
+  "repo ▸"* | "aur ▸"*)
+    target="$(navigation_to_package_category "$category" "${line%% *}")" ;;
+  "derived ▸"*)
+    target="$(navigation_to_package_derived "$category")" ;;
+  *) return 1 ;;
+  esac
+  _controller_write_navigation "$target"
+  echo render
+}
+
+# _controller_toggle_manual_partitioning — flip disk_config.kind auto ↔
+# manual. Turning it on: reload + a header notice pointing at the Partitions
+# row.
+_controller_toggle_manual_partitioning() {
+  local state current updated
+  state="$(_controller_state)"
+  current="$(config_state_get "$state" disk_config.kind)"
+  [[ "$current" == "manual" ]] && updated=auto || updated=manual
+  _controller_write_state \
+    "$(_controller_apply_enum "$state" disk_config.kind "$updated")"
+  [[ "$updated" == "manual" ]] && { echo manual-on; return; }
+  echo refresh
+}
+
+# _controller_cycle_bool_field <path> — a Cycle Field (bare bool) flips in
+# place and stays on the category screen — no values submenu (ADR 0075). Read
+# the EFFECTIVE value (a default-true bool with no override must read true),
+# flip it through the strict-delta apply so landing back on the default clears
+# the override; a Manual-Partitioning-locked field is a silent no-op (the apply
+# guard returns the state unchanged).
+_controller_cycle_bool_field() {
+  local path="$1" current next updated
+  current="$(menu_render_value "$(_controller_effective "$(_controller_state)" \
+    "$(_controller_baseline)")" "$path")"
+  [[ "$current" == true ]] && next=false || next=true
+  if updated="$(_controller_apply_enum "$(_controller_state)" "$path" \
+       "$next")"; then
+    _controller_write_state "$(_controller_normalise_default "$updated" \
+      "$path")"
+  fi
+  echo refresh
 }

@@ -89,12 +89,6 @@ guided_controller_key() {
   echo render
 }
 
-# _controller_directive_to_action <directive> <entry> — map a controller directive
-# to the fzf action string a `transform` bind executes. <entry> is the absolute
-# path of the bind entry script. A `render` re-lists AND re-headers/re-prompts
-# the (post-mutation) screen so the toolbar always reflects "how to go back";
-# a terminal action writes the verb to $GUIDED_RESULT_FILE then accepts; an
-# edit-oneshot hands the tty to the existing helper then re-lists.
 # _controller_reload_command <entry> — the reload command for a re-render. Fast path
 # (ticket 04): precompute the current screen's list into GUIDED_LIST_FILE and
 # `cat` it — one cheap fork instead of a second bash that re-sources the whole
@@ -127,94 +121,31 @@ _controller_focus_position() {
   done < <(guided_controller_list)
 }
 
+# _controller_directive_to_action <directive> <entry> — map a controller directive
+# to the fzf action string a `transform` bind executes. <entry> is the absolute
+# path of the bind entry script. A `render` re-lists AND re-headers/re-prompts
+# the (post-mutation) screen so the toolbar always reflects "how to go back";
+# a terminal action writes the verb to $GUIDED_RESULT_FILE then accepts; an
+# edit-oneshot hands the tty to the existing helper then re-lists.
 _controller_directive_to_action() {
-  local d="$1" entry="$2" nav
-  case "$d" in
-  render)
-    # clear-query first: fzf keeps the filter text across reload, so a leftover
-    # filter would hide the next screen's items (e.g. typing "disk" then opening
-    # the preset picker would hide every preset). Each screen starts unfiltered.
-    # The Disk-layout screen turns on a preview (the ASCII layout graph); every
-    # other screen swaps the preview to a cheap no-op and hides the pane, so the
-    # graph command only runs where it's shown.
-    nav="$(_controller_navigation)"
-    local pv _showpv=0
-    case "$(navigation_screen "$nav")" in
-    top | category | values | text)   # the always-on master-detail pane (0071)
-      _showpv=1 ;;
-    datapools | pooledit) _showpv=1 ;;   # the live layout graph
-    profiles) _showpv=1 ;;               # the profile's header comment
-    pkgbrowse) _showpv=1 ;;              # the highlighted package's pacman -Si
-    esac
-    if ((_showpv)); then
-      pv="$(printf \
-      '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
-        "$entry")"
-    else
-      pv='+change-preview(echo)+change-preview-window(hidden)'
-    fi
-    # Rich chrome (fzf ≥ 0.62): a live footer (context actions + summary) and a
-    # breadcrumb on the list-label. Legacy fzf gets neither (actions stay in the
-    # list, header carries the keys) — the features are identical either way.
-    local chrome=''
-    if _controller_rich_chrome; then
-      chrome="$(printf '+change-footer(%s)+change-list-label(%s)' \
-        "$(_controller_footer "$nav")" "$(_controller_breadcrumb "$nav")")"
-    fi
-    # Inline masking (ADR 0051): the password screen turns the change→mask bind
-    # on
-    # and disables query-cursor movement so the buffer diff can never desync;
-    # every
-    # other screen turns masking off and restores the cursor keys. rebind/unbind
-    # of
-    # an already-(un)bound key/event is harmless, so this is safe on all
-    # renders.
-    local mask
-    if [[ "$(navigation_screen "$nav")" == "secret" ]]; then
-      mask='+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)'
-    else
-      mask='+unbind(change)+rebind(left)+rebind(right)+rebind(home)+rebind(end)'
-    fi
-    # Cursor restore (position memory): a back nav carries a `focus` hint naming
-    # the row it returned onto. Resolve it to a 1-based line and stash it in
-    # GUIDED_POS_FILE for the `load` bind's one-shot `pos`. The write happens HERE
-    # — inside the transform command, before the returned reload runs — so it
-    # lands before `load` fires. A `+pos(N)` in this action string instead would
-    # target the PRE-reload (child) list and clamp onto a spacer (fzf pty-proven).
-    local _fpos
-    _fpos="$(_controller_focus_position "$(navigation_get "$nav" focus)")"
-    [[ -n "$_fpos" && -n "${GUIDED_POS_FILE:-}" ]] \
-      && printf '%s' "$_fpos" >"$GUIDED_POS_FILE"
-    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s' \
-      "$(_controller_reload_command "$entry")" "$(_controller_navigation_header "$nav")" \
-      "$(_controller_navigation_prompt "$nav")" "$pv" "$chrome" "$mask" ;;
-  refresh)
-    # same screen, just re-mark the list: reload-sync avoids the flicker a plain
-    # reload shows, and keeps the query + header (no clear-query/change-*).
-    # refresh-preview re-renders the live layout graph after a pool/disk edit;
-    # a no-op where the preview pane is hidden. Rich chrome ALSO re-emits the
-    # footer so its live summary (e.g. "2 bound") tracks a bind/add without a
-    # full
-    # render — change-footer leaves the typed query untouched.
-    local rfoot=''
-    _controller_rich_chrome && rfoot="$(printf '+change-footer(%s)' \
-      "$(_controller_footer "$(_controller_navigation)")")"
-    printf 'reload-sync(%s)+refresh-preview%s' "$(_controller_reload_command "$entry")" \
-      "$rfoot" ;;
+  local directive="$1" entry="$2"
+  case "$directive" in
+  render)  _controller_render_action "$entry" ;;
+  refresh) _controller_refresh_action "$entry" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
-                      "${d#terminal }" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
+                      "${directive#terminal }" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
   "secret-root")
     printf 'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;
   "secret-user "*)
     printf 'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
-      "$entry" "${d#secret-user }" "$entry" ;;
+      "$entry" "${directive#secret-user }" "$entry" ;;
   "secret-enc")
     printf 'execute(bash %q secret enc)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;
-  "notice "*)       printf 'change-header(%s)+bell' "${d#notice }" ;;
+  "notice "*)       printf 'change-header(%s)+bell' "${directive#notice }" ;;
   manual-on)
     # Reload the Disks screen (locked fields greyed, Partitions row shown) and
     # point the operator at the cfdisk hand-off (ADR 0073).
@@ -235,4 +166,82 @@ _controller_directive_to_action() {
       '⚠ passwords did not match — type it again   ·   Esc cancels' ;;
   *)                printf 'ignore' ;;
   esac
+}
+
+# _controller_render_action <entry> — re-list AND re-header/re-prompt the
+# (post-mutation) screen. clear-query first: fzf keeps the filter text across
+# reload, so a leftover filter would hide the next screen's items (e.g. typing
+# "disk" then opening the preset picker would hide every preset). Each screen
+# starts unfiltered.
+_controller_render_action() {
+  local entry="$1" navigation screen preview chrome='' mask focus_line
+  navigation="$(_controller_navigation)"
+  screen="$(navigation_screen "$navigation")"
+  preview="$(_controller_preview_action "$entry" "$screen")"
+  # Rich chrome (fzf ≥ 0.62): a live footer (context actions + summary) and a
+  # breadcrumb on the list-label. Legacy fzf gets neither (actions stay in the
+  # list, header carries the keys) — the features are identical either way.
+  if _controller_rich_chrome; then
+    chrome="$(printf '+change-footer(%s)+change-list-label(%s)' \
+      "$(_controller_footer "$navigation")" \
+      "$(_controller_breadcrumb "$navigation")")"
+  fi
+  # Inline masking (ADR 0051): the password screen turns the change→mask bind
+  # on and disables query-cursor movement so the buffer diff can never desync;
+  # every other screen turns masking off and restores the cursor keys.
+  # rebind/unbind of an already-(un)bound key/event is harmless, so this is
+  # safe on all renders.
+  if [[ "$screen" == "secret" ]]; then
+    mask='+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)'
+  else
+    mask='+unbind(change)+rebind(left)+rebind(right)+rebind(home)+rebind(end)'
+  fi
+  # Cursor restore (position memory): a back nav carries a `focus` hint naming
+  # the row it returned onto. Resolve it to a 1-based line and stash it in
+  # GUIDED_POS_FILE for the `load` bind's one-shot `pos`. The write happens
+  # HERE — inside the transform command, before the returned reload runs — so
+  # it lands before `load` fires. A `+pos(N)` in this action string instead
+  # would target the PRE-reload (child) list and clamp onto a spacer (fzf
+  # pty-proven).
+  focus_line="$(_controller_focus_position \
+    "$(navigation_get "$navigation" focus)")"
+  [[ -n "$focus_line" && -n "${GUIDED_POS_FILE:-}" ]] \
+    && printf '%s' "$focus_line" >"$GUIDED_POS_FILE"
+  printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s' \
+    "$(_controller_reload_command "$entry")" \
+    "$(_controller_navigation_header "$navigation")" \
+    "$(_controller_navigation_prompt "$navigation")" \
+    "$preview" "$chrome" "$mask"
+}
+
+# _controller_preview_action <entry> <screen> — the Disk-layout screen turns
+# on a preview (the ASCII layout graph); every other screen swaps the preview
+# to a cheap no-op and hides the pane, so the graph command only runs where
+# it's shown.
+_controller_preview_action() {
+  local entry="$1" screen="$2"
+  case "$screen" in
+  # The always-on master-detail pane (0071), the live layout graph, the
+  # profile's header comment, the highlighted package's pacman -Si.
+  top | category | values | text | datapools | pooledit | profiles | pkgbrowse)
+    printf \
+      '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
+      "$entry" ;;
+  *) printf '%s' '+change-preview(echo)+change-preview-window(hidden)' ;;
+  esac
+}
+
+# _controller_refresh_action <entry> — same screen, just re-mark the list:
+# reload-sync avoids the flicker a plain reload shows, and keeps the query +
+# header (no clear-query/change-*). refresh-preview re-renders the live layout
+# graph after a pool/disk edit; a no-op where the preview pane is hidden. Rich
+# chrome ALSO re-emits the footer so its live summary (e.g. "2 bound") tracks a
+# bind/add without a full render — change-footer leaves the typed query
+# untouched.
+_controller_refresh_action() {
+  local entry="$1" footer=''
+  _controller_rich_chrome && footer="$(printf '+change-footer(%s)' \
+    "$(_controller_footer "$(_controller_navigation)")")"
+  printf 'reload-sync(%s)+refresh-preview%s' \
+    "$(_controller_reload_command "$entry")" "$footer"
 }

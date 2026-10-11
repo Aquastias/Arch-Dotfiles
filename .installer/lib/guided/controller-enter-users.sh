@@ -126,10 +126,10 @@ _controller_package_in_core_any() {
 # program); removes drop a session-added extra or exclude an inherited core
 # package — mirroring _controller_enter_packages without a per-category context.
 _controller_enter_package_browse() {
-  local line="$1" query="${2:-}" nav slot pkg state
-  nav="$(_controller_navigation)"; slot="$(navigation_get "$nav" slot)"
+  local line="$1" query="${2:-}" navigation slot package state
+  navigation="$(_controller_navigation)"; slot="$(navigation_get "$navigation" slot)"
   [[ "$line" == "← Back" ]] && {
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return; }
+    _controller_write_navigation "$(navigation_back "$navigation")"; echo render; return; }
   # query-as-add (aur only): a typed name matching no row still adds, so a
   # brand-new or offline AUR package is reachable when the list can't list it
   # (ADR 0086). repo is fully enumerable, so an unmatched repo name is a typo,
@@ -148,33 +148,42 @@ _controller_enter_package_browse() {
     return; }
   # strip the "[x] "/"[ ] " mark and any trailing annotation (a name has no
   # embedded double space, so cutting at the first one is safe)
-  pkg="${line:4}"; pkg="${pkg%%  *}"
-  [[ -n "$pkg" ]] || { echo noop; return; }
+  package="${line:4}"; package="${package%%  *}"
+  [[ -n "$package" ]] || { echo noop; return; }
 
-  state="$(_controller_state)"
-  if [[ "${line:0:3}" == "[x]" ]]; then
-    if _controller_package_in_core_any "$slot" "$pkg"; then
-      state="$(jq --arg p "$pkg" \
+  _controller_write_state "$(_controller_toggle_browsed_package \
+    "$(_controller_state)" "$slot" "$package" "${line:0:3}")"
+  echo refresh
+}
+
+# _controller_toggle_browsed_package <state> <slot> <package> <mark> — the
+# state with <package> flipped: a checked ([x]) core package is excluded, a
+# checked extra is dropped; an unchecked core package is un-excluded, an
+# unchecked other is routed in as an extra.
+_controller_toggle_browsed_package() {
+  local state="$1" slot="$2" package="$3" mark="$4"
+  if [[ "$mark" == "[x]" ]]; then
+    if _controller_package_in_core_any "$slot" "$package"; then
+      state="$(jq --arg p "$package" \
         '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
         <<<"$state")"
     else
-      state="$(jq --arg s "$slot" --arg p "$pkg" \
+      state="$(jq --arg s "$slot" --arg p "$package" \
         'if .packages[$s].extra then
            .packages[$s].extra |= map(select(. != $p)) else . end' <<<"$state")"
     fi
   else
-    if _controller_package_in_core_any "$slot" "$pkg"; then
-      state="$(jq --arg p "$pkg" \
+    if _controller_package_in_core_any "$slot" "$package"; then
+      state="$(jq --arg p "$package" \
         'if .packages.exclude then
            .packages.exclude |= map(select(. != $p)) else . end
          | if (.packages.exclude // null) == [] then del(.packages.exclude)
            else . end' <<<"$state")"
     else
-      state="$(_controller_route_package_entry "$state" "$pkg" "$slot")"
+      state="$(_controller_route_package_entry "$state" "$package" "$slot")"
     fi
   fi
-  _controller_write_state "$state"
-  echo refresh
+  printf '%s\n' "$state"
 }
 
 # _controller_enter_package_derived <line> — drill into one derived source. Nothing here is
@@ -282,69 +291,92 @@ _controller_user_committed_shell() {
 # file;
 # enable/disable writes the Config State users list.
 _controller_enter_user_edit() {
-  local line="$1" nav cat un cur next
-  nav="$(_controller_navigation)"
-  cat="$(navigation_get "$nav" category)"; un="$(navigation_get "$nav" user)"
+  local line="$1" navigation category user
+  navigation="$(_controller_navigation)"
+  category="$(navigation_get "$navigation" category)"
+  user="$(navigation_get "$navigation" user)"
   case "$line" in
   "← Back")
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
+    _controller_write_navigation "$(navigation_back "$navigation")"
+    echo render ;;
   "enabled:"*)
-    _controller_write_state \
-      "$(_controller_toggle_users "$(_controller_state)" "$(_controller_baseline)" "$un")"
-    echo refresh; return ;;
-  "sudo:"*)
-    [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
-    local _cs _ns _com
-    _cs="$(jq -r 'if .sudo then true else false end' \
-      <<<"$(_controller_user_effective "$un")")"
-    _ns="$([[ "$_cs" == "true" ]] && echo false || echo true)"
-    _com="$(jq -c 'if .sudo then true else false end' \
-      <<<"$(_controller_user_committed "$un")")"
-    _controller_user_form_set_strict "$un" sudo "$_ns" "$_com"
-    echo refresh; return ;;
-  "groups:"*)
-    _controller_write_navigation "$(navigation_to_user_field "$cat" "$un" groups groups)"
-    echo render; return ;;
-  "git name:"*)
-    _controller_write_navigation "$(navigation_to_user_field "$cat" "$un" git.name "git name")"
-    echo render; return ;;
-  "git email:"*)
-    _controller_write_navigation "$(navigation_to_user_field "$cat" "$un" git.email "git email")"
-    echo render; return ;;
-  "ssh keys:"*)
-    _controller_write_navigation "$(navigation_to_user_field "$cat" "$un" ssh "ssh keys")"
-    echo render; return ;;
-  "programs:"*)
-    _controller_write_navigation "$(navigation_to_user_field "$cat" "$un" programs programs)"
-    echo render; return ;;
-  "shell:"*)
-    [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
-    cur="$(_controller_user_shell_full "$un")"
-    next="$(_controller_cycle_next "$cur" /bin/bash /bin/zsh /bin/fish)"
-    if [[ "$next" == "$(_controller_user_committed_shell "$un")" ]]; then
-      guided_userform_unset "$GUIDED_USERFORMS_FILE" "$un" shell
-    else
-      guided_userform_set "$GUIDED_USERFORMS_FILE" "$un" shell \
-        "$(jq -n --arg x "$next" '$x')"
-    fi
-    echo refresh; return ;;
+    _controller_write_state "$(_controller_toggle_users "$(_controller_state)" \
+      "$(_controller_baseline)" "$user")"
+    echo refresh ;;
+  "sudo:"*) _controller_toggle_user_sudo "$user" ;;
+  "groups:"* | "git name:"* | "git email:"* | "ssh keys:"* | "programs:"*)
+    _controller_open_user_field "$line" "$category" "$user" ;;
+  "shell:"*) _controller_cycle_user_shell "$user" ;;
   "⧉ Clone this user")
     # Clone (ADR 0064): drop to a name-entry text screen carrying THIS user
     # as the source. A valid name copies the source's account-shape into a new
     # ad-hoc user and lands in its editor.
-    _controller_write_navigation "$(navigation_to_clone "$cat" "$un")"; echo render; return ;;
-  "✗ remove user")
-    # Session-created user: drop it from the install list and its held-aside
-    # form,
-    # then return to the Users list.
-    _controller_write_state "$(config_state_set "$(_controller_state)" users \
-      "$(jq -c --arg u "$un" '(.users // []) - [$u]' \
-        <<<"$(_controller_effective "$(_controller_state)" "$(_controller_baseline)")")")"
-    [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
-      && guided_userform_clear "$GUIDED_USERFORMS_FILE" "$un"
-    _controller_write_navigation "$(navigation_back "$nav")"; echo render; return ;;
+    _controller_write_navigation "$(navigation_to_clone "$category" "$user")"
+    echo render ;;
+  "✗ remove user") _controller_remove_session_user "$user" "$navigation" ;;
+  *) echo refresh ;;
   esac
+}
+
+# _controller_open_user_field <line> <category> <user> — the User Editor's
+# drill-down rows: groups, git name/email, ssh keys, programs.
+_controller_open_user_field() {
+  local line="$1" category="$2" user="$3" field label
+  case "$line" in
+  "groups:"*)    field=groups;    label=groups ;;
+  "git name:"*)  field=git.name;  label="git name" ;;
+  "git email:"*) field=git.email; label="git email" ;;
+  "ssh keys:"*)  field=ssh;       label="ssh keys" ;;
+  "programs:"*)  field=programs;  label=programs ;;
+  esac
+  _controller_write_navigation \
+    "$(navigation_to_user_field "$category" "$user" "$field" "$label")"
+  echo render
+}
+
+# _controller_toggle_user_sudo <user> — flip sudo in the user's form delta
+# (strict: landing back on the committed value clears the override).
+_controller_toggle_user_sudo() {
+  local user="$1" current next committed
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
+  current="$(jq -r 'if .sudo then true else false end' \
+    <<<"$(_controller_user_effective "$user")")"
+  next="$([[ "$current" == "true" ]] && echo false || echo true)"
+  committed="$(jq -c 'if .sudo then true else false end' \
+    <<<"$(_controller_user_committed "$user")")"
+  _controller_user_form_set_strict "$user" sudo "$next" "$committed"
   echo refresh
+}
+
+# _controller_cycle_user_shell <user> — bash → zsh → fish; landing on the
+# committed shell drops the override.
+_controller_cycle_user_shell() {
+  local user="$1" current next
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
+  current="$(_controller_user_shell_full "$user")"
+  next="$(_controller_cycle_next "$current" /bin/bash /bin/zsh /bin/fish)"
+  if [[ "$next" == "$(_controller_user_committed_shell "$user")" ]]; then
+    guided_userform_unset "$GUIDED_USERFORMS_FILE" "$user" shell
+  else
+    guided_userform_set "$GUIDED_USERFORMS_FILE" "$user" shell \
+      "$(jq -n --arg x "$next" '$x')"
+  fi
+  echo refresh
+}
+
+# _controller_remove_session_user <user> <navigation> — drop a
+# session-created user from the install list and its held-aside form, then
+# return to the Users list.
+_controller_remove_session_user() {
+  local user="$1" navigation="$2"
+  _controller_write_state "$(config_state_set "$(_controller_state)" users \
+    "$(jq -c --arg u "$user" '(.users // []) - [$u]' \
+      <<<"$(_controller_effective "$(_controller_state)" \
+        "$(_controller_baseline)")")")"
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
+    && guided_userform_clear "$GUIDED_USERFORMS_FILE" "$user"
+  _controller_write_navigation "$(navigation_back "$navigation")"
+  echo render
 }
 
 # _controller_enter_user_field <line> [<query>] — the user-scoped sub-editor dispatch

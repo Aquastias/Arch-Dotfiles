@@ -233,6 +233,8 @@ source "${BASH_SOURCE[0]%/*}/controller-screen-data.sh"
 source "${BASH_SOURCE[0]%/*}/controller-detail.sh"
 # shellcheck source=controller-list.sh
 source "${BASH_SOURCE[0]%/*}/controller-list.sh"
+# shellcheck source=controller-list-editors.sh
+source "${BASH_SOURCE[0]%/*}/controller-list-editors.sh"
 # shellcheck source=controller-enter-users.sh
 source "${BASH_SOURCE[0]%/*}/controller-enter-users.sh"
 # shellcheck source=controller-enter-host.sh
