@@ -17,6 +17,7 @@ fi
 # capabilities fails: tolerate exactly that line there.
 _kitty=(timeout 20 kitty --class fa-probe-kitty -e sh -c 'sleep 3')
 _judge=(feature_audit_no_stderr)
-feature_audit_has_shell || _judge=(feature_audit_no_stderr_but '\[glfw error [0-9]+\]: Notify: ')
+feature_audit_has_shell \
+  || _judge=(feature_audit_no_stderr_but '\[glfw error [0-9]+\]: Notify: ')
 feature_audit_check kitty-launch "kitty opens a window with no config errors" \
   "${_judge[@]}" "${_kitty[@]}"

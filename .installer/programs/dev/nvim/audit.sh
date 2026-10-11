@@ -30,7 +30,8 @@ then cat "$o"
 else
   cat "$o"
   feature_audit_fail nvim-probe \
-    "headless probe did not finish: $(head -1 /tmp/fa-nvim.err)"
+    "headless probe did not finish: $(awk 'NR == 1 { print; exit }' \
+      /tmp/fa-nvim.err)"
 fi
 
 if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
@@ -38,16 +39,18 @@ if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
 fi
 # live-only maps go through the same matcher as the static plan
 _probe_live_plan() {
-  local ej
-  ej="$(sed -e 's|[[:space:]]//[^"]*$||' -e '/^[[:space:]]*\/\//d' \
+  local expect_json
+  expect_json="$(awk '{ sub(/[[:space:]]\/\/[^"]*$/, "") }
+    !/^[[:space:]]*\/\// { print }' \
     "$FA_DIR/audit-binds.jsonc" | jq -c .)"
-  jq -R -c --argjson e "$ej" -f "$FA_DIR/binds-plan.jq" < "$live"
+  jq -R -c --argjson e "$expect_json" -f "$FA_DIR/binds-plan.jq" < "$live"
 }
 # \x1f, not a tab: IFS whitespace collapses an empty field and shifts the rest
 while IFS=$'\x1f' read -r key mode effect arg needs; do
   id="bind-nvim-$key"
   case "$effect" in
-    none) feature_audit_fail nvim-untested-bind "$mode $key has no audit expectation"
+    none) feature_audit_fail nvim-untested-bind \
+            "$mode $key has no audit expectation"
           continue ;;
     unverifiable) feature_audit_skip "$id" "unverifiable: $arg"; continue ;;
   esac
@@ -63,7 +66,8 @@ while IFS=$'\x1f' read -r key mode effect arg needs; do
     _probe_nvim 40 "$fx/key.lua" >/dev/null 2>&1
   rc=$?
   if [[ -s "$o" ]]; then cat "$o"
-  elif [[ "$effect" == quits && "$rc" == 0 ]]; then feature_audit_pass "$id" "quit nvim"
+  elif [[ "$effect" == quits && "$rc" == 0 ]]; then
+    feature_audit_pass "$id" "quit nvim"
   elif [[ "$rc" == 124 ]]; then
     feature_audit_fail "$id" "hung (a prompt waiting for input?)"
   else feature_audit_fail "$id" "nvim exited $rc before judging the effect"; fi

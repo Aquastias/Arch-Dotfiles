@@ -7,15 +7,17 @@ if [[ "$FA_SESSION" != Hyprland ]]; then
 fi
 if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
   HYPRLAND_INSTANCE_SIGNATURE="$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 \
-    -maxdepth 1 -printf '%f\n' 2>/dev/null | head -1)"
+    -maxdepth 1 -printf '%f\n' 2>/dev/null | awk 'NR == 1 { print; exit }')"
   export HYPRLAND_INSTANCE_SIGNATURE
 fi
 feature_audit_check hyprland-ipc "hyprctl answers" hyprctl -j version
 _probe_hypr_errors() {
-  local e
-  e="$(hyprctl -j configerrors 2>/dev/null | jq -r '.[] | select(. != "")')"
-  [[ -z "$e" ]] || { printf '%s\n' "$e"; return 1; }
+  local errors
+  errors="$(hyprctl -j configerrors 2>/dev/null \
+    | jq -r '.[] | select(. != "")')"
+  [[ -z "$errors" ]] || { printf '%s\n' "$errors"; return 1; }
 }
-feature_audit_check hyprland-config "no Hyprland config errors" _probe_hypr_errors
+feature_audit_check hyprland-config \
+  "no Hyprland config errors" _probe_hypr_errors
 # shellcheck source=/dev/null
 . "$FA_DIR/audit-fixtures/audit-wlroots.sh"

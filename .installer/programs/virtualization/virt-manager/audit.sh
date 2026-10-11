@@ -2,8 +2,10 @@
 # Feature Audit probe for virt-manager (ADR 0152; contract: PROGRAM_SPEC.md).
 feature_audit_require_package virt-manager virt-manager || return 0
 if feature_audit_as_root; then
-  feature_audit_check libvirtd "libvirtd enabled" systemctl is-enabled --quiet libvirtd
-  feature_audit_check kvm-device "/dev/kvm present (nested virt)" test -e /dev/kvm
+  feature_audit_check libvirtd "libvirtd enabled" systemctl is-enabled \
+    --quiet libvirtd
+  feature_audit_check kvm-device "/dev/kvm present (nested virt)" test \
+    -e /dev/kvm
   return 0
 fi
 if ! id -nG | grep -qw libvirt; then

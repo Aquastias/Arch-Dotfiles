@@ -13,10 +13,11 @@ feature_audit_check clamav-signatures "virus definitions present" \
   sh -c 'ls /var/lib/clamav/main.c[lv]d /var/lib/clamav/daily.c[lv]d'
 # The real proof: the daemon flags the EICAR test string.
 _probe_eicar() {
-  local f; f="$(mktemp /tmp/fa-eicar.XXXX)"
+  local eicar_file; eicar_file="$(mktemp /tmp/fa-eicar.XXXX)"
   printf '%s%s' 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD' \
-    '-ANTIVIRUS-TEST-FILE!$H+H*' > "$f"
-  clamdscan --fdpass --no-summary "$f" 2>&1 | grep -q FOUND; local rc=$?
-  rm -f "$f"; return "$rc"
+    '-ANTIVIRUS-TEST-FILE!$H+H*' > "$eicar_file"
+  clamdscan --fdpass --no-summary "$eicar_file" 2>&1 \
+    | grep -q FOUND; local rc=$?
+  rm -f "$eicar_file"; return "$rc"
 }
 feature_audit_check clamav-detects "clamd detects EICAR" _probe_eicar

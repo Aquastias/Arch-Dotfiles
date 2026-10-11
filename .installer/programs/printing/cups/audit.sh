@@ -27,5 +27,6 @@ _probe_cups_print() {
   kill "$pid" 2>/dev/null
   return "$rc"
 }
-feature_audit_check cups-print "test job completes on an IPP Everywhere printer" \
+feature_audit_check cups-print \
+  "test job completes on an IPP Everywhere printer" \
   _probe_cups_print

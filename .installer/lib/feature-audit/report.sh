@@ -17,7 +17,10 @@
 # `…@<user>.err.lines`); program names may hold `-`, never `@`.
 #
 # Public API:
-#   feature_audit_report <run-dir>   → writes findings.jsonl + findings.md; 1 if any
+#   feature_audit_report <run-dir>
+#       → writes findings.jsonl + findings.md; 1 if any
+#
+# Used by: tools/feature-audit.sh (report).
 # =============================================================================
 
 # Phase order for grouping; unknown phases sort last.
@@ -33,9 +36,9 @@ feature_audit_known_noise_path() {
 # rows (variants comma-joined; empty = every variant; an array regex is one
 # regex split across lines and concatenated, so the file keeps 80 columns).
 _report_noise_tsv() {
-  local f; f="$(feature_audit_known_noise_path)"
-  [[ -f "$f" ]] || return 0
-  jsonc_strip "$f" | jq -r '.[] | [(.regex | if type == "array"
+  local noise_file; noise_file="$(feature_audit_known_noise_path)"
+  [[ -f "$noise_file" ]] || return 0
+  jsonc_strip "$noise_file" | jq -r '.[] | [(.regex | if type == "array"
       then join("") else . end), (.source // ""), (.phase // ""),
     ((.variants // []) | join(","))]
     | join("\t")'  # not @tsv: it escapes the regexes' backslashes
@@ -50,138 +53,11 @@ _report_candidates() {
     \( -name '*.log' -o -name '*.lines' -o -name '*.probe' \) | sort)
   ((${#files[@]})) || return 0
   # an error-shaped word, not part of a name (libgpg-error, perl-error)
-  local errre='(^|[^a-z0-9_./-])(err|error|errors|warn|warning|failed|'
-  errre+='failure|fatal|critical)([^a-z0-9_-]|$)'
-  awk -v run="$run/" -v phases="$phases" -v errre="$errre" -F'\t' '
-    function clean(s) {
-      gsub(/\033\[[0-9;]*[A-Za-z]/, "", s); gsub(/\t/, " ", s)
-      gsub(/\r/, "", s)
-      # journal short-iso/short prefix: "Mon DD HH:MM:SS host "
-      sub(/^[A-Z][a-z][a-z] [ 0-9][0-9] [0-9:][0-9:]+ [^ ]+ /, "", s)
-      return s
-    }
-    # hexnorm: a run of 6+ hex chars holding a digit (mount ids, unit
-    # instance hashes) is volatile; a hex-only English word is not.
-    function hexnorm(s,   out, t) {
-      out = ""
-      while (match(s, /[0-9a-fA-F]{6,}/)) {
-        t = substr(s, RSTART, RLENGTH)
-        out = out substr(s, 1, RSTART - 1) (t ~ /[0-9]/ ? "H" : t)
-        s = substr(s, RSTART + RLENGTH)
-      }
-      return out s
-    }
-    function norm(s) {
-      s = hexnorm(s)
-      gsub(/\[[0-9]+\]/, "[N]", s)
-      gsub(/0x[0-9a-fA-F]+/, "0xN", s)
-      gsub(/[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}/, "UUID", s)
-      gsub(/[0-9]+/, "N", s)
-      return s
-    }
-    function noisy(line, src, ph,   i) {
-      for (i = 1; i <= nn; i++)
-        if ((ns[i] == "" || ns[i] == src) && (np[i] == "" || np[i] == ph) \
-            && (nv[i] == "" || index("," nv[i] ",", "," var ",")) \
-            && line ~ nr[i]) return 1
-      return 0
-    }
-    function add(src, prog, chk, line, path,   k, u, g) {
-      if (noisy(line, src, ph)) return
-      k = src SUBSEP prog SUBSEP norm(chk " " line)
-      if (!(k in ex)) { ex[k] = line; order[++nk] = k; ksrc[k] = src
-                        kprog[k] = prog; kchk[k] = chk }
-      u = var SUBSEP ph
-      if (!((k, u) in seen)) { seen[k, u] = 1; cnt[k]++
-        if (!((k, "v", var) in seen)) { seen[k, "v", var] = 1
-          vars[k] = vars[k] (vars[k] == "" ? "" : ",") var }
-        if (!((k, "p", ph) in seen)) { seen[k, "p", ph] = 1
-          phs[k] = phs[k] (phs[k] == "" ? "" : ",") ph
-          if (!(k in rank)) rank[k] = prank(ph) }
-      }
-      if (!((k, "l", path) in seen)) { seen[k, "l", path] = 1
-        logs[k] = logs[k] (logs[k] == "" ? "" : ",") path }
-    }
-    function prank(p,   i) {
-      for (i = 1; i <= np0; i++) if (pl[i] == p) return i
-      sub(/-.*$/, "", p)   # per-desktop phases (sessions-kde) rank as sessions
-      for (i = 1; i <= np0; i++) if (pl[i] == p) return i
-      return 99
-    }
-    # flush — keep held attempt errors that no [RETRY] superseded
-    function flush(   i) {
-      for (i = 1; i <= nh; i++) add(hsrc, hprog, "", hl[i], hr[i])
-      nh = 0; inatt = 0
-    }
-    BEGIN { np0 = split(phases, pl, " ") }
-    FILENAME == noisef { nn++; nr[nn] = $1; ns[nn] = $2; np[nn] = $3
-                        nv[nn] = $4; next }
-    FNR == 1 {
-      flush()
-      rel = substr(FILENAME, length(run) + 1)
-      split(rel, parts, "/"); var = parts[1]; ph = parts[2]; base = parts[3]
-      kind = base; sub(/^.*\./, "", kind)
-      src = base; sub(/\.[^.]*$/, "", src); prog = ""
-      if (src ~ /^probe-/) {
-        prog = src; sub(/^probe-/, "", prog); sub(/@.*$/, "", prog)
-        acct = src; sub(/^[^@]*@/, "", acct); sub(/\..*$/, "", acct)
-        src = (src ~ /\.err$/) ? "probe-stderr" : "probe"
-      }
-      g = src SUBSEP prog
-      if (!((g, var, ph) in units)) { units[g, var, ph] = 1; tot[g]++ }
-    }
-    {
-      line = clean($0)
-      if (line ~ /^[[:space:]]*$/) next
-      # a whitespace-led line continues the previous journal entry (wrapped
-      # text, stack frames): the entry is one Finding, keyed by its head
-      if (kind == "lines" && $0 ~ /^[[:space:]]/) next
-      if (kind == "log") {
-        # _retry markers: hold the errors of an attempt; a [RETRY] (a later
-        # attempt follows) drops them, any other end keeps them
-        if (line ~ /^\[ATTEMPT\] /) { flush(); inatt = 1; next }
-        if (line ~ /^\[RETRY\] /) { nh = 0; inatt = 0; next }
-        l = tolower(line)
-        if (l ~ errre && l !~ / is up to date -- skipping$/) {
-          if (inatt) { hl[++nh] = line; hr[nh] = rel
-                      hsrc = src; hprog = prog }
-          else add(src, prog, "", line, rel)
-        }
-      } else if (kind == "lines") {
-        add(src, prog, "", line, rel)
-      } else if (kind == "probe") {
-        if (line ~ /^PASS / && ph == "probes-online") {
-          c = line; sub(/^PASS /, "", c); sub(/ .*$/, "", c)
-          onpass[prog, c, var, acct] = 1
-        }
-        if (line ~ /^FAIL /) {
-          chk = line; sub(/^FAIL /, "", chk); sub(/ .*$/, "", chk)
-          if (ph == "probes-offline") {
-            # judged at END: passes online too ⇒ a runtime fetch
-            nd++; dsrc[nd] = src; dprog[nd] = prog; dchk[nd] = chk
-            dline[nd] = line; drel[nd] = rel; dvar[nd] = var; dph[nd] = ph
-            dacct[nd] = acct
-          } else add(src, prog, chk, line, rel)
-        }
-      }
-    }
-    END {
-      flush()
-      for (d = 1; d <= nd; d++) {
-        var = dvar[d]; ph = dph[d]
-        if ((dprog[d], dchk[d], var, dacct[d]) in onpass) {
-          add("runtime-fetch", dprog[d], dchk[d], "offline only: " dline[d],
-              drel[d])
-          tot["runtime-fetch" SUBSEP dprog[d]] = tot[dsrc[d] SUBSEP dprog[d]]
-        } else add(dsrc[d], dprog[d], dchk[d], dline[d], drel[d])
-      }
-      for (i = 1; i <= nk; i++) { k = order[i]
-        printf "%02d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\t%s\n", rank[k], ksrc[k],
-          kprog[k], kchk[k], phs[k], vars[k], cnt[k],
-          tot[ksrc[k] SUBSEP kprog[k]], ex[k], logs[k]
-      }
-    }
-  ' noisef="$FA_NOISE_TSV" "$FA_NOISE_TSV" "${files[@]}"
+  local error_regex='(^|[^a-z0-9_./-])(err|error|errors|warn|warning|failed|'
+  error_regex+='failure|fatal|critical)([^a-z0-9_-]|$)'
+  awk -v run="$run/" -v phases="$phases" -v error_regex="$error_regex" -F'\t' \
+    -f "${BASH_SOURCE[0]%/*}/report-candidates.awk" \
+    noisef="$FA_NOISE_TSV" "$FA_NOISE_TSV" "${files[@]}"
 }
 
 feature_audit_report() {
@@ -189,13 +65,14 @@ feature_audit_report() {
   if [[ ! -d "$run" ]]; then
     echo "feature-audit: no run folder: $run" >&2; return 2
   fi
-  local jsonl="$run/findings.jsonl" md="$run/findings.md"
-  rm -f "$jsonl" "$md"
+  local jsonl="$run/findings.jsonl" markdown="$run/findings.md"
+  rm -f "$jsonl" "$markdown"
   FA_NOISE_TSV="$(mktemp)"
   _report_noise_tsv > "$FA_NOISE_TSV"
   # stable sort: phase rank, then source; first-seen order within a group
   _report_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
-    | jq -R -c --arg run "$run" --argjson va "$(_report_variant_adrs "$run")" '
+    | jq -R -c --arg run "$run" \
+        --argjson va "$(_report_variant_adr_map "$run")" '
         split("\t") as $f
         | { phase: ($f[4] | split(",")[0]), phases: ($f[4] | split(",")),
             source: $f[1], program: (if $f[2] == "" then null else $f[2] end),
@@ -211,7 +88,7 @@ feature_audit_report() {
         | ("0" * $w + .) | .[-$w:]))}) | .[]' > "$jsonl"
   rm -f "$FA_NOISE_TSV"
   [[ -s "$jsonl" ]] || : > "$jsonl"
-  _report_render_markdown "$jsonl" "$run" > "$md"
+  _report_render_markdown "$jsonl" "$run" > "$markdown"
   [[ -s "$jsonl" ]] && return 1
   return 0
 }
@@ -219,14 +96,14 @@ feature_audit_report() {
 # _report_render_markdown <jsonl> <run-dir> — agent-ready findings list + the
 # screenshots a script cannot judge (theming), for the fixing agent to view.
 _report_render_markdown() {
-  local jsonl="$1" run="$2" n; n="$(grep -c . "$jsonl" || true)"
+  local jsonl="$1" run="$2" count; count="$(grep -c . "$jsonl" || true)"
   echo "# Feature Audit findings"
   echo
-  if [[ "$n" -eq 0 ]]; then
+  if [[ "$count" -eq 0 ]]; then
     echo "No findings."; _report_render_skips "$run"
     _report_render_visual "$run"; return 0
   fi
-  echo "$n finding(s). Fix each, or propose a Known Noise entry (regex +"
+  echo "$count finding(s). Fix each, or propose a Known Noise entry (regex +"
   echo "reason) for maintainer approval. Repro: rerun the variant with"
   echo "\`--keep\`, then inspect the listed log on the held VM."
   jq -r -s '
@@ -248,8 +125,8 @@ _report_render_markdown() {
   _report_render_visual "$run"
 }
 
-# _report_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR 0152)
-# with its reason and variants: never a Finding, but never silent either.
+# _report_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR
+# 0152) with its reason and variants: never a Finding, but never silent either.
 _report_render_skips() {
   local run="$1"; local -a probes
   mapfile -t probes < <(find "$run" -mindepth 3 -maxdepth 3 -name '*.probe' \
@@ -287,11 +164,12 @@ _report_render_visual() {
   printf -- '- %s\n' "${shots[@]}"
 }
 
-# _report_variant_adrs <run-dir> — {variant: [adr…]} from each variant.json, so a
-# Finding names the ADRs its variants exist to cover.
-_report_variant_adrs() {
-  local -a vs
-  mapfile -t vs < <(find "$1" -mindepth 2 -maxdepth 2 -name variant.json)
-  ((${#vs[@]})) || { echo '{}'; return; }
-  jq -s -c 'map({(.variant): (.adrs // [])}) | add' "${vs[@]}"
+# _report_variant_adr_map <run-dir> — {variant: [adr…]} from each variant.json,
+# so a Finding names the ADRs its variants exist to cover.
+_report_variant_adr_map() {
+  local -a variant_files
+  mapfile -t variant_files < <(find "$1" -mindepth 2 -maxdepth 2 \
+    -name variant.json)
+  ((${#variant_files[@]})) || { echo '{}'; return; }
+  jq -s -c 'map({(.variant): (.adrs // [])}) | add' "${variant_files[@]}"
 }

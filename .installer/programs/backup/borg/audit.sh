@@ -8,16 +8,19 @@ if feature_audit_as_root; then
     borgmatic config validate
   return 0
 fi
-feature_audit_check vorta-installed "Vorta GUI installed" feature_audit_installed vorta
+feature_audit_check vorta-installed \
+  "Vorta GUI installed" feature_audit_installed vorta
 # Backup + restore round trip in a throwaway repo.
 _probe_borg_roundtrip() {
-  local d; d="$(mktemp -d)"
+  local directory; directory="$(mktemp -d)"
   export BORG_PASSPHRASE=fa BORG_RELOCATED_REPO_ACCESS_IS_OK=yes
-  mkdir -p "$d/src" "$d/out"; echo fa-data > "$d/src/file"
-  borg init -e repokey "$d/repo" && borg create "$d/repo::a" "$d/src" \
-    && (cd "$d/out" && borg extract "$d/repo::a") \
-    && cmp "$d/src/file" "$d/out${d}/src/file"
-  local rc=$?; rm -rf "$d"; return "$rc"
+  mkdir -p "$directory/src" "$directory/out"; echo fa-data > \
+    "$directory/src/file"
+  borg init -e repokey "$directory/repo" \
+    && borg create "$directory/repo::a" "$directory/src" \
+    && (cd "$directory/out" && borg extract "$directory/repo::a") \
+    && cmp "$directory/src/file" "$directory/out${directory}/src/file"
+  local rc=$?; rm -rf "$directory"; return "$rc"
 }
 feature_audit_check borg-roundtrip "borg init/create/extract round trip" \
   _probe_borg_roundtrip

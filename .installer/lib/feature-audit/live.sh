@@ -10,6 +10,8 @@
 # as a `fatal.lines` artifact and the run moves on to the next variant.
 #
 # Needs libvirt; per docs/agents/vm-sandbox.md run it with the sandbox off.
+#
+# Used by: tools/feature-audit.sh (run).
 # =============================================================================
 
 # shellcheck source=../../vm/lib/core.sh
@@ -31,8 +33,8 @@ feature_audit_runs_root() {
   printf '%s\n' "${FEATURE_AUDIT_RUNS:-$INSTALLER_DIR/.audit-runs}"
 }
 
-# feature_audit_agent <verb> [args…] — VM Agent Control on the audit VM as its user.
-# stdin reaches the guest only for a stdin-script `sudo`; every other call
+# feature_audit_agent <verb> [args…] — VM Agent Control on the audit VM as its
+# user. stdin reaches the guest only for a stdin-script `sudo`; every other call
 # gets /dev/null, or ssh would swallow the caller's `while read` input.
 feature_audit_agent() {
   if [[ "$1" == sudo && $# -eq 1 ]]; then
@@ -42,45 +44,47 @@ feature_audit_agent() {
   fi
 }
 
-# feature_audit_fatal <phase-dir> <message> — record a fatal Finding for this phase.
+# feature_audit_fatal <phase-dir> <message> — record a fatal Finding for this
+# phase.
 feature_audit_fatal() {
   mkdir -p "$1"
   printf '%s\n' "$2" >> "$1/fatal.lines"
   warn "FATAL: $2"
 }
 
-# feature_audit_stage_repo — serve the committed HEAD to the guest (dumb-HTTP bare repo
-# under the harness HTTP root), so the audit tests local commits without a
-# push. Uncommitted changes are NOT audited.
+# feature_audit_stage_repo — serve the committed HEAD to the guest (dumb-HTTP
+# bare repo under the harness HTTP root), so the audit tests local commits
+# without a push. Uncommitted changes are NOT audited.
 feature_audit_stage_repo() {
-  local top dst
+  local top destination
   top="$(git -C "$INSTALLER_DIR" rev-parse --show-toplevel)"
-  dst="$CACHE_DIR/feature-audit-repo.git"
+  destination="$CACHE_DIR/feature-audit-repo.git"
   [[ -z "$(git -C "$top" status --porcelain --untracked-files=no)" ]] \
     || warn "Uncommitted changes are NOT audited (the guest clones HEAD)." >&2
-  rm -rf "$dst"
-  git clone -q --bare "$top" "$dst"
-  git -C "$dst" repack -a -d -q
-  git -C "$dst" update-server-info
+  rm -rf "$destination"
+  git clone -q --bare "$top" "$destination"
+  git -C "$destination" repack -a -d -q
+  git -C "$destination" update-server-info
   printf 'http://%s:%s/feature-audit-repo.git\n' "$LIBVIRT_GATEWAY" \
     "$HTTP_PORT"
 }
 
-# feature_audit_wait_ssh <timeout> — until the guest's sshd answers for the audit user.
+# feature_audit_wait_ssh <timeout> — until the guest's sshd answers for the
+# audit user.
 feature_audit_wait_ssh() {
-  local t="$1" e=0 ip
-  while ((e < t)); do
+  local timeout="$1" elapsed=0 ip
+  while ((elapsed < timeout)); do
     ip="$(_vm_ip_now)"
     if [[ -n "$ip" ]] && feature_audit_agent sudo true >/dev/null 2>&1; then
       return 0
     fi
-    sleep 5; e=$((e + 5))
+    sleep 5; elapsed=$((elapsed + 5))
   done
   return 1
 }
 
-# feature_audit_serial_start <log> — capture serial + answer disk-unlock prompts for the
-# whole time the domain runs (survives guest reboots).
+# feature_audit_serial_start <log> — capture serial + answer disk-unlock prompts
+# for the whole time the domain runs (survives guest reboots).
 feature_audit_serial_start() {
   local log="$1" dev
   _start_console_capture "$log" >/dev/null
@@ -99,8 +103,9 @@ feature_audit_serial_stop() {
   FA_ANSWER_PID=""
 }
 
-# feature_audit_vm_start <phase-dir> — power the domain on behind the host-capacity
-# guard (ADR 0099); a refusal is this variant's fatal, not the run's.
+# feature_audit_vm_start <phase-dir> — power the domain on behind the
+# host-capacity guard (ADR 0099); a refusal is this variant's fatal, not the
+# run's.
 feature_audit_vm_start() {
   if ! ( _vm_capacity_preflight ) >/dev/null 2>&1; then
     feature_audit_fatal "$1" "host capacity: ${VM_RAM_MB:-?} MiB VM refused"
@@ -112,20 +117,22 @@ feature_audit_vm_start() {
   [[ -s "$1/virsh-start.err" ]] || rm -f "$1/virsh-start.err"
 }
 
-# feature_audit_boot_evidence <phase-dir> — on a boot fatal, keep what the host still
-# sees: the domain state and the VGA console (the serial log can be empty).
+# feature_audit_boot_evidence <phase-dir> — on a boot fatal, keep what the host
+# still sees: the domain state and the VGA console (the serial log can be
+# empty).
 feature_audit_boot_evidence() {
   mkdir -p "$1"
   virsh domstate --reason "$VM_NAME" > "$1/domstate.txt" 2>&1 || true
   virsh screenshot "$VM_NAME" "$1/console.png" >/dev/null 2>&1 || true
 }
 
-# feature_audit_wait_until <cap-sec> <guest-check> — poll a root shell check on the
-# guest every 5s; return once it holds twice in a row, or at the cap. The
-# readiness form of a fixed settle: a quiet guest is judged at once, a busy
-# one still gets the old full wait.
+# feature_audit_wait_until <cap-sec> <guest-check> — poll a root shell check on
+# the guest every 5s; return once it holds twice in a row, or at the cap. The
+# readiness form of a fixed settle: a quiet guest is judged at once, a busy one
+# still gets the old full wait.
 feature_audit_wait_until() {
-  local cap="$1" check="$2" end=$((SECONDS + $1)) ok=0
+  local timeout="$1" check="$2" ok=0 end
+  end=$((SECONDS + timeout))
   # wall clock, not the sleeps: a slow guest check counts toward the cap
   while ((SECONDS < end)); do
     if feature_audit_agent sudo <<<"$check" >/dev/null 2>&1; then
@@ -152,25 +159,26 @@ _live_settled() {
   fi
 }
 
-# feature_audit_boot <phase-dir> — power on the installed system and wait for SSH.
+# feature_audit_boot <phase-dir> — power on the installed system and wait for
+# SSH.
 feature_audit_boot() {
-  local dir="$1" up=1
-  mkdir -p "$dir"
-  feature_audit_vm_start "$dir" || return 1
-  feature_audit_serial_start "$dir/serial.log"
+  local directory="$1" up=1
+  mkdir -p "$directory"
+  feature_audit_vm_start "$directory" || return 1
+  feature_audit_serial_start "$directory/serial.log"
   feature_audit_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || up=0
-  if ((!up)) && _live_boot_silent "$dir"; then
+  if ((!up)) && _live_boot_silent "$directory"; then
     # not even firmware output: a domain-start glitch, not the install —
     # power-cycle once (base + niri-pure, 20261003)
     echo "silent boot (no serial output); power-cycled once" \
-      >> "$dir/vm-retry.txt"
+      >> "$directory/vm-retry.txt"
     feature_audit_serial_stop
     virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
-    feature_audit_vm_start "$dir" || return 1
-    feature_audit_serial_start "$dir/serial.log"
+    feature_audit_vm_start "$directory" || return 1
+    feature_audit_serial_start "$directory/serial.log"
     up=1; feature_audit_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || up=0
   fi
-  ((up)) || { _live_boot_fatal "$dir"; return 1; }
+  ((up)) || { _live_boot_fatal "$directory"; return 1; }
   feature_audit_wait_until "$FA_SETTLE_SEC" "$(_live_settled)"
 }
 
@@ -189,43 +197,46 @@ _live_boot_fatal() {
 
 _FA_BOOT_ID=/proc/sys/kernel/random/boot_id
 
-# feature_audit_await_new_boot <phase-dir> <old-boot-id> — wait for the guest to come
-# back as a new boot. The VM's virgl GPU can stall, leaving GPU clients in D
-# state so shutdown never ends (a host artefact, not the product): after the
+# feature_audit_await_new_boot <phase-dir> <old-boot-id> — wait for the guest to
+# come back as a new boot. The VM's virgl GPU can stall, leaving GPU clients in
+# D state so shutdown never ends (a host artefact, not the product): after the
 # grace, hard-reset the domain and record it in vm-reset.txt.
 feature_audit_await_new_boot() {
-  local dir="$1" old="$2" id e=0 down=0
+  local directory="$1" old="$2" id elapsed=0 down=0
   _FA_DID_RESET=0
-  while ((e < ${FA_SHUTDOWN_GRACE_SEC:-240})); do
-    sleep 10; e=$((e + 10))
-    id="$(feature_audit_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || { id=""; down=1; }
+  while ((elapsed < ${FA_SHUTDOWN_GRACE_SEC:-240})); do
+    sleep 10; elapsed=$((elapsed + 10))
+    id="$(feature_audit_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" \
+      || { id=""; down=1; }
     # an unknown old id: trust an id only once the guest has been down
     if [[ -n "$id" && "$id" != "$old" ]] && { [[ -n "$old" ]] || ((down)); }
     then return 0; fi
   done
   virsh reset "$VM_NAME" >/dev/null 2>&1 || true
   _FA_DID_RESET=1
-  mkdir -p "$dir"
+  mkdir -p "$directory"
   printf 'reboot wedged in shutdown for %ss (virgl GPU stall); reset\n' \
-    "${FA_SHUTDOWN_GRACE_SEC:-240}" >> "$dir/vm-reset.txt"
+    "${FA_SHUTDOWN_GRACE_SEC:-240}" >> "$directory/vm-reset.txt"
 }
 
-# feature_audit_reboot <phase-dir> — guest reboot, wait for SSH, settle. The serial
-# capture + answerer keep running across the reboot.
+# feature_audit_reboot <phase-dir> — guest reboot, wait for SSH, settle. The
+# serial capture + answerer keep running across the reboot.
 feature_audit_reboot() {
-  local dir="$1" old
-  mkdir -p "$dir"
+  local directory="$1" old
+  mkdir -p "$directory"
   old="$(feature_audit_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || old=""
   feature_audit_agent sudo systemctl reboot >/dev/null 2>&1 || true
-  feature_audit_await_new_boot "$dir" "$old"
+  feature_audit_await_new_boot "$directory" "$old"
   feature_audit_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
-    feature_audit_boot_evidence "$dir"
-    feature_audit_fatal "$dir" "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"
+    feature_audit_boot_evidence "$directory"
+    feature_audit_fatal "$directory" \
+      "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
   # the wedged boot's last words, for the cause of a stall
-  ((_FA_DID_RESET)) && feature_audit_agent sudo "journalctl -b -1 -n 300 --no-pager" \
-    > "$dir/prev-boot-journal.txt" 2>&1
+  ((_FA_DID_RESET)) && feature_audit_agent sudo \
+    "journalctl -b -1 -n 300 --no-pager" \
+    > "$directory/prev-boot-journal.txt" 2>&1
   feature_audit_wait_until "$FA_SETTLE_SEC" "$(_live_settled)"
 }
 
@@ -278,862 +289,54 @@ chmod -R a+rX "$o"
 SH
 }
 
-# feature_audit_guest_now — the guest's epoch (phase windows are guest-clock based).
-feature_audit_guest_now() { feature_audit_agent sudo date +%s 2>/dev/null | tr -dc 0-9; }
-
-# feature_audit_pull_into <guest-dir> <host-dir> — pull a guest dir's files flat.
-feature_audit_pull_into() {
-  local tmp; tmp="$(mktemp -d)"
-  if feature_audit_agent pull "$1" "$tmp" >/dev/null 2>&1; then
-    mkdir -p "$2"
-    cp -rf "$tmp/${1##*/}/." "$2/" 2>/dev/null || true
-    rm -rf "$tmp"; return 0
-  fi
-  rm -rf "$tmp"; return 1
+# feature_audit_guest_now — the guest's epoch (phase windows are guest-clock
+# based).
+feature_audit_guest_now() {
+  feature_audit_agent sudo date +%s 2>/dev/null \
+    | awk '{ gsub(/[^0-9]/, ""); printf "%s", $0 }'
 }
 
-# feature_audit_collect <phase-dir> [since-epoch] — harvest signals for the phase.
+# feature_audit_pull_into <guest-dir> <host-dir> — pull a guest dir's files
+# flat.
+feature_audit_pull_into() {
+  local staging_directory; staging_directory="$(mktemp -d)"
+  if feature_audit_agent pull "$1" "$staging_directory" >/dev/null 2>&1; then
+    mkdir -p "$2"
+    cp -rf "$staging_directory/${1##*/}/." "$2/" 2>/dev/null || true
+    rm -rf "$staging_directory"; return 0
+  fi
+  rm -rf "$staging_directory"; return 1
+}
+
+# feature_audit_collect <phase-dir> [since-epoch] — harvest signals for the
+# phase.
 feature_audit_collect() {
-  local dir="$1" err="$1/collector-err.txt"
-  mkdir -p "$dir"
+  local directory="$1" error_file="$1/collector-err.txt"
+  mkdir -p "$directory"
   # one retry once SSH answers: a lone failure right after boot (refind
   # 20261007) is not the guest's fault; stderr kept as the evidence
-  if ! _live_collect_script "${2:-}" | feature_audit_agent sudo >/dev/null 2>"$err"; then
+  if ! _live_collect_script "${2:-}" \
+    | feature_audit_agent sudo >/dev/null 2>"$error_file"; then
     feature_audit_wait_ssh 120 || true
-    _live_collect_script "${2:-}" | feature_audit_agent sudo >/dev/null 2>>"$err" || {
-      feature_audit_fatal "$dir" "collector failed to run in the guest: $(tail -1 "$err")"
+    _live_collect_script "${2:-}" \
+      | feature_audit_agent sudo >/dev/null 2>>"$error_file" || {
+      feature_audit_fatal "$directory" "collector failed to run in the guest:\
+ $(awk 'END { print }' "$error_file")"
       return 1
     }
   fi
-  [[ -s "$err" ]] || rm -f "$err"
-  feature_audit_pull_into /tmp/fa-collect "$dir" \
-    || feature_audit_fatal "$dir" "could not pull collected artifacts"
+  [[ -s "$error_file" ]] || rm -f "$error_file"
+  feature_audit_pull_into /tmp/fa-collect "$directory" \
+    || feature_audit_fatal "$directory" "could not pull collected artifacts"
 }
 
-# ── later phases (feature-audit/07) ──────────────────────────────────────────
 
-# _live_timers_script — start every enabled timer's unit once (bounded), so
-# delayed work (reflector, freshclam, snapshots, fwupd) fails now, not later.
-_live_timers_script() {
-  cat <<'SH'
-set -u
-for t in $(systemctl list-timers --all --no-legend --plain \
-    | awk '{for (i=1;i<=NF;i++) if ($i ~ /\.timer$/) {print $i; break}}'); do
-  u="$(systemctl show -p Unit --value "$t")"
-  [ -n "$u" ] || continue
-  if timeout 900 systemctl start "$u" >/dev/null 2>&1; then
-    # a unit Condition* skip also "starts" fine: say it never ran
-    if [ "$(systemctl show -p ConditionResult --value "$u")" = no ]; then
-      echo "SKIP timer-$t $u skipped: its unit condition is unmet"
-    else echo "PASS timer-$t started $u"; fi
-  else
-    echo "FAIL timer-$t $u failed or timed out"
-  fi
-done
-SH
-}
-
-# feature_audit_phase_timers <variant-dir> — force timers, soak, collect.
-feature_audit_phase_timers() {
-  local dir="$1/timers" since
-  mkdir -p "$dir"
-  since="$(feature_audit_guest_now)"
-  _live_timers_script | feature_audit_agent sudo > "$dir/probe-timers@root.probe" 2>&1 \
-    || true
-  # soak: delayed work the forced timers queued finishes (or fails) now
-  feature_audit_wait_until "${FA_SOAK_SEC:-600}" "$(_live_settled) && $_FA_NONE_ACTIVATING"
-  feature_audit_collect "$dir" "$since"
-}
-
-# _live_boot2_prep_script <user> — plant rollback/persistence markers and
-# record identity that must survive the reboot.
-_live_boot2_prep_script() {
-  printf 'U=%q\n' "$1"
-  cat <<'SH'
-set -u
-echo fa > /etc/fa-rollback-probe
-h="$(getent passwd "$U" | cut -d: -f6)"
-if [ -n "$h" ]; then
-  echo fa > "$h/.fa-persist-probe"; chown "$U" "$h/.fa-persist-probe"
-fi
-ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
-  | awk '{print $2}' > /var/tmp/fa-hostkey
-cp /var/tmp/fa-hostkey "$h/.fa-hostkey" 2>/dev/null || true
-SH
-}
-
-# _live_boot2_check_script <user> <impermanent> <sops> — the reboot proofs.
-_live_boot2_check_script() {
-  cat "$INSTALLER_DIR/lib/feature-audit/probe-lib.sh"
-  printf 'U=%q IMP=%q SOPS=%q\n' "$1" "$2" "$3"
-  cat <<'SH'
-set -u
-
-h="$(getent passwd "$U" | cut -d: -f6)"
-if [ "$IMP" = true ]; then
-  [ -e /etc/fa-rollback-probe ] \
-    && feature_audit_fail rollback "/etc marker survived reboot (not rolled back)" \
-    || feature_audit_pass rollback "/etc rolled back"
-fi
-[ -e "$h/.fa-persist-probe" ] && feature_audit_pass home-persist "home kept" \
-  || feature_audit_fail home-persist "home marker lost on reboot"
-now="$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
-  | awk '{print $2}')"
-[ -n "$now" ] && [ "$now" = "$(cat "$h/.fa-hostkey" 2>/dev/null)" ] \
-  && feature_audit_pass ssh-hostkey "host key stable" \
-  || feature_audit_fail ssh-hostkey "ssh host key changed across reboot"
-if [ "$SOPS" = true ]; then
-  systemctl is-active --quiet sops-runtime.service \
-    && feature_audit_pass sops-runtime "decrypted on boot" \
-    || feature_audit_fail sops-runtime "sops-runtime.service not active after reboot"
-fi
-rm -f "$h/.fa-persist-probe" "$h/.fa-hostkey" /etc/fa-rollback-probe
-SH
-}
-
-# feature_audit_phase_boot2 <variant-dir> <cfg> — reboot and prove what must survive.
-feature_audit_phase_boot2() {
-  local dir="$1/boot2" cfg="$2" imp sops
-  mkdir -p "$dir"
-  imp="$(jq -r '.options.impermanence.enabled // false' <<<"$cfg")"
-  sops="$(jq -r 'if (.options.age_key_url // "") != "" then true
-                 else false end' <<<"$cfg")"
-  _live_boot2_prep_script "$FA_USER" | feature_audit_agent sudo >/dev/null 2>&1 || true
-  feature_audit_reboot "$dir" || return 1
-  _live_boot2_check_script "$FA_USER" "$imp" "$sops" \
-    | feature_audit_agent sudo > "$dir/probe-boot@root.probe" 2>&1 || true
-  feature_audit_collect "$dir"
-}
-
-# feature_audit_phase_power <variant-dir> — ACPI suspend-to-RAM and wake (the VM is
-# created with S3/S4, VM_PM): the guest suspends itself, the host waits for
-# `pmsuspended`, wakes it and proves it came back. Hibernation needs a
-# resume device the guest may not have; the probe says why when skipped.
-feature_audit_phase_power() {
-  local dir="$1/power" out since st=""
-  out="$dir/probe-power@root.probe"
-  mkdir -p "$dir"
-  since="$(feature_audit_guest_now)"
-  feature_audit_agent sudo "systemd-run --on-active=5 systemctl suspend" >/dev/null 2>&1
-  for _ in $(seq 30); do
-    st="$(virsh domstate "$VM_NAME" 2>/dev/null)"
-    [[ "$st" == pmsuspended ]] && break
-    sleep 2
-  done
-  if [[ "$st" != pmsuspended ]]; then
-    echo "FAIL power-suspend guest never reached S3 (domstate: $st)" >> "$out"
-  else
-    echo "PASS power-suspend guest entered S3" >> "$out"
-    virsh dompmwakeup "$VM_NAME" >/dev/null 2>&1
-    if feature_audit_wait_ssh 180; then
-      echo "PASS power-resume guest woke and answers SSH" >> "$out"
-    else
-      echo "FAIL power-resume guest did not come back from S3" >> "$out"
-      return 1
-    fi
-  fi
-  feature_audit_agent sudo "sh -c 'swapon --show=NAME --noheadings; \
-    cat /sys/power/state /sys/power/disk'" > "$dir/power-state.txt" 2>&1
-  if grep -qw disk "$dir/power-state.txt" \
-     && feature_audit_agent sudo "sh -c 'grep -q resume= /proc/cmdline'" >/dev/null 2>&1
-  then
-    # S4: the VM powers off; starting it again must RESUME (same boot id)
-    local bid; bid="$(feature_audit_agent sudo cat /proc/sys/kernel/random/boot_id)"
-    feature_audit_agent sudo "systemd-run --on-active=5 systemctl hibernate" \
-      >/dev/null 2>&1
-    for _ in $(seq 90); do
-      [[ "$(virsh domstate "$VM_NAME" 2>/dev/null)" == "shut off" ]] && break
-      sleep 2
-    done
-    feature_audit_serial_stop   # capture ended with the power-off; unlock needs it back
-    feature_audit_vm_start "$dir" || return 1
-    feature_audit_serial_start "$dir/serial.log"
-    if ! feature_audit_wait_ssh "$FA_BOOT_TIMEOUT_SEC"; then
-      echo "FAIL power-hibernate no SSH after resume" >> "$out"; return 1
-    fi
-    if [[ "$(feature_audit_agent sudo cat /proc/sys/kernel/random/boot_id)" == "$bid" ]]
-    then echo "PASS power-hibernate resumed from S4" >> "$out"
-    else echo "FAIL power-hibernate booted fresh instead of resuming" >> "$out"
-    fi
-  else
-    echo "SKIP power-hibernate no resume device configured" \
-      "(ZFS swap on a zvol cannot hibernate)" >> "$out"
-  fi
-  feature_audit_collect "$dir" "$since"
-}
-
-# feature_audit_phase_upgrade <variant-dir> — full upgrade, reboot, collect.
-# feature_audit_upgrade_run <dir> — `pacman -Syu` as a transient unit on the guest, so
-# its own post-transaction service restarts (which can drop SSH) cannot fake
-# a failure: poll the unit, judge its exit status, keep its journal.
-feature_audit_upgrade_run() {
-  local dir="$1" u=fa-upgrade e=0 st rc
-  mkdir -p "$dir"
-  feature_audit_agent sudo "systemd-run --unit=$u --collect -p RemainAfterExit=yes \
-    pacman -Syu --noconfirm" >/dev/null 2>&1 || true
-  while ((e < 3600)); do
-    sleep 10; e=$((e + 10))
-    rc=0; feature_audit_agent sudo "systemctl is-active --quiet $u" >/dev/null 2>&1 \
-      || rc=$?
-    # 255: ssh itself failed (a hook restarting sshd, kernels 20261006) —
-    # the unit is not known to be done: keep polling
-    ((rc == 255)) && continue
-    ((rc == 0)) || break
-    st="$(feature_audit_agent sudo "systemctl show -p SubState --value $u" 2>/dev/null)"
-    [[ "$st" == exited ]] && break
-  done
-  feature_audit_wait_ssh 300 || true
-  feature_audit_agent sudo "journalctl -u $u --no-pager -o cat" > "$dir/pacman.log" 2>&1
-  st="$(feature_audit_agent sudo "systemctl show -p ExecMainStatus --value $u" \
-    2>/dev/null)"
-  feature_audit_agent sudo "systemctl stop $u" >/dev/null 2>&1 || true
-  [[ "$st" == 0 ]]
-}
-
-feature_audit_phase_upgrade() {
-  local dir="$1/upgrade"
-  mkdir -p "$dir"
-  feature_audit_upgrade_run "$dir" \
-    || feature_audit_fatal "$dir" "pacman -Syu failed (see pacman.log)"
-  feature_audit_reboot "$dir" || return 1
-  feature_audit_collect "$dir"
-}
-
-# ── sessions (feature-audit/08) ──────────────────────────────────────────────
-
-# feature_audit_desktops <cfg> — the variant's desktop set, one per line.
-feature_audit_desktops() {
-  jq -r '.environment.desktop // [] | if type == "string" then [.] else . end
-    | .[]' <<<"$1"
-}
-
-# _live_session_logs_script <user> — compositor/session logs the journal lacks
-# (Hyprland's own log, the DM's wayland-session log) into /tmp/fa-logs.
-_live_session_logs_script() {
-  printf 'U=%q\n' "$1"
-  cat <<'SH'
-set -u
-o=/tmp/fa-logs; rm -rf "$o"; mkdir -p "$o"
-uid="$(id -u "$U")"; h="$(getent passwd "$U" | cut -d: -f6)"
-for f in /run/user/"$uid"/hypr/*/hyprland.log; do
-  [ -f "$f" ] && cp "$f" "$o/hyprland.log"
-done
-[ -f "$h/.local/share/sddm/wayland-session.log" ] \
-  && cp "$h/.local/share/sddm/wayland-session.log" "$o/wayland-session.log"
-[ -f "$h/.local/share/sddm/xorg-session.log" ] \
-  && cp "$h/.local/share/sddm/xorg-session.log" "$o/xorg-session.log"
-chmod -R a+rX "$o"
-SH
-}
-
-# _live_session_client <desktop> <cfg> — the shell process a session brings up
-# (empty: none expected, a stock or shell-less wlroots session).
-_live_session_client() {
-  [[ "$1" == kde ]] && { echo plasmashell; return; }
-  jq -r 'if .environment.stock == true then empty
-    else (.environment.wayland_shell // "noctalia")
-      | select(. != "none") end' <<<"$2"
-}
-
-# _live_session_settled <user> <client> — guest check: the shell client (if
-# any) runs and the user manager has no job queued.
-_live_session_settled() {
-  local u="$1" c="$2"
-  printf '%s' "${c:+pgrep -u $u -x $c >/dev/null && }"
-  printf '[ -z "$(runuser -u %s -- env XDG_RUNTIME_DIR=/run/user/$(id -u %s)' \
-    "$u" "$u"
-  printf ' systemctl --user list-jobs --no-legend)" ]'
-}
-
-# feature_audit_phase_sessions <variant-dir> <cfg> — log into each compositor of the set
-# (one phase dir per desktop), collect its window, screenshot it.
-feature_audit_phase_sessions() {
-  local vdir="$1" cfg="$2" de dir since app
-  while IFS= read -r de; do
-    [[ -n "$de" ]] || continue
-    dir="$vdir/sessions-$de"
-    mkdir -p "$dir/screens"
-    since="$(feature_audit_guest_now)"
-    if ! feature_audit_agent session "$de" > "$dir/agent.txt" 2>&1; then
-      echo "session $de did not become ready (see agent.txt)" \
-        >> "$dir/session-start.lines"
-      feature_audit_collect "$dir" "$since"
-      continue
-    fi
-    feature_audit_agent idle off >/dev/null 2>&1 || true
-    feature_audit_wait_until "${FA_SESSION_SETTLE_SEC:-45}" "$(_live_session_settled \
-      "$FA_USER" "$(_live_session_client "$de" "$cfg")")"
-    feature_audit_agent shot "$dir/screens/session-$de.png" >> "$dir/agent.txt" 2>&1 \
-      || echo "session $de: screenshot failed" >> "$dir/session-start.lines"
-    feature_audit_collect "$dir" "$since"
-    _live_session_logs_script "$FA_USER" | feature_audit_agent sudo >/dev/null 2>&1 \
-      && feature_audit_pull_into /tmp/fa-logs "$dir" || true
-    # desktop probes (extras/desktop/<de>/audit.sh) in this very session
-    if [[ -f "$INSTALLER_DIR/extras/desktop/$de/audit.sh" ]] \
-       && feature_audit_stage_probes "$cfg" "$INSTALLER_DIR/extras/desktop/$de"; then
-      feature_audit_run_probes "$dir" "sessions-$de" 1 "$cfg" "$FA_USER"
-    fi
-    # toolkit screenshots for visual review (ADR 0117: Qt → Dolphin, GTK →
-    # nm-connection-editor)
-    for app in dolphin nm-connection-editor; do
-      feature_audit_agent launch "$app" >/dev/null 2>&1 || continue
-      sleep 5
-      feature_audit_agent shot "$dir/screens/$de-$app.png" >> "$dir/agent.txt" 2>&1
-      feature_audit_agent sudo "pkill -x $app" >/dev/null 2>&1 || true
-    done
-  done < <(feature_audit_desktops "$cfg")
-}
-
-# ── probes (feature-audit/09, 10) ────────────────────────────────────────────
-
-# feature_audit_probe_directories — every program dir shipping an audit probe.
-feature_audit_probe_directories() {
-  local d
-  for d in "$INSTALLER_DIR"/programs/*/*/; do
-    [[ -f "$d/audit.sh" ]] && printf '%s\n' "${d%/}"
-  done
-}
-
-# feature_audit_stage_probes <cfg> <dir…> — push probes + helper lib + the variant's
-# config to the guest's /tmp/fa-probes.
-feature_audit_stage_probes() {
-  local cfg="$1" tmp d n; shift
-  tmp="$(mktemp -d)"
-  mkdir -p "$tmp/fa-probes"
-  cp "$INSTALLER_DIR/lib/feature-audit/probe-lib.sh" "$tmp/fa-probes/_lib.sh"
-  printf '%s\n' "$cfg" > "$tmp/fa-probes/config.json"
-  for d in "$@"; do
-    n="${d##*/}"
-    mkdir -p "$tmp/fa-probes/$n"
-    cp "$d/audit.sh" "$tmp/fa-probes/$n/"
-    [[ -f "$d/audit-binds.jsonc" ]] \
-      && cp "$d/audit-binds.jsonc" "$tmp/fa-probes/$n/"
-    [[ -d "$d/audit-fixtures" ]] \
-      && cp -rL "$d/audit-fixtures" "$tmp/fa-probes/$n/"
-    # program-driven keybinds (nvim …): the matched plan rides along
-    local s
-    for s in $(feature_audit_binds_program_sources "$n"); do
-      feature_audit_binds_plan "$s" >> "$tmp/fa-probes/$n/binds-plan.jsonl"
-      # the probe plans binds only its live dump sees with the same matcher
-      cp "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" "$tmp/fa-probes/$n/"
-    done
-  done
-  feature_audit_agent sudo "rm -rf /tmp/fa-probes" >/dev/null 2>&1 || true
-  feature_audit_agent push "$tmp/fa-probes" /tmp >/dev/null 2>&1
-  local rc=$?
-  rm -rf "$tmp"
-  return "$rc"
-}
-
-# _live_probe_runner_script <phase> <online> <accounts…> — run every staged
-# probe once per account (root + each variant user), in that user's session
-# env when one is live, into /tmp/fa-probe-out.
-_live_probe_runner_script() {
-  printf 'PHASE=%q ONLINE=%q ACCOUNTS=%q\n' "$1" "$2" "${*:3}"
-  cat <<'SH'
-set -u
-P=/tmp/fa-probes; O=/tmp/fa-probe-out
-rm -rf "$O"; mkdir -p "$O"
-sess=none
-for c in niri Hyprland kwin_wayland; do
-  pgrep -x "$c" >/dev/null 2>&1 && { sess="$c"; break; }
-done
-for d in "$P"/*/; do
-  n="$(basename "$d")"; [ -f "$d/audit.sh" ] || continue
-  for a in $ACCOUNTS; do
-    out="$O/probe-$n@$a.probe"; err="$O/probe-$n@$a.err.lines"
-    to="$(sed -n "s/^# audit-timeout: *//p" "$d/audit.sh" | head -1)"
-    to="${to:-600}"
-    h="$(getent passwd "$a" | cut -d: -f6)"
-    common=(FA_USER="$a" FA_HOME="$h" FA_ONLINE="$ONLINE" FA_PHASE="$PHASE"
-            FA_SESSION="$sess" FA_DIR="$d" FA_CONFIG="$P/config.json")
-    if [ "$a" = root ]; then
-      env "${common[@]}" FA_IS_ROOT=1 timeout "$to" \
-        bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
-    else
-      uid="$(id -u "$a")"; rt="/run/user/$uid"
-      wd="$(ls "$rt" 2>/dev/null | grep -E '^wayland-[0-9]+$' | head -1)"
-      # compositor IPC for the probes (niri msg / hyprctl)
-      ns="$(ls "$rt"/niri.*.sock 2>/dev/null | head -1)"
-      his="$(ls "$rt/hypr" 2>/dev/null | head -1)"
-      # X11 apps (Xwayland) need the session's DISPLAY + XAUTHORITY: read them
-      # from its shell client, as a real launch would inherit them; with no
-      # shell, from the user manager the compositor imported them into
-      cl="$(pgrep -u "$a" -x 'plasmashell|noctalia|waybar' | head -1)"
-      if [ -n "$cl" ]; then
-        env_="$(tr '\0' '\n' < "/proc/$cl/environ")"
-      else
-        env_="$(runuser -u "$a" -- env XDG_RUNTIME_DIR="$rt" \
-          systemctl --user show-environment 2>/dev/null)"
-      fi
-      dsp="$(sed -n 's/^DISPLAY=//p' <<<"$env_")"
-      xa="$(sed -n 's/^XAUTHORITY=//p' <<<"$env_")"
-      timeout "$to" runuser -u "$a" -- env -i HOME="$h" USER="$a" \
-        LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \
-        PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8 \
-        XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" \
-        WAYLAND_DISPLAY="$wd" NIRI_SOCKET="$ns" \
-        DISPLAY="$dsp" XAUTHORITY="$xa" \
-        HYPRLAND_INSTANCE_SIGNATURE="$his" "${common[@]}" FA_IS_ROOT=0 \
-        bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
-    fi
-    rc=$?
-    [ "$rc" = 124 ] \
-      && echo "FAIL probe-timeout $n timed out after ${to}s" >> "$out"
-  done
-done
-chmod -R a+rX "$O"
-SH
-}
-
-# feature_audit_run_probes <phase-dir> <phase> <online> <cfg> [account…] — run the
-# staged probes (default accounts: root + every variant user), pull output.
-feature_audit_run_probes() {
-  local dir="$1" phase="$2" online="$3" cfg="$4"; shift 4
-  local -a accts=("$@")
-  if ((${#accts[@]} == 0)); then
-    mapfile -t accts < <(jq -r '.users[]?' <<<"$cfg")
-    accts=(root "${accts[@]}")
-  fi
-  # a failed runner still leaves every finished probe's output: pull it
-  _live_probe_runner_script "$phase" "$online" "${accts[@]}" \
-    | feature_audit_agent sudo >/dev/null 2>&1 \
-    || feature_audit_fatal "$dir" "probe runner failed in the guest"
-  feature_audit_pull_into /tmp/fa-probe-out "$dir" \
-    || feature_audit_fatal "$dir" "could not pull probe output"
-}
-
-# feature_audit_phase_probes <variant-dir> <cfg> — every program probe offline (guest
-# internet cut, SSH kept), then online: a check that only passes online is a
-# runtime fetch (the feature was not fully set up at install).
-feature_audit_phase_probes() {
-  local vdir="$1" cfg="$2" since sel kind d ph
-  local -a dirs all skips=()
-  mapfile -t all < <(feature_audit_probe_directories)
-  # Probe Gate: a program this variant does not select is SKIPped, not judged
-  sel="$(feature_audit_selected_programs "$cfg")"
-  while IFS=$'\t' read -r kind d; do
-    if [[ "$kind" == run ]]; then dirs+=("$d"); else skips+=("$d"); fi
-  done < <(feature_audit_probe_gate_split "$sel" "${all[@]}")
-  for ph in probes-offline probes-online; do
-    mkdir -p "$vdir/$ph"
-    for d in "${skips[@]}"; do
-      printf 'SKIP %s-selected not selected in this variant (Probe Gate)\n' \
-        "$d" > "$vdir/$ph/probe-$d@gate.probe"
-    done
-  done
-  ((${#dirs[@]})) || return 0
-  feature_audit_stage_probes "$cfg" "${dirs[@]}" \
-    || { feature_audit_fatal "$vdir/probes-offline" "could not stage probes"; return 1; }
-  since="$(feature_audit_guest_now)"
-  feature_audit_agent net off >/dev/null 2>&1 \
-    || feature_audit_fatal "$vdir/probes-offline" "could not cut guest network"
-  feature_audit_run_probes "$vdir/probes-offline" probes-offline 0 "$cfg"
-  feature_audit_agent net on >/dev/null 2>&1 \
-    || feature_audit_fatal "$vdir/probes-offline" "could not restore guest network"
-  feature_audit_collect "$vdir/probes-offline" "$since"
-  # a unit that failed with the network cut on purpose (a timer firing in
-  # the window, hyprland-pure 20261006) is judged offline, not again online
-  feature_audit_agent sudo "systemctl reset-failed" >/dev/null 2>&1 || true
-  since="$(feature_audit_guest_now)"
-  feature_audit_run_probes "$vdir/probes-online" probes-online 1 "$cfg"
-  feature_audit_collect "$vdir/probes-online" "$since"
-}
-
-# ── keybinds (feature-audit/11+) ─────────────────────────────────────────────
-
-# feature_audit_push_binds_lib — stage binds-guest.sh (the guest half of the keybind
-# engine) where feature_audit_guest_execute sources it.
-feature_audit_push_binds_lib() {
-  feature_audit_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" \
-    /tmp/fa-binds >/dev/null 2>&1
-}
-
-# feature_audit_guest_execute <fn> [args…] — run a binds-guest.sh function in the live session.
-feature_audit_guest_execute() {
-  # vm-agent exec runs under set -e; the guest helpers branch on tests
-  local cmd="set +e; source /tmp/fa-binds/binds-guest.sh;" a
-  for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
-  feature_audit_agent exec "$cmd" 2>/dev/null
-}
-
-_live_compositor_process() {
-  case "$1" in niri) echo niri ;; hyprland) echo Hyprland ;;
-    kde) echo kwin_wayland ;; esac
-}
-
-# _live_send <chord | click:x,y> — one step of a bind's `pre`/`then` list.
-_live_send() {
-  case "$1" in
-    click:*)
-      local xy="${1#click:}"
-      feature_audit_agent mouse move "${xy%,*}" "${xy#*,}" >/dev/null 2>&1
-      feature_audit_agent mouse btn left down >/dev/null 2>&1
-      feature_audit_agent mouse btn left up >/dev/null 2>&1 ;;
-    *) feature_audit_agent key "$1" >/dev/null 2>&1 ;;
-  esac
-}
-
-# _live_bind_recover <recovery> <chord> <desktop>
-_live_bind_recover() {
-  case "$1" in
-    escape)  feature_audit_agent key Escape >/dev/null 2>&1 ;;
-    toggle)  feature_audit_agent key "$2" >/dev/null 2>&1 ;;
-    key:*)   feature_audit_agent key "${1#key:}" >/dev/null 2>&1 ;;
-    unlock)  feature_audit_agent unlock >/dev/null 2>&1 ;;
-    session) feature_audit_agent session "$3" >/dev/null 2>&1
-             feature_audit_agent idle off >/dev/null 2>&1
-             feature_audit_push_binds_lib
-             feature_audit_guest_execute feature_audit_binds_baseline >/dev/null ;;
-  esac
-  sleep 1
-}
-
-# _live_mouse_chord <Mods+mouse_down|mouse_up|mouse:272|mouse:273> — hold the
-# modifiers, then wheel (mouse_down/up) or drag from screen centre with the
-# left (272) / right (273) button: real pointer input, like a hand would.
-_live_mouse_chord() {
-  local chord="$1" mods btn
-  mods="${chord%+mouse*}"; btn="${chord##*+}"
-  [[ "$mods" == "$chord" ]] && mods=""
-  feature_audit_agent mouse move 16384 16384 >/dev/null 2>&1
-  if [[ -n "$mods" ]]; then
-    feature_audit_agent keydown "$mods" >/dev/null 2>&1 || return 1
-    sleep 0.3   # the compositor must see the modifier held first
-  fi
-  case "$btn" in
-    mouse_down) feature_audit_agent mouse wheel down ;;
-    mouse_up)   feature_audit_agent mouse wheel up ;;
-    mouse:272|mouse:273)
-      local b=left; [[ "$btn" == mouse:273 ]] && b=right
-      feature_audit_agent mouse move 16384 16384 && sleep 0.2 \
-        && feature_audit_agent mouse btn "$b" down && sleep 0.2 \
-        && feature_audit_agent mouse move 18000 17500 && sleep 0.2 \
-        && feature_audit_agent mouse move 20000 19000 && sleep 0.2 \
-        && feature_audit_agent mouse btn "$b" up ;;
-    *) [[ -n "$mods" ]] && feature_audit_agent keyup "$mods" >/dev/null 2>&1
-       return 1 ;;
-  esac >/dev/null 2>&1
-  [[ -n "$mods" ]] && feature_audit_agent keyup "$mods" >/dev/null 2>&1
-  return 0
-}
-
-# _live_bind_one <plan-row-json> <desktop> — one bind as real input; prints its
-# PASS/FAIL/SKIP line.
-_live_bind_one() {
-  local row="$1" de="$2" chord effect arg needs rec settle id b a t rc sdir
-  chord="$(jq -r .chord <<<"$row")"; effect="$(jq -r .effect <<<"$row")"
-  arg="$(jq -r '.arg // ""' <<<"$row")"
-  needs="$(jq -r '.needs // ""' <<<"$row")"
-  rec="$(jq -r '.recovery // ""' <<<"$row")"
-  settle="$(jq -r '.settle // 1.5' <<<"$row")"
-  id="bind-$(jq -r .source <<<"$row")-$chord"
-  if [[ "$effect" == unverifiable ]]; then
-    echo "SKIP $id unverifiable: $(jq -r '.reason // "no reason"' <<<"$row")"
-    return
-  fi
-  sdir="Pictures/Screenshots"
-  [[ "$effect" == file-created ]] && sdir="$arg"
-  feature_audit_guest_execute feature_audit_binds_setup "$needs" "$effect" "$arg" >/dev/null
-  while IFS= read -r t; do
-    [[ -n "$t" ]] && { _live_send "$t"; sleep 1; }
-  done < <(jq -r '.pre[]?' <<<"$row")
-  b="$(feature_audit_guest_execute feature_audit_binds_state "$sdir")"
-  if [[ "$chord" == *mouse* ]]; then
-    _live_mouse_chord "$chord" \
-      || { echo "SKIP $id mouse chord not injectable"; return; }
-  elif ! feature_audit_agent key "$chord" >/dev/null 2>&1; then
-    echo "SKIP $id key not injectable by QEMU"; feature_audit_guest_execute feature_audit_binds_teardown; return
-  fi
-  while IFS= read -r t; do
-    [[ -n "$t" ]] && { sleep 1; _live_send "$t"; }
-  done < <(jq -r '.then[]?' <<<"$row")
-  if [[ "$effect" == session-ends ]]; then
-    local p; p="$(_live_compositor_process "$de")"
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-      feature_audit_agent sudo "pgrep -x $p" >/dev/null 2>&1 || break
-      sleep 1
-    done
-    if feature_audit_agent sudo "pgrep -x $p" >/dev/null 2>&1; then
-      echo "FAIL $id ($(jq -r .action <<<"$row")) did not end the session"
-    else echo "PASS $id session ended"; fi
-    _live_bind_recover "${rec:-session}" "$chord" "$de"
-    return
-  fi
-  sleep "$settle"
-  a="$(feature_audit_guest_execute feature_audit_binds_state "$sdir")"
-  rc=0
-  feature_audit_guest_execute feature_audit_binds_evaluate "$effect" "$arg" "$b" "$a" >/dev/null || rc=$?
-  case "$rc" in
-    0) echo "PASS $id $effect" ;;
-    3) echo "SKIP $id $effect not observable here (no audio device)" ;;
-    *) echo "FAIL $id ($(jq -r .action <<<"$row")) expected" \
-         "$effect${arg:+ $arg}, not observed" ;;
-  esac
-  [[ -n "$rec" ]] && _live_bind_recover "$rec" "$chord" "$de"
-  feature_audit_guest_execute feature_audit_binds_teardown >/dev/null
-}
-
-# feature_audit_phase_keybinds <variant-dir> <cfg> — per compositor of the set, every
-# shipped bind as real keyboard input; session-ending binds last.
-feature_audit_phase_keybinds() {
-  local vdir="$1" cfg="$2" de src dir since out row first="" why
-  first="$(feature_audit_desktops "$cfg" | head -1)"
-  while IFS= read -r de; do
-    [[ -n "$de" ]] || continue
-    dir="$vdir/keybinds-$de"; mkdir -p "$dir"
-    since="$(feature_audit_guest_now)"
-    feature_audit_agent session "$de" > "$dir/agent.txt" 2>&1 || {
-      echo "keybinds: session $de not ready" >> "$dir/session-start.lines"
-      continue; }
-    feature_audit_agent idle off >/dev/null 2>&1 || true
-    feature_audit_push_binds_lib
-    feature_audit_guest_execute feature_audit_binds_baseline >/dev/null
-    for src in $(feature_audit_binds_sources); do
-      # app sources (session `*`) run once, in the first session
-      case "$(feature_audit_binds_session "$src")" in
-        "$de") ;;  "*") [[ "$de" == "$first" ]] || continue ;;  *) continue ;;
-      esac
-      out="$dir/probe-binds-$src@$FA_USER.probe"
-      # Probe Gate: binds this variant does not deploy are SKIPped, not judged
-      if why="$(feature_audit_bind_gate "$de" "$cfg")"; then
-        feature_audit_binds_plan "$src" | jq -r --arg w "$why" \
-          'select(.effect != null) | "SKIP bind-\(.source)-\(.chord) \($w)"' \
-          >> "$out"
-        continue
-      fi
-      while IFS= read -r row; do
-        _live_bind_one "$row" "$de" >> "$out"
-      done < <(feature_audit_binds_plan "$src" | jq -c 'select(.effect != null)' \
-                 | jq -s -c 'sort_by(.session_ending // false) | .[]')
-    done
-    feature_audit_collect "$dir" "$since"
-  done < <(feature_audit_desktops "$cfg")
-}
-
-# ── Audit Cache (ADR 0152) ───────────────────────────────────────────────────
-# The uncached base variant fills it (repo packages + its built AUR packages
-# as the [audit-aur] repo); every later install of the run is pointed at it
-# through the harness HTTP root. Base still exercises the real mirrors, AUR
-# builds and AUR Vetting.
-
-FA_CACHE_SOURCE=base   # the variant that installs uncached and fills it
-
-feature_audit_cache_directory() { printf '%s\n' "$CACHE_DIR/audit-cache"; }
-
-# feature_audit_cache_install_env <variant-id> — the test-only install env (K=V list).
-feature_audit_cache_install_env() {
-  local c url
-  c="$(feature_audit_cache_directory)"
-  url="http://$LIBVIRT_GATEWAY:$HTTP_PORT/audit-cache"
-  if [[ "$1" == "$FA_CACHE_SOURCE" ]]; then
-    echo INSTALL_PKG_CACHE_KEEP=1; return
-  fi
-  compgen -G "$c/pkg/*.pkg.tar.zst" >/dev/null || return 0
-  printf '%s' "INSTALL_PKG_CACHE_SERVER=$url/pkg"
-  [[ -e "$c/aur/audit-aur.db" ]] \
-    && printf ' %s' "INSTALL_AUDIT_AUR_URL=$url/aur"
-  echo
-}
-
-# feature_audit_cache_harvest — after base's boot1: copy its kept repo packages and
-# its built AUR packages to the host, index the AUR ones as [audit-aur], then
-# clear the guest's pacman cache (the shipped state the install would leave).
-# A failed copy drops the cache: the rest install uncached, never from a
-# partial set.
-feature_audit_cache_harvest() {
-  local c ok=1; c="$(feature_audit_cache_directory)"
-  mkdir -p "$c/pkg" "$c/aur"
-  feature_audit_agent sudo <<'SH' | tar -xf - -C "$c/pkg" || ok=0
-# with its .sig: a cache hit lacking one fails the whole transaction
-cd /var/cache/pacman/pkg && for p in *.pkg.tar.zst; do
-  [ -f "$p.sig" ] && printf '%s\n%s\n' "$p" "$p.sig"
-done | tar -cf - -T -
-SH
-  ((PIPESTATUS[0] == 0)) || ok=0
-  feature_audit_agent sudo <<'SH' | tar -xf - -C "$c/aur" || ok=0
-cd / && find home root -path '*/.cache/paru/clone/*' -name '*.pkg.tar.zst' \
-  ! -name '*-debug-*' | tar -cf - -T - --transform 's|.*/||'
-SH
-  ((PIPESTATUS[0] == 0)) || ok=0
-  if compgen -G "$c/aur/*.pkg.tar.zst" >/dev/null; then
-    repo-add -q "$c/aur/audit-aur.db.tar.gz" "$c/aur"/*.pkg.tar.zst || ok=0
-  fi
-  if ((!ok)); then
-    # the guest keeps its cache, so a manual retry can still harvest it
-    warn "Audit Cache harvest failed; later variants install uncached."
-    rm -rf "$c"; return 0
-  fi
-  printf '%s\n' 'rm -f /var/cache/pacman/pkg/*.pkg.tar.zst' | feature_audit_agent sudo \
-    >/dev/null 2>&1 || true
-}
-
-# feature_audit_install <variant-dir> <vm-profile-file> [<variant-id>] — install through
-# the persistent flow (Audit Cache env per variant); 0 iff the installer
-# exited 0.
-feature_audit_install() {
-  local dir="$1/install" prof="$2" rc
-  mkdir -p "$dir"
-  VM_INSTALL_ENV="$(feature_audit_cache_install_env "${3:-}")" \
-    VM_ARTIFACT_DIR="$dir" VM_HOLD_FOR_LOG_PULL=1 VM_SKIP_FINAL_BOOT=1 \
-    VM_PM=1 \
-    REPO_URL="$FA_REPO_URL" \
-    bash "$INSTALLER_DIR/vm/vm.sh" --profile "$prof" --recreate \
-    > "$dir/harness.txt" 2>&1 || true
-  rc="$(cat "$dir/install-rc" 2>/dev/null || echo none)"
-  case "$rc" in
-    0) return 0 ;;
-    none) feature_audit_fatal "$dir" \
-            "installer never reported an exit (see harness.txt)" ;;
-    124) feature_audit_fatal "$dir" "installer timed out" ;;
-    *) feature_audit_fatal "$dir" "installer exited $rc" ;;
-  esac
-  return 1
-}
-
-feature_audit_destroy_vm() {
-  feature_audit_serial_stop
-  VM_NAME="$VM_NAME" _vm_destroy_undefine >/dev/null 2>&1 || true
-}
-
-# feature_audit_run_guided <variant-dir> <profile-ref> — the menu-driven path runs the
-# disposable guided test flow (install + boot-verify), not the persistent one:
-# the guest assembles its config from replayed menu answers. Only the install
-# and boot phases apply; it is not agent-controllable.
-feature_audit_run_guided() {
-  local dir="$1" ref="$2" gname rc=0
-  gname="$(jsonc_strip "$INSTALLER_DIR/tests/vm/profiles/$ref.jsonc" \
-    | jq -r .name)"
-  mkdir -p "$dir/install" "$dir/boot1"
-  LOG_FILE="$dir/install/installer.log" \
-    BOOT_LOG_FILE="$dir/boot1/serial.log" REPO_URL="$FA_REPO_URL" \
-    CACHE_DIR="$CACHE_DIR" VM_INSTALL_ENV="$(feature_audit_cache_install_env guided)" \
-    bash "$INSTALLER_DIR/vm/vm.sh" --guided --profile "$ref" --verify-boot \
-    --recreate > "$dir/install/harness.txt" 2>&1 || rc=$?
-  ((rc == 0)) || feature_audit_fatal "$dir/install" \
-    "guided install or boot-verify failed (vm.sh exit $rc; see harness.txt)"
-  VM_NAME="$gname" _vm_destroy_undefine >/dev/null 2>&1 || true
-}
-
-# feature_audit_phase_wanted <variant-dir> <phase> — run this phase? FEATURE_AUDIT_SKIP
-# (space list) drops phases silently, for a quick partial run while
-# iterating; a phase outside the variant's Variant Phases is recorded as a
-# SKIP (never passed, never silent).
-feature_audit_phase_wanted() {
-  local dir="$1" p="$2"
-  [[ " ${FEATURE_AUDIT_SKIP:-} " != *" $p "* ]] || return 1
-  [[ -z "${FA_VARIANT_PHASES:-}" \
-     || " $FA_VARIANT_PHASES " == *" $p "* ]] && return 0
-  mkdir -p "$dir/$p"
-  echo "SKIP phase-$p not in this variant's Variant Phases" \
-    > "$dir/$p/phase@gate.probe"
-  return 1
-}
-
-# feature_audit_run_variant <id> <run-dir> — every phase for one variant.
-feature_audit_run_variant() {
-  local id="$1" run="$2" dir prof cfg v
-  dir="$run/$id"
-  mkdir -p "$dir"
-  section "Audit Variant: $id"
-  v="$(feature_audit_variant_json "$id")"
-  jq --arg sha "$(git -C "$INSTALLER_DIR" rev-parse HEAD)" \
-    --arg at "$(date -Is)" \
-    '{variant: .id, adrs: (.adrs // []), commit: $sha, started: $at}' \
-    <<<"$v" > "$dir/variant.json"
-  local guided
-  guided="$(jq -r '.guided // empty' <<<"$v")"
-  if [[ -n "$guided" ]]; then feature_audit_run_guided "$dir" "$guided"; return; fi
-  prof="$dir/vm-profile.json"
-  feature_audit_variant_vm_profile "$id" > "$prof" \
-    || { feature_audit_fatal "$dir/install" "variant does not resolve"; return 1; }
-  cfg="$(feature_audit_variant_config "$id")" || cfg='{}'
-  # the Host Core gate the probes read (feature_audit_host_core)
-  cfg="$(jq -c --argjson hc "$(feature_audit_variant_host_core "$id" || echo true)" \
-    '. + {_audit: {host_core: $hc}}' <<<"$cfg")"
-  FA_USER="$(jq -r '.users[0] // "aquastias"' <<<"$cfg")"
-  FA_VARIANT_PHASES="$(feature_audit_variant_phases "$id")"
-  VM_RAM_MB="$(jq -r '.hardware.ram_mb' "$prof")"   # capacity preflight
-  export VM_RAM_MB
-
-  if [[ -n "${FA_REUSE:-}" ]]; then
-    # --reuse: audit the already-installed VM as it stands (iterate on the
-    # later phases or re-check a fix without a reinstall)
-    mkdir -p "$dir/boot1"
-    _vm_running || feature_audit_vm_start "$dir/boot1" || return 1
-    feature_audit_serial_start "$dir/boot1/serial.log"
-    feature_audit_wait_ssh "$FA_BOOT_TIMEOUT_SEC" \
-      || { feature_audit_fatal "$dir/boot1" "reused VM never reached SSH"; return 1; }
-  else
-    feature_audit_install "$dir" "$prof" "$id" || return 1
-    feature_audit_boot "$dir/boot1" || return 1
-    [[ "$id" == "$FA_CACHE_SOURCE" ]] && feature_audit_cache_harvest
-  fi
-  feature_audit_collect "$dir/boot1"
-  feature_audit_phase_wanted "$dir" sessions && feature_audit_phase_sessions "$dir" "$cfg"
-  feature_audit_phase_wanted "$dir" probes && feature_audit_phase_probes "$dir" "$cfg"
-  feature_audit_phase_wanted "$dir" keybinds && feature_audit_phase_keybinds "$dir" "$cfg"
-  feature_audit_phase_wanted "$dir" timers && feature_audit_phase_timers "$dir"
-  if feature_audit_phase_wanted "$dir" boot2; then
-    feature_audit_phase_boot2 "$dir" "$cfg" || return 1
-  fi
-  if feature_audit_phase_wanted "$dir" upgrade; then
-    feature_audit_phase_upgrade "$dir" || return 1
-  fi
-  # last: a QEMU virtio-gpu guest can come back from S3 with its compositor
-  # / seatd wedged, which would hang every later reboot (base, 20261002)
-  feature_audit_phase_wanted "$dir" power && feature_audit_phase_power "$dir"
-  feature_audit_serial_stop
-}
-
-# feature_audit_run [--variant X] [--from X] [--keep] [--reuse] — the Audit Run.
-feature_audit_run() {
-  local only="" from="" keep=0
-  while (($#)); do
-    case "$1" in
-      --variant) only="${2:?}"; shift 2 ;;
-      --from)    from="${2:?}"; shift 2 ;;
-      --keep)    keep=1; shift ;;
-      --reuse)   FA_REUSE=1; keep=1; shift ;;
-      *) echo "feature-audit: unknown run option '$1'" >&2; return 2 ;;
-    esac
-  done
-  _ensure_libvirt_reachable
-  VM_NAME="$(feature_audit_manifest_json | jq -r .vm_name)"
-  export VM_NAME
-  local -a ids=() all
-  mapfile -t all < <(feature_audit_variant_ids)
-  local id started=0
-  for id in "${all[@]}"; do
-    if [[ -n "$only" ]]; then [[ "$id" == "$only" ]] && ids+=("$id")
-    elif [[ -n "$from" ]]; then
-      [[ "$id" == "$from" ]] && started=1
-      ((started)) && ids+=("$id")
-    else ids+=("$id"); fi
-  done
-  ((${#ids[@]})) || { echo "feature-audit: no variant selected" >&2; return 2; }
-
-  local run; run="$(feature_audit_runs_root)/$(date +%Y%m%d-%H%M%S)"
-  mkdir -p "$run"
-  info "Audit Run → $run"
-  mkdir -p "$run/audit/check"
-  feature_audit_check_variant > "$run/audit/check/check.lines" \
-    || warn "check found problems (recorded as Findings); running anyway."
-  [[ -n "${FA_REUSE:-}" && ${#ids[@]} -ne 1 ]] \
-    && { echo "feature-audit: --reuse needs one --variant" >&2; return 2; }
-  [[ -n "${FA_REUSE:-}" ]] || FA_REPO_URL="$(feature_audit_stage_repo)"
-  local i n=${#ids[@]}
-  # the Audit Cache is per run: never reused from an earlier one
-  [[ -n "${FA_REUSE:-}" ]] || rm -rf "$(feature_audit_cache_directory)"
-  for ((i = 0; i < n; i++)); do
-    feature_audit_run_variant "${ids[i]}" "$run" || true
-    feature_audit_report "$run" >/dev/null || true   # findings so far, per variant
-    feature_audit_serial_stop
-    if ((keep && i == n - 1)); then
-      info "Keeping VM '$VM_NAME' for inspection (--keep)."
-    else
-      feature_audit_destroy_vm
-    fi
-  done
-  feature_audit_report "$run"
-}
+# The Audit Run's parts.
+# shellcheck source=./live-phases.sh
+source "${BASH_SOURCE[0]%/*}/live-phases.sh"
+# shellcheck source=./live-probes.sh
+source "${BASH_SOURCE[0]%/*}/live-probes.sh"
+# shellcheck source=./live-keybinds.sh
+source "${BASH_SOURCE[0]%/*}/live-keybinds.sh"
+# shellcheck source=./live-run.sh
+source "${BASH_SOURCE[0]%/*}/live-run.sh"

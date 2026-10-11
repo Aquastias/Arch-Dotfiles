@@ -11,6 +11,8 @@
 #
 # Public API:
 #   feature_audit_check_variant   → Finding lines on stdout; 1 if any
+#
+# Used by: tools/feature-audit.sh (check).
 # =============================================================================
 
 _check_on() {
@@ -21,26 +23,30 @@ FA_CHECK_FAMILIES="manifest features programs binds phases noise"
 
 # _check_manifest — every variant resolves to a valid Effective Config.
 _check_manifest() {
-  local m id cfg err
-  m="$(feature_audit_manifest_json)" || { echo "manifest: not valid JSONC"; return; }
-  jq -r '.variants | group_by(.id)[] | select(length > 1) | .[0].id' <<<"$m" \
+  local manifest id config error
+  manifest="$(feature_audit_manifest_json)" \
+    || { echo "manifest: not valid JSONC"; return; }
+  jq -r '.variants | group_by(.id)[] | select(length > 1) | .[0].id' \
+    <<<"$manifest" \
     | while IFS= read -r id; do echo "manifest: duplicate variant id $id"; done
   jq -r '.unverifiable[]? | select((.reason // "") == "")
-    | "manifest: unverifiable \(.feature) has no reason"' <<<"$m"
+    | "manifest: unverifiable \(.feature) has no reason"' <<<"$manifest"
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     if jq -e --arg id "$id" '.variants[] | select(.id == $id) | .guided' \
-      <<<"$m" >/dev/null; then
+      <<<"$manifest" >/dev/null; then
       continue   # guided variants resolve in-guest from the menu answers
     fi
-    if ! cfg="$(feature_audit_variant_config "$id" 2>/dev/null)" || [[ -z "$cfg" ]]; then
+    if ! config="$(feature_audit_variant_config "$id" 2>/dev/null)" \
+      || [[ -z "$config" ]]; then
       echo "manifest: variant $id does not resolve"
       continue
     fi
-    if ! err="$(feature_audit_validate_config "$cfg" 2>&1)"; then
-      echo "manifest: variant $id fails validation: $(head -1 <<<"$err")"
+    if ! error="$(feature_audit_validate_config "$config" 2>&1)"; then
+      echo "manifest: variant $id fails validation:" \
+        "$(awk 'NR == 1 { print; exit }' <<<"$error")"
     fi
-  done < <(jq -r '.variants | map(.id) | unique[]' <<<"$m")
+  done < <(jq -r '.variants | map(.id) | unique[]' <<<"$manifest")
 }
 
 # Menu fields that are identity/cosmetics, not features (hostname, locales,
@@ -57,18 +63,20 @@ _check_feature_values() {
     source "$INSTALLER_DIR/lib/config/menu.sh"
     # shellcheck source=../matrix/registry.sh
     source "$INSTALLER_DIR/lib/matrix/registry.sh"
-    local spec p d role v
+    local spec path default_value role value
     for spec in "${_MENU_FIELDS[@]}"; do
-      IFS='|' read -r _ p _ d <<<"$spec"
-      [[ "$p" =~ $_FA_FEATURE_SKIP ]] && continue
-      role="$(matrix_axis_role "$p" 2>/dev/null || true)"
+      IFS='|' read -r _ path _ default_value <<<"$spec"
+      [[ "$path" =~ $_FA_FEATURE_SKIP ]] && continue
+      role="$(matrix_axis_role "$path" 2>/dev/null || true)"
       [[ "$role" == storage-cluster || "$role" == scalar-sweep ]] && continue
-      local -a opts=()
-      mapfile -t opts < <(menu_enum_options "$p")
-      if ((${#opts[@]})); then
-        for v in "${opts[@]}"; do printf '%s=%s\t%s\n' "$p" "$v" "$d"; done
-      elif [[ "$d" == true || "$d" == false ]]; then
-        printf '%s=true\t%s\n%s=false\t%s\n' "$p" "$d" "$p" "$d"
+      local -a options=()
+      mapfile -t options < <(menu_enum_options "$path")
+      if ((${#options[@]})); then
+        for value in "${options[@]}"; do printf '%s=%s\t%s\n' "$path" \
+          "$value" "$default_value"; done
+      elif [[ "$default_value" == true || "$default_value" == false ]]; then
+        printf '%s=true\t%s\n%s=false\t%s\n' "$path" "$default_value" \
+          "$path" "$default_value"
       fi
     done
   )
@@ -87,66 +95,73 @@ _check_config_has() {
 # _check_features — every feature value is enabled by some variant, a
 # guided variant's `covers`, or an `unverifiable` entry.
 _check_features() {
-  local m id cfg feat def p v
-  m="$(feature_audit_manifest_json)" || return
-  local -a cfgs=()
+  local manifest id config feature default_value path value
+  manifest="$(feature_audit_manifest_json)" || return
+  local -a configs=()
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
-    cfg="$(feature_audit_variant_config "$id" 2>/dev/null)" && cfgs+=("$cfg")
-  done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$m")
+    config="$(feature_audit_variant_config "$id" 2>/dev/null)" \
+      && configs+=("$config")
+  done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$manifest")
   local covered
   covered="$(jq -r '(.unverifiable[]?.feature),
-    (.variants[] | .covers[]?)' <<<"$m")"
-  while IFS=$'\t' read -r feat def; do
-    grep -qxF "$feat" <<<"$covered" && continue
-    p="${feat%%=*}"; v="${feat#*=}"
+    (.variants[] | .covers[]?)' <<<"$manifest")"
+  while IFS=$'\t' read -r feature default_value; do
+    grep -qxF "$feature" <<<"$covered" && continue
+    path="${feature%%=*}"; value="${feature#*=}"
     local hit=0
-    for cfg in "${cfgs[@]}"; do
-      _check_config_has "$cfg" "$p" "$v" "$def" && { hit=1; break; }
+    for config in "${configs[@]}"; do
+      _check_config_has "$config" "$path" "$value" "$default_value" \
+        && { hit=1; break; }
     done
-    ((hit)) || echo "coverage: feature $feat is enabled by no variant"
+    ((hit)) || echo "coverage: feature $feature is enabled by no variant"
   done < <(_check_feature_values)
 }
 
 # _check_programs — every registry program ships an audit probe (its
 # `audit.sh`), unless the manifest marks `program:<name>` unverifiable.
 _check_programs() {
-  local root="${FEATURE_AUDIT_PROGRAMS_DIR:-$INSTALLER_DIR/programs}" d n
+  local root="${FEATURE_AUDIT_PROGRAMS_DIR:-$INSTALLER_DIR/programs}" \
+    program_directory name
   local covered
   covered="$(feature_audit_manifest_json | jq -r '.unverifiable[]?.feature')"
-  for d in "$root"/*/*/; do
-    [[ -f "$d/config.jsonc" ]] || continue
-    n="${d%/}"; n="${n##*/}"
-    [[ -f "$d/audit.sh" ]] && continue
-    grep -qxF "program:$n" <<<"$covered" && continue
-    echo "coverage: program $n has no audit probe (audit.sh)"
+  for program_directory in "$root"/*/*/; do
+    [[ -f "$program_directory/config.jsonc" ]] || continue
+    name="${program_directory%/}"; name="${name##*/}"
+    [[ -f "$program_directory/audit.sh" ]] && continue
+    grep -qxF "program:$name" <<<"$covered" && continue
+    echo "coverage: program $name has no audit probe (audit.sh)"
   done
   # every desktop environment ships a session probe too
   local ext="${FEATURE_AUDIT_EXTRAS_DIR:-$INSTALLER_DIR/extras/desktop}"
-  for d in "$ext"/*/; do
-    n="${d%/}"; n="${n##*/}"
-    compgen -G "$d/install-*.jsonc" >/dev/null || continue
-    [[ -f "$d/audit.sh" ]] && continue
-    grep -qxF "desktop:$n" <<<"$covered" && continue
-    echo "coverage: desktop $n has no audit probe (audit.sh)"
+  for program_directory in "$ext"/*/; do
+    name="${program_directory%/}"; name="${name##*/}"
+    compgen -G "$program_directory/install-*.jsonc" >/dev/null || continue
+    [[ -f "$program_directory/audit.sh" ]] && continue
+    grep -qxF "desktop:$name" <<<"$covered" && continue
+    echo "coverage: desktop $name has no audit probe (audit.sh)"
   done
 }
 
 # _check_binds — every shipped keybind (parsed from the real configs) has
 # a declared, testable expectation.
 _check_binds() {
-  local src chord action exp
-  for src in $(feature_audit_binds_sources); do
-    exp="$(feature_audit_binds_expect_file "$src")"
-    if [[ -f "$exp" ]] && ! jsonc_strip "$exp" | jq -e . >/dev/null 2>&1
+  local source_name chord action expected
+  for source_name in $(feature_audit_binds_sources); do
+    expected="$(feature_audit_binds_expect_file "$source_name")"
+    if [[ -f "$expected" ]] && ! jsonc_strip "$expected" \
+      | jq -e . >/dev/null 2>&1
     then
-      echo "coverage: $src expectations ${exp#"$FA_REPO_ROOT"/} not valid JSONC"
+      echo \
+        "coverage: $source_name expectations" \
+        "${expected#"$FA_REPO_ROOT"/} not valid JSONC"
       continue
     fi
     while IFS=$'\t' read -r _ chord action; do
       [[ -n "$chord" ]] || continue
-      echo "coverage: $src bind $chord ($action) has no audit expectation"
-    done < <(feature_audit_binds_untested "$src" 2>&1)
+      echo \
+        "coverage: $source_name bind $chord ($action) has no audit expectation"
+    done < <(feature_audit_binds_untested "$source_name" 2>&1)
   done
 }
 
@@ -154,54 +169,56 @@ _check_binds() {
 # loses coverage: every phase, every installed desktop's binds and every
 # selected program's probe still run in some variant.
 _check_phases() {
-  local m id ph p cfg de
+  local manifest id phases name config desktop
   local root="${FEATURE_AUDIT_PROGRAMS_DIR:-$INSTALLER_DIR/programs}"
-  m="$(feature_audit_manifest_json)" || return
-  local -A ran=() want_de=() bound_de=() want_prog=() probed=()
+  manifest="$(feature_audit_manifest_json)" || return
+  local -A ran=() wanted_desktops=() bound_desktops=() wanted_programs=() \
+    probed=()
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
-    ph="$(feature_audit_variant_phases "$id")"
-    for p in $ph; do
-      [[ " $FA_VARIANT_PHASES_ALL " == *" $p "* ]] \
-        || echo "manifest: variant $id declares unknown phase $p"
-      ran[$p]=1
+    phases="$(feature_audit_variant_phases "$id")"
+    for name in $phases; do
+      [[ " $FA_VARIANT_PHASES_ALL " == *" $name "* ]] \
+        || echo "manifest: variant $id declares unknown phase $name"
+      ran[$name]=1
     done
-    cfg="$(feature_audit_variant_config "$id" 2>/dev/null)" || continue
-    for de in $(jq -r '.environment.desktop // [] | if type == "string"
-        then [.] else . end | .[]' <<<"$cfg"); do
-      want_de[$de]=1
-      [[ " $ph " == *" keybinds "* ]] && bound_de[$de]=1
+    config="$(feature_audit_variant_config "$id" 2>/dev/null)" || continue
+    for desktop in $(jq -r '.environment.desktop // [] | if type == "string"
+        then [.] else . end | .[]' <<<"$config"); do
+      wanted_desktops[$desktop]=1
+      [[ " $phases " == *" keybinds "* ]] && bound_desktops[$desktop]=1
     done
-    while IFS= read -r p; do
-      [[ -n "$p" ]] || continue
+    while IFS= read -r name; do
+      [[ -n "$name" ]] || continue
       # only programs that ship a probe have one to run
-      compgen -G "$root/*/$p/audit.sh" >/dev/null || continue
-      want_prog[$p]=1
-      [[ " $ph " == *" probes "* ]] && probed[$p]=1
-    done < <(feature_audit_selected_programs "$cfg" 2>/dev/null)
-  done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$m")
-  for p in $FA_VARIANT_PHASES_ALL; do
-    [[ -n "${ran[$p]:-}" ]] || echo "coverage: phase $p runs in no variant"
+      compgen -G "$root/*/$name/audit.sh" >/dev/null || continue
+      wanted_programs[$name]=1
+      [[ " $phases " == *" probes "* ]] && probed[$name]=1
+    done < <(feature_audit_selected_programs "$config" 2>/dev/null)
+  done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$manifest")
+  for name in $FA_VARIANT_PHASES_ALL; do
+    [[ -n "${ran[$name]:-}" ]] \
+      || echo "coverage: phase $name runs in no variant"
   done
-  for de in "${!want_de[@]}"; do
-    [[ -n "${bound_de[$de]:-}" ]] \
-      || echo "coverage: desktop $de binds run in no variant"
+  for desktop in "${!wanted_desktops[@]}"; do
+    [[ -n "${bound_desktops[$desktop]:-}" ]] \
+      || echo "coverage: desktop $desktop binds run in no variant"
   done
-  for p in "${!want_prog[@]}"; do
-    [[ -n "${probed[$p]:-}" ]] \
-      || echo "coverage: program $p probed in no variant"
+  for name in "${!wanted_programs[@]}"; do
+    [[ -n "${probed[$name]:-}" ]] \
+      || echo "coverage: program $name probed in no variant"
   done | sort
 }
 
 # _check_noise — every Known Noise entry has a valid regex and a reason, and
 # its optional variants scope names real manifest variants.
 _check_noise() {
-  local f m ids re
-  f="$(feature_audit_known_noise_path)"
-  [[ -f "$f" ]] || return 0
-  m="$(feature_audit_manifest_json)" || return 0
-  ids="$(jq -c '[.variants[].id]' <<<"$m")"
-  jsonc_strip "$f" | jq -r --argjson ids "$ids" '
+  local noise_file manifest ids regex
+  noise_file="$(feature_audit_known_noise_path)"
+  [[ -f "$noise_file" ]] || return 0
+  manifest="$(feature_audit_manifest_json)" || return 0
+  ids="$(jq -c '[.variants[].id]' <<<"$manifest")"
+  jsonc_strip "$noise_file" | jq -r --argjson ids "$ids" '
     if type != "array" then "noise: not a JSON array" else .[] |
       (.regex // "?" | if type == "array" then join("") else . end) as $r |
       (if (.reason // "") == "" then "noise: \($r) has no reason"
@@ -212,12 +229,12 @@ _check_noise() {
        else .variants[] | select(. as $v | $ids | index($v) | not)
          | "noise: \($r) names unknown variant \(.)" end)
     end' 2>/dev/null || echo "noise: not valid JSONC"
-  while IFS= read -r re; do
+  while IFS= read -r regex; do
     # the report matches with awk, so awk judges the regex (bad one: exit 2)
     # via ENVIRON: awk -v would process the regex's backslash escapes
-    R="$re" awk 'BEGIN { if ("" ~ ENVIRON["R"]) {} }' 2>/dev/null \
-      || echo "noise: invalid regex $re"
-  done < <(jsonc_strip "$f" | jq -r '.[]?.regex // empty
+    R="$regex" awk 'BEGIN { if ("" ~ ENVIRON["R"]) {} }' 2>/dev/null \
+      || echo "noise: invalid regex $regex"
+  done < <(jsonc_strip "$noise_file" | jq -r '.[]?.regex // empty
     | if type == "array" then join("") else . end' 2>/dev/null)
 }
 
@@ -233,6 +250,6 @@ feature_audit_check_variant() {
     true
   )"
   [[ -z "$out" ]] && return 0
-  printf '%s\n' "$out" | sed 's/\x1b\[[0-9;]*m//g'
+  printf '%s\n' "$out" | awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'
   return 1
 }

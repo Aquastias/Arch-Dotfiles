@@ -258,6 +258,9 @@ lib/feature-audit/ (directory API `feature_audit_`)
 - public `fa_` → `feature_audit_`; private `_fa_` → `_<stem>_`
   (`_live_`, `_binds_`, `_binds_guest_`, `_check_`, `_report_`,
   `_manifest_`, `_probe_lib_`)
+- `live.sh` split into `live.sh` + `live-phases.sh`, `live-probes.sh`,
+  `live-keybinds.sh`, `live-run.sh` — one `file` rule (`live*.sh`) keeps
+  them on `_live_`; the `FA_*` env namespace stays frozen
 
 lib/guided/ (directory API `guided_`)
 - `controller.sh`: `_ctl_` → `_controller_` (split first, ticket 15)
