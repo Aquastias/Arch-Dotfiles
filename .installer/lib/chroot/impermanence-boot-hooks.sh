@@ -85,9 +85,9 @@ run_latehook() {
     ds="\${pair%%=*}"
     mp="\${pair#*=}"
     zfs list -H -o name "\$ds" >/dev/null 2>&1 || continue
-    mkdir -p "/new_root\${mountpoint}"
-    mount -t zfs -o zfsutil,rw "\$ds" "/new_root\${mountpoint}" ||
-      err "impermanence: could not mount \$ds at /new_root\${mountpoint}"
+    mkdir -p "/new_root\${mp}"
+    mount -t zfs -o zfsutil,rw "\$ds" "/new_root\${mp}" ||
+      err "impermanence: could not mount \$ds at /new_root\${mp}"
   done
 }
 HOOK
@@ -167,9 +167,9 @@ run_latehook() {
   for pair in \$pairs; do
     sv="\${pair%%:*}"
     mp="\${pair#*:}"
-    mkdir -p "/new_root\$mountpoint"
-    if ! mount -t btrfs -o "subvol=\$sv" "\$dev" "/new_root\$mountpoint"; then
-      err "impermanence: cannot mount \$sv at /new_root\$mountpoint"
+    mkdir -p "/new_root\$mp"
+    if ! mount -t btrfs -o "subvol=\$sv" "\$dev" "/new_root\$mp"; then
+      err "impermanence: cannot mount \$sv at /new_root\$mp"
       launch_interactive_shell
     fi
   done

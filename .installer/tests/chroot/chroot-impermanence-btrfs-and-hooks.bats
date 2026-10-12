@@ -432,3 +432,39 @@ SUBSHELL
   # wipe exists (the documented v1 leak).
   grep -qE "v1 leak|pre-transaction|leak" "$helper_script"
 }
+
+# Behavioural guard: run each generated latehook with stubbed tools and check
+# every rollback dataset/subvol lands at its OWN path. A rename once leaked
+# into the hook's escaped guest variable (\${mp}), so every mount targeted a
+# bare /new_root and the installed system booted with no /sbin/init.
+_run_latehook() { # <hook-file>
+  run bash -c "
+    zfs() { return 0; }
+    mkdir() { :; }
+    mount() { echo \"mount \$*\"; }
+    getarg() { echo /dev/vda2; }
+    resolve_device() { echo \"\$1\"; }
+    err() { echo \"err \$*\"; }
+    launch_interactive_shell() { echo shell; }
+    source '$1'
+    run_latehook"
+}
+
+@test "zfs: the generated latehook mounts each dataset at its own path" {
+  export FILESYSTEM=zfs
+  impermanence_boot_hooks_write_rollback
+  _run_latehook "$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"rpool/ROOT/etc /new_root/etc"* ]]
+  [[ "$output" == *"rpool/var/log /new_root/var/log"* ]]
+  ! grep -qE ' /new_root$' <<<"$output"
+}
+
+@test "btrfs: the generated latehook mounts each subvol at its own path" {
+  export FILESYSTEM=btrfs
+  impermanence_boot_hooks_write_rollback
+  _run_latehook "$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"subvol=@etc /dev/vda2 /new_root/etc"* ]]
+  ! grep -qE ' /new_root$' <<<"$output"
+}
