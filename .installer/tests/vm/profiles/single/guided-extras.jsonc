@@ -18,7 +18,7 @@
 // the daemons-enabled boot check.
 {
   "name": "arch-zfs-test-guided-extras",
-  "hardware": { "disks": [40], "ram_mb": 6144, "vcpus": 4 },
+  "hardware": { "disks": [80], "ram_mb": 6144, "vcpus": 4 },
   "timeouts": { "install": 3600, "boot": 600 },
   "install": {
     "system": {

@@ -18,7 +18,7 @@
 // http://192.168.122.1:9876/key.age.
 {
   "name": "arch-zfs-test-secure",
-  "hardware": { "disks": [40, 40], "ram_mb": 6144, "vcpus": 4 },
+  "hardware": { "disks": [80, 80], "ram_mb": 6144, "vcpus": 4 },
   "timeouts": { "install": 4200 },
   "host_profile": "arch-secure",
   "fixtures": ["fixtures/key.age"]

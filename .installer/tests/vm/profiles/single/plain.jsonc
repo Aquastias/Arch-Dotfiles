@@ -5,6 +5,6 @@
 // install bootstraps paru (rustc LTO) — 4 GiB OOM-kills that compile.
 {
   "name": "arch-zfs-test-single",
-  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 8192, "vcpus": 2 },
   "install": "repo"
 }

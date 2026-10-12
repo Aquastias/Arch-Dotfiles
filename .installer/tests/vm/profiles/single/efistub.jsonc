@@ -4,7 +4,7 @@
 // cmdline load-options; esp_size=auto exercises the kernel-aware budget.
 {
   "name": "arch-zfs-test-single-efistub",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "filesystem": "xfs",
     "system": {

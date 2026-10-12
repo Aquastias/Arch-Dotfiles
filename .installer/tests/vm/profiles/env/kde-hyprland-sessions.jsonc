@@ -18,7 +18,7 @@
 // assertion, not this session prober.
 {
   "name": "arch-zfs-test-env-kde-hyprland-sessions",
-  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 4 },
+  "hardware": { "disks": [80], "ram_mb": 8192, "vcpus": 4 },
   "timeouts": { "boot": 1200 },
   "install": {
     "system": {

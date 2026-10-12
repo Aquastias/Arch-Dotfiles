@@ -13,7 +13,7 @@
 //                                     closed (emergency shell) → no marker → RED
 {
   "name": "arch-zfs-test-btrfs-impermanent",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "filesystem": "btrfs",
     "system": {

@@ -11,7 +11,7 @@
 // on its own via the DM-OK marker, not folded into the KDE artifact check.
 {
   "name": "arch-zfs-test-env-kde-hyprland-enc",
-  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 8192, "vcpus": 2 },
   "install": {
     "system": {
       "hostname": "vm-kde-hyprland-enc",

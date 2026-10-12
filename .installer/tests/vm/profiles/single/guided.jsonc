@@ -6,7 +6,8 @@
 // config itself (mode=single over Host Core, no desktop/AUR — fast).
 {
   "name": "arch-zfs-test-guided",
-  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 8192, "vcpus": 2 },
+  "timeouts": { "install": 5400 },
   "install": {
     "system": {
       "hostname": "vm-guided",

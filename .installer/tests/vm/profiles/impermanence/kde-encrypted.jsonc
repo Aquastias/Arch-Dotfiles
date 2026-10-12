@@ -4,7 +4,7 @@
 // console when prompted (and again at every boot).
 {
   "name": "arch-zfs-test-single-impermanent-kde-encrypted",
-  "hardware": { "disks": [40], "ram_mb": 6144, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 6144, "vcpus": 2 },
   "install": {
     "system": {
       "hostname": "vm-test-imp-kde-enc",

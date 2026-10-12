@@ -7,7 +7,7 @@
 // /.snapshots are separate btrfs subvolumes). Impermanence is issue 08 — not here.
 {
   "name": "arch-zfs-test-single-btrfs",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "filesystem": "btrfs",
     "system": {

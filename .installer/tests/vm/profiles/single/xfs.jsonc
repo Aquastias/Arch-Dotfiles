@@ -6,7 +6,7 @@
 // and the zfs-presence gating (no zfs userland, no module guard, no services).
 {
   "name": "arch-zfs-test-single-xfs",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "filesystem": "xfs",
     "system": {

@@ -6,7 +6,7 @@
 // no module guard, no zfs services in the chroot).
 {
   "name": "arch-zfs-test-single-ext4",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "filesystem": "ext4",
     "system": {

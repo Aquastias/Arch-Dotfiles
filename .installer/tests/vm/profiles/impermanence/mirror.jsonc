@@ -3,7 +3,7 @@
 // phase), so no layout-specific wiring is needed.
 {
   "name": "arch-zfs-test-multi-mirror-impermanent",
-  "hardware": { "disks": [40, 40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80, 80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "system": {
       "hostname": "vm-test-multi-mirror-imp",

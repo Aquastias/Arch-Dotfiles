@@ -10,7 +10,7 @@
 // crypttab, and the FS-agnostic boot path.
 {
   "name": "arch-zfs-test-single-xfs-enc",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [80], "ram_mb": 4096, "vcpus": 2 },
   "install": {
     "filesystem": "xfs",
     "system": {

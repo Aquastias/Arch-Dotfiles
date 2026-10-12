@@ -15,7 +15,7 @@
 //   - ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub — identical across reboot
 {
   "name": "arch-secure",
-  "hardware": { "disks": [40, 40], "ram_mb": 6144, "vcpus": 4 },
+  "hardware": { "disks": [80, 80], "ram_mb": 6144, "vcpus": 4 },
   "host_profile": "arch-secure",
   "fixtures": ["fixtures/key.age"]
 }
