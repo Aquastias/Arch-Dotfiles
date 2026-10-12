@@ -5,7 +5,7 @@ follow the Readability Rules; agent-facing verbs and CLI flags stay frozen.
 
 **Blocked by:** 05 — Pilot
 
-**Status:** done (VM Agent Control smoke pending)
+**Status:** done
 
 - [x] Renames per the Prefix Map applied to every definition here and
       every caller repo-wide (incl. bats/helpers); frozen interface untouched
@@ -20,4 +20,4 @@ follow the Readability Rules; agent-facing verbs and CLI flags stay frozen.
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [ ] VM Agent Control smoke (login, screenshot, run app) green
+- [x] VM Agent Control smoke (login, screenshot, run app) green (KDE + niri, 2026-10-12)

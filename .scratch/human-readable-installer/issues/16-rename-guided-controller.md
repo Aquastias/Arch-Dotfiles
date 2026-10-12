@@ -21,4 +21,4 @@ readable names per the Prefix Map; long functions split.
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [ ] Guided-flow run (VM Agent Control) green at ticket close (pending final VM check)
+- [x] Guided-flow run green (single/guided, --verify-boot, 2026-10-12)

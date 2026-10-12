@@ -13,7 +13,7 @@ no renames, no logic change, so the diff is reviewable as relocation only.
       re-approval only for new public Prefixes)
 - [x] Function bodies byte-identical to before (moved only)
 - [x] shellcheck, bats, `audit.sh`, lint green
-- [ ] Guided-flow run (VM Agent Control) green (pending final VM check)
+- [x] Guided-flow run green (single/guided, --verify-boot, 2026-10-12)
 
 ## Comment
 
