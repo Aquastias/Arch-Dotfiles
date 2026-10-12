@@ -26,6 +26,8 @@ CORE_LIB_DIR="${CORE_DIR}/../../lib"
 source "${CORE_LIB_DIR}/packages/iso-resolver.sh"
 # shellcheck source=./host-capacity.sh
 source "${CORE_DIR}/host-capacity.sh"
+# shellcheck source=./repo-source.sh
+source "${CORE_DIR}/repo-source.sh"
 
 # =============================================================================
 # SHARED DEFAULTS (env overrides win)

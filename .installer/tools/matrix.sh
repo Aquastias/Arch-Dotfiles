@@ -42,16 +42,20 @@ Commands:
                     after any menu/constraint change.
   emit <cell-id>    Materialize one cell to a VM Profile in tmpfs (path on
                     stdout).
-  run [--smoke|--full]
+  run [--local] [--smoke|--full]
                     Run the Tier-2 set in guarded parallel VMs and print a
                     summary (--smoke = pinned seeds only, default; --full =
                     whole pairwise cover). Exits non-zero on any FAIL.
-  run <cell-id>     Install + boot-verify a single cell in a VM.
-  smoke             Run the curated on-demand boot set (a plain single, a
+  run [--local] <cell-id>
+                    Install + boot-verify a single cell in a VM.
+  smoke [--local]   Run the curated on-demand boot set (a plain single, a
                     mirror, impermanence, and an encrypted single) in guarded
                     parallel VMs. A basic-install boot smoke, distinct from
                     run --smoke's historical-bug seeds. Exits non-zero on any
                     FAIL.
+
+--local (run, smoke): install local HEAD, not the pushed repo (same as
+REPO_URL=local); uncommitted changes are not installed.
 EOF
 }
 
@@ -59,6 +63,11 @@ main() {
   local verb="${1:-}"
   [[ -n "$verb" ]] || { usage >&2; exit 2; }
   shift
+  if [[ "${1:-}" == --local ]]; then export REPO_URL=local; shift; fi
+  if [[ "${REPO_URL:-}" == local && ( "$verb" == run || "$verb" == smoke ) ]]
+  then
+    matrix_run_serve_local
+  fi
   case "$verb" in
     gen)  matrix_records_write ;;
     emit) matrix_emit "$@" ;;

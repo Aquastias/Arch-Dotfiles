@@ -60,12 +60,19 @@ default host profile, `VM_DEFAULT_HOST_PROFILE`).
 
 ```bash
 bash vm/vm.sh --profile desktop/kde --recreate   # destroy existing VM first
+bash vm/vm.sh --profile desktop/kde --local      # install local HEAD
 bash vm/vm.sh --profile desktop/kde --print-config  # dry run, no libvirt
 bash vm/vm.sh --help
 ```
 
 `--recreate` destroys the libvirt domain and its own data disks before
 creating a fresh one (the shared install ISO + seed cdroms are kept).
+
+**Which code installs.** The guest clones `REPO_URL`, by default the pushed
+GitHub repo — NOT your local commits. `--local` (= `REPO_URL=local`) stages a
+bare clone of local HEAD in the cache dir and serves it on the gateway;
+uncommitted changes are not installed. Every run prints
+`Repo source: …` with the URL and commit it installs.
 
 ---
 

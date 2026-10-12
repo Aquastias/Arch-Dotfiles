@@ -14,6 +14,11 @@ of hand-rolling `virsh`/`ssh`/`grim` — it encodes every gotcha below.
 `--profile` defaults to `desktop/combined` (→ the `arch-combined` VM). Selects
 the VM exactly like `vm.sh`. The VM must be running.
 
+The VM runs whatever `vm.sh` installed: by default the PUSHED GitHub repo, not
+local commits. To control a VM built from local HEAD, create it with
+`vm.sh --profile <cat>/<name> --recreate --local`; the run prints
+`Repo source: …` (URL + commit).
+
 | Verb | Does |
 |------|------|
 | `ready [timeout]` | block until the session's compositor is up |

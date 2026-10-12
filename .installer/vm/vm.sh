@@ -42,6 +42,9 @@ Options:
                           headlessly (install.sh --guided): the guest resolves
                           the disk in-guest and replays the menu answers.
   --recreate              Destroy and undefine the existing VM first.
+  --local                 Install local HEAD (staged bare clone served to the
+                          guest), not the pushed repo. Same as REPO_URL=local.
+                          Uncommitted changes are not installed.
   --verify-aur            (test flow) Implies --verify-boot; the first-boot
                           sentinel also runs `aur-vet audit` (ADR 0143) and
                           a finding fails the run (plain boot verify only).
@@ -59,8 +62,8 @@ Options:
   --help, -h              Show this help.
 
 Profile hardware/timeouts are defaults; matching env vars (VM_RAM_MB,
-VM_VCPUS, INSTALL_TIMEOUT_SEC, TIMEOUT_SEC, BOOT_TIMEOUT_SEC, ISO_URL_OVERRIDE)
-still win at run time.
+VM_VCPUS, INSTALL_TIMEOUT_SEC, TIMEOUT_SEC, BOOT_TIMEOUT_SEC, ISO_URL_OVERRIDE,
+REPO_URL) still win at run time.
 USAGE
 }
 
@@ -75,6 +78,7 @@ main() {
       --testing)      testing=1; shift ;;
       --guided)       guided=1; shift ;;
       --recreate)     recreate=1; shift ;;
+      --local)        export REPO_URL=local; shift ;;
       --verify-boot)  verify_boot=1; shift ;;
       --verify-aur)   verify_aur=1; verify_boot=1; shift ;;
       --hold-on-fail) hold_on_fail=1; shift ;;

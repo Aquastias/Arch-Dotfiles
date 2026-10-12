@@ -52,21 +52,10 @@ feature_audit_fatal() {
   warn "FATAL: $2"
 }
 
-# feature_audit_stage_repo — serve the committed HEAD to the guest (dumb-HTTP
-# bare repo under the harness HTTP root), so the audit tests local commits
-# without a push. Uncommitted changes are NOT audited.
+# feature_audit_stage_repo — serve the committed HEAD to the guest, so the
+# audit tests local commits without a push (vm/lib/repo-source.sh).
 feature_audit_stage_repo() {
-  local top destination
-  top="$(git -C "$INSTALLER_DIR" rev-parse --show-toplevel)"
-  destination="$CACHE_DIR/feature-audit-repo.git"
-  [[ -z "$(git -C "$top" status --porcelain --untracked-files=no)" ]] \
-    || warn "Uncommitted changes are NOT audited (the guest clones HEAD)." >&2
-  rm -rf "$destination"
-  git clone -q --bare "$top" "$destination"
-  git -C "$destination" repack -a -d -q
-  git -C "$destination" update-server-info
-  printf 'http://%s:%s/feature-audit-repo.git\n' "$LIBVIRT_GATEWAY" \
-    "$HTTP_PORT"
+  repo_source_stage_local "$CACHE_DIR" feature-audit-repo.git
 }
 
 # feature_audit_wait_ssh <timeout> — until the guest's sshd answers for the

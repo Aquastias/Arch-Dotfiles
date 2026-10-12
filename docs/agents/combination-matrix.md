@@ -76,15 +76,13 @@ VM Harness. Two environment hazards, both independent of the matrix code:
   it boots. Slice 05's profile synthesizer should own this ISO/oracle policy
   rather than leaving it as a manual override.
 
-- **Local-repo serving.** The guest `git clone`s `REPO_URL` (default GitHub)
-  for the installer code. To test unpushed local work, serve the repo at HEAD
-  with `git daemon` and point `REPO_URL` at the libvirt gateway
-  (`git://192.168.122.1/<repo>`). The daemon serves committed content only —
-  the cell's Effective Config still reaches the guest inline via the profile's
-  `.install` (the config seam), so uncommitted matrix code is not needed in the
-  guest. In a sandboxed agent shell the daemon dies with its launching
-  command's process-group teardown, so co-host `git daemon` and `matrix.sh run`
-  in a single long-lived (background, sandbox-disabled) invocation.
+- **Local-repo serving.** The guest `git clone`s `REPO_URL`, by default the
+  pushed GitHub repo — a cell then tests `origin/main`, NOT local commits.
+  `matrix.sh run --local` (or `smoke --local`, or `REPO_URL=local`) stages a
+  bare clone of local HEAD in `tests/vm/.vm-test/` and serves it on the
+  libvirt gateway for the whole run. Committed content only; the cell's
+  Effective Config still reaches the guest inline (the config seam). Each
+  cell prints `Repo source: …` (URL + commit). Run it sandbox-disabled.
 
 See also [[dotfiles-vm-smoke-agent-context]] for the general VM-from-agent
 constraints (one VM per job, 8 GiB RAM to avoid paru OOM, encrypted roots can't

@@ -11,10 +11,12 @@
 # to end. The host-resource guard, 3-way parallel scheduling, per-cell oracle
 # dispatch, and the run-all summary table land in slice 06.
 #
-# Requires INSTALLER_DIR. Honors REPO_URL (passed through to the VM Harness).
+# Requires INSTALLER_DIR. Honors REPO_URL (passed through to the VM Harness);
+# matrix.sh run --local serves local HEAD instead of the pushed repo.
 #
 # Public API:
 #   matrix_run [<cell-id>]   → install + boot-verify the cell (default tracer)
+#   matrix_run_serve_local   → REPO_URL = local HEAD, served for the run
 #
 # Used by: lib/matrix/driver.sh, lib/matrix/profile.sh, tools/matrix.sh.
 # =============================================================================
@@ -45,4 +47,23 @@ matrix_run() {
   [[ "$bootv" == true ]] \
     && arguments=(--testing --recreate --verify-boot --profile "$profile")
   "$INSTALLER_DIR/vm/vm.sh" "${arguments[@]}"
+}
+
+# matrix_run_serve_local — stage local HEAD once and serve it for the whole
+# run: parallel cells share CACHE_DIR and HTTP_PORT, so each cell's own server
+# would race (the first to finish kills it mid-clone for the rest). A cell's
+# server then fails to bind, harmlessly; this one outlives every cell.
+matrix_run_serve_local() {
+  : "${CACHE_DIR:=$INSTALLER_DIR/tests/vm/.vm-test}"
+  export CACHE_DIR
+  # shellcheck source=../../vm/lib/repo-source.sh
+  declare -F repo_source_stage_local >/dev/null 2>&1 \
+    || source "$INSTALLER_DIR/vm/lib/repo-source.sh"
+  REPO_URL="$(repo_source_stage_local "$CACHE_DIR" local-repo.git)"
+  export REPO_URL
+  "$INSTALLER_DIR/vm/lib/serve-http.sh" "$CACHE_DIR" "$LIBVIRT_GATEWAY" \
+    "$HTTP_PORT" >/dev/null 2>&1 &
+  MATRIX_LOCAL_SERVER_PID=$!
+  trap 'kill "$MATRIX_LOCAL_SERVER_PID" 2>/dev/null || true' EXIT
+  echo "[matrix] serving local HEAD at $REPO_URL" >&2
 }
