@@ -64,6 +64,8 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   "lib/common.sh|common.sh"
   "lib/jsonc.sh|jsonc.sh"
   "lib/globals.sh|globals.sh"
+  # common.sh sources the layout accessors (ticket 06 moved them there).
+  "lib/layout/state.sh|layout/state.sh"
   "lib/config/categorized-list.sh|config/categorized-list.sh"
   "lib/chroot/extras-common.sh|chroot/extras-common.sh"
   # hyprland.sh sources this (GPU_LIB_ONLY=1) to reuse the amd+nvidia hybrid

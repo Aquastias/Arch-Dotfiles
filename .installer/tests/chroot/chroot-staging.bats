@@ -121,3 +121,26 @@ _staged_basenames() {
            false; }
   done <<< "$references"
 }
+
+# Transitive guard: the direct-reference check above missed common.sh's own
+# `source …/layout/state.sh`, so every desktop install died in the chroot.
+# Stage the manifest exactly as _chroot_stage lays it out, then source the
+# entry points the extras adapters load, under set -e.
+@test "the staged /root/lib sources standalone (every adapter entry point)" {
+  local root="$BATS_TEST_TMPDIR/root/lib" entry source_path destination_path
+  for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
+    IFS='|' read -r source_path destination_path <<< "$entry"
+    mkdir -p "$root/$(parent_directory "$destination_path")"
+    cp "$INSTALLER_DIR/$source_path" "$root/$destination_path"
+  done
+  run bash -c "set -Eeuo pipefail; DE_TAG=TEST
+    source '$root/chroot/extras-common.sh'
+    source '$root/chroot/noctalia-preset.sh'
+    source '$root/config/categorized-list.sh'
+    source '$root/packages/niri.sh'
+    source '$root/packages/noctalia.sh'
+    GPU_LIB_ONLY=1 source '$root/chroot/gpu.sh'
+    echo sourced"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *sourced* ]]
+}
