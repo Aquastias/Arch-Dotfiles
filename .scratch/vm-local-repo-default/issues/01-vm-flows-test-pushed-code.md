@@ -19,8 +19,22 @@ start of every run so a GitHub-sourced run is never mistaken for a local one.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** needs-triage
+**Status:** done
 
-- [ ] A one-flag way to run any vm.sh flow / matrix cell on local HEAD
-- [ ] Every run prints the repo URL and commit it installs
-- [ ] docs (vm-agent-control / matrix) say which source a run installs
+- [x] A one-flag way to run any vm.sh flow / matrix cell on local HEAD
+- [x] Every run prints the repo URL and commit it installs
+- [x] docs (vm-agent-control / matrix) say which source a run installs
+
+## Comments
+
+2026-10-12: `vm.sh --local` / `matrix.sh run|smoke --local` (= `REPO_URL=local`)
+stage a bare clone of local HEAD in CACHE_DIR and serve it on the gateway
+(vm/lib/repo-source.sh; the Feature Audit reuses it). The matrix stages and
+serves once per run (parallel cells share the port). Every install flow
+prints `Repo source: …` (URL + commit; a pushed repo is flagged). Docs:
+vm/README.md, combination-matrix.md, vm-agent-control.md. Covered by
+tests/vm/repo-source.bats; VM-proven: `matrix.sh run --local
+zfs-single-plain` announced `local HEAD 4abcae33` and the guest cloned
+`http://192.168.122.1:9876/local-repo.git`; install + boot verify green
+(first try hit the 45-min light band on slow mirrors; rerun with
+MATRIX_TIMEOUT_LIGHT=5400).
