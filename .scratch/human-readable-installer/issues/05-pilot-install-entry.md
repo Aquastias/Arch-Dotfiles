@@ -34,5 +34,5 @@ doc is adjusted to what's agreed before 06–21 start.
   Summary output verified byte-identical across all 360 matrix cells.
   Awaiting owner style review; VM install not run yet.
 - 2026-10-12: closed. Owner review outcome: "everything is fine code wise" —
-  no doc changes needed. Full VM install green (zfs-single-plain, 2026-10-11)
+  no doc changes needed. Full VM install green (local HEAD 620d2bb: matrix zfs-single-plain + Audit Run base, 2026-10-12)
   covers 03-install.sh, lifecycle.sh and finalize.sh.

@@ -20,4 +20,4 @@ mask, save, secrets, user forms, fzf entry) follow the Readability Rules.
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [x] Guided-flow run green (single/guided, --verify-boot, 2026-10-12)
+- [x] Guided-flow run green (local HEAD 620d2bb: single/guided --verify-boot, 2026-10-12)

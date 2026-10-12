@@ -22,4 +22,4 @@ entry script opens with a `main()` outline linked from `ARCHITECTURE.md`.
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [x] Full VM install green at ticket close (zfs-single-plain, 2026-10-11)
+- [x] Full VM install green at ticket close (local HEAD 620d2bb: matrix zfs-single-plain + Audit Run base, 2026-10-12)

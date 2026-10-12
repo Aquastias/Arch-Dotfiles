@@ -13,7 +13,7 @@ no renames, no logic change, so the diff is reviewable as relocation only.
       re-approval only for new public Prefixes)
 - [x] Function bodies byte-identical to before (moved only)
 - [x] shellcheck, bats, `audit.sh`, lint green
-- [x] Guided-flow run green (single/guided, --verify-boot, 2026-10-12)
+- [x] Guided-flow run green (local HEAD 620d2bb: single/guided --verify-boot, 2026-10-12)
 
 ## Comment
 
