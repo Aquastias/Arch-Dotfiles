@@ -30,8 +30,10 @@
 declare -F matrix_cell_assemble >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/assemble.sh"
 
-# the light/heavy install-timeout bands, in seconds (45 min / 90 min).
-: "${MATRIX_TIMEOUT_LIGHT:=2700}"
+# the light/heavy install-timeout bands, in seconds (75 min / 90 min). A light
+# cell still installs the default desktop + AUR builds: ~52 min on slow mirrors
+# (zfs-single-plain, 2026-10-12) overran the old 45 min.
+: "${MATRIX_TIMEOUT_LIGHT:=4500}"
 : "${MATRIX_TIMEOUT_HEAVY:=5400}"
 
 # Per-disk size (GiB). The PRD's 20 GiB estimate is too small for a real zfs

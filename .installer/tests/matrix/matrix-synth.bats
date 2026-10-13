@@ -68,12 +68,12 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
 # ── AC3: install timeout band (light / heavy) ───────────────────────────────
 
 @test "timeout: storage-only cell is light; desktop or nvidia is heavy" {
-  [ "$(matrix_cell_timeout "$(_cell '{"disk_count":1}')")" -eq 2700 ]
+  [ "$(matrix_cell_timeout "$(_cell '{"disk_count":1}')")" -eq 4500 ]
   [ "$(matrix_cell_timeout "$(_cell '{"desktop":"kde"}')")" -eq 5400 ]
   [ "$(matrix_cell_timeout "$(_cell '{"desktop":"none","gpu":"nvidia"}')")" \
     -eq 5400 ]
   [ "$(matrix_cell_timeout "$(_cell '{"desktop":"none","gpu":"auto"}')")" \
-    -eq 2700 ]
+    -eq 4500 ]
 }
 
 # ── the synthesized profile carries disks/verify/timeout/install ────────────
@@ -86,7 +86,7 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
   echo "$profile" | jq -e '(.hardware.disks | length) == 2'
   echo "$profile" | jq -e '.hardware.disks | all(. == 80)'  # default size
   echo "$profile" | jq -e '.verify.rollback == true'
-  echo "$profile" | jq -e '.timeouts.install == 2700'
+  echo "$profile" | jq -e '.timeouts.install == 4500'
   echo "$profile" | jq -e '.install | type == "object"'
 }
 
