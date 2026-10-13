@@ -305,6 +305,7 @@ _package_resolver_filesystem_sets() {
   # Per-group rule of install_config_any_nonzfs_luks (ADR 0043), restated in
   # jq because the resolver holds JSON, not CONFIG_FILE; a parity test pins it.
   local any_luks
+  # shellcheck disable=SC2016 # a jq program, not shell
   any_luks="$(_package_resolver_jq "$config" '
     (.filesystem // "zfs") as $root
     | ((.disk_config.kind // "auto") != "manual" and $root != "zfs"
