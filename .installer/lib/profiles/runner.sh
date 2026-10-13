@@ -164,16 +164,19 @@ _runner_sops_selection() {
 # them into the Primary User's install list: the user's own programs first (in
 # declared order), then the resolved extras not already present (resolver
 # canonical order), so a tool declared in both installs once. One per line; the
-# whole list empty (no output) is valid. Args: <post_install_json> [uprog...].
+# whole list empty (no output) is valid. <any_zfs> is required (no silent
+# default: a guessed `true` routed zfs-auto-snapshot onto non-ZFS installs).
+# Args: <post_install_json> <any_zfs true|false> [uprog...].
 runner_resolve_post_install() {
-  local pi_json="$1"; shift
+  local pi_json="$1" any_zfs="${2:-}"
+  [[ "$any_zfs" == true || "$any_zfs" == false ]] \
+    || { error "runner_resolve_post_install: any_zfs must be true|false"; \
+         return 1; }
+  shift 2
   local -a out=("$@")
   local -a extras=()
   local _extras_text
-  local _zfs=true
-  declare -F install_config_any_zfs >/dev/null \
-    && _zfs="$(install_config_any_zfs)"
-  _extras_text="$(post_install_programs "$pi_json" "$_zfs")" || return 1
+  _extras_text="$(post_install_programs "$pi_json" "$any_zfs")" || return 1
   [[ -n "$_extras_text" ]] && mapfile -t extras <<< "$_extras_text"
 
   local extra program has
@@ -389,7 +392,8 @@ _runner_install_user_software() {
     local post_install_json
     post_install_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
     mapfile -t user_programs < <(runner_resolve_post_install \
-      "$post_install_json" "${user_programs[@]+"${user_programs[@]}"}")
+      "$post_install_json" "$(install_config_any_zfs)" \
+      "${user_programs[@]+"${user_programs[@]}"}")
   fi
 
   # Bootstrap paru for this user if they have programs, or if they are the

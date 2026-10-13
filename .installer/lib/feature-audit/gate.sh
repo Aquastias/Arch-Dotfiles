@@ -9,6 +9,8 @@
 # Public API:
 #   feature_audit_selected_programs <config-json>
 #       → selected program names, sorted
+#   feature_audit_any_zfs <config-json>
+#       → true | false (install_config_any_zfs over JSON)
 #   feature_audit_probe_gate_split <selected> <directory…>
 #       → "run<TAB>dir" | "skip<TAB>name"
 #   feature_audit_bind_gate <desktop> <config-json>
@@ -35,8 +37,19 @@ feature_audit_selected_programs() {
     for user in $(jq -r '.users[]?' <<<"$config"); do
       profile_loader_load_user "$user" | jq -r '.programs[]?'
     done
-    runner_resolve_post_install "$(jq -c '.post_install // {}' <<<"$config")"
+    runner_resolve_post_install "$(jq -c '.post_install // {}' <<<"$config")" \
+      "$(feature_audit_any_zfs "$config")"
   } | sort -u
+}
+
+# feature_audit_any_zfs <cfg-json> — install_config_any_zfs (ADR 0043, 0073)
+# restated in jq: the gate holds JSON, not CONFIG_FILE. A parity test pins it.
+feature_audit_any_zfs() {
+  jq -r 'if (.disk_config.kind // "auto") == "manual" then false else
+    (.filesystem // "zfs") as $root
+    | $root == "zfs"
+      or any((.data_pools // [])[]; (.filesystem // $root) == "zfs") end' \
+    <<<"$1"
 }
 
 # feature_audit_probe_gate_split <selected> <dir…> — <selected> is

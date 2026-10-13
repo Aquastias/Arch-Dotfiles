@@ -70,6 +70,37 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   [[ "$output" != *apparmor* ]]
 }
 
+@test "feature_audit_selected_programs: no zfs-auto-snapshot without ZFS" {
+  local config='{"host_programs":[],"users":[],"filesystem":"ext4",
+      "post_install":{"backup":{"zfs_auto_snapshot":true,"borg":true}}}'
+  run feature_audit_selected_programs "$config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *borg* ]]
+  [[ "$output" != *zfs-auto-snapshot* ]]
+}
+
+# Parity until the Install Config Reader accepts JSON (architecture review
+# candidate #1): the gate's jq copy of any-ZFS agrees with the install
+# predicate on every shared fixture.
+@test "feature_audit_any_zfs: agrees with install_config_any_zfs" {
+  local config
+  source "$INSTALLER_DIR/lib/common.sh"
+  source "$INSTALLER_DIR/lib/config/install-config.sh"
+  export CONFIG_FILE="$BATS_TEST_TMPDIR/install.jsonc"
+  while IFS= read -r config; do
+    printf '%s\n' "$config" > "$CONFIG_FILE"
+    [ "$(feature_audit_any_zfs "$config")" = "$(install_config_any_zfs)" ] \
+      || { echo "drift: $config"; return 1; }
+  done < <(jq -c '.[]' <<<'[
+    {},
+    {"filesystem":"ext4"},
+    {"filesystem":"btrfs","data_pools":[{"name":"t","filesystem":"zfs"}]},
+    {"filesystem":"xfs","data_pools":[{"name":"t"}]},
+    {"filesystem":"ext4","data_pools":[{"name":"t","filesystem":"xfs"}]},
+    {"disk_config":{"kind":"manual","partitions":[]}}
+  ]')
+}
+
 # ── bind gate (host) ────────────────────────────────────────────────────────
 
 @test "feature_audit_bind_gate: stock install skips every bind source" {

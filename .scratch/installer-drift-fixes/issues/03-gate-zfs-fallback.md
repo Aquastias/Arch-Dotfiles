@@ -19,10 +19,18 @@ candidate #4 (one Program Selection step).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `runner_resolve_post_install <pi_json> <any_zfs> [uprog...]`
-- [ ] bats: ext4 variant with backup on does not select zfs-auto-snapshot
-- [ ] bats: gate any-ZFS parity with `install_config_any_zfs`
+- [x] `runner_resolve_post_install <pi_json> <any_zfs> [uprog...]`
+- [x] bats: ext4 variant with backup on does not select zfs-auto-snapshot
+- [x] bats: gate any-ZFS parity with `install_config_any_zfs`
 
 ## Comments
+
+2026-10-13: `runner_resolve_post_install` requires `<any_zfs>` (errors on a
+missing/non-bool value); the runner passes `install_config_any_zfs`, the gate
+`feature_audit_any_zfs` (jq). tests/feature-audit/probe-lib.bats: ext4 +
+backup selects borg, not zfs-auto-snapshot; 6-fixture parity vs
+`install_config_any_zfs`. tests/profiles/profiles-post-install.bats updated +
+missing-arg case. Red → green; full suite 3610/3610; readability, shellcheck
+(touched files), no-python clean. sops gap remains for candidate #4.

@@ -19,34 +19,42 @@ setup() {
 }
 
 @test "a tool in both post_install and the user's programs installs once" {
-  run runner_resolve_post_install "$(post_install_default)" firewalld docker
+  run runner_resolve_post_install "$(post_install_default)" true \
+    firewalld docker
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' firewalld docker clamav rkhunter apparmor \
     zfs-auto-snapshot borg)" ]
 }
 
 @test "no user programs → the resolved extras in canonical order" {
-  run runner_resolve_post_install '{"security":{"firewall":"ufw","rootkit":true}}'
+  run runner_resolve_post_install \
+    '{"security":{"firewall":"ufw","rootkit":true}}' true
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' ufw rkhunter)" ]
 }
 
 @test "empty post_install passes the user's programs through unchanged" {
-  run runner_resolve_post_install '{}' docker searxng
+  run runner_resolve_post_install '{}' true docker searxng
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' docker searxng)" ]
 }
 
 @test "empty selection and no users → empty list" {
-  run runner_resolve_post_install '{}'
+  run runner_resolve_post_install '{}' true
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "a ZFS-less install never routes zfs-auto-snapshot to the paru pass" {
-  install_config_any_zfs() { printf 'false\n'; }
   run runner_resolve_post_install '{"backup":{"zfs_auto_snapshot":true,
-    "borg":true}}'
+    "borg":true}}' false
   [ "$status" -eq 0 ]
   [ "$output" = "borg" ]
+}
+
+@test "any-ZFS is required: a missing or non-bool value fails loudly" {
+  run runner_resolve_post_install '{"backup":{"zfs_auto_snapshot":true}}'
+  [ "$status" -ne 0 ]
+  run runner_resolve_post_install '{}' docker
+  [ "$status" -ne 0 ]
 }
