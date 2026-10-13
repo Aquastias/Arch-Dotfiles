@@ -13,7 +13,8 @@ export TERM=xterm-256color
 # (snacks probes kioclient for trash) would abort: give them offscreen
 [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] || export QT_QPA_PLATFORM=offscreen
 # probe.lua SKIPs the Host Core toolchain where it is not inherited
-feature_audit_host_core && export FA_HOST_CORE=1 || export FA_HOST_CORE=0
+if feature_audit_host_core; then export FA_HOST_CORE=1
+else export FA_HOST_CORE=0; fi
 fx="$FA_DIR/audit-fixtures"
 o="$(mktemp)" live="$(mktemp)"
 # Run the lua after VimEnter, as a user's keypress would be: -c runs before

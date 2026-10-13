@@ -132,9 +132,11 @@ feature_audit_wait_until() {
 }
 
 # Settled: no systemd job queued and the boot has left `starting`.
+# shellcheck disable=SC2016 # a guest shell command, expanded in the guest
 _FA_SETTLED='[ -z "$(systemctl list-jobs --no-legend)" ] &&
   ! systemctl is-system-running 2>/dev/null | grep -qxE "starting|initializing"'
 # …and no unit still activating (the timer soak's delayed work).
+# shellcheck disable=SC2016 # a guest shell command, expanded in the guest
 _FA_NONE_ACTIVATING='[ -z "$(systemctl list-units --state=activating \
   --no-legend)" ]'
 
@@ -143,6 +145,7 @@ _FA_NONE_ACTIVATING='[ -z "$(systemctl list-units --state=activating \
 _live_settled() {
   printf '%s' "$_FA_SETTLED"
   if [[ -n "${FA_USER:-}" ]]; then
+    # shellcheck disable=SC2016 # a guest shell command, expanded in the guest
     printf ' && [ -z "$(systemctl --user -M %s@ list-jobs --no-legend %s)" ]' \
       "$FA_USER" '2>/dev/null'
   fi
@@ -232,6 +235,7 @@ feature_audit_reboot() {
 # _FA_FOLD_HUNG_TASKS — awk: join a kernel hung-task report (header … </TASK>)
 # into one journal line, so Known Noise can judge it whole by its stack (a
 # virgl stall vs a real hang); every other line passes through.
+# shellcheck disable=SC2016 # an awk program, not shell
 _FA_FOLD_HUNG_TASKS='
   / kernel: INFO: task .* blocked for more than / {
     if (on) print b

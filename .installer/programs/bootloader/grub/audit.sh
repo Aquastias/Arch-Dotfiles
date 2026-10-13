@@ -5,6 +5,7 @@ feature_audit_require_package grub grub || return 0
 feature_audit_as_root || return 0
 feature_audit_check grub-cfg "grub.cfg rendered on the ESP" test \
   -s /boot/efi/grub/grub.cfg
+# shellcheck disable=SC2016 # expanded by the sh -c, not here
 feature_audit_check grub-entries "an entry per staged kernel" \
   sh -c 'for k in /boot/efi/vmlinuz-*; do
     grep -q "linux /${k##*/} " /boot/efi/grub/grub.cfg || exit 1; done'

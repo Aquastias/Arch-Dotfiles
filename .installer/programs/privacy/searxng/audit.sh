@@ -16,8 +16,7 @@ if [[ "${FA_ONLINE:-1}" == 0 ]] \
 fi
 # timer-started 30s after the user manager, then a first pull: give it time
 _probe_searxng_up() {
-  local i
-  for i in $(seq 60); do
+  for _ in $(seq 60); do
     systemctl --user is-active --quiet searxng.service && return 0
     sleep 5
   done

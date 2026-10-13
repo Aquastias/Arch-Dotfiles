@@ -14,9 +14,9 @@ feature_audit_check zfs-snap-tag "zfs-snapshot-tag.service enabled" \
 # not the start's exit: the unit returns before the snapshot lands (poll),
 # and a run in a minute that already has one collides on its name.
 _probe_zfs_snap() {
-  local since i; since=$(($(date +%s) - 60))
+  local since; since=$(($(date +%s) - 60))
   systemctl start zfs-auto-snapshot-frequent.service || true
-  for i in 1 2 3 4 5 6 7 8 9 10; do
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
     zfs list -Hp -t snapshot -o name,creation | awk -v t0="$since" '
       $1 ~ /@(znap|zfs-auto-snap)_.*frequent/ && $2 >= t0 { f = 1 }
       END { exit !f }' && return 0

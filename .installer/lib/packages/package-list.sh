@@ -66,7 +66,7 @@ package_list_collect() {
   _package_list_add_zfs_userland
   _package_list_add_filesystem_userland
 
-  # GPU and audio packages resolved during validation_check_install_context
+  # GPU and audio packages resolved by environment_resolve above (ADR 0017)
   packages+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
   packages+=("${AUDIO_PACKAGES[@]+"${AUDIO_PACKAGES[@]}"}")
 
