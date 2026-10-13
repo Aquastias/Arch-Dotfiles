@@ -34,3 +34,7 @@ backup selects borg, not zfs-auto-snapshot; 6-fixture parity vs
 `install_config_any_zfs`. tests/profiles/profiles-post-install.bats updated +
 missing-arg case. Red → green; full suite 3610/3610; readability, shellcheck
 (touched files), no-python clean. sops gap remains for candidate #4.
+
+2026-10-13: Follow-up: `feature_audit_any_zfs` missed storage groups
+(`install_config_any_zfs` counts them); ext4 root + zfs storage group read
+false. Parity fixtures now cover storage groups (red → green).

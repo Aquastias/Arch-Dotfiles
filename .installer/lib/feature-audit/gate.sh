@@ -48,7 +48,8 @@ feature_audit_any_zfs() {
   jq -r 'if (.disk_config.kind // "auto") == "manual" then false else
     (.filesystem // "zfs") as $root
     | $root == "zfs"
-      or any((.data_pools // [])[]; (.filesystem // $root) == "zfs") end' \
+      or any((.data_pools // [])[], (.storage_groups // [])[];
+             (.filesystem // $root) == "zfs") end' \
     <<<"$1"
 }
 

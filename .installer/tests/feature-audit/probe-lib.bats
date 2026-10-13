@@ -97,6 +97,9 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
     {"filesystem":"btrfs","data_pools":[{"name":"t","filesystem":"zfs"}]},
     {"filesystem":"xfs","data_pools":[{"name":"t"}]},
     {"filesystem":"ext4","data_pools":[{"name":"t","filesystem":"xfs"}]},
+    {"filesystem":"ext4","storage_groups":[{"name":"b","filesystem":"zfs"}]},
+    {"filesystem":"ext4","storage_groups":[{"name":"b","filesystem":"xfs"}]},
+    {"filesystem":"xfs","storage_groups":[{"name":"b"}]},
     {"disk_config":{"kind":"manual","partitions":[]}}
   ]')
 }
