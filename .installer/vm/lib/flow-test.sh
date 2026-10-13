@@ -362,7 +362,7 @@ flow_run() {
   _core_ensure_libvirtd
   _core_ensure_libvirt_reachable
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
-  repo_source_resolve
+  vm_repo_source_resolve
 
   # Secure profiles fetch the Test Age Key over HTTP during install; stand the
   # server up before the VM boots (no-op when no fixtures are declared).

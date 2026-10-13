@@ -55,7 +55,7 @@ feature_audit_fatal() {
 # feature_audit_stage_repo — serve the committed HEAD to the guest, so the
 # audit tests local commits without a push (vm/lib/repo-source.sh).
 feature_audit_stage_repo() {
-  repo_source_stage_local "$CACHE_DIR" feature-audit-repo.git
+  vm_repo_source_stage_local "$CACHE_DIR" feature-audit-repo.git
 }
 
 # feature_audit_wait_ssh <timeout> — until the guest's sshd answers for the

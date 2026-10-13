@@ -21,7 +21,7 @@ setup() {
 }
 
 @test "stage_local: bare clone of HEAD, dumb-HTTP ready, URL on HTTP root" {
-  run repo_source_stage_local "$CACHE_DIR" local-repo.git
+  run vm_repo_source_stage_local "$CACHE_DIR" local-repo.git
   [ "$status" -eq 0 ]
   [ "$output" = "http://192.168.122.1:9876/local-repo.git" ]
   [ -f "$CACHE_DIR/local-repo.git/info/refs" ]
@@ -31,14 +31,14 @@ setup() {
 
 @test "stage_local: warns that uncommitted changes are not installed" {
   echo two > "$repo/.installer/file"
-  run repo_source_stage_local "$CACHE_DIR" local-repo.git
+  run vm_repo_source_stage_local "$CACHE_DIR" local-repo.git
   [ "$status" -eq 0 ]
   [[ "$output" == *"Uncommitted changes are NOT installed"* ]]
 }
 
 @test "resolve: REPO_URL=local installs and announces local HEAD" {
   REPO_URL=local
-  repo_source_resolve > "$BATS_TEST_TMPDIR/out"
+  vm_repo_source_resolve > "$BATS_TEST_TMPDIR/out"
   [ "$REPO_URL" = "http://192.168.122.1:9876/local-repo.git" ]
   short="$(git -C "$repo" rev-parse --short HEAD)"
   grep -q "Repo source: local HEAD $short" "$BATS_TEST_TMPDIR/out"
@@ -47,14 +47,14 @@ setup() {
 @test "resolve: a pushed repo is announced as such, with its commit" {
   git clone -q --bare "$repo" "$BATS_TEST_TMPDIR/pushed.git"
   REPO_URL="file://$BATS_TEST_TMPDIR/pushed.git"
-  run repo_source_resolve
+  run vm_repo_source_resolve
   [ "$status" -eq 0 ]
   short="$(git -C "$repo" rev-parse --short=7 HEAD)"
   [[ "$output" == *"at $short — the PUSHED repo"*"use --local"* ]]
 }
 
 @test "commit: an unreachable repo reports unknown" {
-  run repo_source_commit "file://$BATS_TEST_TMPDIR/missing.git"
+  run vm_repo_source_commit "file://$BATS_TEST_TMPDIR/missing.git"
   [ "$output" = unknown ]
 }
 

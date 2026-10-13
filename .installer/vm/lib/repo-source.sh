@@ -10,9 +10,9 @@
 # is never mistaken for a local one.
 #
 # Public API:
-#   repo_source_stage_local <directory> <name>  → URL of the staged bare repo
-#   repo_source_resolve        REPO_URL=local → staged URL; then announce
-#   repo_source_commit <url>   → short commit the URL's HEAD points at
+#   vm_repo_source_stage_local <directory> <name>  → URL of the staged bare repo
+#   vm_repo_source_resolve           REPO_URL=local → staged URL; then announce
+#   vm_repo_source_commit <url>      → short commit the URL's HEAD points at
 #
 # Used by: vm/lib/core.sh, lib/feature-audit/live.sh, lib/matrix/run.sh.
 # =============================================================================
@@ -24,10 +24,10 @@
 : "${LIBVIRT_GATEWAY:=192.168.122.1}"
 : "${HTTP_PORT:=9876}"
 
-# repo_source_stage_local <directory> <name> — bare-clone the committed HEAD
+# vm_repo_source_stage_local <directory> <name> — bare-clone the committed HEAD
 # to <directory>/<name> (dumb-HTTP ready); print its URL on the harness HTTP
 # root. Uncommitted changes are NOT installed (the guest clones HEAD).
-repo_source_stage_local() {
+vm_repo_source_stage_local() {
   local directory="$1" name="$2" top destination
   top="$(git -C "$INSTALLER_DIR" rev-parse --show-toplevel)"
   destination="$directory/$name"
@@ -41,10 +41,10 @@ repo_source_stage_local() {
   printf 'http://%s:%s/%s\n' "$LIBVIRT_GATEWAY" "$HTTP_PORT" "$name"
 }
 
-# repo_source_commit <url> — a repo on the harness HTTP root is read from its
+# vm_repo_source_commit <url> — a repo on the harness HTTP root is read from its
 # staged bare clone under CACHE_DIR (the server may not be up yet); any other
 # URL is asked over the network. Prints "unknown" when neither answers.
-repo_source_commit() {
+vm_repo_source_commit() {
   local url="$1" root commit=""
   root="http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/"
   if [[ "$url" == "$root"* ]]; then
@@ -57,13 +57,13 @@ repo_source_commit() {
   printf '%s\n' "${commit:-unknown}"
 }
 
-# repo_source_resolve — turn REPO_URL=local into the staged local HEAD, then
+# vm_repo_source_resolve — turn REPO_URL=local into the staged local HEAD, then
 # announce what the guest will install.
-repo_source_resolve() {
+vm_repo_source_resolve() {
   if [[ "$REPO_URL" == local ]]; then
-    REPO_URL="$(repo_source_stage_local "$CACHE_DIR" local-repo.git)"
+    REPO_URL="$(vm_repo_source_stage_local "$CACHE_DIR" local-repo.git)"
   fi
-  local commit; commit="$(repo_source_commit "$REPO_URL")"
+  local commit; commit="$(vm_repo_source_commit "$REPO_URL")"
   if [[ "$REPO_URL" == "http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/"* ]]; then
     info "Repo source: local HEAD ${commit} (${REPO_URL})."
   else

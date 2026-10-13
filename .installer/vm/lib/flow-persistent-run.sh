@@ -26,7 +26,7 @@ _flow_persistent_prepare() {
 flow_run() {
   trap '_core_stop_console_capture; _flow_persistent_stop_http_server' EXIT
   _flow_persistent_prepare
-  repo_source_resolve
+  vm_repo_source_resolve
   # Primary user (users[0]) owns the authorized harness key + the ssh command.
   PRIMARY_USER="$(jq -r '.users[0] // "aquastias"' \
     <<<"${INSTALL_CONFIG_CONTENT}")"

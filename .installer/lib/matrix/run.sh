@@ -57,9 +57,9 @@ matrix_run_serve_local() {
   : "${CACHE_DIR:=$INSTALLER_DIR/tests/vm/.vm-test}"
   export CACHE_DIR
   # shellcheck source=../../vm/lib/repo-source.sh
-  declare -F repo_source_stage_local >/dev/null 2>&1 \
+  declare -F vm_repo_source_stage_local >/dev/null 2>&1 \
     || source "$INSTALLER_DIR/vm/lib/repo-source.sh"
-  REPO_URL="$(repo_source_stage_local "$CACHE_DIR" local-repo.git)"
+  REPO_URL="$(vm_repo_source_stage_local "$CACHE_DIR" local-repo.git)"
   export REPO_URL
   "$INSTALLER_DIR/vm/lib/serve-http.sh" "$CACHE_DIR" "$LIBVIRT_GATEWAY" \
     "$HTTP_PORT" >/dev/null 2>&1 &
