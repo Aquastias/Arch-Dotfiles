@@ -18,10 +18,15 @@ predicate on shared fixtures until the Install Config Reader accepts JSON
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Resolver emits `luks` iff `install_config_any_nonzfs_luks` is true
-- [ ] bats: both mismatch cases above
-- [ ] bats: parity over shared fixtures
+- [x] Resolver emits `luks` iff `install_config_any_nonzfs_luks` is true
+- [x] bats: both mismatch cases above
+- [x] bats: parity over shared fixtures
 
 ## Comments
+
+2026-10-13: Resolver emits `luks` on the per-group rule (jq restatement in
+`_package_resolver_filesystem_sets`). tests/packages/resolver-derived-sets.bats:
+both mismatch cases + 9-fixture parity vs `install_config_any_nonzfs_luks`
+(red → green); packages + luks bats green; readability.sh clean.

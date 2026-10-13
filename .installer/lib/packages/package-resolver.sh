@@ -302,9 +302,16 @@ _package_resolver_filesystem_sets() {
   grep -qx zfs   <<<"$filesystems" \
     && _package_resolver_emit zfs derived $(filesystem_userland_packages zfs)
 
-  local encryption
-  encryption="$(_package_resolver_jq "$config" '.options.encryption // false')"
-  if [[ "$encryption" == "true" ]] && grep -qvx zfs <<<"$filesystems"; then
+  # Per-group rule of install_config_any_nonzfs_luks (ADR 0043), restated in
+  # jq because the resolver holds JSON, not CONFIG_FILE; a parity test pins it.
+  local any_luks
+  any_luks="$(_package_resolver_jq "$config" '
+    (.filesystem // "zfs") as $root
+    | ((.disk_config.kind // "auto") != "manual" and $root != "zfs"
+       and .options.encryption == true)
+      or any((.data_pools // [])[];
+             (.filesystem // $root) != "zfs" and .encryption == true)')"
+  if [[ "$any_luks" == "true" ]]; then
     # shellcheck disable=SC2046
     _package_resolver_emit luks derived $(filesystem_luks_userland_packages)
   fi
