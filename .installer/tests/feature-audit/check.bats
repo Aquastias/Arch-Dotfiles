@@ -66,6 +66,16 @@ variant_config() {
   [[ "$output" == *"variant bad"* ]]
 }
 
+@test "manual variant validates against the manual Root Layout Adapter" {
+  # no root partition: only the manual adapter (ADR 0073) rejects it
+  manifest '[{"id":"manual-noroot","patch":{"disk_config":{"kind":"manual",
+    "partitions":[{"device":"/dev/vda1","mountpoint":"/boot/efi",
+      "fs":"fat32","format":true}]}}}]'
+  run bash "$TOOL" check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"variant manual-noroot fails validation"* ]]
+}
+
 @test "unknown real host is a Finding" {
   manifest '[{"id":"ghost","host":"no-such-host",
     "hardware":{"disks":[40],"ram_mb":6144,"vcpus":4}}]'

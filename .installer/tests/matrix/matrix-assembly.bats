@@ -52,8 +52,9 @@ _matrix_validate_cell() {
   lifecycle_load_config >/dev/null 2>&1
   lifecycle_detect_mode  >/dev/null 2>&1
   local adapter
-  adapter="$(root_adapter_source "$INSTALLER_DIR" \
-    "$(install_config_filesystem)" "$INSTALL_MODE")"
+  adapter="$(root_adapter_for_kind "$INSTALLER_DIR" \
+    "$(install_config_disk_kind)" "$(install_config_filesystem)" \
+    "$INSTALL_MODE")"
   source "$adapter"
 
   # Tier-1 seam: disk existence is a VM concern, so assume present.

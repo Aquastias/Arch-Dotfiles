@@ -15,9 +15,14 @@ one validate entry point is architecture review candidate #3.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Both copies dispatch on `install_config_disk_kind`
-- [ ] bats: audit validation rejects a manual config with no root
+- [x] Both copies dispatch on `install_config_disk_kind`
+- [x] bats: audit validation rejects a manual config with no root
 
 ## Comments
+
+2026-10-13: Both copies now use `root_adapter_for_kind`.
+tests/feature-audit/check.bats: manual variant with no root fails validation
+("Manual layout is not installable") — red before (zfs adapter passed it),
+green after; check.bats + matrix-assembly.bats green; readability.sh clean.
