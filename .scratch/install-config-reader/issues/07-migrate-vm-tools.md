@@ -1,8 +1,9 @@
 # 07: Move vm, tools and install.sh onto the reader
 
-**What to build:** the VM Harness, tools and the bootstrap install entry (~12 reads) read the Effective Config only through the Install
-Config Reader — bound to JSON where the module holds JSON — with no raw
-`// <default>` jq reads of config paths. Behaviour unchanged. Fields missing
+**What to build:** the VM Harness, tools and the bootstrap install entry
+(~12 reads) read the Effective Config only through the Install Config
+Reader — bound to JSON where the module holds JSON — with no raw `//
+<default>` jq reads of config paths. Behaviour unchanged. Fields missing
 from the schema get a row here. The raw-read lint baseline shrinks by every
 migrated read. Decisions: candidate #1, Q17 (expand–contract batch).
 
