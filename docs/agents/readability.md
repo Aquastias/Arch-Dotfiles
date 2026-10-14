@@ -216,7 +216,9 @@ lib/chroot/ (Chroot Configuration Modules; per-file stems)
 - `zfs-import.sh`: `zfs_import_`, `zfs_write_` → `zfs_import_`
 
 lib/config/ (per-file stems)
-- `accessors.sh` → rename `install-config.sh`; `install_config_` kept
+- `accessors.sh` → rename `install-config.sh`; `install_config_` kept; its
+  per-group accessors split out to `install-config-groups.sh`, kept on
+  `install_config_` by a `file` rule
 - `categorized-list.sh`: `categorized_` → `categorized_list_`
 - `config-apply.sh`: `ca_` → `config_apply_` (`ca_stow_opt_in_list` →
   `config_apply_stow_opted_in_programs`)

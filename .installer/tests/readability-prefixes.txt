@@ -71,6 +71,7 @@ file .installer/lib/guided/shell*.sh guided_ _guided_shell_
 file .installer/programs/**/audit.sh _probe_ _probe_
 file .installer/extras/**/audit*.sh _probe_ _probe_
 file .installer/lib/packages/package-resolver-desktop.sh package_resolver_ _package_resolver_
+file .installer/lib/config/install-config-groups.sh install_config_ _install_config_
 file .installer/lib/config/validation-programs.sh validation_ _validation_
 file .installer/lib/guided/controller*.sh guided_ _controller_
 file .installer/lib/feature-audit/live*.sh feature_audit_ _live_
