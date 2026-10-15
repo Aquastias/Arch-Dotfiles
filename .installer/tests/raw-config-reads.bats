@@ -8,13 +8,19 @@
 
 CHECK="$BATS_TEST_DIRNAME/raw-config-reads.sh"
 
-# make_repo: cd into a fresh git repo with an empty baseline.
+# make_repo: cd into a fresh git repo with an empty baseline and a two-row
+# schema (one row split across lines, as the real one does at 80 columns).
 make_repo() {
   REPO="$(mktemp -d)"
   cd "$REPO"
   git init -q
   mkdir -p .installer/tests .installer/lib/config
   : > .installer/tests/raw-config-reads-baseline.txt
+  printf '%s\n' '_INSTALL_CONFIG_SCHEMA=(' \
+    '  "bootloader|.options.bootloader|scalar|systemd-boot"' \
+    '  "filesystem|.filesystem|scalar|zfs"' \
+    '  "users_first|"\' '".users|array|"' ')' \
+    > .installer/lib/config/install-config.sh
 }
 check_repo() {
   git add -A
@@ -85,7 +91,24 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 @test "coalescing without a literal default is not a raw read" {
   make_repo
   printf 'jq %s\n' "'.users // [] | .[]'" "'.options.fonts // empty'" \
-    "'(.packages // {}) | keys'" > .installer/lib/a.sh
+    "'(.packages // {}) | keys'" "'.options.bootloader // \"\"'" \
+    > .installer/lib/a.sh
   check_repo
   [ "$status" -eq 0 ]
+}
+
+@test "a field the schema does not own is not a raw read" {
+  make_repo
+  printf 'jq %s\n' "'.mode // \"single\"'" \
+    "'.data_pools[0].filesystem // \"zfs\"'" "'.os_pool.topology // \"?\"'" \
+    > .installer/lib/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "a schema field read off a jq variable is a raw read" {
+  make_repo
+  printf 'jq %s\n' "'(\$m.filesystem // \"zfs\") as \$fs'" > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
 }

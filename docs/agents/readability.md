@@ -129,8 +129,10 @@ subshell so the bind cannot leak:
 schema lacks gets a row there.
 
 `.installer/tests/raw-config-reads.sh` (run by `raw-config-reads.bats`)
-fails a new raw read with a literal default (string, number, bool;
-`// empty` / `null` / `[]` / `{}` only coalesce). Today's reads are counted
+fails a new raw read of a schema-owned field with a literal default
+(non-empty string, number, bool; `// ""` / `empty` / `null` / `[]` / `{}`
+only coalesce). A field without a schema row has no Install Default, so it
+is never flagged — adding its row flags its old raw reads. Today's reads are counted
 per file in `raw-config-reads-baseline.txt`; the count may only shrink —
 after migrating reads run `raw-config-reads.sh --update`. `--list` prints
 every read. `raw-config-ok: <reason>` exempts a line whose JSON only shares

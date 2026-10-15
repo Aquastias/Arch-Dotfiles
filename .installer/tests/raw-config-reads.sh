@@ -2,9 +2,10 @@
 # raw-config-reads.sh — the Raw Config Read Lint (install-config-reader/03).
 # An Effective Config field is read through the Install Config Reader — bound
 # to JSON (install_config_use_json) where the module holds JSON — never as a
-# raw `.<config path> // <default>` jq read that re-declares its Install
-# Default. Scans TRACKED installer code (top-level scripts, lib/, vm/, tools/),
-# minus the reader itself.
+# raw `.<schema path> // <literal>` jq read that restates its Install Default
+# (only fields the schema owns — the rows of _INSTALL_CONFIG_SCHEMA). Scans
+# TRACKED installer code (top-level scripts, lib/, vm/, tools/), minus the
+# reader itself.
 #
 # Ratchet: today's raw reads are counted per file in
 # raw-config-reads-baseline.txt (`file<TAB>count`). More reads than the
@@ -21,14 +22,40 @@ set -euo pipefail
 
 BASELINE=".installer/tests/raw-config-reads-baseline.txt"
 
-# The Effective Config's top-level keys a raw read starts from, then any
-# `.key` / `[i]` steps, then `//` and a literal default (string, number,
-# bool). `// empty`, `// null`, `// []`, `// {}` only coalesce — not defaults.
-RAW_READ='\.(options|system|environment|post_install|disk_config|filesystem'
-RAW_READ+='|data_pools|storage_groups|os_pool|os_pool_name|storage_pool_name'
-RAW_READ+='|storage_mount|ashift|mode|users|host_programs|packages|persist'
-RAW_READ+='|sysctl|dotfiles_repo|disk|disks)([.][A-Za-z_]+|\[[^]]*\])* *// *'
-RAW_READ+='("|[0-9]|true|false)'
+SCHEMA=".installer/lib/config/install-config.sh"
+
+# The schema's jq paths, one per line: each `"name|path|type|default"` row of
+# _INSTALL_CONFIG_SCHEMA (a row split as `"a|"\` + `"b"` is joined first).
+schema_paths() {
+  [[ -f "$SCHEMA" ]] || return 0
+  awk '
+    /^_INSTALL_CONFIG_SCHEMA=\(/ { inside = 1; next }
+    inside && /^\)/ { exit }
+    inside && /^[[:space:]]*#/ { next }
+    inside && /"\\$/ { held = held $0; next }
+    inside {
+      row = held $0; held = ""
+      gsub(/"\\[[:space:]]*"/, "", row)
+      if (match(row, /"[^"]*"/)) {
+        split(substr(row, RSTART + 1, RLENGTH - 2), field, "|")
+        if (field[2] != "") print field[2]
+      }
+    }' "$SCHEMA"
+}
+
+# A raw read: a schema-owned path (from a jq input or a `$variable`, not a
+# deeper path that merely ends the same), optional `[i]` steps, then `//` and
+# a literal default (non-empty string, number, bool). `// ""`, `// empty`,
+# `// null`, `// []`, `// {}` only coalesce — not defaults. A field the
+# schema does not own has no Install Default to restate: never a raw read.
+raw_read_pattern() {
+  local paths
+  paths="$(schema_paths | awk '{ gsub(/[.[\]]/, "\\\\&"); print }' \
+    | awk 'NR > 1 { printf "|" } { printf "%s", $0 }')"
+  [[ -n "$paths" ]] || return 0
+  printf '%s' '(^|[^A-Za-z0-9_\]]|[$][A-Za-z_]+)('"$paths"')(\[[^]]*\])*'
+  printf '%s' ' *// *("[^"]|[0-9]|true|false)'
+}
 
 scanned_files() {
   git ls-files '.installer/*.sh' \
@@ -39,10 +66,12 @@ scanned_files() {
 
 # Raw reads as `file<TAB>line<TAB>text`.
 raw_reads() {
-  local files
+  local files pattern
+  pattern="$(raw_read_pattern)"
+  [[ -n "$pattern" ]] || return 0
   mapfile -t files < <(scanned_files)
   ((${#files[@]})) || return 0
-  PATTERN="$RAW_READ" awk '
+  PATTERN="$pattern" awk '
     $0 ~ ENVIRON["PATTERN"] && $0 !~ /raw-config-ok/ {
       text = $0; sub(/^[[:space:]]+/, "", text)
       print FILENAME "\t" FNR "\t" text

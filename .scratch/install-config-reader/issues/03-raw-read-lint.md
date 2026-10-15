@@ -23,3 +23,9 @@ number, bool) — `// empty|null|[]|{}` are coalescing in state edits and
 layer merges, not Install Defaults (first draft flagged 251, mostly those).
 Baseline: 83 reads in 28 files. Doc: docs/agents/readability.md "Config
 reads".
+
+2026-10-15 (refined before migrating): flag only fields the schema owns
+(paths read from _INSTALL_CONFIG_SCHEMA) and only non-empty literal
+defaults. `.mode`, `os_pool.*`, disk counts, display placeholders and
+non-config JSON have no Install Default to restate. Baseline: 46 reads in
+16 files. +2 tests (10).
