@@ -118,6 +118,24 @@ removed.)
 function's opening line it exempts the whole function. Use it for genuine
 exceptions (a `head` that cuts a stream on purpose), never to dodge a rename.
 
+## Config reads
+
+Read an Effective Config field through the Install Config Reader
+(`install_config_<name>`), never as a raw jq `.<path> // <default>`: the
+schema in `lib/config/install-config.sh` is the one owner of every Install
+Default. A module holding the config as JSON binds it first, inside a
+subshell so the bind cannot leak:
+`"$(install_config_use_json "$config"; install_config_any_zfs)"`. A field the
+schema lacks gets a row there.
+
+`.installer/tests/raw-config-reads.sh` (run by `raw-config-reads.bats`)
+fails a new raw read with a literal default (string, number, bool;
+`// empty` / `null` / `[]` / `{}` only coalesce). Today's reads are counted
+per file in `raw-config-reads-baseline.txt`; the count may only shrink —
+after migrating reads run `raw-config-reads.sh --update`. `--list` prints
+every read. `raw-config-ok: <reason>` exempts a line whose JSON only shares
+the keys (e.g. a Host Profile before assembly).
+
 ## Prefix Map
 
 **Status: applied.** The lint's `prefix` rule reads
