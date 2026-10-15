@@ -79,30 +79,15 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   [[ "$output" != *zfs-auto-snapshot* ]]
 }
 
-# Parity until the Install Config Reader accepts JSON (architecture review
-# candidate #1): the gate's jq copy of any-ZFS agrees with the install
-# predicate on every shared fixture.
-@test "feature_audit_any_zfs: agrees with install_config_any_zfs" {
-  local config
-  source "$INSTALLER_DIR/lib/common.sh"
-  source "$INSTALLER_DIR/lib/config/install-config.sh"
-  export CONFIG_FILE="$BATS_TEST_TMPDIR/install.jsonc"
-  while IFS= read -r config; do
-    printf '%s\n' "$config" > "$CONFIG_FILE"
-    [ "$(feature_audit_any_zfs "$config")" = "$(install_config_any_zfs)" ] \
-      || { echo "drift: $config"; return 1; }
-  done < <(jq -c '.[]' <<<'[
-    {},
-    {"filesystem":"ext4"},
-    {"filesystem":"btrfs","data_pools":[{"name":"t","filesystem":"zfs"}]},
-    {"filesystem":"xfs","data_pools":[{"name":"t"}]},
-    {"filesystem":"ext4","data_pools":[{"name":"t","filesystem":"xfs"}]},
-    {"filesystem":"ext4","storage_groups":[{"name":"b","filesystem":"zfs"}]},
-    {"filesystem":"ext4","storage_groups":[{"name":"b","filesystem":"xfs"}]},
-    {"filesystem":"xfs","storage_groups":[{"name":"b"}]},
-    {"disk_config":{"kind":"manual","partitions":[]}}
-  ]')
+@test "feature_audit_selected_programs: a zfs storage group keeps snapshots" {
+  local config='{"host_programs":[],"users":[],"filesystem":"ext4",
+      "storage_groups":[{"name":"bulk","filesystem":"zfs"}],
+      "post_install":{"backup":{"zfs_auto_snapshot":true}}}'
+  run feature_audit_selected_programs "$config"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *zfs-auto-snapshot* ]]
 }
+
 
 # ── bind gate (host) ────────────────────────────────────────────────────────
 

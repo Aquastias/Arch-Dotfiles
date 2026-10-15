@@ -13,7 +13,7 @@
 #
 # Per-group accessors live in install-config-groups.sh (sourced at the end).
 #
-# Requires lib/common.sh (config_optional) already sourced.
+# Requires lib/common.sh (jsonc_read, error) already sourced.
 #
 # Used by: 01-bootstrap-zfs.sh, 03-install.sh, lib/feature-audit/manifest.sh,
 # and every install-time lib reading the Install Config.
@@ -93,6 +93,24 @@ _INSTALL_CONFIG_SCHEMA=(
   "pacman_parallel_downloads|.options.pacman.parallel_downloads|scalar|5"
 )
 
+# The Effective Config every accessor reads: CONFIG_FILE, or the JSON bound by
+# install_config_use_json — for modules that hold the config as JSON (Package
+# Resolver, Feature Audit gate). Binding is process state: bind in a subshell.
+_INSTALL_CONFIG_JSON=""
+
+# install_config_use_json <json> — read <json> from now on; "" = CONFIG_FILE.
+install_config_use_json() { _INSTALL_CONFIG_JSON="$1"; }
+
+# _install_config_read <jq-filter> — the filter over the Effective Config, raw.
+_install_config_read() {
+  if [[ -n "$_INSTALL_CONFIG_JSON" ]]; then
+    jq -r "$1" <<<"$_INSTALL_CONFIG_JSON"
+  else jsonc_read "$CONFIG_FILE" "$1"; fi
+}
+
+# _install_config_optional <path> — the field, or empty when missing / null.
+_install_config_optional() { _install_config_read "$1 // empty"; }
+
 # install_config_get <name> — schema dispatcher for the generated wrappers.
 # Reads the named field according to its schema row and applies the default.
 install_config_get() {
@@ -103,9 +121,9 @@ install_config_get() {
     [[ "$field_name" == "$name" ]] || continue
     value=""
     case "$field_type" in
-    scalar) value="$(config_optional "$jq_path")" ;;
+    scalar) value="$(_install_config_optional "$jq_path")" ;;
     bool)
-      value="$(jsonc_read "$CONFIG_FILE" "$jq_path")"
+      value="$(_install_config_read "$jq_path")"
       [[ "$value" == "null" ]] && value=""
       ;;
     array) value="$(_install_config_array "$jq_path")" ;;
@@ -152,7 +170,7 @@ install_config_apparmor_enabled() {
   declare -F post_install_programs >/dev/null 2>&1 \
     || source "${BASH_SOURCE[0]%/*}/post-install.sh"
   if post_install_programs \
-       "$(jsonc_strip "$CONFIG_FILE" | jq -c '.post_install // {}')" \
+       "$(_install_config_read '.post_install // {} | tojson')" \
      | grep -qx apparmor; then
     printf 'true\n'
   else printf 'false\n'; fi
@@ -164,7 +182,7 @@ install_config_apparmor_enabled() {
 # sourced by 03-install before the single persist call site; tests that stub
 # install_config_timezone override this (last definition wins).
 install_config_timezone() {
-  timezone_resolve "$(config_optional .)"
+  timezone_resolve "$(_install_config_optional .)"
 }
 
 # =============================================================================
@@ -174,7 +192,7 @@ install_config_timezone() {
 # Array reader: accepts string ("kde"), array (["kde"]), or
 # null/absent. Emits one line per element; zero lines when absent/null.
 _install_config_array() {
-  jsonc_read "$CONFIG_FILE" "$1 | if type == \"array\" then .[]
+  _install_config_read "$1 | if type == \"array\" then .[]
     elif type == \"string\" then . else empty end"
 }
 
@@ -188,7 +206,7 @@ install_config_gpu() {
 # names the cipher seam: ZFS uses native AES, every other filesystem uses LUKS.
 # An explicit options.encryption_method wins.
 install_config_encryption_method() {
-  local value; value="$(config_optional '.options.encryption_method')"
+  local value; value="$(_install_config_optional '.options.encryption_method')"
   if [[ -n "$value" ]]; then
     printf '%s\n' "$value"
   elif [[ "$(install_config_filesystem)" == "zfs" ]]; then
@@ -239,7 +257,7 @@ install_config_mirror_countries() {
 # the historical `options.multilib=true` default; an explicit empty array (`[]`)
 # means "no optional repos" and is honoured (multilib off).
 install_config_optional_repos() {
-  local raw; raw="$(jsonc_read "$CONFIG_FILE" '.options.optional_repos')"
+  local raw; raw="$(_install_config_read '.options.optional_repos')"
   if [[ "$raw" == "null" ]]; then
     printf '%s\n' multilib
   else
@@ -266,7 +284,7 @@ install_config_mirror_servers() {
 # both default to the pacman-standard Required/TrustedOnly when omitted). Empty
 # when none are declared.
 install_config_custom_repositories() {
-  jsonc_read "$CONFIG_FILE" '.options.custom_repositories' 2>/dev/null \
+  _install_config_read '.options.custom_repositories' 2>/dev/null \
     | jq -r '(. // [])[]
        | [ .name, .url,
            (.sign_check // "Required"), (.sign_option // "TrustedOnly") ]

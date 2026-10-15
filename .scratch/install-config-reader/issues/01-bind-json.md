@@ -12,12 +12,20 @@ parity tests are deleted. Decisions: architecture review candidate #1, Q15
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Accessors + derived predicates read a bound JSON config
-- [ ] File-based callers behave identically (existing suite green)
-- [ ] Resolver LUKS set and gate any-ZFS go through the reader
-- [ ] Both jq restatements + parity tests deleted; behaviour tests kept
-- [ ] Binding cannot leak between callers (subshell-scoped; test proves it)
+- [x] Accessors + derived predicates read a bound JSON config
+- [x] File-based callers behave identically (existing suite green)
+- [x] Resolver LUKS set and gate any-ZFS go through the reader
+- [x] Both jq restatements + parity tests deleted; behaviour tests kept
+- [x] Binding cannot leak between callers (subshell-scoped; test proves it)
 
 ## Comments
+
+2026-10-15: Prefactor 3e19930 split the per-group accessors into
+install-config-groups.sh (install-config.sh was at the 500-line cap).
+`install_config_use_json <json>`; every reader read goes through
+`_install_config_read` (bound JSON, else CONFIG_FILE). Resolver LUKS set and
+gate any-ZFS bind inside `$(…)`; jq restatements + parity tests deleted,
+behaviour tests kept (+ gate: zfs storage group keeps snapshots).
+tests/config/install-config-bind.bats (6). Full suite 3615/3615.

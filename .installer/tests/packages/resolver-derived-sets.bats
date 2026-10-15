@@ -458,34 +458,3 @@ load resolver-helpers
     "data_pools":[{"name":"tank0","filesystem":"ext4"}]}'
   [ -z "$(packages_of "$config" luks)" ]
 }
-
-# Parity until the Install Config Reader accepts JSON (architecture review
-# candidate #1): the resolver's jq copy of the rule agrees with the install
-# predicate on every shared fixture.
-@test "luks: resolver agrees with install_config_any_nonzfs_luks" {
-  local config expected actual
-  export CONFIG_FILE="$BATS_TEST_TMPDIR/install.jsonc"
-  source "$INSTALLER_DIR/lib/config/install-config.sh"
-  while IFS= read -r config; do
-    printf '%s\n' "$config" > "$CONFIG_FILE"
-    expected="$(install_config_any_nonzfs_luks)"
-    actual=false
-    [[ -n "$(packages_of "$config" luks)" ]] && actual=true
-    [ "$actual" = "$expected" ] || { echo "drift: $config"; return 1; }
-  done < <(jq -c '.[]' <<<'[
-    {"users":[]},
-    {"users":[],"options":{"encryption":true}},
-    {"users":[],"filesystem":"ext4","options":{"encryption":true}},
-    {"users":[],"filesystem":"ext4"},
-    {"users":[],"filesystem":"xfs","options":{"encryption":true},
-     "data_pools":[{"name":"t","filesystem":"zfs","encryption":true}]},
-    {"users":[],"data_pools":[{"name":"t","filesystem":"ext4",
-     "encryption":true}]},
-    {"users":[],"options":{"encryption":true},
-     "data_pools":[{"name":"t","filesystem":"ext4"}]},
-    {"users":[],"filesystem":"ext4",
-     "data_pools":[{"name":"t","encryption":true}]},
-    {"users":[],"filesystem":"ext4","options":{"encryption":true},
-     "disk_config":{"kind":"manual","partitions":[]}}
-  ]')
-}

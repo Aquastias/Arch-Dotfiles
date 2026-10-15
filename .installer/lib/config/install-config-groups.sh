@@ -11,24 +11,25 @@
 # =============================================================================
 
 install_config_storage_group_ashift() {
-  local value; value="$(config_optional ".storage_groups[$1].ashift")"
+  local value; value="$(_install_config_optional ".storage_groups[$1].ashift")"
   printf '%s\n' "${value:-12}"
 }
 
 # Number of declared storage_groups[] entries (0 when absent).
 install_config_storage_groups_count() {
-  jsonc_read "$CONFIG_FILE" '(.storage_groups // []) | length'
+  _install_config_read '(.storage_groups // []) | length'
 }
 
 # Storage Group name at index — emitted raw.
 install_config_storage_group_name() {
-  config_optional ".storage_groups[$1].name"
+  _install_config_optional ".storage_groups[$1].name"
 }
 
 # Per-group filesystem (ADR 0043) — like the data_pool reader; absent inherits
 # the root `filesystem`.
 install_config_storage_group_filesystem() {
-  local value; value="$(config_optional ".storage_groups[$1].filesystem")"
+  local value
+  value="$(_install_config_optional ".storage_groups[$1].filesystem")"
   printf '%s\n' "${value:-$(install_config_filesystem)}"
 }
 
@@ -36,7 +37,7 @@ install_config_storage_group_filesystem() {
 # null check so a stored `false` round-trips (jq gotcha).
 install_config_storage_group_encryption() {
   local value
-  value="$(jsonc_read "$CONFIG_FILE" ".storage_groups[$1].encryption")"
+  value="$(_install_config_read ".storage_groups[$1].encryption")"
   [[ "$value" == "true" ]] && printf 'true\n' || printf 'false\n'
 }
 
@@ -44,11 +45,11 @@ install_config_storage_group_encryption() {
 # bare token is a user, an @-prefixed token a group. Empty when absent. Defined
 # for both pool kinds; the Owners Resolver decides chown vs ACL from the tokens.
 install_config_storage_group_owners() {
-  jsonc_read "$CONFIG_FILE" ".storage_groups[$1].owners[]?"
+  _install_config_read ".storage_groups[$1].owners[]?"
 }
 
 install_config_data_pool_owners() {
-  jsonc_read "$CONFIG_FILE" ".data_pools[$1].owners[]?"
+  _install_config_read ".data_pools[$1].owners[]?"
 }
 
 # =============================================================================
@@ -60,23 +61,23 @@ install_config_data_pool_owners() {
 
 # Number of declared data_pools[] entries (0 when absent).
 install_config_data_pools_count() {
-  jsonc_read "$CONFIG_FILE" '(.data_pools // []) | length'
+  _install_config_read '(.data_pools // []) | length'
 }
 
 # Pool name at index — the literal zpool name. Emitted raw.
 install_config_data_pool_name() {
-  config_optional ".data_pools[$1].name"
+  _install_config_optional ".data_pools[$1].name"
 }
 
 # Topology at index — defaults to 'stripe'.
 install_config_data_pool_topology() {
-  local value; value="$(config_optional ".data_pools[$1].topology")"
+  local value; value="$(_install_config_optional ".data_pools[$1].topology")"
   printf '%s\n' "${value:-stripe}"
 }
 
 # Mountpoint at index — defaults to /data/<name>.
 install_config_data_pool_mount() {
-  local value; value="$(config_optional ".data_pools[$1].mount")"
+  local value; value="$(_install_config_optional ".data_pools[$1].mount")"
   if [[ -z "$value" ]]; then
     value="/data/$(install_config_data_pool_name "$1")"
   fi
@@ -85,19 +86,19 @@ install_config_data_pool_mount() {
 
 # Ashift at index — defaults to 12.
 install_config_data_pool_ashift() {
-  local value; value="$(config_optional ".data_pools[$1].ashift")"
+  local value; value="$(_install_config_optional ".data_pools[$1].ashift")"
   printf '%s\n' "${value:-12}"
 }
 
 # Disks at index — one device path per line.
 install_config_data_pool_disks() {
-  jsonc_read "$CONFIG_FILE" ".data_pools[$1].disks[]?"
+  _install_config_read ".data_pools[$1].disks[]?"
 }
 
 # Per-group filesystem (ADR 0043) — a Standalone Data Pool may pick its own
 # filesystem; absent inherits the root `filesystem`. An explicit value wins.
 install_config_data_pool_filesystem() {
-  local value; value="$(config_optional ".data_pools[$1].filesystem")"
+  local value; value="$(_install_config_optional ".data_pools[$1].filesystem")"
   printf '%s\n' "${value:-$(install_config_filesystem)}"
 }
 
@@ -105,7 +106,7 @@ install_config_data_pool_filesystem() {
 # with an explicit null check so a stored `false` round-trips (a `// false`
 # default cannot distinguish absent from an explicit false — jq gotcha).
 install_config_data_pool_encryption() {
-  local value; value="$(jsonc_read "$CONFIG_FILE" ".data_pools[$1].encryption")"
+  local value; value="$(_install_config_read ".data_pools[$1].encryption")"
   [[ "$value" == "true" ]] && printf 'true\n' || printf 'false\n'
 }
 
@@ -144,29 +145,29 @@ install_config_any_zfs() {
 
 # Number of declared partitions[] entries (0 when absent).
 install_config_partitions_count() {
-  jsonc_read "$CONFIG_FILE" '(.disk_config.partitions // []) | length'
+  _install_config_read '(.disk_config.partitions // []) | length'
 }
 
 # Whole partitions[] array as compact JSON (the planner input; [] when absent).
 install_config_partitions_json() {
-  jsonc_read "$CONFIG_FILE" '(.disk_config.partitions // []) | tojson'
+  _install_config_read '(.disk_config.partitions // []) | tojson'
 }
 
 # Per-partition fields at index — emitted raw.
 install_config_partition_device() {
-  config_optional ".disk_config.partitions[$1].device"
+  _install_config_optional ".disk_config.partitions[$1].device"
 }
 install_config_partition_mountpoint() {
-  config_optional ".disk_config.partitions[$1].mountpoint"
+  _install_config_optional ".disk_config.partitions[$1].mountpoint"
 }
 install_config_partition_filesystem() {
-  config_optional ".disk_config.partitions[$1].fs"
+  _install_config_optional ".disk_config.partitions[$1].fs"
 }
 
 # Format flag — true unless explicitly false (a kept/reused partition).
 install_config_partition_format() {
   local value
-  value="$(jsonc_read "$CONFIG_FILE" ".disk_config.partitions[$1].format")"
+  value="$(_install_config_read ".disk_config.partitions[$1].format")"
   [[ "$value" == "false" ]] && { printf 'false\n'; return; }
   printf 'true\n'
 }

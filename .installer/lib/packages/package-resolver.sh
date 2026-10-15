@@ -38,6 +38,9 @@
 # Used by: tools/explain-packages.sh, lib/guided/controller.sh.
 # =============================================================================
 
+# shellcheck source=../config/install-config.sh
+declare -F install_config_use_json >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/install-config.sh"
 # shellcheck source=../config/categorized-list.sh
 declare -F categorized_list_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/categorized-list.sh"
@@ -302,16 +305,11 @@ _package_resolver_filesystem_sets() {
   grep -qx zfs   <<<"$filesystems" \
     && _package_resolver_emit zfs derived $(filesystem_userland_packages zfs)
 
-  # Per-group rule of install_config_any_nonzfs_luks (ADR 0043), restated in
-  # jq because the resolver holds JSON, not CONFIG_FILE; a parity test pins it.
+  # The install list's own per-group rule (ADR 0043) via the reader, bound
+  # inside the $(…) subshell so the bind cannot leak
   local any_luks
-  # shellcheck disable=SC2016 # a jq program, not shell
-  any_luks="$(_package_resolver_jq "$config" '
-    (.filesystem // "zfs") as $root
-    | ((.disk_config.kind // "auto") != "manual" and $root != "zfs"
-       and .options.encryption == true)
-      or any((.data_pools // [])[];
-             (.filesystem // $root) != "zfs" and .encryption == true)')"
+  any_luks="$(install_config_use_json "$config"
+    install_config_any_nonzfs_luks)"
   if [[ "$any_luks" == "true" ]]; then
     # shellcheck disable=SC2046
     _package_resolver_emit luks derived $(filesystem_luks_userland_packages)
