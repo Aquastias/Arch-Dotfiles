@@ -88,12 +88,12 @@ _controller_navigation_prompt() {
 # Proceed. Nothing when esp_size is auto, the loader is grub, or the pin fits.
 _controller_esp_budget_warn() {
   local effective="$1" size kernel_count filesystem bootloader
-  size="$(jq -r '.options.esp_size // "auto"' <<<"$effective")"
+  size="$(install_config_use_json "$effective"; install_config_esp_size)"
   [[ "$size" == auto ]] && return 0
-  kernel_count="$(jq -r '(.options.kernel // ["lts"])
-              | if type == "string" then 1 else length end' <<<"$effective")"
-  filesystem="$(jq -r '.filesystem // "zfs"' <<<"$effective")"
-  bootloader="$(jq -r '.options.bootloader // "systemd-boot"' <<<"$effective")"
+  kernel_count="$(install_config_use_json "$effective"
+    install_config_get kernels | awk 'END { print NR }')"
+  filesystem="$(install_config_use_json "$effective"; install_config_filesystem)"
+  bootloader="$(install_config_use_json "$effective"; install_config_bootloader)"
   esp_budget_fits_size "$size" "$kernel_count" "$filesystem" "$bootloader" \
     && return 0
   printf '⚠ ESP too small: %s %s kernel(s) need ≥ %s (esp size is %s)\n' \

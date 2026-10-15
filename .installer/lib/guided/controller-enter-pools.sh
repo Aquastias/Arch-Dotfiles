@@ -32,17 +32,20 @@ _controller_enter_swap_edit() {
       | .options.zswap.enabled = ($c | not)' <<<"$(_controller_state)")"
     echo refresh; return ;;
   "compressor:"*)
-    _controller_write_state "$(jq '
-      (.options.zswap.compressor // "zstd") as $c
+    _controller_write_state "$(jq --arg default "$(install_config_default \
+        zswap_compressor)" '
+      (.options.zswap.compressor // $default) as $c
       | .options.zswap.compressor =
-          ({"zstd":"lz4","lz4":"lzo","lzo":"zstd"}[$c] // "zstd")' \
+          ({"zstd":"lz4","lz4":"lzo","lzo":"zstd"}[$c] // $default)' \
       <<<"$(_controller_state)")"
     echo refresh; return ;;
   "max pool %:"*)
-    _controller_write_state "$(jq '
-      (.options.zswap.max_pool_percent // 20) as $p
+    _controller_write_state "$(jq --argjson default "$(install_config_default \
+        zswap_max_pool_percent)" '
+      (.options.zswap.max_pool_percent // $default) as $p
       | .options.zswap.max_pool_percent =
-          ({"5":10,"10":20,"20":40,"40":60,"60":5}[($p | tostring)] // 20)' \
+          ({"5":10,"10":20,"20":40,"40":60,"60":5}[($p | tostring)]
+           // $default)' \
       <<<"$(_controller_state)")"
     echo refresh; return ;;
   esac
@@ -104,7 +107,8 @@ _controller_enter_pool_edit() {
   index="$(navigation_get "$navigation" index)"
   kind="$(_controller_pool_kind "$navigation")"
   # The root filesystem a group inherits when it declares none (ADR 0043).
-  root_filesystem="$(jq -r '.filesystem // "zfs"' <<<"$(_controller_state)")"
+  root_filesystem="$(install_config_use_json "$(_controller_state)"
+    install_config_filesystem)"
   case "$line" in
   "← Back")
     _controller_write_navigation "$(navigation_to_data_pools "$category")"
@@ -155,9 +159,9 @@ _controller_cycle_pool_topology() {
 # _controller_pool_normalise_filesystem. Only data pools expose a filesystem
 # row, so this stays index-scoped to data.
 _controller_cycle_pool_filesystem() {
-  local kind="$1" index="$2" current next
-  current="$(jq -r '.filesystem // "zfs"' \
-    <<<"$(_controller_pool_get "$(_controller_state)" "$kind" "$index")")"
+  local kind="$1" index="$2" pool current next
+  pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
+  current="$(jq -r '.filesystem // "zfs"' <<<"$pool")"  # raw-config-ok: a pool
   # shellcheck disable=SC2046 # word-split the built-fs list into cycle args
   next="$(_controller_cycle_next "$current" \
     $(_controller_built_root_filesystems))"

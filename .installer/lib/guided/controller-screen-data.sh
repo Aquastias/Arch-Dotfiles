@@ -252,7 +252,8 @@ _controller_user_panel() {
 # consistent.
 _controller_profile_tree() {
   local prof="$1" user up sh grp
-  jq -r '.system.hostname // "(unnamed host)"' <<<"$prof"
+  # a display label, not an Install Default (hostname has none)
+  jq -r '.system.hostname // "(unnamed host)"' <<<"$prof"  # raw-config-ok
   printf '  ▸ users\n'
   while IFS= read -r user; do
     [[ -n "$user" ]] || continue
@@ -263,23 +264,25 @@ _controller_profile_tree() {
     [[ -n "$grp" ]] || grp="-"
     printf '      └─ %s  (%s · %s)\n' "$user" "$sh" "$grp"
   done < <(jq -r '(.users // [])[]' <<<"$prof")
-  jq -r "${_MENU_ANY_ZFS_JQ}"'
+  jq -r --argjson defaults "$(install_config_default_object kernels bootloader \
+    swap_size gpu)" "${_MENU_ANY_ZFS_JQ}"'
     def onoff(v): if v == true then "on" else "off" end;
     "  ▸ options",
-    "      └─ kernel: \((.options.kernel // ["lts"])
+    "      └─ kernel: \((.options.kernel // $defaults.options.kernel)
        | if type == "array" then join(", ") else . end)",
-    "      └─ bootloader: \(.options.bootloader // "systemd-boot")",
+    "      └─ bootloader: \(.options.bootloader
+       // $defaults.options.bootloader)",
     "      └─ encryption: \(onoff(.options.encryption))",
     "      └─ impermanence: \(onoff(.options.impermanence.enabled))",
     "      └─ swap: \(if .options.swap == false then "off"
-       else (.options.swap_size // "auto") end)",
+       else (.options.swap_size // $defaults.options.swap_size) end)",
     "      └─ ssh: \(onoff(.options.ssh.enabled))",
     "  ▸ environment",
     "      └─ desktop: \((.environment.desktop // [])
        | if type == "array"
          then (if length == 0 then "(none)" else join(", ") end)
          else . end)",
-    "      └─ gpu: \(.environment.gpu // "auto"
+    "      └─ gpu: \(.environment.gpu // $defaults.environment.gpu
        | if type == "array" then join(", ") else . end)",
     "  ▸ security",
     "      └─ firewall: \(.post_install.security.firewall // "none")",

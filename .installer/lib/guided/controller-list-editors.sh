@@ -35,15 +35,17 @@ _controller_list_swap_edit() {
   else
     printf 'enabled: on\n'
     printf 'size: %s\n' \
-      "$(jq -r '.options.swap_size // "auto"' <<<"$effective")"
+      "$(install_config_use_json "$effective"; install_config_swap_size)"
     if [[ "$(_controller_zswap_on "$effective")" == "false" ]]; then
       printf 'zswap: off\n'
     else
       printf 'zswap: on\n'
       printf 'compressor: %s   (Enter cycles)\n' \
-        "$(jq -r '.options.zswap.compressor // "zstd"' <<<"$effective")"
+        "$(install_config_use_json "$effective"
+          install_config_zswap_compressor)"
       printf 'max pool %%: %s   (Enter cycles)\n' \
-        "$(jq -r '.options.zswap.max_pool_percent // 20' <<<"$effective")"
+        "$(install_config_use_json "$effective"
+          install_config_zswap_max_pool_percent)"
     fi
   fi
   _controller_action_row "← Back"
@@ -172,7 +174,8 @@ _controller_list_pool_edit() {
   pool="$(_controller_pool_get "$effective" "$kind" "$index")"
   # A group with no explicit filesystem inherits the root's (ADR 0043), so the
   # displayed value matches what the topology/disks cycles use.
-  root_filesystem="$(jq -r '.filesystem // "zfs"' <<<"$effective")"
+  root_filesystem="$(install_config_use_json "$effective"
+    install_config_filesystem)"
   printf 'name: %s\n' "$(jq -r '.name // .pool_name // "?"' <<<"$pool")"
   case "$kind" in
   os)
@@ -217,8 +220,8 @@ _controller_list_storage_group_rows() {
   # read-only, since they have no independent key (that is the data-pool
   # path).
   printf 'encryption: %s   (disk-wide, shared)\n' \
-    "$([[ "$(jq -r '.options.encryption // false' <<<"$effective")" \
-       == "true" ]] \
+    "$([[ "$(install_config_use_json "$effective"
+         install_config_get encryption_enabled)" == "true" ]] \
        && echo on || echo off)"
   _controller_action_row "✗ remove this group" "← Back"
 }

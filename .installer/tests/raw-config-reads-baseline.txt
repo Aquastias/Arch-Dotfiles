@@ -5,11 +5,6 @@
 .installer/lib/feature-audit/gate.sh	2
 .installer/lib/feature-audit/live-phases.sh	2
 .installer/lib/feature-audit/probe-lib.sh	2
-.installer/lib/guided/controller-chrome.sh	4
-.installer/lib/guided/controller-enter-pools.sh	4
-.installer/lib/guided/controller-list-editors.sh	5
-.installer/lib/guided/controller-screen-data.sh	5
-.installer/lib/guided/controller-user-fields.sh	2
 .installer/lib/packages/package-resolver-desktop.sh	3
 .installer/lib/packages/package-resolver.sh	7
 .installer/lib/wipe/targets.sh	1
