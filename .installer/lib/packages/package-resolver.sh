@@ -167,7 +167,7 @@ package_resolver_excluded() {
 # stream honest instead of carrying placeholder names.
 package_resolver_unresolved() {
   local config="$1"
-  (install_config_use_json "$config"; install_config_gpu) \
+  install_config_from_json "$config" gpu \
     | while IFS= read -r vendor; do
         case "$vendor" in
         auto)  printf 'gpu: "auto" — vendor detected from lspci at install\n' ;;
@@ -252,18 +252,19 @@ _package_resolver_emit_from() {
 # headers.
 _package_resolver_kernels() {
   local token
+  # get, not install_config_kernels: report every token, never abort on one
   while IFS= read -r token; do
     [[ -n "$token" ]] || continue
     _package_resolver_emit kernel derived \
       "$(kernel_package "$token")" "$(kernel_headers_package "$token")"
-  done < <(install_config_use_json "$1"; install_config_get kernels)
+  done < <(install_config_from_json "$1" get kernels)
 }
 
 # _package_resolver_bootloader <config> — packages from the Bootloader
 # Manifest (ADR 0077); today systemd-boot adds nothing and grub adds grub.
 _package_resolver_bootloader() {
   local bootloader package
-  bootloader="$(install_config_use_json "$1"; install_config_bootloader)"
+  bootloader="$(install_config_from_json "$1" bootloader)"
   while IFS= read -r package; do
     [[ -n "$package" ]] && _package_resolver_emit bootloader derived "$package"
   done < <(bootloader_packages "$bootloader")
@@ -303,11 +304,9 @@ _package_resolver_filesystem_sets() {
   grep -qx zfs   <<<"$filesystems" \
     && _package_resolver_emit zfs derived $(filesystem_userland_packages zfs)
 
-  # The install list's own per-group rule (ADR 0043) via the reader, bound
-  # inside the $(…) subshell so the bind cannot leak
+  # the install list's own per-group rule (ADR 0043)
   local any_luks
-  any_luks="$(install_config_use_json "$config"
-    install_config_any_nonzfs_luks)"
+  any_luks="$(install_config_from_json "$config" any_nonzfs_luks)"
   if [[ "$any_luks" == "true" ]]; then
     # shellcheck disable=SC2046
     _package_resolver_emit luks derived $(filesystem_luks_userland_packages)
@@ -328,7 +327,7 @@ _package_resolver_gpu() {
     [[ -n "$vendor" ]] || continue
     # shellcheck disable=SC2046
     _package_resolver_emit gpu derived $(gpu_vendor_packages "$vendor")
-  done < <(install_config_use_json "$1"; install_config_gpu)
+  done < <(install_config_from_json "$1" gpu)
 }
 
 # _package_resolver_desktop_sets <config> <desktops> — audio, then each
@@ -354,8 +353,7 @@ _package_resolver_desktop_sets() {
 # desktop. Explicit greetd/sddm win.
 _package_resolver_display_manager() {
   local config="$1" desktops="$2" display_manager
-  display_manager="$(install_config_use_json "$config"
-    install_config_display_manager)"
+  display_manager="$(install_config_from_json "$config" display_manager)"
   if [[ -z "$desktops" ]]; then
     display_manager="none"
   elif [[ "$display_manager" == "auto" ]]; then

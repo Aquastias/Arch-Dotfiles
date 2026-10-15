@@ -26,3 +26,9 @@ filesystem / disk kind / any-ZFS from `_menu_state_facts`. Reader's
 lazy-source guard now checks its real dependency (`jsonc_read`); two
 environment test setups gained the `jsonc_read` stub. config, guided, wipe
 suites green; shellcheck + readability clean.
+
+2026-10-15 (code review), unrecorded behaviour edges: in the menu's any-ZFS
+(now the reader), a group with `filesystem: ""` inherits the root (old jq
+kept `""`, i.e. not zfs). Empty strings are not valid filesystems; the reader
+matches install. Group ashift defaults now come from the schema `ashift` row
+(same value, 12); install_config_any_zfs = not manual + uses_filesystem zfs.

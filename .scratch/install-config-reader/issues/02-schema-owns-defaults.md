@@ -32,3 +32,9 @@ table — uses `menu_rows '{}' '{}'`. Seed + menu output byte-identical
 (empty and seeded baseline, diffed before/after). Tests:
 install-config-defaults.bats (6), 2 menu invariant tests; config, guided,
 packages, feature-audit suites green.
+
+2026-10-15 (code review): `sysctl` has no schema row on purpose — its values
+come from the Host Core layer (Sysctl Defaults), merged into the baseline by
+the Layer Resolver; an absent `sysctl` means "nothing beyond Host Core", not
+a restatable default. The "no default outside the schema" test now also
+covers the seed: no launch preset sits on a field with an Install Default.

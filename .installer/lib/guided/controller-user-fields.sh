@@ -74,8 +74,7 @@ _controller_user_shell() {
 # read.
 _controller_root_shell_full() {
   local shell
-  shell="$(install_config_use_json "$(_controller_live_effective)"
-    install_config_root_shell)"
+  shell="$(install_config_from_json "$(_controller_live_effective)" root_shell)"
   printf '%s' "$shell"
 }
 
@@ -89,7 +88,7 @@ _controller_root_shell() {
 # _controller_root_shell_committed — the baseline (launch-state) root shell, or
 # /bin/bash. The strict-delta reference: cycling onto it drops the override.
 _controller_root_shell_committed() {
-  (install_config_use_json "$(_controller_baseline)"; install_config_root_shell)
+  install_config_from_json "$(_controller_baseline)" root_shell
 }
 
 # _controller_user_is_committed <name> — rc 0 when the user has a committed

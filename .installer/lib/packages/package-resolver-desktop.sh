@@ -57,7 +57,7 @@ _package_resolver_adapter_sets() {
   # Stock (pure) KDE (ADR 0112): the plasma-meta shell only — no apps/aur, so
   # the report matches what the stock adapter installs (no query/install
   # drift).
-  if [[ "$(install_config_use_json "$config"; install_config_stock)" \
+  if [[ "$(install_config_from_json "$config" stock)" \
         == "true" ]]; then
     return 0
   fi
@@ -114,11 +114,11 @@ _package_resolver_noctalia_preset() {
   local config="$1" slice_function="$2" shell
   # Stock (pure) compositor (ADR 0112) forces wayland_shell=none, so the preset
   # is absent regardless of the authored wayland_shell value.
-  if [[ "$(install_config_use_json "$config"; install_config_stock)" \
+  if [[ "$(install_config_from_json "$config" stock)" \
         == "true" ]]; then
     return 0
   fi
-  shell="$(install_config_use_json "$config"; install_config_wayland_shell)"
+  shell="$(install_config_from_json "$config" wayland_shell)"
   [[ "$shell" == noctalia ]] || return 0
 
   _package_resolver_emit_from noctalia noctalia_preset_packages

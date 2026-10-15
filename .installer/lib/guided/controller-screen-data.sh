@@ -265,8 +265,7 @@ _controller_profile_tree() {
   done < <(jq -r '(.users // [])[]' <<<"$prof")
   jq -r --argjson defaults "$(install_config_default_object kernels bootloader \
     swap_size gpu)" \
-    --argjson any_zfs "$(install_config_use_json "$prof"
-      install_config_any_zfs)" '
+    --argjson any_zfs "$(install_config_from_json "$prof" any_zfs)" '
     def onoff(v): if v == true then "on" else "off" end;
     "  ▸ options",
     "      └─ kernel: \((.options.kernel // $defaults.options.kernel)

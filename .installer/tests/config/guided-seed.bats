@@ -128,3 +128,19 @@ JSON
   echo "$output" | jq -e '.post_install.backup.zfs_auto_snapshot == true'
   echo "$output" | jq -e '.post_install.backup.borg == true'
 }
+
+# ── Guided Launch Presets never shadow an Install Default (ADR 0154) ────────
+
+@test "seed: no launch preset sits on a field with an Install Default" {
+  local owned preset
+  owned="$(install_config_default_object $(install_config_schema_names) \
+    | jq -r 'paths(scalars or (type == "array")) | join(".")')"
+  preset="$(_config_state_preset_defaults '{}' \
+    | jq -r '[paths(scalars or (type == "array"))]
+             | map(select(.[-1] | type == "string")) | .[] | join(".")')"
+  while IFS= read -r path; do
+    grep -qx "$path" <<<"$owned" \
+      && { echo "preset shadows an Install Default: $path"; return 1; }
+  done <<<"$preset"
+  return 0
+}

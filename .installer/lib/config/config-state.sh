@@ -126,10 +126,8 @@ _config_state_computed_defaults() {
   _config_state_preset_defaults "$state"
 }
 
-# Guided Launch Presets: what a fresh guided session pre-selects that is NOT an
-# install default (an absent field installs something else, or must fail):
-# identity, layout mode, timezone, the desktop, the Font Catalog set and the
-# Security & Backup Extras secure baseline (ADR 0041).
+# Guided Launch Presets — not Install Defaults: an absent field installs
+# something else, or must fail (ADR 0154; absent extras = off, ADR 0041).
 _config_state_preset_defaults() {
   local state="$1"
   state="$(config_state_set "$state" system.hostname '"eterniox"')"
@@ -145,9 +143,8 @@ _config_state_preset_defaults() {
   printf '%s\n' "$state"
 }
 
-# Install defaults the menu shows, seeded from the Install Config schema (its
-# one owner) so the baseline is the single default reference the apply-time
-# normalise compares against: re-picking a shown default clears its ●.
+# Install Defaults the menu shows, from the schema (ADR 0154): the baseline is
+# the normalise reference, so re-picking a shown default clears its ●.
 _CONFIG_STATE_SCHEMA_SEEDED=(
   console_font kernels display_manager wayland_shell stock mirror_countries
   filesystem disk_kind esp_size bootloader optional_repos encryption_enabled
@@ -158,17 +155,19 @@ _CONFIG_STATE_SCHEMA_SEEDED=(
   zswap_max_pool_percent
 )
 
-# _config_state_install_defaults <state> — <state> with the schema-owned install
-# defaults laid over it. The scalar|array union fields (locale, keymap, gpu)
-# seed their primary as a scalar, the shape the menu edits.
+# _config_state_install_defaults <state> — the schema defaults laid over
+# <state>; locale / keymap / gpu seed their primary as a scalar (menu shape).
 _config_state_install_defaults() {
-  local state="$1" union
+  local state="$1" path name
   state="$(jq -c --argjson d "$(install_config_default_object \
     "${_CONFIG_STATE_SCHEMA_SEEDED[@]}")" '. * $d' <<<"$state")"
-  for union in system.locale:locales system.keymap:keymaps \
-    environment.gpu:gpu; do
-    state="$(config_state_set "$state" "${union%%:*}" \
-      "$(install_config_default "${union##*:}" | jq -Rn 'input')")"
-  done
+  while read -r path name; do
+    state="$(config_state_set "$state" "$path" \
+      "$(install_config_default "$name" | jq -Rn 'input')")"
+  done <<'UNIONS'
+system.locale locales
+system.keymap keymaps
+environment.gpu gpu
+UNIONS
   printf '%s\n' "$state"
 }

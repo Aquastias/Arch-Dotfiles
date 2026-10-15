@@ -40,7 +40,7 @@ feature_audit_selected_programs() {
       profile_loader_load_user "$user" | jq -r '.programs[]?'
     done
     runner_resolve_post_install "$(jq -c '.post_install // {}' <<<"$config")" \
-      "$(install_config_use_json "$config"; install_config_any_zfs)"
+      "$(install_config_from_json "$config" any_zfs)"
   } | sort -u
 }
 
@@ -63,13 +63,11 @@ feature_audit_probe_gate_split() {
 # with no seeded config.
 feature_audit_bind_gate() {
   local desktop="$1" config="$2"
-  if [[ "$(install_config_use_json "$config"; install_config_stock)" == true ]]
-  then
+  if [[ "$(install_config_from_json "$config" stock)" == true ]]; then
     echo "stock install: our binds are not deployed (ADR 0112)"; return 0
   fi
   if [[ "$desktop" == niri || "$desktop" == hyprland ]] \
-     && [[ "$(install_config_use_json "$config"
-       install_config_wayland_shell)" == none ]]
+     && [[ "$(install_config_from_json "$config" wayland_shell)" == none ]]
   then
     echo "no Wayland shell: bare $desktop, no seeded config"; return 0
   fi

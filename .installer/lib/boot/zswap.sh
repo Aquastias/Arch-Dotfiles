@@ -20,8 +20,9 @@
 
 # zswap_cmdline_params <install-state-json>
 # `== true` (not jq `//`) so a stored false is honoured, never read as a
-# default. compressor/max_pool_percent fall back to the kernel-sane defaults
-# when absent (a string / a number — neither is swallowed by `//`).
+# default. The chroot has no Install Config Reader; install_state_write records
+# its zswap defaults, so the zstd / 20 fallback only covers a partial state
+# (ADR 0154).
 zswap_cmdline_params() {
   jq -r '
     (.swap == true) as $swap

@@ -27,13 +27,10 @@ declare -F jsonc_read >/dev/null 2>&1 \
 declare -F kernel_is_valid_token >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../packages/kernel.sh"
 
-# Schema rows: name|jq_path|type|default
-# Type ∈ {scalar, number, bool, array}; number = a scalar seeded as a JSON
-# number. An array default lists its elements by comma. Empty default = emit
-# empty when absent. The schema is the one owner of install defaults: the
-# guided menu and seed derive theirs from it (install_config_default*).
-# Guided Launch Presets (identity, desktop, Security & Backup Extras) are not
-# install defaults and stay in the seed.
+# Schema rows: name|jq_path|type|default — the one owner of Install Defaults;
+# menu and seed derive theirs from it, launch presets stay in the seed
+# (ADR 0154). Type ∈ {scalar, number, bool, array}; number seeds as a JSON
+# number, an array default lists its elements by comma, empty = none.
 # shellcheck disable=SC2140 # a long row is two adjacent strings (80 columns)
 _INSTALL_CONFIG_SCHEMA=(
   "bootloader|.options.bootloader|scalar|systemd-boot"
@@ -109,17 +106,30 @@ _INSTALL_CONFIG_SCHEMA=(
   "kernels|.options.kernel|array|lts"
 )
 
-# The Effective Config every accessor reads: CONFIG_FILE, or the JSON bound by
-# install_config_use_json — for modules that hold the config as JSON (Package
-# Resolver, Feature Audit gate). Binding is process state: bind in a subshell.
+# Accessors read CONFIG_FILE, or a bound JSON config (ADR 0154). Binding is
+# process state, so JSON holders read through install_config_from_json.
+_INSTALL_CONFIG_BOUND=false
 _INSTALL_CONFIG_JSON=""
 
-# install_config_use_json <json> — read <json> from now on; "" = CONFIG_FILE.
-install_config_use_json() { _INSTALL_CONFIG_JSON="$1"; }
+# install_config_use_json <json> — read <json> from now on (empty = `{}`).
+install_config_use_json() {
+  _INSTALL_CONFIG_BOUND=true
+  _INSTALL_CONFIG_JSON="${1:-{\}}"
+}
+
+# install_config_use_file — read CONFIG_FILE again.
+install_config_use_file() { _INSTALL_CONFIG_BOUND=false; }
+
+# install_config_from_json <json> <accessor> [args…] — one accessor (the name
+# after `install_config_`) over <json>, bound in a subshell that cannot leak.
+install_config_from_json() {
+  local json="$1" accessor="$2"; shift 2
+  (install_config_use_json "$json"; "install_config_$accessor" "$@")
+}
 
 # _install_config_read <jq-filter> — the filter over the Effective Config, raw.
 _install_config_read() {
-  if [[ -n "$_INSTALL_CONFIG_JSON" ]]; then
+  if [[ "$_INSTALL_CONFIG_BOUND" == true ]]; then
     jq -r "$1" <<<"$_INSTALL_CONFIG_JSON"
   else jsonc_read "$CONFIG_FILE" "$1"; fi
 }
@@ -127,13 +137,15 @@ _install_config_read() {
 # _install_config_optional <path> — the field, or empty when missing / null.
 _install_config_optional() { _install_config_read "$1 // empty"; }
 
-# _install_config_row <name> — the schema row's "path|type|default"; an unknown
-# name is an error.
+# _install_config_row <name> — sets _INSTALL_CONFIG_ROW to the schema row's
+# "path|type|default" (a variable, not stdout: no fork per accessor read); an
+# unknown name is an error.
 _install_config_row() {
-  local schema_row field_name rest
+  local schema_row
   for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    IFS='|' read -r field_name rest <<< "$schema_row"
-    [[ "$field_name" == "$1" ]] && { printf '%s\n' "$rest"; return; }
+    [[ "${schema_row%%|*}" == "$1" ]] || continue
+    _INSTALL_CONFIG_ROW="${schema_row#*|}"
+    return 0
   done
   error "install_config: unknown schema name '$1'"
 }
@@ -141,21 +153,22 @@ _install_config_row() {
 # install_config_default <name> — the install default: what the field means
 # when absent. Arrays emit one element per line (the row lists them by comma).
 install_config_default() {
-  local row default_value
-  row="$(_install_config_row "$1")" || return 1
-  IFS='|' read -r _ _ default_value <<< "$row"
+  local default_value
+  _install_config_row "$1" || return 1
+  default_value="${_INSTALL_CONFIG_ROW##*|}"
   [[ -n "$default_value" ]] || return 0
   printf '%s\n' "${default_value//,/$'\n'}"
 }
 
 # install_config_default_object <name>... — the named install defaults as one
 # typed JSON object at their paths (bool / number as JSON, arrays as arrays),
-# for the guided seed. A field with no install default is left out.
+# for the guided seed and menu. A field with no install default is left out.
 install_config_default_object() {
-  local name row
+  local name
   for name in "$@"; do
-    row="$(_install_config_row "$name")" || return 1
-    [[ "${row##*|}" == "" ]] || printf '%s\n' "$row"
+    _install_config_row "$name" || return 1
+    [[ "${_INSTALL_CONFIG_ROW##*|}" == "" ]] \
+      || printf '%s\n' "$_INSTALL_CONFIG_ROW"
   done | jq -Rn 'reduce (inputs | split("|")) as [$path, $type, $value] ({};
     setpath($path | ltrimstr(".") | split(".");
       if   $type == "bool" or $type == "number" then ($value | fromjson)
@@ -174,9 +187,9 @@ install_config_schema_names() {
 # install_config_get <name> — schema dispatcher for the generated wrappers.
 # Reads the named field according to its schema row and applies the default.
 install_config_get() {
-  local row jq_path field_type value
-  row="$(_install_config_row "$1")" || return 1
-  IFS='|' read -r jq_path field_type _ <<< "$row"
+  local jq_path field_type value
+  _install_config_row "$1" || return 1
+  IFS='|' read -r jq_path field_type _ <<< "$_INSTALL_CONFIG_ROW"
   case "$field_type" in
   scalar | number) value="$(_install_config_optional "$jq_path")" ;;
   bool)

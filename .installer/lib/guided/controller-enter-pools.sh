@@ -107,8 +107,8 @@ _controller_enter_pool_edit() {
   index="$(navigation_get "$navigation" index)"
   kind="$(_controller_pool_kind "$navigation")"
   # The root filesystem a group inherits when it declares none (ADR 0043).
-  root_filesystem="$(install_config_use_json "$(_controller_state)"
-    install_config_filesystem)"
+  root_filesystem="$(install_config_from_json "$(_controller_state)" \
+    filesystem)"
   case "$line" in
   "← Back")
     _controller_write_navigation "$(navigation_to_data_pools "$category")"

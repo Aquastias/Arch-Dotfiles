@@ -1,9 +1,7 @@
 #!/usr/bin/env bats
-# Gate for the Raw Config Read Lint (install-config-reader/03): an Effective
-# Config field the schema owns is read through the Install Config Reader
-# (bound to JSON where the module holds JSON), never as a raw
-# `.<path> // <literal>` jq read that restates its Install Default. Strict:
-# any raw read fails (the migration baseline reached zero and was removed).
+# Gate for the Raw Config Read Lint (ADR 0154): a field the Install Config
+# schema owns is read through the reader, never as a raw `.<path> // <literal>`
+# jq read that restates its Install Default.
 # The headline test runs the lint against THIS repo; the rest build throwaway
 # git repos to prove each rule.
 
@@ -101,6 +99,20 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
 @test "a non-empty array default is a raw read" {
   make_repo
   printf 'jq %s\n' "'(.options.bootloader // [\"a\"])'" > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+}
+
+@test "extras/ and programs/ scripts are scanned too" {
+  make_repo
+  mkdir -p .installer/extras/desktop/x .installer/programs/dev/y
+  printf 'jq %s\n' "'.filesystem // \"zfs\"'" \
+    > .installer/extras/desktop/x/audit.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  printf 'install_config_filesystem\n' > .installer/extras/desktop/x/audit.sh
+  printf 'jq %s\n' "'.filesystem // \"zfs\"'" \
+    > .installer/programs/dev/y/install.sh
   check_repo
   [ "$status" -ne 0 ]
 }

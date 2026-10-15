@@ -31,3 +31,10 @@ holding a sub-object): `_controller_swap_label` (`$o.swap_size`, zswap
 on/compressor), `_controller_layout_graph` `rpool`. Possible bug: the
 pool-filesystem cycle starts from "zfs" for a data pool with no filesystem,
 though it inherits the root's (ADR 0043).
+
+2026-10-15 (code review): call sites read through
+`install_config_from_json <json> <accessor>` (one helper instead of ~25
+hand-rolled `$(install_config_use_json …; …)`). `get` bypasses of a special
+(`encryption_enabled`, `impermanence_enabled`, `kernels`) carry a one-line
+why. `_controller_profile_tree` keeps `--argjson defaults` (the jq-program
+pattern of ADR 0154) rather than six separate binds in a preview path.

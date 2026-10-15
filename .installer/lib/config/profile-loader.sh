@@ -342,7 +342,7 @@ profile_loader_validate_schema() {
 # otherwise. Pure: reads its JSON argument only.
 _profile_loader_reject_manual() {
   local json="$1" name="${2:-<profile>}"
-  [[ "$(install_config_use_json "$json"; install_config_disk_kind)" \
+  [[ "$(install_config_from_json "$json" disk_kind)" \
      != "manual" ]] && return 0
   error "Profile '${name}' sets disk_config.kind=manual, which is" \
     "Guided-Installer-only (ADR 0073). Remove it, or run the guided installer."

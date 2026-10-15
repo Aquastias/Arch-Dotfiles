@@ -10,8 +10,7 @@ feature_audit_check kwin-dbus "KWin answers on D-Bus" \
 feature_audit_check kde-portal "xdg-desktop-portal-kde answers" \
   busctl --user call org.freedesktop.portal.Desktop \
     /org/freedesktop/portal/desktop org.freedesktop.DBus.Peer Ping
-[[ "$(feature_audit_config '.environment.stock // false')" == true ]] \
-  && return 0
+feature_audit_stock && return 0
 
 # the palette Plasma renders, not the ColorScheme key: Noctalia leaves that key
 # at BreezeDark while rewriting the colours, and a fresh Plasma writes neither

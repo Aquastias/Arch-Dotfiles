@@ -101,8 +101,9 @@ SH
 feature_audit_phase_boot2() {
   local directory="$1/boot2" config="$2" impermanence sops
   mkdir -p "$directory"
-  impermanence="$(install_config_use_json "$config"
-    install_config_get impermanence_enabled)"
+  # get: the authored toggle, as the boot2 check expects it
+  impermanence="$(install_config_from_json "$config" \
+    get impermanence_enabled)"
   sops="$(jq -r 'if (.options.age_key_url // "") != "" then true
                  else false end' <<<"$config")"
   _live_boot2_prep_script "$FA_USER" \

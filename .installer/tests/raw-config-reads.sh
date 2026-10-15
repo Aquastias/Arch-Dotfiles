@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
-# raw-config-reads.sh — the Raw Config Read Lint (install-config-reader/03).
-# An Effective Config field is read through the Install Config Reader — bound
-# to JSON (install_config_use_json) where the module holds JSON — never as a
-# raw `.<schema path> // <literal>` jq read that restates its Install Default
-# (only fields the schema owns — the rows of _INSTALL_CONFIG_SCHEMA). Scans
-# TRACKED installer code (top-level scripts, lib/, vm/, tools/), minus the
-# reader itself.
-#
-# Strict: any raw read fails. (The migration baseline that eased the lint in
-# reached zero and was removed — install-config-reader/08.)
+# raw-config-reads.sh — the Raw Config Read Lint (ADR 0154): a field the
+# Install Config schema owns is read through the reader, never as a raw
+# `.<schema path> // <literal>` jq read that restates its Install Default. Scans
+# TRACKED installer code (top-level scripts, lib/, vm/, tools/, extras/,
+# programs/ minus home/ payloads), minus the reader itself.
 #
 # Usage: raw-config-reads.sh [--list]
 #   (none)     fail on any raw read
@@ -54,8 +49,10 @@ raw_read_pattern() {
 }
 
 scanned_files() {
+  local directories='(lib|vm|tools|extras|programs)'
   git ls-files '.installer/*.sh' \
-    | grep -E '^\.installer/([^/]+\.sh|(lib|vm|tools)/.+\.sh)$' \
+    | grep -E "^\\.installer/([^/]+\\.sh|$directories/.+\\.sh)\$" \
+    | grep -vE '^\.installer/programs/[^/]+/[^/]+/home/' \
     | grep -vE '^\.installer/lib/config/install-config[^/]*\.sh$' \
     || true
 }

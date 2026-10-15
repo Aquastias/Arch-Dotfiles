@@ -458,3 +458,9 @@ load resolver-helpers
     "data_pools":[{"name":"tank0","filesystem":"ext4"}]}'
   [ -z "$(packages_of "$config" luks)" ]
 }
+
+@test "luks: a manual layout reports none even with encryption on (ADR 0073)" {
+  local config='{"users":[],"filesystem":"ext4","options":{"encryption":true},
+    "disk_config":{"kind":"manual","partitions":[]}}'
+  [ -z "$(packages_of "$config" luks)" ]
+}

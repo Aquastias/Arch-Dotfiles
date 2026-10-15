@@ -12,7 +12,7 @@
 
 install_config_storage_group_ashift() {
   local value; value="$(_install_config_optional ".storage_groups[$1].ashift")"
-  printf '%s\n' "${value:-12}"
+  printf '%s\n' "${value:-$(install_config_default ashift)}"
 }
 
 # Number of declared storage_groups[] entries (0 when absent).
@@ -84,10 +84,10 @@ install_config_data_pool_mount() {
   printf '%s\n' "$value"
 }
 
-# Ashift at index — defaults to 12.
+# Ashift at index — defaults to the schema ashift.
 install_config_data_pool_ashift() {
   local value; value="$(_install_config_optional ".data_pools[$1].ashift")"
-  printf '%s\n' "${value:-12}"
+  printf '%s\n' "${value:-$(install_config_default ashift)}"
 }
 
 # Disks at index — one device path per line.
@@ -102,9 +102,7 @@ install_config_data_pool_filesystem() {
   printf '%s\n' "${value:-$(install_config_filesystem)}"
 }
 
-# Per-group encryption (ADR 0043) — an independent bool, default false. Read raw
-# with an explicit null check so a stored `false` round-trips (a `// false`
-# default cannot distinguish absent from an explicit false — jq gotcha).
+# Per-group encryption (ADR 0043) — as the storage-group accessor above.
 install_config_data_pool_encryption() {
   local value; value="$(_install_config_read ".data_pools[$1].encryption")"
   [[ "$value" == "true" ]] && printf 'true\n' || printf 'false\n'
@@ -122,19 +120,7 @@ install_config_any_zfs() {
   # still defaults to zfs.
   [[ "$(install_config_disk_kind)" == "manual" ]] \
     && { printf 'false\n'; return; }
-  [[ "$(install_config_filesystem)" == "zfs" ]] && { printf 'true\n'; return; }
-  local count i
-  count="$(install_config_data_pools_count)"
-  for ((i = 0; i < count; i++)); do
-    [[ "$(install_config_data_pool_filesystem "$i")" == "zfs" ]] \
-      && { printf 'true\n'; return; }
-  done
-  count="$(install_config_storage_groups_count)"
-  for ((i = 0; i < count; i++)); do
-    [[ "$(install_config_storage_group_filesystem "$i")" == "zfs" ]] \
-      && { printf 'true\n'; return; }
-  done
-  printf 'false\n'
+  install_config_uses_filesystem zfs
 }
 
 # ── Manual Partitioning — disk_config.partitions[] accessors (ADR 0073) ──────

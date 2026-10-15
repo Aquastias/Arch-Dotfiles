@@ -28,3 +28,10 @@ probe-lib.sh is staged into the guest (no installer reader there): its two
 restated defaults are `raw-config-ok` — follow-up idea: the host stages
 FA_CONFIG with the Install Defaults filled in. Edge: gpu `[]` now reads as
 auto (as install does). packages + feature-audit suites green.
+
+2026-10-15 (code review), unrecorded behaviour edge: a root `filesystem: ""`
+now resolves to zfs in `_package_resolver_filesystems` (old jq emitted `""`)
+— matches install. kde audit.sh uses `feature_audit_stock`; the lint now
+scans extras/ and programs/. zswap.sh (chroot, Install State) keeps its
+fallback — no reader in the chroot; recorded in ADR 0154. New test: a
+manual layout reports no LUKS set even with encryption on.

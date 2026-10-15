@@ -123,10 +123,11 @@ exceptions (a `head` that cuts a stream on purpose), never to dodge a rename.
 Read an Effective Config field through the Install Config Reader
 (`install_config_<name>`), never as a raw jq `.<path> // <default>`: the
 schema in `lib/config/install-config.sh` is the one owner of every Install
-Default. A module holding the config as JSON binds it first, inside a
-subshell so the bind cannot leak:
-`"$(install_config_use_json "$config"; install_config_any_zfs)"`. A field the
-schema lacks gets a row there.
+Default. A module holding the config as JSON reads through
+`install_config_from_json <json> <accessor>` (it binds in a subshell, so the
+bind cannot leak): `"$(install_config_from_json "$config" any_zfs)"`. Inside
+a jq program pass `install_config_default_object <name>…` in as `$defaults`.
+A field the schema lacks gets a row there.
 
 `.installer/tests/raw-config-reads.sh` (run by `raw-config-reads.bats`)
 fails any raw read of a schema-owned field with a literal default (non-empty

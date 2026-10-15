@@ -40,11 +40,9 @@ declare -F install_config_default_object >/dev/null 2>&1 \
 declare -F fonts_catalog_tokens >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/fonts.sh"
 
-# Field table — "section|path|label|default". The single source of truth for
-# the covered fields; add a row here to surface a field in the menu. A field the
-# Install Config schema owns shows the schema's install default (its column
-# stays empty); the column only holds render placeholders (`[]`) and Guided
-# Launch Presets (timezone, Security & Backup Extras).
+# Field table — "section|path|label|default"; add a row to surface a field. A
+# schema-owned field shows its Install Default (column empty); the column holds
+# only render placeholders (`[]`) and Guided Launch Presets (ADR 0154).
 _MENU_FIELDS=(
   "Locales|system.keymap|keyboard|"
   "Locales|__language__|language|"
@@ -159,7 +157,7 @@ _MENU_ZFS_LOCKED=(post_install.backup.zfs_auto_snapshot)
 menu_zfs_locked_paths() { printf '%s\n' "${_MENU_ZFS_LOCKED[@]}"; }
 # menu_state_any_zfs <merged_state> → 0 when the state puts ZFS anywhere.
 menu_state_any_zfs() {
-  [[ "$(install_config_use_json "${1:-{\}}"; install_config_any_zfs)" == true ]]
+  [[ "$(install_config_from_json "${1:-{\}}" any_zfs)" == true ]]
 }
 
 # _menu_state_facts <override> <baseline> — what menu_rows needs from the merged

@@ -34,10 +34,11 @@ _flow_render_user_data() {
   # the flow's own fallback name — hostname has no Install Default
   local name_filter='.system.hostname // "arch-guided"'  # raw-config-ok
   hostname="$(jq -r "$name_filter" <<<"${INSTALL_CONFIG_CONTENT}")"
-  encryption="$(install_config_use_json "${INSTALL_CONFIG_CONTENT}"
-    install_config_get encryption_enabled)"
-  impermanence="$(install_config_use_json "${INSTALL_CONFIG_CONTENT}"
-    install_config_get impermanence_enabled)"
+  # get: the seed's authored toggles, replayed as guided answers as written
+  encryption="$(install_config_from_json "${INSTALL_CONFIG_CONTENT}" \
+    get encryption_enabled)"
+  impermanence="$(install_config_from_json "${INSTALL_CONFIG_CONTENT}" \
+    get impermanence_enabled)"
   # guided_layout (issue 04) names a multi-disk ZFS preset for the guided menu to
   # replay; the guest then resolves Σ disk_count disks in-guest. Default single.
   layout="$(jq -r '.guided_layout // "single"' <<<"${INSTALL_CONFIG_CONTENT}")"

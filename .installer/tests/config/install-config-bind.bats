@@ -42,9 +42,32 @@ load install-config-helpers
   [ "$(install_config_bootloader)" = "grub" ]
 }
 
-@test "bind: an empty bind reads CONFIG_FILE again" {
+@test "bind: an empty JSON is an empty config, never CONFIG_FILE" {
+  write_config '{"options":{"bootloader":"grub"}}'
+  install_config_use_json ""
+  [ "$(install_config_bootloader)" = "systemd-boot" ]
+}
+
+@test "bind: install_config_use_file reads CONFIG_FILE again" {
   write_config '{"options":{"bootloader":"grub"}}'
   install_config_use_json '{"options":{"bootloader":"limine"}}'
-  install_config_use_json ""
+  install_config_use_file
   [ "$(install_config_bootloader)" = "grub" ]
+}
+
+@test "from_json: one accessor over JSON, no bind left behind" {
+  write_config '{"options":{"bootloader":"grub"}}'
+  [ "$(install_config_from_json '{"filesystem":"ext4"}' filesystem)" = ext4 ]
+  [ "$(install_config_from_json '{}' get kernels)" = lts ]
+  [ "$(install_config_from_json '{"filesystem":"xfs"}' \
+    uses_filesystem xfs)" = true ]
+  [ "$(install_config_bootloader)" = "grub" ]
+}
+
+@test "from_json: works under set -u with no extra arguments" {
+  run bash -c "set -u; source '$BATS_TEST_DIRNAME/../../lib/common.sh'
+    source '$BATS_TEST_DIRNAME/../../lib/config/install-config.sh'
+    install_config_from_json '{}' bootloader"
+  [ "$status" -eq 0 ]
+  [ "$output" = "systemd-boot" ]
 }

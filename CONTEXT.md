@@ -76,9 +76,10 @@ transient by design ([ADR 0036]).
 `lib/config/install-config.sh` (+ `install-config-groups.sh`). The one way to
 read an Effective Config field: `install_config_<name>` accessors generated
 from the schema ([ADR 0015]) plus derived predicates (any-ZFS, any-LUKS,
-uses-filesystem). Reads `CONFIG_FILE`, or JSON bound with
-`install_config_use_json` — bind inside a subshell ([ADR 0154]). The Raw
-Config Read Lint fails a raw `.<path> // <literal>` read of a field it owns.
+uses-filesystem). Reads `CONFIG_FILE`; a JSON holder reads through
+`install_config_from_json <json> <accessor>` (binds in a subshell,
+[ADR 0154]). The Raw Config Read Lint fails a raw `.<path> // <literal>` read
+of a field it owns.
 
 ### Install Default
 What an Effective Config field means when it is absent, at install time. The

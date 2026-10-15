@@ -88,7 +88,6 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   [[ "$output" == *zfs-auto-snapshot* ]]
 }
 
-
 # ── bind gate (host) ────────────────────────────────────────────────────────
 
 @test "feature_audit_bind_gate: stock install skips every bind source" {
