@@ -1,7 +1,2 @@
 .installer/install.sh	1
-.installer/lib/feature-audit/gate.sh	2
-.installer/lib/feature-audit/live-phases.sh	2
-.installer/lib/feature-audit/probe-lib.sh	2
-.installer/lib/packages/package-resolver-desktop.sh	3
-.installer/lib/packages/package-resolver.sh	7
 .installer/vm/lib/flow-guided.sh	3

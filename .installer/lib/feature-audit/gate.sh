@@ -17,6 +17,10 @@
 # Used by: lib/feature-audit/{check,live-probes,live-keybinds}.sh.
 # =============================================================================
 
+# shellcheck source=../config/install-config.sh
+declare -F install_config_use_json >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/install-config.sh"
+
 # feature_audit_selected_programs <cfg-json> — host programs (incl.
 # toggle-derived), every user's resolved programs, and the post-install Security
 # & Backup Extras.
@@ -29,10 +33,6 @@ feature_audit_selected_programs() {
   [[ "$(type -t runner_resolve_post_install)" == function ]] || {
     # shellcheck source=../profiles/runner.sh
     source "$INSTALLER_DIR/lib/profiles/runner.sh"
-  }
-  [[ "$(type -t install_config_use_json)" == function ]] || {
-    # shellcheck source=../config/install-config.sh
-    source "$INSTALLER_DIR/lib/config/install-config.sh"
   }
   {
     jq -r '.host_programs[]?' <<<"$config"
@@ -63,12 +63,13 @@ feature_audit_probe_gate_split() {
 # with no seeded config.
 feature_audit_bind_gate() {
   local desktop="$1" config="$2"
-  if [[ "$(jq -r '.environment.stock // false' <<<"$config")" == true ]]; then
+  if [[ "$(install_config_use_json "$config"; install_config_stock)" == true ]]
+  then
     echo "stock install: our binds are not deployed (ADR 0112)"; return 0
   fi
   if [[ "$desktop" == niri || "$desktop" == hyprland ]] \
-     && [[ "$(jq -r \
-       '.environment.wayland_shell // "noctalia"' <<<"$config")" == none ]]
+     && [[ "$(install_config_use_json "$config"
+       install_config_wayland_shell)" == none ]]
   then
     echo "no Wayland shell: bare $desktop, no seeded config"; return 0
   fi

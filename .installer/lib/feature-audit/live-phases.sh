@@ -7,6 +7,10 @@
 # Used by: lib/feature-audit/live.sh (sources it).
 # =============================================================================
 
+# shellcheck source=../config/install-config.sh
+declare -F install_config_use_json >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/install-config.sh"
+
 # ── later phases (feature-audit/07) ──────────────────────────────────────────
 
 # _live_timers_script — start every enabled timer's unit once (bounded), so
@@ -97,7 +101,8 @@ SH
 feature_audit_phase_boot2() {
   local directory="$1/boot2" config="$2" impermanence sops
   mkdir -p "$directory"
-  impermanence="$(jq -r '.options.impermanence.enabled // false' <<<"$config")"
+  impermanence="$(install_config_use_json "$config"
+    install_config_get impermanence_enabled)"
   sops="$(jq -r 'if (.options.age_key_url // "") != "" then true
                  else false end' <<<"$config")"
   _live_boot2_prep_script "$FA_USER" \
@@ -249,9 +254,12 @@ SH
 # (empty: none expected, a stock or shell-less wlroots session).
 _live_session_client() {
   [[ "$1" == kde ]] && { echo plasmashell; return; }
-  jq -r 'if .environment.stock == true then empty
-    else (.environment.wayland_shell // "noctalia")
-      | select(. != "none") end' <<<"$2"
+  (
+    install_config_use_json "$2"
+    [[ "$(install_config_stock)" == true ]] && exit 0
+    local client; client="$(install_config_wayland_shell)"
+    [[ "$client" == none ]] || printf '%s\n' "$client"
+  )
 }
 
 # _live_session_settled <user> <client> — guest check: the shell client (if

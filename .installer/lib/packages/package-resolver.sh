@@ -167,9 +167,7 @@ package_resolver_excluded() {
 # stream honest instead of carrying placeholder names.
 package_resolver_unresolved() {
   local config="$1"
-  _package_resolver_jq "$config" '
-    (.environment.gpu // "auto")
-    | if type == "string" then [.] else . end | .[]' \
+  (install_config_use_json "$config"; install_config_gpu) \
     | while IFS= read -r vendor; do
         case "$vendor" in
         auto)  printf 'gpu: "auto" — vendor detected from lspci at install\n' ;;
@@ -258,17 +256,14 @@ _package_resolver_kernels() {
     [[ -n "$token" ]] || continue
     _package_resolver_emit kernel derived \
       "$(kernel_package "$token")" "$(kernel_headers_package "$token")"
-  done < <(_package_resolver_jq "$1" '
-    (.options.kernel // ["lts"])
-    | if type == "string" then [.] else . end | .[]')
+  done < <(install_config_use_json "$1"; install_config_get kernels)
 }
 
 # _package_resolver_bootloader <config> — packages from the Bootloader
 # Manifest (ADR 0077); today systemd-boot adds nothing and grub adds grub.
 _package_resolver_bootloader() {
   local bootloader package
-  bootloader="$(_package_resolver_jq "$1" \
-    '.options.bootloader // "systemd-boot"')"
+  bootloader="$(install_config_use_json "$1"; install_config_bootloader)"
   while IFS= read -r package; do
     [[ -n "$package" ]] && _package_resolver_emit bootloader derived "$package"
   done < <(bootloader_packages "$bootloader")
@@ -279,11 +274,14 @@ _package_resolver_bootloader() {
 # per line. A manual layout is plain partitions (ADR 0073): no pools, so no
 # ZFS even though `filesystem` still defaults to zfs.
 _package_resolver_filesystems() {
-  _package_resolver_jq "$1" '
-    if (.disk_config.kind // "auto") == "manual" then empty else
-    [(.filesystem // "zfs"),
-     ((.storage_groups // [])[] | .filesystem // empty),
-     ((.data_pools    // [])[] | .filesystem // empty)] | unique | .[] end'
+  (
+    install_config_use_json "$1"
+    [[ "$(install_config_disk_kind)" == manual ]] && exit 0
+    { install_config_filesystem
+      _package_resolver_jq "$1" '(.storage_groups // [])[],
+        (.data_pools // [])[] | .filesystem // empty'
+    } | sort -u
+  )
 }
 
 # _package_resolver_filesystem_sets <config> <filesystems> — per-filesystem
@@ -330,9 +328,7 @@ _package_resolver_gpu() {
     [[ -n "$vendor" ]] || continue
     # shellcheck disable=SC2046
     _package_resolver_emit gpu derived $(gpu_vendor_packages "$vendor")
-  done < <(_package_resolver_jq "$1" '
-    (.environment.gpu // "auto")
-    | if type == "string" then [.] else . end | .[]')
+  done < <(install_config_use_json "$1"; install_config_gpu)
 }
 
 # _package_resolver_desktop_sets <config> <desktops> — audio, then each
@@ -358,8 +354,8 @@ _package_resolver_desktop_sets() {
 # desktop. Explicit greetd/sddm win.
 _package_resolver_display_manager() {
   local config="$1" desktops="$2" display_manager
-  display_manager="$(_package_resolver_jq "$config" \
-    '.environment.display_manager // "auto"')"
+  display_manager="$(install_config_use_json "$config"
+    install_config_display_manager)"
   if [[ -z "$desktops" ]]; then
     display_manager="none"
   elif [[ "$display_manager" == "auto" ]]; then

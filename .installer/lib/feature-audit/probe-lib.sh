@@ -87,9 +87,13 @@ feature_audit_gate() {
 }
 
 # feature_audit_stock — the variant is an upstream-stock install (Pure Profiles,
-# ADR 0112): our curated desktop config and userland are not deployed.
-feature_audit_stock() { [[ \
-  "$(feature_audit_config '.environment.stock // false')" == true ]]; }
+# ADR 0112): our curated desktop config and userland are not deployed. Guest
+# side: the installer's Install Config Reader is not here, so the two defaults
+# below are restated (raw-config-ok).
+feature_audit_stock() {
+  local filter='.environment.stock // false'  # raw-config-ok
+  [[ "$(feature_audit_config "$filter")" == true ]]
+}
 
 # feature_audit_curated — our curated desktop config and userland are deployed.
 feature_audit_curated() { ! feature_audit_stock; }
@@ -97,10 +101,8 @@ feature_audit_curated() { ! feature_audit_stock; }
 # feature_audit_has_shell — a Wayland shell is deployed: not stock, not `none`
 # (absent = the product default, noctalia).
 feature_audit_has_shell() {
-  feature_audit_curated \
-    && [[ \
-    "$(feature_audit_config '.environment.wayland_shell // "noctalia"')" != \
-    none ]]
+  local filter='.environment.wayland_shell // "noctalia"'  # raw-config-ok
+  feature_audit_curated && [[ "$(feature_audit_config "$filter")" != none ]]
 }
 
 # feature_audit_host_core — the variant inherits Host Core packages (the run

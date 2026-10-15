@@ -9,10 +9,22 @@ candidate #1, Q17 (expand–contract batch).
 
 **Blocked by:** 01, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] No raw config reads left in this scope
-- [ ] Lint baseline entries for this scope removed
-- [ ] Scope's existing tests green; full suite green
+- [x] No raw config reads left in this scope
+- [x] Lint baseline entries for this scope removed
+- [x] Scope's existing tests green; full suite green
 
 ## Comments
+
+2026-10-15: Package Resolver (gpu ×2, kernels, bootloader, filesystems,
+display manager) and its desktop sets (stock ×2, wayland shell) read bound
+accessors; kernels via `install_config_get kernels` (report, no validation
+abort). `_package_resolver_filesystems` takes disk kind + root filesystem
+from the reader; group filesystems stay explicit-only jq. Feature Audit
+host side (bind gate, boot2 impermanence via `install_config_get`, session
+client) binds the reader; gate.sh / live-phases.sh source it at file level.
+probe-lib.sh is staged into the guest (no installer reader there): its two
+restated defaults are `raw-config-ok` — follow-up idea: the host stages
+FA_CONFIG with the Install Defaults filled in. Edge: gpu `[]` now reads as
+auto (as install does). packages + feature-audit suites green.
