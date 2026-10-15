@@ -9,10 +9,20 @@ by every migrated read. Decisions: candidate #1, Q17 (expand–contract batch).
 
 **Blocked by:** 01, 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] No raw config reads left in this scope
-- [ ] Lint baseline entries for this scope removed
-- [ ] Scope's existing tests green; full suite green
+- [x] No raw config reads left in this scope
+- [x] Lint baseline entries for this scope removed
+- [x] Scope's existing tests green; full suite green
 
 ## Comments
+
+2026-10-15: environment.sh (display manager, wayland shell, stock) reads
+the accessors; profile-loader's manual guard binds the Host Profile; wipe
+target resolution asks the reader (`CONFIG_FILE="$1"`) for the disk kind.
+menu.sh's `_MENU_ANY_ZFS_JQ` (a jq twin of install_config_any_zfs) deleted:
+`menu_state_any_zfs` and the profile tree bind the reader; `menu_rows` gets
+filesystem / disk kind / any-ZFS from `_menu_state_facts`. Reader's
+lazy-source guard now checks its real dependency (`jsonc_read`); two
+environment test setups gained the `jsonc_read` stub. config, guided, wipe
+suites green; shellcheck + readability clean.

@@ -12,6 +12,7 @@ setup() {
 
   # ── common.sh stubs ────────────────────────────────────────────────────────
   jsonc_strip() { cat "$1"; }
+  jsonc_read() { jsonc_strip "$1" | jq -r "$2"; }
   config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   config_required() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error()   { echo "ERROR: $*" >&2; exit 1; }

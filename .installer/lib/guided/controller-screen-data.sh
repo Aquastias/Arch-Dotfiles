@@ -252,7 +252,6 @@ _controller_user_panel() {
 # consistent.
 _controller_profile_tree() {
   local prof="$1" user up sh grp
-  # a display label, not an Install Default (hostname has none)
   jq -r '.system.hostname // "(unnamed host)"' <<<"$prof"  # raw-config-ok
   printf '  ▸ users\n'
   while IFS= read -r user; do
@@ -265,7 +264,9 @@ _controller_profile_tree() {
     printf '      └─ %s  (%s · %s)\n' "$user" "$sh" "$grp"
   done < <(jq -r '(.users // [])[]' <<<"$prof")
   jq -r --argjson defaults "$(install_config_default_object kernels bootloader \
-    swap_size gpu)" "${_MENU_ANY_ZFS_JQ}"'
+    swap_size gpu)" \
+    --argjson any_zfs "$(install_config_use_json "$prof"
+      install_config_any_zfs)" '
     def onoff(v): if v == true then "on" else "off" end;
     "  ▸ options",
     "      └─ kernel: \((.options.kernel // $defaults.options.kernel)
@@ -290,7 +291,7 @@ _controller_profile_tree() {
     "      └─ rootkit: \(onoff(.post_install.security.rootkit))",
     "      └─ apparmor: \(onoff(.post_install.security.apparmor))",
     "  ▸ backup",
-    "      └─ snapshots: \(if any_zfs
+    "      └─ snapshots: \(if $any_zfs
        then onoff(.post_install.backup.zfs_auto_snapshot)
        else "off (no ZFS)" end)",
     "      └─ borg: \(onoff(.post_install.backup.borg))"

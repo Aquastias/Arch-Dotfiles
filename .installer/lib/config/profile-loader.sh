@@ -20,6 +20,9 @@
 # Installer, lib/feature-audit/, vm/lib/profile.sh.
 # =============================================================================
 
+# shellcheck source=./install-config.sh
+declare -F install_config_use_json >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/install-config.sh"
 # shellcheck source=./layer-resolver.sh
 declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
@@ -339,7 +342,7 @@ profile_loader_validate_schema() {
 # otherwise. Pure: reads its JSON argument only.
 _profile_loader_reject_manual() {
   local json="$1" name="${2:-<profile>}"
-  [[ "$(printf '%s' "$json" | jq -r '.disk_config.kind // "auto"')" \
+  [[ "$(install_config_use_json "$json"; install_config_disk_kind)" \
      != "manual" ]] && return 0
   error "Profile '${name}' sets disk_config.kind=manual, which is" \
     "Guided-Installer-only (ADR 0073). Remove it, or run the guided installer."

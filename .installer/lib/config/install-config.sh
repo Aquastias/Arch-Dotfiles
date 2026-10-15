@@ -20,7 +20,7 @@
 # =============================================================================
 
 # shellcheck source=../common.sh
-declare -F config_optional >/dev/null 2>&1 \
+declare -F jsonc_read >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../common.sh"
 
 # shellcheck source=../packages/kernel.sh

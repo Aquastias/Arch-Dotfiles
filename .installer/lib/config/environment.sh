@@ -14,6 +14,10 @@
 # Used by: lib/config/lifecycle.sh.
 # =============================================================================
 
+# shellcheck source=./install-config.sh
+declare -F install_config_stock >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/install-config.sh"
+
 # ── RESOLVED GLOBALS ─────────────────────────────────────────────────────────
 # Set by _environment_validate; consumed by _environment_resolve_gpu,
 # _environment_resolve_audio, and package_list_collect.
@@ -187,8 +191,7 @@ _environment_validate() {
   # Display manager: scalar discriminator; defaults to `auto`. The concrete
   # greeter is derived from the desktop set later by
   # _environment_resolve_display_manager (ADR 0069).
-  ENVIRONMENT_DISPLAY_MANAGER="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '.environment.display_manager // "auto"')"
+  ENVIRONMENT_DISPLAY_MANAGER="$(install_config_display_manager)"
   _environment_is_one_of "$ENVIRONMENT_DISPLAY_MANAGER" \
       "${_VALID_DISPLAY_MANAGER[@]}" \
     || error "Unknown display_manager '${ENVIRONMENT_DISPLAY_MANAGER}'." \
@@ -198,8 +201,7 @@ _environment_validate() {
   # defaults to noctalia. Meaningful for any wlroots compositor in the desktop
   # set (niri and Hyprland) — harmless otherwise (the niri/Hyprland adapters
   # are the readers).
-  ENVIRONMENT_WAYLAND_SHELL="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '.environment.wayland_shell // "noctalia"')"
+  ENVIRONMENT_WAYLAND_SHELL="$(install_config_wayland_shell)"
   _environment_is_one_of "$ENVIRONMENT_WAYLAND_SHELL" \
       "${_VALID_WAYLAND_SHELL[@]}" \
     || error "Unknown wayland_shell '${ENVIRONMENT_WAYLAND_SHELL}'." \
@@ -214,8 +216,7 @@ _environment_validate() {
 # existing `none` path) with no adapter change; the KDE adapter reads
 # ENVIRONMENT_STOCK directly.
 _environment_validate_stock() {
-  ENVIRONMENT_STOCK="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '.environment.stock // false')"
+  ENVIRONMENT_STOCK="$(install_config_stock)"
   [[ "$ENVIRONMENT_STOCK" == true || "$ENVIRONMENT_STOCK" == false ]] \
     || error "Invalid environment.stock '${ENVIRONMENT_STOCK}' — want a bool."
   if [[ "$ENVIRONMENT_STOCK" == true ]]; then
@@ -286,7 +287,9 @@ environment_resolve() {
   ENVIRONMENT_WAYLAND_SHELL=""
   ENVIRONMENT_STOCK=""
   GPU_PACMAN_PACKAGES=()
+  # shellcheck disable=SC2034 # consumed by the Runner's paru pass
   GPU_PARU_PACKAGES=()
+  # shellcheck disable=SC2034 # consumed by package_list_collect
   AUDIO_PACKAGES=()
   _environment_validate
   _environment_resolve_display_manager

@@ -153,21 +153,27 @@ menu_manual_locked_paths() { printf '%s\n' "${_MENU_MANUAL_LOCKED[@]}"; }
 
 # No-ZFS lock (ADR 0041): the zfs-auto-snapshot toggle means nothing on an
 # install with no ZFS anywhere, so it renders shown-but-locked there like the
-# manual fields. _MENU_ANY_ZFS_JQ is the jq twin of install_config_any_zfs over
-# a merged Config State (manual → false; else root, data pool or storage group
-# resolves to zfs, a group inheriting the root filesystem).
+# manual fields. Whether a Config State puts ZFS anywhere is the Install Config
+# Reader's install_config_any_zfs, bound to the state.
 _MENU_ZFS_LOCKED=(post_install.backup.zfs_auto_snapshot)
 menu_zfs_locked_paths() { printf '%s\n' "${_MENU_ZFS_LOCKED[@]}"; }
-# shellcheck disable=SC2016 # a jq program, not shell
-_MENU_ANY_ZFS_JQ='def any_zfs:
-  (if ((.filesystem // "") == "") then "zfs" else .filesystem end) as $r
-  | if (.disk_config.kind // "auto") == "manual" then false
-    else ([$r] + [(.data_pools // [])[], (.storage_groups // [])[]
-                  | .filesystem // $r]) | index("zfs") != null end;'
-
 # menu_state_any_zfs <merged_state> → 0 when the state puts ZFS anywhere.
 menu_state_any_zfs() {
-  jq -e "${_MENU_ANY_ZFS_JQ} any_zfs" <<<"${1:-{\}}" >/dev/null 2>&1
+  [[ "$(install_config_use_json "${1:-{\}}"; install_config_any_zfs)" == true ]]
+}
+
+# _menu_state_facts <override> <baseline> — what menu_rows needs from the merged
+# state (filesystem, disk kind, any-ZFS), read through the bound reader.
+_menu_state_facts() {
+  local merged
+  merged="$(jq -cn --argjson o "$1" --argjson b "$2" '$b * $o')"
+  (
+    install_config_use_json "$merged"
+    jq -n --arg filesystem "$(install_config_filesystem)" \
+      --arg disk_kind "$(install_config_disk_kind)" \
+      --argjson any_zfs "$(install_config_any_zfs)" \
+      '{filesystem: $filesystem, disk_kind: $disk_kind, any_zfs: $any_zfs}'
+  )
 }
 
 # menu_manual_notice — the one-time notice shown when Manual Partitioning is
@@ -346,11 +352,11 @@ menu_rows() {
     --argjson lockpaths "$lockpaths" \
     --argjson zfslock "$zfslock" \
     --argjson schema "$(_menu_schema_defaults)" \
-    "${_MENU_ANY_ZFS_JQ}${_MENU_ROWS_JQ_DEFINITIONS}"'
+    --argjson facts "$(_menu_state_facts "$state" "$baseline")" \
+    "${_MENU_ROWS_JQ_DEFINITIONS}"'
     ($baseline * $override) as $m
-    | (if (($m.filesystem // "zfs")) == "" then "zfs"
-       else ($m.filesystem // "zfs") end) as $fs
-    | ($m.disk_config.kind // "auto") as $kind
+    | $facts.filesystem as $fs
+    | $facts.disk_kind as $kind
     | loc0($schema; "") as $sloc
     | loc0($m; $sloc) as $mloc
     | loc0($baseline; $sloc) as $bloc
@@ -381,7 +387,7 @@ menu_rows() {
                else (($override | getpath($pp)) != null) end),
             locked:  (($kind == "manual"
                        and ($lockpaths | index($fp)) != null)
-                      or (($m | any_zfs | not)
+                      or (($facts.any_zfs | not)
                           and ($zfslock | index($fp)) != null)) } ]'
 }
 
