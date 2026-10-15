@@ -72,6 +72,14 @@ retired `install.jsonc`, so the back-end never changed. The committed audit
 artifact is the Host Profile (disks excluded); this assembled artifact is
 transient by design ([ADR 0036]).
 
+### Install Config Reader
+`lib/config/install-config.sh` (+ `install-config-groups.sh`). The one way to
+read an Effective Config field: `install_config_<name>` accessors generated
+from the schema ([ADR 0015]) plus derived predicates (any-ZFS, any-LUKS,
+uses-filesystem). Reads `CONFIG_FILE`, or JSON bound with
+`install_config_use_json` — bind inside a subshell ([ADR 0154]). The Raw
+Config Read Lint fails a raw `.<path> // <literal>` read of a field it owns.
+
 ### Install Default
 What an Effective Config field means when it is absent, at install time. The
 Install Config schema (`lib/config/install-config.sh`) is its one owner: the
@@ -2506,5 +2514,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0150]: docs/adr/0150-rest-nvim-replaces-kulala-with-system-luarocks.md
 [ADR 0151]: docs/adr/0151-a-formatter-for-every-language-manual-for-hand-formatted.md
 [ADR 0153]: docs/adr/0153-human-readable-installer-code.md
+[ADR 0154]: docs/adr/0154-install-config-reader-binds-json-schema-owns-defaults.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md

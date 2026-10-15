@@ -7,20 +7,15 @@
 # TRACKED installer code (top-level scripts, lib/, vm/, tools/), minus the
 # reader itself.
 #
-# Ratchet: today's raw reads are counted per file in
-# raw-config-reads-baseline.txt (`file<TAB>count`). More reads than the
-# baseline fails (a new raw read); fewer fails too (stale baseline: lower it
-# with --update), so the baseline only ever shrinks to zero.
+# Strict: any raw read fails. (The migration baseline that eased the lint in
+# reached zero and was removed — install-config-reader/08.)
 #
-# Usage: raw-config-reads.sh [--list | --update]
-#   (none)     fail on a new raw read or a stale baseline
+# Usage: raw-config-reads.sh [--list]
+#   (none)     fail on any raw read
 #   --list     print every raw read as `file:line: text`, never fail
-#   --update   rewrite the baseline to today's counts
 # Escape hatch: a line containing `raw-config-ok` is not a raw config read
 # (e.g. the same keys on a Host Profile before assembly).
 set -euo pipefail
-
-BASELINE=".installer/tests/raw-config-reads-baseline.txt"
 
 SCHEMA=".installer/lib/config/install-config.sh"
 
@@ -79,40 +74,25 @@ raw_reads() {
     }' "${files[@]}"
 }
 
-# Per-file counts as `file<TAB>count`, sorted by file.
-current_counts() {
-  raw_reads | awk -F'\t' '{ count[$1]++ }
-    END { for (file in count) print file "\t" count[file] }' | sort
-}
+# Every raw read as `file:line: text`, one per line.
+listed_reads() { raw_reads | awk -F'\t' '{ print $1 ":" $2 ": " $3 }'; }
 
-# Compare today's counts with the baseline; print each mismatch, fail on any.
-check_against_baseline() {
-  local baseline_text=""
-  [[ -f "$BASELINE" ]] && baseline_text="$(<"$BASELINE")"
-  awk -F'\t' '
-    NR == FNR { if ($1 != "") baseline[$1] = $2; next }
-    { now[$1] = $2 }
-    END {
-      for (file in now) if (now[file] > baseline[file] + 0) {
-        printf "%s: %d raw config read(s), baseline %d — read through" \
-          " the Install Config Reader\n", file, now[file], baseline[file]
-        failed = 1
-      }
-      for (file in baseline) if (now[file] + 0 < baseline[file]) {
-        printf "stale baseline: %s: %d now, baseline %d — run" \
-          " raw-config-reads.sh --update\n", file, now[file], baseline[file]
-        failed = 1
-      }
-      exit failed
-    }' <(printf '%s\n' "$baseline_text") <(current_counts)
+# Fail on any raw read, naming each one and the fix.
+check_reads() {
+  local reads
+  reads="$(listed_reads)"
+  [[ -z "$reads" ]] && return 0
+  awk '{ print "raw config read: " $0 }' <<<"$reads"
+  echo "Read these through the Install Config Reader" \
+    "(docs/agents/readability.md, Config reads)."
+  return 1
 }
 
 main() {
   cd "$(git rev-parse --show-toplevel)"
   case "${1:-}" in
-    --list) raw_reads | awk -F'\t' '{ print $1 ":" $2 ": " $3 }' ;;
-    --update) current_counts > "$BASELINE" ;;
-    "") check_against_baseline ;;
+    --list) listed_reads ;;
+    "") check_reads ;;
     *)
       echo "raw-config-reads: unknown option: $1" >&2
       exit 2
