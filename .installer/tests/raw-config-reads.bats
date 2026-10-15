@@ -112,3 +112,10 @@ teardown() { [[ -n "${REPO:-}" ]] && rm -rf "$REPO"; return 0; }
   check_repo
   [ "$status" -ne 0 ]
 }
+
+@test "a non-empty array default is a raw read" {
+  make_repo
+  printf 'jq %s\n' "'(.options.bootloader // [\"a\"])'" > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+}

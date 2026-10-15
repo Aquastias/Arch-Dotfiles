@@ -45,16 +45,17 @@ schema_paths() {
 
 # A raw read: a schema-owned path (from a jq input or a `$variable`, not a
 # deeper path that merely ends the same), optional `[i]` steps, then `//` and
-# a literal default (non-empty string, number, bool). `// ""`, `// empty`,
-# `// null`, `// []`, `// {}` only coalesce — not defaults. A field the
-# schema does not own has no Install Default to restate: never a raw read.
+# a literal default (non-empty string or array, number, bool). `// ""`,
+# `// empty`, `// null`, `// []`, `// {}` only coalesce — not defaults. A
+# field the schema does not own has no Install Default to restate: never a
+# raw read.
 raw_read_pattern() {
   local paths
   paths="$(schema_paths | awk '{ gsub(/[.[\]]/, "\\\\&"); print }' \
     | awk 'NR > 1 { printf "|" } { printf "%s", $0 }')"
   [[ -n "$paths" ]] || return 0
   printf '%s' '(^|[^A-Za-z0-9_\]]|[$][A-Za-z_]+)('"$paths"')(\[[^]]*\])*'
-  printf '%s' ' *// *("[^"]|[0-9]|true|false)'
+  printf '%s' ' *// *("[^"]|\[[^]]|[0-9]|true|false)'
 }
 
 scanned_files() {
