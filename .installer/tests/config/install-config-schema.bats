@@ -17,6 +17,10 @@ load install-config-helpers
       test_json="\"X_${name}\""
       expected_present="X_${name}"
       ;;
+    number)
+      test_json="77"
+      expected_present="77"
+      ;;
     bool)
       if [[ "$default" == "true" ]]; then
         test_json="false"; expected_present="false"
@@ -25,8 +29,10 @@ load install-config-helpers
       fi
       ;;
     array)
-      test_json="[\"X_${name}\"]"
+      # kernels validates its tokens (ADR 0024), so it needs a real flavour
       expected_present="X_${name}"
+      [[ "$name" == kernels ]] && expected_present="zen"
+      test_json="[\"${expected_present}\"]"
       ;;
     *) printf 'unknown type %s for %s\n' "$kind" "$name" >&2; return 1 ;;
     esac
@@ -35,7 +41,7 @@ load install-config-helpers
     write_config '{}'
     out="$("install_config_${name}")" \
       || { echo "absent run failed for ${name}"; return 1; }
-    [ "$out" = "$default" ] \
+    [ "$out" = "${default//,/$'\n'}" ] \
       || { echo "[${name}] absent: got '$out', want default '$default'"; return 1; }
 
     # present → value

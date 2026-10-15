@@ -28,13 +28,19 @@ declare -F kernel_is_valid_token >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../packages/kernel.sh"
 
 # Schema rows: name|jq_path|type|default
-# Type ∈ {scalar, bool, array}. Empty default = emit empty when absent.
+# Type ∈ {scalar, number, bool, array}; number = a scalar seeded as a JSON
+# number. An array default lists its elements by comma. Empty default = emit
+# empty when absent. The schema is the one owner of install defaults: the
+# guided menu and seed derive theirs from it (install_config_default*).
+# Guided Launch Presets (identity, desktop, Security & Backup Extras) are not
+# install defaults and stay in the seed.
+# shellcheck disable=SC2140 # a long row is two adjacent strings (80 columns)
 _INSTALL_CONFIG_SCHEMA=(
   "bootloader|.options.bootloader|scalar|systemd-boot"
   "swap_enabled|.options.swap|bool|true"
   "zswap_enabled|.options.zswap.enabled|bool|true"
   "zswap_compressor|.options.zswap.compressor|scalar|zstd"
-  "zswap_max_pool_percent|.options.zswap.max_pool_percent|scalar|20"
+  "zswap_max_pool_percent|.options.zswap.max_pool_percent|number|20"
   "esp_size|.options.esp_size|scalar|auto"
   "root_shell|.options.root_shell|scalar|/bin/bash"
   "ssh_enabled|.options.ssh.enabled|bool|false"
@@ -74,8 +80,8 @@ _INSTALL_CONFIG_SCHEMA=(
   "os_pool_name|.os_pool_name|scalar|rpool"
   "storage_pool_name|.storage_pool_name|scalar|dpool"
   "storage_mount|.storage_mount|scalar|/data"
-  "ashift|.ashift|scalar|12"
-  "os_pool_ashift|.os_pool.ashift|scalar|13"
+  "ashift|.ashift|number|12"
+  "os_pool_ashift|.os_pool.ashift|number|13"
   "encryption_enabled|.options.encryption|bool|false"
   "filesystem|.filesystem|scalar|zfs"
   # Manual Partitioning (ADR 0073): the disk-config kind discriminator. Absent
@@ -88,9 +94,19 @@ _INSTALL_CONFIG_SCHEMA=(
   "pacman_ilovecandy|.options.pacman.ilovecandy|bool|true"
   "pacman_color|.options.pacman.color|bool|true"
   "pacman_verbose_pkg_lists|.options.pacman.verbose_pkg_lists|bool|true"
-  "pacman_disable_download_timeout|.options.pacman.disable_download_timeout|bool|false"
+  "pacman_disable_download_timeout|"\
+".options.pacman.disable_download_timeout|bool|false"
   "pacman_no_progress_bar|.options.pacman.no_progress_bar|bool|false"
-  "pacman_parallel_downloads|.options.pacman.parallel_downloads|scalar|5"
+  "pacman_parallel_downloads|.options.pacman.parallel_downloads|number|5"
+  "swap_size|.options.swap_size|scalar|auto"
+  "stock|.environment.stock|bool|false"
+  "gpu|.environment.gpu|array|auto"
+  "locales|.system.locale|array|en_US.UTF-8"
+  "keymaps|.system.keymap|array|us"
+  "mirror_countries|.options.mirror_countries|array|"\
+"Germany,Switzerland,Sweden,France,Romania"
+  "optional_repos|.options.optional_repos|array|multilib"
+  "kernels|.options.kernel|array|lts"
 )
 
 # The Effective Config every accessor reads: CONFIG_FILE, or the JSON bound by
@@ -111,35 +127,72 @@ _install_config_read() {
 # _install_config_optional <path> — the field, or empty when missing / null.
 _install_config_optional() { _install_config_read "$1 // empty"; }
 
+# _install_config_row <name> — the schema row's "path|type|default"; an unknown
+# name is an error.
+_install_config_row() {
+  local schema_row field_name rest
+  for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
+    IFS='|' read -r field_name rest <<< "$schema_row"
+    [[ "$field_name" == "$1" ]] && { printf '%s\n' "$rest"; return; }
+  done
+  error "install_config: unknown schema name '$1'"
+}
+
+# install_config_default <name> — the install default: what the field means
+# when absent. Arrays emit one element per line (the row lists them by comma).
+install_config_default() {
+  local row default_value
+  row="$(_install_config_row "$1")" || return 1
+  IFS='|' read -r _ _ default_value <<< "$row"
+  [[ -n "$default_value" ]] || return 0
+  printf '%s\n' "${default_value//,/$'\n'}"
+}
+
+# install_config_default_object <name>... — the named install defaults as one
+# typed JSON object at their paths (bool / number as JSON, arrays as arrays),
+# for the guided seed. A field with no install default is left out.
+install_config_default_object() {
+  local name row
+  for name in "$@"; do
+    row="$(_install_config_row "$name")" || return 1
+    [[ "${row##*|}" == "" ]] || printf '%s\n' "$row"
+  done | jq -Rn 'reduce (inputs | split("|")) as [$path, $type, $value] ({};
+    setpath($path | ltrimstr(".") | split(".");
+      if   $type == "bool" or $type == "number" then ($value | fromjson)
+      elif $type == "array" then ($value | split(","))
+      else $value end))'
+}
+
+# install_config_schema_names — every schema row's name, one per line.
+install_config_schema_names() {
+  local schema_row
+  for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
+    printf '%s\n' "${schema_row%%|*}"
+  done
+}
+
 # install_config_get <name> — schema dispatcher for the generated wrappers.
 # Reads the named field according to its schema row and applies the default.
 install_config_get() {
-  local name="$1" schema_row field_name jq_path field_type default_value value
-  for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    IFS='|' read -r field_name jq_path field_type default_value \
-      <<< "$schema_row"
-    [[ "$field_name" == "$name" ]] || continue
-    value=""
-    case "$field_type" in
-    scalar) value="$(_install_config_optional "$jq_path")" ;;
-    bool)
-      value="$(_install_config_read "$jq_path")"
-      [[ "$value" == "null" ]] && value=""
-      ;;
-    array) value="$(_install_config_array "$jq_path")" ;;
-    esac
-    if [[ -n "$value" ]]; then
-      printf '%s\n' "$value"
-    elif [[ -n "$default_value" ]]; then
-      printf '%s\n' "$default_value"
-    fi
-    return
-  done
-  error "install_config_get: unknown name '$name'"
+  local row jq_path field_type value
+  row="$(_install_config_row "$1")" || return 1
+  IFS='|' read -r jq_path field_type _ <<< "$row"
+  case "$field_type" in
+  scalar | number) value="$(_install_config_optional "$jq_path")" ;;
+  bool)
+    value="$(_install_config_read "$jq_path")"
+    [[ "$value" == "null" ]] && value=""
+    ;;
+  array) value="$(_install_config_array "$jq_path")" ;;
+  esac
+  if [[ -n "$value" ]]; then printf '%s\n' "$value"
+  else install_config_default "$1"; fi
 }
 
 # Generate one wrapper per schema row. Each wrapper forwards by name to
 # install_config_get. The canonical declaration is the schema row above.
+# A special below may redefine a generated wrapper to add logic (kernels,
+# optional_repos); defined later, it wins, and keeps the row's default.
 for _spec in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
   IFS='|' read -r _name _ _ _ <<< "$_spec"
   eval "install_config_${_name}() { install_config_get ${_name}; }"
@@ -196,11 +249,6 @@ _install_config_array() {
     elif type == \"string\" then . else empty end"
 }
 
-install_config_gpu() {
-  local out; out="$(_install_config_array '.environment.gpu')"
-  printf '%s\n' "${out:-auto}"
-}
-
 # Encryption method (ADR 0040) — scalar with a filesystem-derived default. The
 # enablement bool (install_config_encryption_enabled) is untouched; this only
 # names the cipher seam: ZFS uses native AES, every other filesystem uses LUKS.
@@ -218,37 +266,14 @@ install_config_encryption_method() {
 
 # Locale / Keymap Selection (ADR 0036) — scalar|array union. Element 0 is the
 # default (LANG / console KEYMAP); the rest are generated locales / available
-# desktop layouts. *s accessors emit one token per line (primary first); the
-# singular accessors return the primary, the back-compat scalar consumers use.
-install_config_locales() {
-  local out; out="$(_install_config_array '.system.locale')"
-  printf '%s\n' "${out:-en_US.UTF-8}"
-}
-
+# desktop layouts. The *s accessors are array schema rows (one token per line,
+# primary first); the singular ones return the primary for scalar consumers.
 install_config_locale() {
   install_config_locales | awk 'NR == 1 { print; exit }'
 }
 
-install_config_keymaps() {
-  local out; out="$(_install_config_array '.system.keymap')"
-  printf '%s\n' "${out:-us}"
-}
-
 install_config_keymap() {
   install_config_keymaps | awk 'NR == 1 { print; exit }'
-}
-
-# Mirror Countries (issue 06) — accepts a single country (string) or a list.
-# Emits one country per line, order preserved, feeding `reflector --country`.
-# Defaults to the operator's near-DE set when absent or null. Scalar|array
-# union like the locale/keymap specials.
-install_config_mirror_countries() {
-  local out; out="$(_install_config_array '.options.mirror_countries')"
-  if [[ -z "$out" ]]; then
-    printf '%s\n' Germany Switzerland Sweden France Romania
-  else
-    printf '%s\n' "$out"
-  fi
 }
 
 # Optional Repositories (ADR 0072) — the pacman repos enabled beyond core/extra:
@@ -259,7 +284,7 @@ install_config_mirror_countries() {
 install_config_optional_repos() {
   local raw; raw="$(_install_config_read '.options.optional_repos')"
   if [[ "$raw" == "null" ]]; then
-    printf '%s\n' multilib
+    install_config_default optional_repos
   else
     _install_config_array '.options.optional_repos'
   fi
@@ -297,8 +322,7 @@ install_config_custom_repositories() {
 # cannot silently install the wrong or no kernel.
 install_config_kernels() {
   local out token
-  out="$(_install_config_array '.options.kernel')"
-  out="${out:-lts}"
+  out="$(install_config_get kernels)"
   while IFS= read -r token; do
     [[ -n "$token" ]] || continue
     kernel_is_valid_token "$token" || {

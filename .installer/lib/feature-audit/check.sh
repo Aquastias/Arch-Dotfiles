@@ -63,9 +63,9 @@ _check_feature_values() {
     source "$INSTALLER_DIR/lib/config/menu.sh"
     # shellcheck source=../matrix/registry.sh
     source "$INSTALLER_DIR/lib/matrix/registry.sh"
-    local spec path default_value role value
-    for spec in "${_MENU_FIELDS[@]}"; do
-      IFS='|' read -r _ path _ default_value <<<"$spec"
+    local path default_value role value
+    # an empty state renders every field at its default (menu_rows)
+    while IFS=$'\t' read -r path default_value; do
       [[ "$path" =~ $_FA_FEATURE_SKIP ]] && continue
       role="$(matrix_axis_role "$path" 2>/dev/null || true)"
       [[ "$role" == storage-cluster || "$role" == scalar-sweep ]] && continue
@@ -78,7 +78,7 @@ _check_feature_values() {
         printf '%s=true\t%s\n%s=false\t%s\n' "$path" "$default_value" \
           "$path" "$default_value"
       fi
-    done
+    done < <(menu_rows '{}' '{}' | jq -r '.[] | [.field, .value] | @tsv')
   )
 }
 

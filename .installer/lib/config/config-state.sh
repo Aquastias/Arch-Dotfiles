@@ -42,6 +42,10 @@ declare -F layer_resolver_resolve >/dev/null 2>&1 \
 declare -F _program_registry_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/program-registry.sh"
 
+# shellcheck source=./install-config.sh
+declare -F install_config_default_object >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/install-config.sh"
+
 # shellcheck source=./fonts.sh
 declare -F fonts_default_selection_json >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/fonts.sh"
@@ -118,104 +122,53 @@ config_state_seed_defaults() {
 # without Host Core. Split out so the fold above has a clean upper layer.
 _config_state_computed_defaults() {
   local state="$1"
-  state="$(_config_state_identity_defaults "$state")"
-  state="$(_config_state_selection_defaults "$state")"
-  state="$(_config_state_disk_defaults "$state")"
-  _config_state_service_defaults "$state"
+  state="$(_config_state_install_defaults "$state")"
+  _config_state_preset_defaults "$state"
 }
 
-# Identity: hostname, the Primary User, layout mode, locale/time/keymap/font.
-_config_state_identity_defaults() {
+# Guided Launch Presets: what a fresh guided session pre-selects that is NOT an
+# install default (an absent field installs something else, or must fail):
+# identity, layout mode, timezone, the desktop, the Font Catalog set and the
+# Security & Backup Extras secure baseline (ADR 0041).
+_config_state_preset_defaults() {
   local state="$1"
   state="$(config_state_set "$state" system.hostname '"eterniox"')"
   state="$(config_state_set "$state" users '["aquastias"]')"
   state="$(config_state_set "$state" mode '"single"')"
-  state="$(config_state_set "$state" system.locale '"en_US.UTF-8"')"
   state="$(config_state_set "$state" system.timezone '"Europe/Bucharest"')"
-  state="$(config_state_set "$state" system.keymap '"us"')"
-  state="$(config_state_set "$state" system.console_font '"default8x16"')"
-  printf '%s\n' "$state"
-}
-
-_config_state_selection_defaults() {
-  local state="$1"
-  # Sysctl is no longer hand-copied here — Host Core is loaded into the
-  # baseline, so its swappiness (and everything else it declares) surfaces on
-  # its own. Operator additions ride the override on top.
-  # Selection defaults so no field opens empty and the toggle screens start with
-  # a sensible pick: kernel lts, gpu auto, KDE desktop (the default DE), and the
-  # default mirror countries. These match the menu display / back-end defaults
-  # (kernel/gpu/mirrors are idempotent); desktop is the real choice.
-  state="$(config_state_set "$state" options.kernel '["lts"]')"
-  state="$(config_state_set "$state" environment.gpu '"auto"')"
-  state="$(config_state_set "$state" environment.display_manager '"auto"')"
-  state="$(config_state_set "$state" environment.wayland_shell '"noctalia"')"
-  # stock (ADR 0112): off by default — the opinionated environment installs.
-  state="$(config_state_set "$state" environment.stock 'false')"
   state="$(config_state_set "$state" environment.desktop '["kde"]')"
-  state="$(config_state_set "$state" options.mirror_countries \
-    '["Germany","Switzerland","Sweden","France","Romania"]')"
-  printf '%s\n' "$state"
-}
-
-_config_state_disk_defaults() {
-  local state="$1"
-  # Disk / Options scalar defaults (the _MENU_FIELDS spec column): seeding them
-  # into the baseline makes it the single default reference the apply-time
-  # normalise compares against, so re-picking any shown default clears its ●.
-  # All idempotent with Host Core / the accessors (filesystem→zfs, optional
-  # repos→[multilib],
-  # esp→auto, bootloader→systemd-boot; encryption/impermanence/ssh off).
-  state="$(config_state_set "$state" filesystem '"zfs"')"
-  # Manual Partitioning kind (ADR 0073): auto = the predefined pool layouts, the
-  # untouched default; idempotent with the accessor (disk_config.kind→auto).
-  state="$(config_state_set "$state" disk_config.kind '"auto"')"
-  state="$(config_state_set "$state" options.esp_size '"auto"')"
-  state="$(config_state_set "$state" options.bootloader '"systemd-boot"')"
-  state="$(config_state_set "$state" options.optional_repos '["multilib"]')"
-  state="$(config_state_set "$state" options.encryption 'false')"
-  state="$(config_state_set "$state" options.impermanence.enabled 'false')"
-  state="$(config_state_set "$state" options.ssh.enabled 'false')"
-  printf '%s\n' "$state"
-}
-
-_config_state_service_defaults() {
-  local state="$1"
-  # Printing Service (ADR 0079): print daemon on by default; cups is derived at
-  # emit, not a baseline host_programs entry. Idempotent with the accessor.
-  state="$(config_state_set "$state" options.printing.enabled 'true')"
-  # Font Catalog (ADR 0080): seed the default-checked fonts into the baseline so
-  # a fresh run shows the default set with no ●. Absent options.fonts resolves
-  # to the same set via fonts_selected, so this is idempotent with the back end.
+  # Font Catalog (ADR 0080): absent options.fonts resolves to the same set via
+  # fonts_selected; seeded so a fresh run shows the default set with no ●.
   state="$(config_state_set "$state" options.fonts \
     "$(fonts_default_selection_json)")"
-  # Bluetooth Service (ADR 0080): bluez on by default; the bluetooth program is
-  # derived at emit, not a baseline entry. Idempotent with the accessor.
-  state="$(config_state_set "$state" options.bluetooth.enabled 'true')"
-  # Power Profile (ADR 0080): power-profiles-daemon by default; the daemon
-  # program is injected at emit. Idempotent with the accessor.
-  state="$(config_state_set "$state" options.power.profile \
-    '"power-profiles-daemon"')"
-  # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.
-  # ILoveCandy / Color / VerbosePkgLists on out of the box; the two opt-ins off;
-  # ParallelDownloads 5. Rides the baseline (no ● until edited); idempotent with
-  # the accessor defaults.
-  state="$(config_state_set "$state" options.pacman.ilovecandy 'true')"
-  state="$(config_state_set "$state" options.pacman.color 'true')"
-  state="$(config_state_set "$state" options.pacman.verbose_pkg_lists 'true')"
-  state="$(config_state_set "$state" \
-    options.pacman.disable_download_timeout 'false')"
-  state="$(config_state_set "$state" options.pacman.no_progress_bar 'false')"
-  state="$(config_state_set "$state" options.pacman.parallel_downloads '5')"
-  # zswap Defaults: on by default (zstd, 20% max pool). Rides the baseline so a
-  # fresh run shows it with no ● and Save writes it whole, matching the boot
-  # layer's accessor defaults. zswap only acts when swap is on (the default).
-  state="$(config_state_set "$state" options.zswap.enabled 'true')"
-  state="$(config_state_set "$state" options.zswap.compressor '"zstd"')"
-  state="$(config_state_set "$state" options.zswap.max_pool_percent '20')"
-  # Security & Backup Extras (ADR 0041): pre-tick the secure baseline (firewalld
-  # + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg). It rides the
-  # baseline layer, so a fresh run shows it with no ● and Save writes it whole.
   state="$(config_state_set "$state" post_install "$(post_install_default)")"
+  printf '%s\n' "$state"
+}
+
+# Install defaults the menu shows, seeded from the Install Config schema (its
+# one owner) so the baseline is the single default reference the apply-time
+# normalise compares against: re-picking a shown default clears its ●.
+_CONFIG_STATE_SCHEMA_SEEDED=(
+  console_font kernels display_manager wayland_shell stock mirror_countries
+  filesystem disk_kind esp_size bootloader optional_repos encryption_enabled
+  impermanence_enabled ssh_enabled printing_enabled bluetooth_enabled
+  power_profile pacman_ilovecandy pacman_color pacman_verbose_pkg_lists
+  pacman_disable_download_timeout pacman_no_progress_bar
+  pacman_parallel_downloads zswap_enabled zswap_compressor
+  zswap_max_pool_percent
+)
+
+# _config_state_install_defaults <state> — <state> with the schema-owned install
+# defaults laid over it. The scalar|array union fields (locale, keymap, gpu)
+# seed their primary as a scalar, the shape the menu edits.
+_config_state_install_defaults() {
+  local state="$1" union
+  state="$(jq -c --argjson d "$(install_config_default_object \
+    "${_CONFIG_STATE_SCHEMA_SEEDED[@]}")" '. * $d' <<<"$state")"
+  for union in system.locale:locales system.keymap:keymaps \
+    environment.gpu:gpu; do
+    state="$(config_state_set "$state" "${union%%:*}" \
+      "$(install_config_default "${union##*:}" | jq -Rn 'input')")"
+  done
   printf '%s\n' "$state"
 }

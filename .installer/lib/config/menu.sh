@@ -32,34 +32,41 @@ declare -F config_state_get >/dev/null 2>&1 \
 declare -F locale_source_keymaps >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/locale-source.sh"
 
+# shellcheck source=./install-config.sh
+declare -F install_config_default_object >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/install-config.sh"
+
 # shellcheck source=./fonts.sh
 declare -F fonts_catalog_tokens >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/fonts.sh"
 
 # Field table — "section|path|label|default". The single source of truth for
-# the covered fields; add a row here to surface a field in the menu.
+# the covered fields; add a row here to surface a field in the menu. A field the
+# Install Config schema owns shows the schema's install default (its column
+# stays empty); the column only holds render placeholders (`[]`) and Guided
+# Launch Presets (timezone, Security & Backup Extras).
 _MENU_FIELDS=(
-  "Locales|system.keymap|keyboard|us"
-  "Locales|__language__|language|en_US"
-  "Locales|__encoding__|encoding|UTF-8"
-  "Locales|system.console_font|console font|default8x16"
-  "Mirrors & Repositories|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
-  "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
+  "Locales|system.keymap|keyboard|"
+  "Locales|__language__|language|"
+  "Locales|__encoding__|encoding|"
+  "Locales|system.console_font|console font|"
+  "Mirrors & Repositories|options.mirror_countries|mirror countries|"
+  "Mirrors & Repositories|options.optional_repos|optional repositories|"
   "Mirrors & Repositories|options.mirror_servers|custom servers|[]"
   "Mirrors & Repositories|options.custom_repositories|custom repositories|[]"
-  "Pacman|options.pacman.ilovecandy|ILoveCandy|true"
-  "Pacman|options.pacman.color|Color|true"
-  "Pacman|options.pacman.verbose_pkg_lists|VerbosePkgLists|true"
-  "Pacman|options.pacman.disable_download_timeout|DisableDownloadTimeout|false"
-  "Pacman|options.pacman.no_progress_bar|NoProgressBar|false"
-  "Pacman|options.pacman.parallel_downloads|ParallelDownloads|5"
-  "Disks|disk_config.kind|manual partitioning|auto"
-  "Disks|filesystem|filesystem|zfs"
-  "Disks|options.encryption|encryption|false"
-  "Disks|options.impermanence.enabled|impermanence|false"
-  "Disks|options.esp_size|esp size|auto"
-  "Bootloader|options.bootloader|bootloader|systemd-boot"
-  "Kernels|options.kernel|kernel|lts"
+  "Pacman|options.pacman.ilovecandy|ILoveCandy|"
+  "Pacman|options.pacman.color|Color|"
+  "Pacman|options.pacman.verbose_pkg_lists|VerbosePkgLists|"
+  "Pacman|options.pacman.disable_download_timeout|DisableDownloadTimeout|"
+  "Pacman|options.pacman.no_progress_bar|NoProgressBar|"
+  "Pacman|options.pacman.parallel_downloads|ParallelDownloads|"
+  "Disks|disk_config.kind|manual partitioning|"
+  "Disks|filesystem|filesystem|"
+  "Disks|options.encryption|encryption|"
+  "Disks|options.impermanence.enabled|impermanence|"
+  "Disks|options.esp_size|esp size|"
+  "Bootloader|options.bootloader|bootloader|"
+  "Kernels|options.kernel|kernel|"
   "System|system.hostname|hostname|"
   "System|system.timezone|timezone|Europe/Bucharest"
   # Font Catalog (ADR 0080): a curated multi-select of fonts, resident in
@@ -68,16 +75,16 @@ _MENU_FIELDS=(
   # default set with no ●.
   "System|options.fonts|fonts|"
   "Environment|environment.desktop|desktop|"
-  "Environment|environment.display_manager|display manager|auto"
+  "Environment|environment.display_manager|display manager|"
   # wayland shell (ADR 0090/0097): the Noctalia work-preset selector. Meaningful
   # for any wlroots compositor in the desktop set (niri, Hyprland); default
   # noctalia (prepared work desktop), none = bare compositor.
-  "Environment|environment.wayland_shell|wayland shell|noctalia"
+  "Environment|environment.wayland_shell|wayland shell|"
   # stock (ADR 0112): a bare-bool Cycle Field. On, every selected desktop is
   # upstream-stock (KDE = shell only; niri/Hyprland = bare, forcing
   # wayland_shell none), nothing seeded. Default off (opinionated environment).
-  "Environment|environment.stock|stock|false"
-  "Environment|environment.gpu|gpu|auto"
+  "Environment|environment.stock|stock|"
+  "Environment|environment.gpu|gpu|"
   # Packages has NO field rows: its whole surface is the repo/aur/derived drill
   # (ADR 0086). The old free-text "extra packages" row was a redundant third add
   # path (repo ＋Add browses, aur ＋Add types; both write packages.<slot>.extra),
@@ -94,14 +101,14 @@ _MENU_FIELDS=(
   # category (renamed from Services to avoid echoing the SERVICES bucket).
   # Printing (ADR 0079) is a bare-bool Cycle Field (flips in place);
   # default on preserves the historical print daemon.
-  "Daemons|options.printing.enabled|printing|true"
+  "Daemons|options.printing.enabled|printing|"
   # Bluetooth (ADR 0080): a bare-bool Cycle Field. Default on installs the bluez
   # daemon and enables bluetooth.service.
-  "Daemons|options.bluetooth.enabled|bluetooth|true"
+  "Daemons|options.bluetooth.enabled|bluetooth|"
   # Power Profile (ADR 0080): an enum leaf (none | power-profiles-daemon |
   # tuned), NOT a bare bool, so it drills into a values submenu. Default ppd.
-  "Daemons|options.power.profile|power profile|power-profiles-daemon"
-  "Expert|options.ssh.enabled|ssh|false"
+  "Daemons|options.power.profile|power profile|"
+  "Expert|options.ssh.enabled|ssh|"
   "Expert|options.age_key_url|age key url|"
   "Users|users|users|"
 )
@@ -286,6 +293,17 @@ _menu_fields_json() {
   printf '%s' "$_MENU_FIELDS_JSON"
 }
 
+# _menu_schema_defaults — every Install Config install default as typed JSON at
+# its path (the schema owns them), built once and cached like the field table.
+_MENU_SCHEMA_DEFAULTS=""
+_menu_schema_defaults() {
+  # shellcheck disable=SC2046 # one schema name per word
+  [[ -n "$_MENU_SCHEMA_DEFAULTS" ]] \
+    || _MENU_SCHEMA_DEFAULTS="$(install_config_default_object \
+      $(install_config_schema_names))"
+  printf '%s' "$_MENU_SCHEMA_DEFAULTS"
+}
+
 # The jq helpers menu_rows renders with: render (array→", ", object→"k=v",
 # scalar→string, empty→default) and the locale projection.
 # shellcheck disable=SC2016 # a jq program, not shell
@@ -301,11 +319,11 @@ _MENU_ROWS_JQ_DEFINITIONS='
     | if ($r == null or $r == "") then $d else $r end;
   # Locale projection (ADR 0076): the canonical system.locale (element 0 when an
   # array) split into its language identity (.CODESET dropped, @modifier kept)
-  # and its encoding (the CODESET). loc0 defaults to en_US.UTF-8 so the two
-  # leaves render their defaults on a fresh state.
-  def loc0($src): ($src.system.locale) as $l
+  # and its encoding (the CODESET). loc0 falls back to <fallback> (the schema
+  # install default) so the two leaves render their defaults on a fresh state.
+  def loc0($src; $fallback): ($src.system.locale) as $l
     | (if ($l | type) == "array" then ($l[0] // "") else ($l // "") end)
-    | if . == "" then "en_US.UTF-8" else . end;
+    | if . == "" then $fallback else . end;
   def loc_lang($l): ($l | sub("\\.[^.@]+"; ""));
   def loc_enc($l):
     (if ($l | test("\\.[^.@]+")) then ($l | capture("\\.(?<e>[^.@]+)").e)
@@ -327,20 +345,25 @@ menu_rows() {
     --argjson baseline "$baseline" \
     --argjson lockpaths "$lockpaths" \
     --argjson zfslock "$zfslock" \
+    --argjson schema "$(_menu_schema_defaults)" \
     "${_MENU_ANY_ZFS_JQ}${_MENU_ROWS_JQ_DEFINITIONS}"'
     ($baseline * $override) as $m
     | (if (($m.filesystem // "zfs")) == "" then "zfs"
        else ($m.filesystem // "zfs") end) as $fs
     | ($m.disk_config.kind // "auto") as $kind
-    | loc0($m) as $mloc
-    | loc0($baseline) as $bloc
+    | loc0($schema; "") as $sloc
+    | loc0($m; $sloc) as $mloc
+    | loc0($baseline; $sloc) as $bloc
     | (($override | getpath(["system","locale"])) != null) as $loc_ov
     | [ $fields[]
         | .path as $fp
-        | .default as $def
+        | ($fp | split(".")) as $pp
+        | (if   $fp == "__language__" then loc_lang($sloc)
+           elif $fp == "__encoding__" then loc_enc($sloc)
+           elif .default != "" then .default
+           else render($schema | getpath($pp); "") end) as $def
         | select($fp != "options.impermanence.enabled"
                  or ($fs != "ext4" and $fs != "xfs"))
-        | ($fp | split(".")) as $pp
         | { section: .section,
             field:   $fp,
             label:   .label,

@@ -72,6 +72,21 @@ retired `install.jsonc`, so the back-end never changed. The committed audit
 artifact is the Host Profile (disks excluded); this assembled artifact is
 transient by design ([ADR 0036]).
 
+### Install Default
+What an Effective Config field means when it is absent, at install time. The
+Install Config schema (`lib/config/install-config.sh`) is its one owner: the
+accessors apply it, and the Guided Installer's menu and seed take theirs from
+it (`install_config_default` / `install_config_default_object`). Distinct from
+a Guided Launch Preset. _Avoid_: menu default, seed default.
+
+### Guided Launch Preset
+What a fresh Guided Installer session pre-selects that is **not** an Install
+Default — an absent field would install something else, or must fail:
+identity (hostname, Primary User), layout mode, timezone, the desktop, the
+Font Catalog set and the Security & Backup Extras secure baseline (absent =
+off, [ADR 0041]). Lives in the seed (`config_state_seed_defaults`), never in
+the schema.
+
 ### Pre-Install Picker
 The interactive disk-resolution front-end of `install.sh --profile <name>`
 (`lib/picker.sh`) — no longer a separate `tools/pick.sh`. Because the Host
@@ -2396,6 +2411,7 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0038]: docs/adr/0038-boot-path-resilience-small-esp.md
 [ADR 0039]: docs/adr/0039-guided-installer-profile-optional-front-end.md
 [ADR 0040]: docs/adr/0040-filesystem-adapter-axis.md
+[ADR 0041]: docs/adr/0041-host-security-backup-via-primary-user-paru.md
 [ADR 0043]: docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
 [ADR 0044]: docs/adr/0044-btrfs-impermanence-per-path-rollback.md
 [ADR 0046]: docs/adr/0046-combination-matrix-two-tier-install-testing.md

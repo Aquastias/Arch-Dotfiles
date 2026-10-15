@@ -451,3 +451,31 @@ load guided-menu-helpers
   echo "$output" | jq -e 'any(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .section == "Users")'
 }
+
+# ── install defaults have one owner: the Install Config schema ──────────────
+
+@test "menu: a field the schema owns declares no default of its own" {
+  local paths row path default
+  paths="$(printf '%s\n' "${_INSTALL_CONFIG_SCHEMA[@]}" \
+    | awk -F'|' '{ sub(/^\./, "", $2); print $2 }')"
+  for row in "${_MENU_FIELDS[@]}"; do
+    IFS='|' read -r _ path _ default <<<"$row"
+    if grep -qx "$path" <<<"$paths" || [[ "$path" == __*__ ]]; then
+      [ -z "$default" ] \
+        || { echo "menu default for $path: $default"; return 1; }
+    fi
+  done
+}
+
+@test "menu: a schema-owned field shows the schema's install default" {
+  local rows
+  rows="$(menu_rows '{}' '{}')"
+  jq -e '[.[] | select(.field == "options.mirror_countries")][0].value
+    == "Germany, Switzerland, Sweden, France, Romania"' <<<"$rows"
+  jq -e '[.[] | select(.field == "options.pacman.parallel_downloads")][0].value
+    == "5"' <<<"$rows"
+  jq -e '[.[] | select(.field == "__language__")][0].value == "en_US"' \
+    <<<"$rows"
+  jq -e '[.[] | select(.field == "__encoding__")][0].value == "UTF-8"' \
+    <<<"$rows"
+}
