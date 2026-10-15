@@ -400,7 +400,7 @@ resolve_wipe_targets() {
 # CLI-passed file is rejected.
 reject_cli_manual_layout() {
   [[ -n "$cli_positional" && -f "$cli_positional" ]] || return 0
-  [[ "$(jsonc_read "$cli_positional" '.disk_config.kind // "auto"')" \
+  [[ "$(CONFIG_FILE="$cli_positional" install_config_disk_kind)" \
      == "manual" ]] || return 0
   echo "[install.sh] $cli_positional sets disk_config.kind=manual, which is" \
     "Guided-Installer-only (ADR 0073)." >&2

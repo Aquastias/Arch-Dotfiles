@@ -16,6 +16,9 @@
 # =============================================================================
 
 FLOW_GUIDED_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+# shellcheck source=../../lib/config/install-config.sh
+declare -F install_config_use_json >/dev/null 2>&1 \
+  || source "${FLOW_GUIDED_DIR}/../../lib/config/install-config.sh"
 # shellcheck source=./flow-test.sh
 [[ "$(type -t flow_run)" == function ]] \
   || source "${FLOW_GUIDED_DIR}/flow-test.sh"
@@ -28,12 +31,13 @@ FLOW_GUIDED_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 # (issue 03 L4) end-to-end.
 _flow_render_user_data() {
   local repo_url="$1" hostname encryption impermanence layout disk_count=1
-  hostname="$(jq -r '.system.hostname // "arch-guided"' \
-    <<<"${INSTALL_CONFIG_CONTENT}")"
-  encryption="$(jq -r '.options.encryption // false' \
-    <<<"${INSTALL_CONFIG_CONTENT}")"
-  impermanence="$(jq -r '.options.impermanence.enabled // false' \
-    <<<"${INSTALL_CONFIG_CONTENT}")"
+  # the flow's own fallback name — hostname has no Install Default
+  local name_filter='.system.hostname // "arch-guided"'  # raw-config-ok
+  hostname="$(jq -r "$name_filter" <<<"${INSTALL_CONFIG_CONTENT}")"
+  encryption="$(install_config_use_json "${INSTALL_CONFIG_CONTENT}"
+    install_config_get encryption_enabled)"
+  impermanence="$(install_config_use_json "${INSTALL_CONFIG_CONTENT}"
+    install_config_get impermanence_enabled)"
   # guided_layout (issue 04) names a multi-disk ZFS preset for the guided menu to
   # replay; the guest then resolves Σ disk_count disks in-guest. Default single.
   layout="$(jq -r '.guided_layout // "single"' <<<"${INSTALL_CONFIG_CONTENT}")"

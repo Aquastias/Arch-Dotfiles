@@ -1,2 +1,0 @@
-.installer/install.sh	1
-.installer/vm/lib/flow-guided.sh	3
