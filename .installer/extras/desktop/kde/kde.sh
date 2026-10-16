@@ -64,7 +64,7 @@ if [[ "$do_shell" == "true" ]]; then
   # The shell package set is DATA — the shell_packages Categorized List in
   # install-kde.jsonc, parsed the same way apps are (bool mode). One source of
   # truth the Package Resolver reads too, so install and query cannot drift; the
-  # rationale for the non-obvious members (plasma-x11-session fallback session,
+  # rationale for the non-obvious members (no X11 session since Plasma 6.8,
   # sddm-kcm the KCM not in plasma-meta, the wayland/portal/icon pieces) is
   # documented in the jsonc. The sddm PACKAGE + enablement are the SDDM Display
   # Manager Adapter's (ADR 0069), not KDE's.

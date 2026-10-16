@@ -12,9 +12,8 @@
   // kde-shell), so the two cannot drift. Not individually operator-toggleable —
   // the shell is a unit; the menu toggles apps, not this.
   //
-  // Rationale for the DE-tied non-obvious members: plasma-x11-session is only an
-  // optional dep of plasma-meta, installed so SDDM always offers an X11 fallback
-  // session (a black-screen guard on GPUs where kwin_wayland can't take over);
+  // Rationale for the DE-tied non-obvious members: no X11 session — Plasma 6.8
+  // retired it (plasma-x11-session left the repos; X11 apps run on XWayland);
   // sddm-kcm is the SDDM config module and is NOT in plasma-meta (the sddm
   // PACKAGE + enablement are the Display Manager Adapter's, ADR 0069); the
   // wayland/portal/icon pieces were once hand-declared in host profiles (ADR
@@ -23,7 +22,6 @@
     "plasma": {
       "plasma-meta": true,
       "plasma-workspace": true,
-      "plasma-x11-session": true,
       "polkit-kde-agent": true
     },
     "integration": {

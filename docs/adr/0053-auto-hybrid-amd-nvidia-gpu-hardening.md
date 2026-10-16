@@ -100,6 +100,9 @@ The hardening set, all owned by `gpu.sh`:
 - SDDM stays **Wayland-only** with the existing `plasma-x11-session` fallback
   (ADR/commit `plasma-x11-session`): the compositor on amdgpu makes Wayland the
   safe primary, and X11 remains the black-screen escape hatch.
+  *Amended 2026-10-16:* Plasma 6.8 retired the X11 session upstream and
+  `plasma-x11-session` left the Arch repos, so there is no X11 escape hatch
+  any more — Wayland is the only session; X11-only apps run on XWayland.
 - **Not VM-verifiable.** No VM emulates the proprietary NVIDIA stack or hybrid
   hardware, so the Combination Matrix can only prove "installs without error."
   Correctness is covered by bats unit tests over the pure generators (gating +
