@@ -38,3 +38,14 @@ xfs + btrfs data pools, all mounted at boot) on 9305844; matrix
 upstream breaks found + fixed on the way: linux-lts patch bump vs the archzfs
 prebuilt (9305844, ADR 0137 amended) and Plasma 6.8 dropping
 plasma-x11-session (c977456, ADR 0053 amended).
+
+2026-10-16 encrypted roots (pinned ISO), install exit 0 + unlocked at boot:
+`single/{ext4,btrfs,xfs}-encrypted` (LUKS root, Console Answerer typed the
+cryptroot password) + `data-pools/ext4-enc` (crypttank0 unlocked, fsck'd,
+mounted) + `data-pools/zfs-enc` (key loaded) — all boot OK.
+`headless/secure` (zfs native-encrypted root + impermanence) failed install
+validation (VM user `test` lives in users/vm/ — fixed 7f11c73), then installed
+exit 0 and booted to a login prompt after the rpool passphrase was answered;
+the first-boot sentinel never printed because the standard sentinel unit
+lives in /etc, which impermanence rolls back (the profile is install-only by
+design; the rollback-aware sentinel block lives under /usr/lib).
