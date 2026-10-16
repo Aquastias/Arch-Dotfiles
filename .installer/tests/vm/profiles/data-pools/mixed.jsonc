@@ -1,0 +1,51 @@
+// VM test: per-group filesystem (ADR 0043), every non-zfs Data Group
+// Formatter in one install. 4 × 20 GiB —
+//   /dev/sda → rpool (OS, zfs, topology=none, single disk)
+//   /dev/sdb → tank0 (Standalone Data Pool, ext4,  /data/tank0)
+//   /dev/sdc → tank1 (Standalone Data Pool, xfs,   /data/tank1)
+//   /dev/sdd → tank2 (Standalone Data Pool, btrfs, /data/tank2)
+// Exercises the per-group rules together: zfs root + three non-zfs data
+// disks, each fs's userland (xfsprogs, btrfs-progs) and fstab entry. verify
+// asserts the zfs root imported AND all three data disks mount at boot.
+{
+  "name": "arch-zfs-test-data-pools-mixed",
+  "hardware": { "disks": [20, 20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-data-pools-mixed",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto"
+    },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda"]
+    },
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "filesystem": "ext4",  "disks": ["/dev/sdb"] },
+      { "name": "tank1", "filesystem": "xfs",   "disks": ["/dev/sdc"] },
+      { "name": "tank2", "filesystem": "btrfs", "disks": ["/dev/sdd"] }
+    ]
+  },
+  "verify": {
+    "boot":      true,
+    "pools":     ["rpool"],
+    "fs_mounts": ["/data/tank0", "/data/tank1", "/data/tank2"]
+  }
+}
