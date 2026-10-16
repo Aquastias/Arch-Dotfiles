@@ -76,8 +76,8 @@ _lts_hold_run() {
   [[ -n "$newest" ]] || { echo "archzfs-lts-hold: could not read newest linux-lts — leaving hold state unchanged." >&2; return 0; }
 
   # archzfs_kernel_pick_lts_version prints the ceiling version when <newest>
-  # outruns it at the minor level (⇒ hold), nothing when newest is within the
-  # ceiling.
+  # is newer at all — patch included, the prebuilt zfs-linux-lts pins its exact
+  # kernel (ADR 0137) — ⇒ hold; nothing when newest is within the ceiling.
   if [[ -n "$(archzfs_kernel_pick_lts_version "$ceiling" "$newest")" ]]; then
     lts_hold_set "$config_file" 1
     echo "archzfs-lts-hold: holding linux-lts — mirror ${newest} outruns archzfs ceiling ${ceiling}."

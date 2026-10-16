@@ -72,8 +72,20 @@ setup() {
   [ "$output" = "6.18.52-1" ]
 }
 
-@test "pick: mirror equal minor (newer patch) → no pin (patch-tolerant)" {
+@test "pick: mirror newer patch → pin (the prebuilt needs its exact kernel)" {
+  # ADR 0137 amendment: zfs-linux-lts depends on linux-lts=<its version>, so a
+  # patch bump on the mirror (6.18.56 → 6.18.57, VM-observed) must be held.
   run archzfs_kernel_pick_lts_version "6.18.52-1" "6.18.60-1"
+  [ "$output" = "6.18.52-1" ]
+}
+
+@test "pick: mirror newer pkgrel only → pin" {
+  run archzfs_kernel_pick_lts_version "6.18.52-1" "6.18.52-2"
+  [ "$output" = "6.18.52-1" ]
+}
+
+@test "pick: numeric patch compare so 6.18.9 < 6.18.52 (no pin)" {
+  run archzfs_kernel_pick_lts_version "6.18.52-1" "6.18.9-1"
   [ -z "$output" ]
 }
 

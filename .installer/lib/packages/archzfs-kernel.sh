@@ -126,15 +126,29 @@ archzfs_kernel_pin_candidates() {
 # ── Pin decision (pure) ──────────────────────────────────────────────────────
 
 # archzfs_kernel_pick_lts_version <supported_pkgver> <mirror_pkgver>
-# Print <supported_pkgver> when the mirror's linux-lts MINOR is newer than what
-# archzfs supports — a minor jump is what breaks the DKMS build. Print nothing
-# when the mirror is at or below the supported minor: same-minor patch drift is
-# API-compatible, so no pin (stay as fresh as possible), matching the ISO
-# resolver's proven rule.
+# Print <supported_pkgver> when the mirror's linux-lts is newer than it at all
+# (minor, patch or pkgrel): the prebuilt zfs-linux-lts depends on its exact
+# linux-lts, so even a patch bump must be held back (ADR 0137 amendment;
+# 6.18.56 → 6.18.57 broke pacstrap, VM-observed). Nothing when the mirror is
+# at or below it.
 archzfs_kernel_pick_lts_version() {
   local supported="$1" mirror="$2"
-  _archzfs_kernel_minor_at_or_below "$mirror" "$supported" && return 0
+  _archzfs_kernel_version_newer "$mirror" "$supported" || return 0
   printf '%s\n' "$supported"
+}
+
+# _archzfs_kernel_version_newer <a> <b> — rc 0 when pkgver <a> is newer than
+# <b>: numeric per field over major.minor.patch, then pkgrel (6.18.9 < 6.18.52).
+_archzfs_kernel_version_newer() {
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    count_a = split(a, left, /[.-]/); count_b = split(b, right, /[.-]/)
+    count = count_a > count_b ? count_a : count_b
+    for (i = 1; i <= count; i++) {
+      if (left[i] + 0 > right[i] + 0) exit 0
+      if (left[i] + 0 < right[i] + 0) exit 1
+    }
+    exit 1
+  }'
 }
 
 # ── Orchestration ────────────────────────────────────────────────────────────
