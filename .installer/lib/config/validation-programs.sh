@@ -39,10 +39,12 @@ _validation_preflight_programs() {
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
 
   local user
+  # the Profile Loader's own lookup: users/<name>, else the VM fixture
+  # users/vm/<name>
   for user in "${users[@]}"; do
-    [[ -d "${INSTALLER_DIR}/users/${user}" ]] ||
-      error "Host config references user '${user}' but" \
-            "${INSTALLER_DIR}/users/${user}/ does not exist."
+    [[ -d "$(profile_loader_directory users "$user")" ]] ||
+      error "Host config references user '${user}' but neither" \
+            "${INSTALLER_DIR}/users/${user}/ nor users/vm/${user}/ exists."
   done
 
   local any_fail=0
