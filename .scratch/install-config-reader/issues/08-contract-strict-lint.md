@@ -49,3 +49,11 @@ exit 0 and booted to a login prompt after the rpool passphrase was answered;
 the first-boot sentinel never printed because the standard sentinel unit
 lives in /etc, which impermanence rolls back (the profile is install-only by
 design; the rollback-aware sentinel block lives under /usr/lib).
+
+2026-10-16 `impermanence/kde-encrypted` on 56e3d12: install exit 0;
+initramfs hooks `… keyboard zfs zfs-rollback filesystems` (unlock before
+rollback — the guarded regression is absent); SDDM enabled; boot answered
+the rpool passphrase and reached `vm-test-imp-kde-enc login:` on
+6.18.57-1-lts. Sentinel absent for the same /etc-rollback reason as
+headless/secure; the quiet cmdline hides unit status on serial, so the
+graphical session itself was not observed.
