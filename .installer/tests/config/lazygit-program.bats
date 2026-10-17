@@ -12,7 +12,7 @@ setup() {
   HOMESEED="$PROG/home"
   LZG="$REPO/.config/lazygit"
   CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
 }
 
 # ── program definition ───────────────────────────────────────────────────────
@@ -65,6 +65,6 @@ setup() {
 
 # ── profile wiring ───────────────────────────────────────────────────────────
 
-@test "User Core serves the lazygit program fleet-wide" {
-  grep -qE '"lazygit"' "$UCORE"
+@test "the operator user carries the lazygit program" {
+  grep -qE '"lazygit"' "$OPERATOR_USER"
 }

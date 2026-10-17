@@ -12,7 +12,7 @@ setup() {
   HOMESEED="$PROG/home"
   YAZI="$REPO/.config/yazi"
   CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
 }
 
 # ── program definition ───────────────────────────────────────────────────────
@@ -64,6 +64,6 @@ setup() {
 
 # ── profile wiring ───────────────────────────────────────────────────────────
 
-@test "User Core serves the yazi program fleet-wide" {
-  grep -qE '"yazi"' "$UCORE"
+@test "the operator user carries the yazi program" {
+  grep -qE '"yazi"' "$OPERATOR_USER"
 }

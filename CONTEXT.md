@@ -502,31 +502,31 @@ and a saved profile like any host option; not gated (it always has a valid
 default). Applied in the chroot by `lib/chroot/password.sh` (`chsh` root plus a
 missing-shell package install, mirroring `create-user.sh`), so root can never be
 left with an unusable login shell ([ADR 0054]). Caveat: when the `zsh` User
-Program is installed (User Core default), its install script later seeds
-`/root` with the static zsh theme + warmed zinit cache and `chsh`es root to zsh
-(red `root@host` prompt context), overriding a `bash`/`fish` choice
+Program is installed (`users/aquastias` carries it), its install script later
+seeds `/root` with the static zsh theme + warmed zinit cache and `chsh`es root
+to zsh (red `root@host` prompt context), overriding a `bash`/`fish` choice
 ([ADR 0146]).
 
 ### User Core
-Declarative JSONC file at `.installer/users/core/profile.jsonc`. Declares the
-base set
-of programs, shell defaults, groups, and House Defaults shared across all users.
-Every User Profile is resolved over core by the [[Layer Resolver]] — core
-applies first, then the user profile per the [ADR 0057] per-key classification
-(`groups`/`programs`/`ssh_authorized_keys` additive; `shell`/`sudo`/
-`user_services` replace). A user drops something core declares via
-`programs_exclude[]`; the two throwaway VM test users use it to drop the
-interactive userland (zsh, kitty, virt-manager, pi, claude, …).
+Declarative JSONC file at `.installer/users/core/profile.jsonc`. The
+**neutral** base layer every User Profile is resolved over by the
+[[Layer Resolver]] — core applies first, then the user profile per the
+[ADR 0057] per-key classification (`groups`/`programs`/`ssh_authorized_keys`
+additive; `shell`/`sudo`/`user_services` replace). A user created through the
+Guided Installer inherits it, so it declares nothing personal ([ADR 0157]):
+shell `/bin/bash`, the generic device groups, `sudo: false`, no programs. A
+user drops something core declares via `programs_exclude[]`.
 
-The default `shell` is **`/bin/zsh`**: the fleet shell config is zsh, served by
-the `zsh` [[User Program]] in User Core's `programs` (its `home/` payload —
-`.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`, `.zsh/`,
+The operator's userland lives on `users/aquastias`: shell **`/bin/zsh`** — the
+fleet shell config is zsh, served by the `zsh` [[User Program]] (its `home/`
+payload — `.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`, `.zsh/`,
 `.zsh_aliases`, `.p10k.zsh` — placed by the [[Config Apply Pass]], [ADR 0134];
-live palette via the [[Zsh Theme Template]], [ADR 0129]). `zsh` itself is not
-declared as a package: `ensure_login_shell_installed` pacman-installs a user's
-login shell when the binary is missing. The program pre-warms the zinit plugin
-cache at install, so first login needs no network. The two throwaway VM test
-users (`users/vm/test`, `users/vm/data`) exclude zsh and stay on bash.
+live palette via the [[Zsh Theme Template]], [ADR 0129]) — plus kitty, lazygit,
+yazi, virt-manager, podman, searxng, pi, claude, nvim, docker, teamspeak3 and
+vscodium. `zsh` itself is not declared as a package:
+`ensure_login_shell_installed` pacman-installs a user's login shell when the
+binary is missing. The two throwaway VM test users (`users/vm/test`,
+`users/vm/data`) stay on bash and carry only `nvim`.
 
 ### Primary User
 The first entry in a host's `users` array (`users[0]` in

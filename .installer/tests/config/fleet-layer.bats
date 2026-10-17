@@ -78,3 +78,31 @@ installed_names() {
 @test "the Profiles picker does not list the Fleet Layer" {
   ! profiles_list "$INSTALLER_DIR/hosts" | grep -qx fleet
 }
+
+# ── neutral User Core: personal programs live on aquastias (ADR 0157) ────────
+
+@test "User Core declares no programs and a bash shell" {
+  jsonc_strip "$INSTALLER_DIR/users/core/profile.jsonc" \
+    | jq -e '(.programs // []) == [] and .shell == "/bin/bash"'
+}
+
+@test "a user with no User Profile resolves to bash and no programs" {
+  run profile_loader_load_user nobody-here
+  [ "$status" -eq 1 ]
+  jq -e '(.programs // []) == [] and .shell == "/bin/bash"' <<<"$output"
+}
+
+@test "aquastias keeps zsh and the personal programs" {
+  local user; user="$(profile_loader_load_user aquastias)"
+  jq -e '.shell == "/bin/zsh"' <<<"$user"
+  jq -e '.programs | index("claude") and index("nvim") and index("docker")' \
+    <<<"$user"
+}
+
+@test "no VM user excludes a program nothing gives it" {
+  local file
+  for file in "$INSTALLER_DIR"/users/vm/*/profile.jsonc; do
+    ! jsonc_strip "$file" | jq -e 'has("programs_exclude")' >/dev/null \
+      || { echo "$file"; return 1; }
+  done
+}

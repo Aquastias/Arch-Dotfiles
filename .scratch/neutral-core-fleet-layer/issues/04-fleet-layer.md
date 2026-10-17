@@ -10,10 +10,10 @@ pick (ticket 03) folds it exactly as `--profile` does. See PRD and
 
 **Blocked by:** 02 (Golden capture), 03 (Guided profile pick re-baselines)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Golden test (02) passes unchanged for `desktop` and `laptop`
-- [ ] `minimal`, `*-pure` and VM fixtures resolve with no Fleet Layer content
-- [ ] Profiles picker does not list `fleet`; `--profile fleet` aborts clearly
-- [ ] Guided pick ≡ `--profile` (03's test) still green for every profile
-- [ ] CONTEXT.md Host Core entry and profile header comments updated
+- [x] Golden test (02) passes unchanged for `desktop` and `laptop`
+- [x] `minimal`, `*-pure` and VM fixtures resolve with no Fleet Layer content
+- [x] Profiles picker does not list `fleet`; `--profile fleet` aborts clearly
+- [x] Guided pick ≡ `--profile` (03's test) still green for every profile
+- [x] CONTEXT.md Host Core entry and profile header comments updated

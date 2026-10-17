@@ -9,12 +9,12 @@ missing, so a Host Profile's real install set is invisible. See PRD
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Host Programs (authored, base, Menu-Owned) appear as a tagged source
-- [ ] Each user's programs (User Core folded under the User Profile) appear as
+- [x] Host Programs (authored, base, Menu-Owned) appear as a tagged source
+- [x] Each user's programs (User Core folded under the User Profile) appear as
       a tagged source naming the user
-- [ ] `--sources` and `--flat` include them; `--flat` stays sorted/unique
-- [ ] The Guided derived section agrees with `explain-packages` for the same
+- [x] `--sources` and `--flat` include them; `--flat` stays sorted/unique
+- [x] The Guided derived section agrees with `explain-packages` for the same
       Effective Config
-- [ ] `explain-packages` bats cover both new sources; suite green
+- [x] `explain-packages` bats cover both new sources; suite green

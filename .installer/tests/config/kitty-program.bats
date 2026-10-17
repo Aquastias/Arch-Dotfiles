@@ -15,7 +15,7 @@ setup() {
   HOMESEED="$PROG/home"
   SEED_THEME="$PROG/themes/noctalia.conf"
   KITTY="$HOMESEED/.config/kitty"          # single source (ADR 0134)
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
   GI="$REPO/.gitignore"
 }
 
@@ -86,9 +86,9 @@ setup() {
 
 # ── profile wiring ───────────────────────────────────────────────────────────
 
-@test "User Core serves the kitty program fleet-wide, after zsh" {
+@test "the operator user carries the kitty program, after zsh" {
   # programs is a multi-line array; assert both are listed (order: zsh precedes
   # kitty in the source), not that they share one line.
-  grep -q '"zsh"' "$UCORE"
-  grep -q '"kitty"' "$UCORE"
+  grep -q '"zsh"' "$OPERATOR_USER"
+  grep -q '"kitty"' "$OPERATOR_USER"
 }

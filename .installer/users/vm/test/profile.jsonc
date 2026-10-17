@@ -1,16 +1,13 @@
 // User Profile for vm/test (ADR 0036) — throwaway user for the vm-secure
-// smoke test. Merged under users/core/profile.jsonc. No user programs: the
+// smoke test. Merged under users/core/profile.jsonc. Only nvim: the
 // smoke test exercises the system install path, not user program install.
 {
   "shell": "/bin/bash",
   "sudo":  true,
   "groups": [],
-  "programs": [],
-  // User Core declares virt-manager + podman + searxng for every real user;
-  // this throwaway excludes them so the smoke test exercises the system install
-  // path, not user program installs (ADR 0057).
-  "programs_exclude":
-    ["zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
-     "pi", "claude"],
+  // User Core is neutral (ADR 0157), so there is nothing to exclude. `nvim` is
+  // the one program this throwaway always carried (User Core used to give it),
+  // kept so the VM install is unchanged.
+  "programs": ["nvim"],
   "ssh_authorized_keys": []
 }

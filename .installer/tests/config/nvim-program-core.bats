@@ -68,8 +68,8 @@ load nvim-program-helpers
 
 # ── profile wiring ───────────────────────────────────────────────────────────
 
-@test "User Core serves the nvim program fleet-wide" {
-  grep -q '"nvim"' "$UCORE"
+@test "the operator user carries the nvim program" {
+  grep -q '"nvim"' "$OPERATOR_USER"
 }
 
 

@@ -11,16 +11,16 @@ call it. See PRD and [[ADR 0157]].
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] For every committed Host Profile, the headless replay's Effective Config
+- [x] For every committed Host Profile, the headless replay's Effective Config
       after a pick equals the `--profile` Effective Config (devices and
       secrets masked)
-- [ ] Picking `desktop` then `minimal` equals a fresh `minimal` pick
-- [ ] Picking `minimal` yields no Host Core packages and no Security & Backup
+- [x] Picking `desktop` then `minimal` equals a fresh `minimal` pick
+- [x] Picking `minimal` yields no Host Core packages and no Security & Backup
       Extras
-- [ ] The interactive controller and the replay share the one function (no
+- [x] The interactive controller and the replay share the one function (no
       duplicated resolve-then-seed)
-- [ ] Picked values render with no ● override marks
-- [ ] guided-profiles / guided-seed bats updated where they asserted overlay
+- [x] Picked values render with no ● override marks
+- [x] guided-profiles / guided-seed bats updated where they asserted overlay
       semantics; suite green

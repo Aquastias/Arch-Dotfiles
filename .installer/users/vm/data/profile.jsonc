@@ -1,17 +1,14 @@
 // User Profile for vm/data (ADR 0036) — throwaway user for the multi
 // data-pools ownership smoke test (pool-owners, ADR 0031). Merged under
 // users/core/profile.jsonc. Ships no secrets.json (secrets_load is a no-op)
-// and no programs, to keep the install focused on data-pool ownership.
+// and only nvim, to keep the install focused on data-pool ownership.
 {
   "shell": "/bin/bash",
   "sudo":  true,
   "groups": [],
-  "programs": [],
-  // User Core declares virt-manager + podman + searxng for every real user;
-  // this throwaway excludes them so the install stays focused on data-pool
-  // ownership, not user program installs (ADR 0057).
-  "programs_exclude":
-    ["zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
-     "pi", "claude"],
+  // User Core is neutral (ADR 0157), so there is nothing to exclude. `nvim` is
+  // the one program this throwaway always carried (User Core used to give it),
+  // kept so the VM install is unchanged.
+  "programs": ["nvim"],
   "ssh_authorized_keys": []
 }

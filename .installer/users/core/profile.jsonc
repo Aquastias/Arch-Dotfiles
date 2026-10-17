@@ -1,35 +1,16 @@
-// User Core profile — the base layer every user profile.jsonc is resolved
-// over (ADR 0036, ADR 0057). Lists concat+dedupe with the user profile;
-// scalars user-wins. A user drops something declared here via
-// `programs_exclude`.
+// User Core profile — the neutral base layer every user profile.jsonc is
+// resolved over (ADR 0036, ADR 0057). Lists concat+dedupe with the user
+// profile; scalars user-wins.
 //
-// `shell` is /bin/zsh: the entire tracked shell payload is zsh while
-// .bashrc/.bash_profile/.profile are untracked — so a bash default landed a
-// fresh install in a shell whose stowed config never loaded. The zsh package
-// itself is NOT declared: ensure_login_shell_installed pacman-installs a
-// user's login shell when the binary is missing. Root stays /bin/bash
-// (ADR 0054, options.root_shell).
-//
-// `programs` is the standard tooling every real user gets: `zsh` (the
-// interactive shell tooling + pre-warmed zinit cache + palette theme the stowed
-// config expects — the login shell itself is the `shell` key above), plus
-// `kitty` (the fleet terminal's seeded + stowable config + FiraCode Nerd font,
-// ADR 0130 — the kitty binary itself is core/preset-owned), plus `lazygit` and
-// `yazi` (seeded + stowable configs that own their package and follow the
-// palette via ANSI-16, ADR 0132), plus
-// `virt-manager`, plus `searxng` and its `podman` backend (podman precedes
-// searxng — a required program must resolve earlier in the same user's list,
-// ADR 0065), plus `pi` (the pi coding agent, served fleet-wide, ADR 0127).
-// `docker` is NOT here — it is aquastias-specific (users/aquastias). The two VM
-// test users exclude these — they exercise the system install path, not user
-// programs.
+// Neutral by design (ADR 0157): any user created through the Guided Installer
+// inherits this, so it carries no personal tooling — bash, the generic device
+// groups, no programs. The operator's userland (zsh, kitty, the coding agents,
+// nvim, …) lives on users/aquastias. Root stays /bin/bash (ADR 0054,
+// options.root_shell).
 {
-  "shell": "/bin/zsh",
+  "shell": "/bin/bash",
   "sudo": false,
   "groups": ["audio", "video", "storage", "optical", "network", "seat"],
-  "programs": [
-    "zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
-    "pi", "claude", "nvim"
-  ],
+  "programs": [],
   "ssh_authorized_keys": []
 }

@@ -14,7 +14,7 @@ setup() {
   SEED="$ASEED/settings.json"
   STOW="$ASTOW/settings.json"
   CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
   GI="$REPO/.gitignore"
   SKILLS="$REPO/.agents/skills"       # vendored mattpocock skills (stow tree)
   LOCK="$REPO/skills-lock.json"       # Vercel skills CLI pin (repo root)
@@ -77,9 +77,9 @@ setup() {
   ! grep -q '"git"' "$CORE"
 }
 
-@test "User Core serves pi fleet-wide (ADR 0127)" {
+@test "the operator user carries pi (ADR 0127)" {
   # programs is a multi-line array; assert pi is listed (not same-line match).
-  grep -q '"pi"' "$UCORE"
+  grep -q '"pi"' "$OPERATOR_USER"
 }
 
 # ── ticket 02: vendored mattpocock skills ────────────────────────────────────

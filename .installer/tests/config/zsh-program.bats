@@ -15,7 +15,7 @@ setup() {
   P10KSRC="$HOMESEED/.zsh/vendors/p10k/default.zsh"
   ZSTYLE="$HOMESEED/.zsh/zstyle/default.zsh"
   ALIASES="$HOMESEED/.zsh_aliases"
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
   GI="$REPO/.gitignore"
   CT="$REPO/.config/noctalia/config.toml"
   TPL_FZF="$REPO/.config/noctalia/templates/zsh.zsh"
@@ -212,7 +212,7 @@ setup() {
   grep -qE 'POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND=3' "$p10k"
 }
 
-@test "User Core serves the zsh program fleet-wide" {
+@test "the operator user carries the zsh program" {
   # programs is a multi-line array; assert zsh is listed (not same-line match).
-  grep -q '"zsh"' "$UCORE"
+  grep -q '"zsh"' "$OPERATOR_USER"
 }

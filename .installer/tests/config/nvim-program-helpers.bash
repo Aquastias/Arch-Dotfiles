@@ -14,6 +14,6 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home"
   NVIM="$HOMESEED/.config/nvim"             # single source (ADR 0134)
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
 }
 

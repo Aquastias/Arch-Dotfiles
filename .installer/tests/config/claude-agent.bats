@@ -10,7 +10,7 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home/.claude"           # single-source config (ADR 0134)
   STOW="$REPO/.claude"                    # repo-root (3 tracked files retired)
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
   GI="$REPO/.gitignore"
   CONTEXT="$REPO/CONTEXT.md"
 }
@@ -149,8 +149,8 @@ _sleep_hook() {
 
 # ── package + profile wiring ─────────────────────────────────────────────────
 
-@test "User Core serves claude fleet-wide (ADR 0133)" {
-  grep -qE '"claude"' "$UCORE"
+@test "the operator user carries claude (ADR 0133)" {
+  grep -qE '"claude"' "$OPERATOR_USER"
 }
 
 # ── doc correction ───────────────────────────────────────────────────────────

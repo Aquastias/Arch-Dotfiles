@@ -1,19 +1,31 @@
 // User Profile for `aquastias` (ADR 0036). Resolved over
-// users/core/profile.jsonc. Renamed from config.jsonc in step with the host
-// profiles — profile = a user, config = a program spec.
+// users/core/profile.jsonc, which is neutral (ADR 0157) — so this profile
+// carries the operator's whole userland.
 //
-// No `shell`: User Core's /bin/zsh is the default now that the tracked shell
-// payload is entirely zsh, so declaring bash here would land this user in a
-// shell whose stowed config never loads. `virt-manager`, `podman` and `searxng`
-// are inherited from User Core; only `docker` (aquastias-specific),
-// `teamspeak3` and the opt-in `vscodium` (ADR 0148) are declared here.
+// `shell` is /bin/zsh: the entire tracked shell payload is zsh while
+// .bashrc/.bash_profile/.profile are untracked — so bash would land this user
+// in a shell whose stowed config never loads. The zsh package itself is NOT
+// declared: ensure_login_shell_installed pacman-installs a user's login shell
+// when the binary is missing.
+//
+// `programs`: `zsh` (the interactive shell tooling + pre-warmed zinit cache +
+// palette theme the stowed config expects), `kitty` (seeded + stowable config
+// + FiraCode Nerd font, ADR 0130), `lazygit` and `yazi` (seeded + stowable
+// configs following the palette via ANSI-16, ADR 0132), `virt-manager`,
+// `searxng` and its `podman` backend (podman precedes searxng — a required
+// program must resolve earlier in the same user's list, ADR 0065), `pi`
+// (ADR 0127), `claude` (ADR 0133), `nvim` (ADR 0135), then `docker`,
+// `teamspeak3` and the opt-in `vscodium` (ADR 0148).
 {
+  "shell": "/bin/zsh",
   "sudo": true,
   "groups": ["docker", "libvirt", "kvm"],
   // Security & Backup Extras (firewalld / apparmor / clamav / rkhunter) are no
   // longer hard-pinned here — they are host-owned post_install selections
   // installed via this user's paru pass (ADR 0041).
   "programs": [
+    "zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
+    "pi", "claude", "nvim",
     "docker",
     "teamspeak3",
     "vscodium"
