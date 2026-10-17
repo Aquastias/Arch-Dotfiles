@@ -303,3 +303,18 @@ JSON
   guided_controller_enter "bare" >/dev/null
   jq -e '.packages == null' "$GUIDED_BASELINE_FILE"
 }
+
+# ── Proceed needs a user: a blank session presets none (ADR 0157) ───────────
+
+@test "enter(top): Proceed with no user is refused with a notice" {
+  printf '%s\n' '{}' > "$GUIDED_BASELINE_FILE"
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+  run guided_controller_enter "Proceed ▸ review & install"
+  [[ "$output" == "notice No user"* ]]
+}
+
+@test "enter(top): Proceed with a user goes to the terminal action" {
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  run guided_controller_enter "Proceed ▸ review & install"
+  [ "$output" = "terminal proceed" ]
+}

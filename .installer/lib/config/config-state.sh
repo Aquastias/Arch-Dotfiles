@@ -129,14 +129,15 @@ _config_state_computed_defaults() {
 }
 
 # Guided Launch Presets — not Install Defaults: an absent field installs
-# something else, or must fail (ADR 0154; absent extras = off, ADR 0041).
+# something else, or must fail (ADR 0154). Neutral by design (ADR 0157): a
+# blank session presets nothing personal — no user (Proceed refuses until one
+# exists), no desktop, the timezone left to the install-time autodetect (ADR
+# 0118), and every Security & Backup Extra off (ADR 0041).
 _config_state_preset_defaults() {
   local state="$1"
-  state="$(config_state_set "$state" system.hostname '"eterniox"')"
-  state="$(config_state_set "$state" users '["aquastias"]')"
+  state="$(config_state_set "$state" system.hostname '"archlinux"')"
   state="$(config_state_set "$state" mode '"single"')"
-  state="$(config_state_set "$state" system.timezone '"Europe/Bucharest"')"
-  state="$(config_state_set "$state" environment.desktop '["kde"]')"
+  state="$(config_state_set "$state" environment.desktop '[]')"
   # Font Catalog (ADR 0080): absent options.fonts resolves to the same set via
   # fonts_selected; seeded so a fresh run shows the default set with no ●.
   state="$(config_state_set "$state" options.fonts \

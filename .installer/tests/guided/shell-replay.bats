@@ -49,11 +49,12 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.system.hostname == "eterniox"'
-  echo "$effective" | jq -e '.users == ["aquastias"]'
+  echo "$effective" | jq -e '.system.hostname == "archlinux"'   # neutral (ADR 0157)
+  echo "$effective" | jq -e '.users == ["tester"]'   # the helper's user
   echo "$effective" | jq -e '.mode == "single"'
   echo "$effective" | jq -e '.system.locale == "en_US.UTF-8"'
-  echo "$effective" | jq -e '.system.timezone == "Europe/Bucharest"'
+  echo "$effective" | jq -e '.system.timezone == null'   # autodetected (ADR 0118)
+  assert_extras_off "$effective"   # extras off
   echo "$effective" | jq -e '.system.keymap == "us"'
 }
 
@@ -66,8 +67,9 @@ load shell-helpers
 
   run guided_build
   [ "$status" -eq 64 ]
-  jq -e '.users == ["aquastias"]' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
-  jq -e '.system.hostname == "eterniox"' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
+  jq -e '.users == ["tester"]' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
+  jq -e '.system.hostname == "archlinux"' \
+    "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
 }
 
 
@@ -159,12 +161,13 @@ load shell-helpers
   echo "$effective" | jq -e '.options.optional_repos == ["core-testing"]'
   echo "$effective" | jq -e '.packages.repo.extra == ["htop","tmux"]'
   echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
-  # Structured Security/Backup object: overrides merge over the secure baseline.
+  # Structured Security/Backup object: only the answered fields are set — a
+  # blank session pre-ticks no extra (ADR 0157).
   echo "$effective" | jq -e '.post_install.security.firewall == "ufw"'
   echo "$effective" | jq -e '.post_install.security.antivirus == false'
-  echo "$effective" | jq -e '.post_install.security.rootkit == true'
+  echo "$effective" | jq -e '.post_install.security.rootkit == false'
   echo "$effective" | jq -e '.post_install.backup.borg == false'
-  echo "$effective" | jq -e '.post_install.backup.zfs_auto_snapshot == true'
+  echo "$effective" | jq -e '.post_install.backup.zfs_auto_snapshot == false'
   # dotfiles_repo is removed entirely — never emitted
   echo "$effective" | jq -e 'has("dotfiles_repo") | not'
 }
@@ -185,7 +188,7 @@ load shell-helpers
   effective="$(set -Eeuo pipefail; guided_build 2>/dev/null)"
   [ -n "$effective" ]
   echo "$effective" | jq -e '.system.hostname == "eterniox"'
-  echo "$effective" | jq -e '.post_install.security.firewall == "firewalld"'
+  assert_extras_off "$effective"   # extras off (ADR 0157)
 }
 
 @test "guided_build: a partial replay does not spuriously fire install.sh's ERR trap" {
@@ -264,9 +267,9 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  # ad-hoc user joins the host users[] after the seeded Primary User (aquastias
-  # stays first); its User Profile is materialized.
-  echo "$effective" | jq -e '.users == ["aquastias","carol"]'
+  # the ad-hoc user is the host's only user (a blank session presets none,
+  # ADR 0157); its User Profile is materialized.
+  echo "$effective" | jq -e '.users == ["carol"]'
   [ -f "$INSTALLER_DIR/users/carol/profile.jsonc" ]
   jq -e '.shell == "/bin/zsh" and .sudo == true' \
     "$INSTALLER_DIR/users/carol/profile.jsonc"
@@ -369,8 +372,8 @@ load shell-helpers
 
 
 # ── the config must carry the back-end's required identity fields ───────────
-# (validation.sh requires system.locale + system.timezone; the tracer defaults
-#  them — issue 05 turns these into live-system-picked menu rows.)
+# (validation.sh requires system.locale; the timezone is autodetected at install
+#  when absent, ADR 0118.)
 
 @test "guided_build: the config carries the required identity defaults" {
   guided_load_replay "$(write_answers \
@@ -379,7 +382,7 @@ load shell-helpers
     'confirm=INSTALL')"
 
   effective="$(guided_build 2>/dev/null)"
-  echo "$effective" | jq -e '.system.locale and .system.timezone'
+  echo "$effective" | jq -e '.system.locale'   # timezone: autodetected at install
   echo "$effective" | jq -e '.system.keymap'
 }
 

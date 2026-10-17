@@ -256,6 +256,25 @@ _guided_shell_guard_post_install() {
   post_install_guard_users "$post_install_json" "$count"
 }
 
+# _guided_shell_guard_terminal <action> — the no-user guards every terminal
+# action passes: Security & Backup Extras need a user (M5), and so does an
+# install (ADR 0157).
+_guided_shell_guard_terminal() {
+  _guided_shell_guard_post_install && _guided_shell_guard_users "$1"
+}
+
+# _guided_shell_guard_users <action> — rc 1 with an error when an install
+# action (Proceed, Export) runs with no user: a blank session presets none (ADR
+# 0157), and a machine with no login is never installed. Save stays allowed (a
+# profile may leave users to its host).
+_guided_shell_guard_users() {
+  [[ "$1" == save ]] && return 0
+  local count
+  count="$(jq '(.users // []) | length' <<<"$(_guided_shell_effective)")"
+  ((count > 0)) && return 0
+  error "guided: no user — pick or create one before Proceed."
+}
+
 # guided_build — drive the guided menu and emit the device-baked Effective
 # Config on stdout. Interactive: the re-entrant Host / Users split menu.
 # Headless (--guided replay): a linear keyed collection through the SAME edit

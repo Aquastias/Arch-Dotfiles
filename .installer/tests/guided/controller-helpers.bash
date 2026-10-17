@@ -22,7 +22,9 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
-  printf '%s\n' '{}' > "$GUIDED_BASELINE_FILE"
+  # A blank session presets no user (ADR 0157) and Proceed refuses without one,
+  # so the fixture baseline carries one.
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_BASELINE_FILE"
   printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
 }
 teardown() { rm -rf "$TEST_DIR"; }
@@ -34,7 +36,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 _seed_baseline() {
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
-  config_state_seed_defaults "$(config_state_new)" > "$GUIDED_BASELINE_FILE"
+  config_state_seed_defaults "$(config_state_new)" \
+    | jq -c '.users = ["alice"]' > "$GUIDED_BASELINE_FILE"
 }
 
 adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file

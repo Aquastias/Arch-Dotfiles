@@ -29,22 +29,29 @@ JSON
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
 }
 
+# assert_extras_off <config> — no Security & Backup Extra is on (absent or off).
+assert_extras_off() {
+  jq -e '(.post_install.security.firewall // "none") == "none"
+    and ([.post_install // {} | .. | booleans | select(.)] | length) == 0' \
+    <<<"$1" >/dev/null
+}
+
 teardown() { rm -rf "$TEST_DIR"; }
 
 # ── tracer: the seeded launch state carries the default hostname ────────────
 
-@test "config_state_seed_defaults: seeds hostname eterniox" {
+@test "config_state_seed_defaults: seeds the neutral hostname archlinux" {
   run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  echo "$output" | jq -e '.system.hostname == "archlinux"'
 }
 
-# ── the Primary User is seeded explicitly (so the host is never userless) ────
+# ── no user is preset: the operator picks or creates one (ADR 0157) ─────────
 
-@test "config_state_seed_defaults: seeds aquastias as the Primary User" {
+@test "config_state_seed_defaults: presets no user" {
   run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["aquastias"]'
+  echo "$output" | jq -e '(.users // []) == []'
 }
 
 # ── the common case needs no decision: single-disk layout by default ────────
@@ -55,18 +62,15 @@ teardown() { rm -rf "$TEST_DIR"; }
   echo "$output" | jq -e '.mode == "single"'
 }
 
-# ── locale / timezone / keymap default to this operator's values ────────────
-# (back-end-required identity; surfaced as editable Host rows over these seeds.)
+# ── locale / keymap seed; the timezone is autodetected at install (ADR 0118) ─
 
-@test "config_state_seed_defaults: seeds locale, timezone and keymap" {
+@test "config_state_seed_defaults: seeds locale and keymap, no timezone" {
   run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.locale == "en_US.UTF-8"'
-  echo "$output" | jq -e '.system.timezone == "Europe/Bucharest"'
+  echo "$output" | jq -e '.system.timezone == null'
   echo "$output" | jq -e '.system.keymap == "us"'
 }
-
-# ── the secure baseline is pre-ticked: firewalld + all tools on (ADR 0041) ──
 
 # ── Host Core is loaded, not hand-copied (ADR 0058) ─────────────────────────
 # `cups` installs on every host and used to appear nowhere in the menu, because
@@ -106,7 +110,7 @@ JSON
   rm -rf "$INSTALLER_DIR/hosts"
   run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  echo "$output" | jq -e '.system.hostname == "archlinux"'
 }
 
 @test "config_state_seed_defaults: seeds selection defaults (no field opens empty)" {
@@ -114,19 +118,14 @@ JSON
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.kernel == ["lts"]'
   echo "$output" | jq -e '.environment.gpu == "auto"'
-  echo "$output" | jq -e '.environment.desktop == ["kde"]'
+  echo "$output" | jq -e '.environment.desktop == []'   # none (ADR 0157)
   echo "$output" | jq -e '.options.mirror_countries == null'  # worldwide
 }
 
-@test "config_state_seed_defaults: seeds the secure Security/Backup baseline" {
+@test "config_state_seed_defaults: pre-ticks no Security/Backup extra" {
   run config_state_seed_defaults "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.post_install.security.firewall == "firewalld"'
-  echo "$output" | jq -e '.post_install.security.antivirus == true'
-  echo "$output" | jq -e '.post_install.security.rootkit == true'
-  echo "$output" | jq -e '.post_install.security.apparmor == true'
-  echo "$output" | jq -e '.post_install.backup.zfs_auto_snapshot == true'
-  echo "$output" | jq -e '.post_install.backup.borg == true'
+  assert_extras_off "$output"   # all off (ADR 0157)
 }
 
 # ── Guided Launch Presets never shadow an Install Default (ADR 0154) ────────

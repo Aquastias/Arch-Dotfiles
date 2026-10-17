@@ -4,7 +4,7 @@
 # =============================================================================
 # Pure core that turns a host's `post_install.{security,backup}` object into the
 # things the back-end needs: the ordered list of Program names to install, the
-# secure-baseline default object, and shape validation. No TTY, no disk writes,
+# all-off launch object, and shape validation. No TTY, no disk writes,
 # no paru — JSON in, decision out.
 #
 # The post_install object shape (ADR 0041):
@@ -15,7 +15,7 @@
 # `bool false` accessor default).
 #
 # Public API:
-#   post_install_default               → the secure-baseline object (JSON)
+#   post_install_default               → the all-off launch object (JSON)
 #   post_install_programs   <json>     → ordered Program names, one per line
 #   post_install_validate   <json>     → 0 when shape-valid, else error() + 1
 #
@@ -24,13 +24,15 @@
 # lib/profiles/runner.sh, lib/feature-audit/manifest.sh.
 # =============================================================================
 
-# post_install_default — the secure baseline a fresh guided run pre-ticks:
-# firewalld + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg.
+# post_install_default — the selection a fresh guided run shows: every extra
+# off (ADR 0157 — a blank session pre-ticks nothing; the fleet hosts declare
+# their secure baseline themselves). Explicit, so the menu renders the off
+# values rather than blanks; installs exactly what an absent object does.
 post_install_default() {
   jq -nc '{
-    security: { firewall: "firewalld", antivirus: true, rootkit: true,
-                apparmor: true },
-    backup:   { zfs_auto_snapshot: true, borg: true }
+    security: { firewall: "none", antivirus: false, rootkit: false,
+                apparmor: false },
+    backup:   { zfs_auto_snapshot: false, borg: false }
   }'
 }
 

@@ -96,5 +96,5 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
   run guided_controller_list
   [ "$status" -eq 0 ]
   [[ "$output" != *"no ZFS"* ]]
-  [[ "$output" == *"ZFS snapshots: true"* ]]
+  [[ "$output" == *"ZFS snapshots: false"* ]]   # off by default (ADR 0157)
 }

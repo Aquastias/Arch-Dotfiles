@@ -92,10 +92,11 @@ a Guided Launch Preset. _Avoid_: menu default, seed default.
 ### Guided Launch Preset
 What a fresh Guided Installer session pre-selects that is **not** an Install
 Default — an absent field would install something else, or must fail:
-identity (hostname, Primary User), layout mode, timezone, the desktop, the
-Font Catalog set and the Security & Backup Extras secure baseline (absent =
-off, [ADR 0041]). Lives in the seed (`config_state_seed_defaults`), never in
-the schema.
+the hostname, layout mode, the (empty) desktop selection and the Font Catalog
+set. Neutral since [ADR 0157]: no Primary User, no timezone (autodetected at
+install, [ADR 0118]) and no Security & Backup Extras (absent = off,
+[ADR 0041]) — nothing personal is preselected. Lives in the seed
+(`config_state_seed_defaults`), never in the schema.
 
 ### Pre-Install Picker
 The interactive disk-resolution front-end of `install.sh --profile <name>`
@@ -189,9 +190,10 @@ in rich chrome, not just on the `^A`/`^X`/`Esc` accelerators — amending ADR
 undiscoverable on modern fzf ([ADR 0063]). The Users-screen `name — shell · pw`
 rows preview a **full user panel** on hover (shell, sudo, groups, programs, git,
 SSH keys). Computed defaults
-seed an untouched run: hostname `eterniox`, `users[0]` = `aquastias` (Primary
-User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
-`Europe/Bucharest` / keymap `us`. The **baseline is loaded from Host Core**
+seed an untouched run **neutrally** ([ADR 0157]): hostname `archlinux`, no user
+(Proceed refuses until one is picked or created), no desktop, single-disk ZFS
+layout, locale `en_US.UTF-8` / keymap `us`, timezone left to the install-time
+autodetect. The **baseline is loaded from Host Core**
 rather than hand-copying a few of its values ([ADR 0058]), so everything core
 installs surfaces as a seeded-but-unmarked row — core's package list, once
 hand-copied and invisible. (`cups` was the original example; it has since become
@@ -2494,6 +2496,7 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0115]: docs/adr/0115-program-conflicts-mutual-exclusion.md
 [ADR 0116]: docs/adr/0116-live-theme-bridge-repaints-running-apps.md
 [ADR 0117]: docs/adr/0117-agent-controllable-vm.md
+[ADR 0118]: docs/adr/0118-timezone-autodetected-at-install.md
 [ADR 0120]: docs/adr/0120-kde-capture-extended-and-packaged-weather-widget.md
 [ADR 0121]: docs/adr/0121-kde-first-login-state-beyond-captured-config.md
 [ADR 0122]: docs/adr/0122-qt-platformtheme-leaks-into-plasma-via-user-env.md

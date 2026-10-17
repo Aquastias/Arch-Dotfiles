@@ -45,9 +45,21 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
+# write_answers <key=value…> — a replay answers file. A blank session presets
+# no user and an install refuses without one (ADR 0157), so a `tester` user is
+# created unless the answers pick (`users=`) or create (`new_user_name=`) one.
 write_answers() {
   local answers_file="$TEST_DIR/answers"
   printf '%s\n' "$@" > "$answers_file"
+  grep -qE '^(users|new_user_name)=' "$answers_file" \
+    || printf '%s\n' new_user_name=tester >> "$answers_file"
   printf '%s' "$answers_file"
 }
 
+
+# assert_extras_off <config> — no Security & Backup Extra is on (absent or off).
+assert_extras_off() {
+  jq -e '(.post_install.security.firewall // "none") == "none"
+    and ([.post_install // {} | .. | booleans | select(.)] | length) == 0' \
+    <<<"$1" >/dev/null
+}

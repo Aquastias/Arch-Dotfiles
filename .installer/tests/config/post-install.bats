@@ -15,26 +15,36 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/post-install.sh"
 }
 
-# ── tracer: the secure-baseline default object ──────────────────────────────
+# secure_baseline — every extra on: the fleet hosts' selection, a full fixture.
+secure_baseline() {
+  jq -nc '{
+    security: { firewall: "firewalld", antivirus: true, rootkit: true,
+                apparmor: true },
+    backup:   { zfs_auto_snapshot: true, borg: true }
+  }'
+}
 
-@test "post_install_default: secure baseline = firewalld + all tools on" {
+# ── tracer: the all-off launch object (ADR 0157) ────────────────────────────
+
+@test "post_install_default: every extra off, installing nothing" {
   run post_install_default
   [ "$status" -eq 0 ]
   [ "$(jq -S . <<<"$output")" = "$(jq -S . <<<'{
     "security": {
-      "firewall": "firewalld",
-      "antivirus": true,
-      "rootkit": true,
-      "apparmor": true
+      "firewall": "none",
+      "antivirus": false,
+      "rootkit": false,
+      "apparmor": false
     },
-    "backup": { "zfs_auto_snapshot": true, "borg": true }
+    "backup": { "zfs_auto_snapshot": false, "borg": false }
   }')" ]
+  [ -z "$(post_install_programs "$output")" ]
 }
 
 # ── programs: the resolved Program-name list ────────────────────────────────
 
-@test "post_install_programs: default → firewalld+clamav+rkhunter+apparmor+snap+borg" {
-  run post_install_programs "$(post_install_default)"
+@test "post_install_programs: all on → firewalld+clamav+rkhunter+apparmor+snap+borg" {
+  run post_install_programs "$(secure_baseline)"
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' firewalld clamav rkhunter apparmor \
     zfs-auto-snapshot borg)" ]
@@ -75,7 +85,7 @@ setup() {
 # ── validation: object shape, firewall enum, bool fields ────────────────────
 
 @test "post_install_validate: accepts the secure-baseline default object" {
-  run post_install_validate "$(post_install_default)"
+  run post_install_validate "$(secure_baseline)"
   [ "$status" -eq 0 ]
 }
 
@@ -102,12 +112,12 @@ setup() {
 # ── no-user guard (M5): a non-empty selection needs a Primary User ──────────
 
 @test "post_install_guard_users: passes with a selection and a user" {
-  run post_install_guard_users "$(post_install_default)" 1
+  run post_install_guard_users "$(secure_baseline)" 1
   [ "$status" -eq 0 ]
 }
 
 @test "post_install_guard_users: aborts with a selection but zero users" {
-  run post_install_guard_users "$(post_install_default)" 0
+  run post_install_guard_users "$(secure_baseline)" 0
   [ "$status" -ne 0 ]
   [[ "$output" == *"user"* ]]
 }

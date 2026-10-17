@@ -164,8 +164,7 @@ load shell-helpers
 }
 
 @test "_guided_shell_guard_post_install: aborts with selections but zero users" {
-  _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
-    '{post_install:$pi}')"
+  _GUIDED_BASELINE='{"post_install":{"security":{"firewall":"firewalld"}}}'
   _GUIDED_STATE="$(config_state_new)"
   run _guided_shell_guard_post_install
   [ "$status" -ne 0 ]

@@ -66,7 +66,7 @@ _MENU_FIELDS=(
   "Bootloader|options.bootloader|bootloader|"
   "Kernels|options.kernel|kernel|"
   "System|system.hostname|hostname|"
-  "System|system.timezone|timezone|Europe/Bucharest"
+  "System|system.timezone|timezone|"
   # Font Catalog (ADR 0080): a curated multi-select of fonts, resident in
   # System (its one non-identity leaf; General renamed by ADR 0081). Absent ⇒
   # the catalog defaults, seeded into the baseline so a fresh run shows the
@@ -88,13 +88,13 @@ _MENU_FIELDS=(
   # path (repo ＋Add browses, aur ＋Add types; both write packages.<slot>.extra),
   # so it is gone. The category ● is lit from the package override map instead
   # (menu_categories), not a field row.
-  "Security|post_install.security.firewall|firewall|firewalld"
-  "Security|post_install.security.antivirus|antivirus|true"
-  "Security|post_install.security.rootkit|rootkit|true"
-  "Security|post_install.security.apparmor|apparmor|true"
+  "Security|post_install.security.firewall|firewall|none"
+  "Security|post_install.security.antivirus|antivirus|false"
+  "Security|post_install.security.rootkit|rootkit|false"
+  "Security|post_install.security.apparmor|apparmor|false"
   "Security|sysctl|sysctl|"
-  "Backup|post_install.backup.zfs_auto_snapshot|zfs snapshots|true"
-  "Backup|post_install.backup.borg|borg|true"
+  "Backup|post_install.backup.zfs_auto_snapshot|zfs snapshots|false"
+  "Backup|post_install.backup.borg|borg|false"
   # Daemons (ADR 0081): the three toggle-derived daemons share one Daemons
   # category (renamed from Services to avoid echoing the SERVICES bucket).
   # Printing (ADR 0079) is a bare-bool Cycle Field (flips in place);

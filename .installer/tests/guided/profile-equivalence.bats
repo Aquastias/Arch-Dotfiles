@@ -17,6 +17,13 @@ setup() {
   source "$INSTALLER_DIR/lib/guided/shell.sh"
 }
 
+# assert_extras_off <config> — no Security & Backup Extra is on (absent or off).
+assert_extras_off() {
+  jq -e '(.post_install.security.firewall // "none") == "none"
+    and ([.post_install // {} | .. | booleans | select(.)] | length) == 0' \
+    <<<"$1" >/dev/null
+}
+
 # equivalence_snapshot <config-json> — the normalised install of a config.
 equivalence_snapshot() {
   local config="$1" name values
@@ -81,4 +88,67 @@ assert_equivalent() {
   local config; config="$(guided_pick minimal)"
   package_resolver_resolve "$config" | grep -qP '^(repo|aur)\t' && return 1
   jq -e '.post_install == null' <<<"$config"
+}
+
+# ── a blank session installs nothing personal (ADR 0157) ─────────────────────
+
+# guided_blank [answer…] — the headless replay's pre-disk config for a session
+# that never picks a profile.
+guided_blank() {
+  local answers="$BATS_TEST_TMPDIR/answers"
+  printf '%s\n' "$@" >"$answers"
+  guided_load_replay "$answers"
+  _GUIDED_STATE="$(config_state_new)"
+  _guided_shell_set_identity
+  _guided_shell_users_reset
+  _guided_shell_seed_primary_user
+  _guided_shell_replay_edits
+  skeleton_flatten_devices "$(_guided_shell_effective)"
+}
+
+# personal_names — every package and program of the Fleet Layer and aquastias.
+personal_names() {
+  {
+    jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" | jq -r '
+      ([.packages.repo // {}, .packages.aur // {}] | .[] | .[] | .[]),
+      (.host_programs // [])[]'
+    jsonc_strip "$INSTALLER_DIR/users/aquastias/profile.jsonc" \
+      | jq -r '(.programs // [])[]'
+  } | sort -u
+}
+
+@test "a blank session presets nothing personal" {
+  local config; config="$(guided_blank new_user_name=guest)"
+  jq -e '.system.hostname == "archlinux"' <<<"$config"
+  jq -e '.users == ["guest"]' <<<"$config"
+  jq -e '(.environment.desktop // []) == []' <<<"$config"
+  assert_extras_off "$config"
+  jq -e '.system.timezone == null' <<<"$config"     # autodetected (ADR 0118)
+  [ -z "$(install_config_from_json "$config" mirror_countries)" ]
+}
+
+@test "a blank session installs no Fleet Layer or aquastias software" {
+  local config leaked
+  config="$(guided_blank new_user_name=guest)"
+  leaked="$(package_resolver_resolve "$config" \
+    | awk -F '\t' '$1 ~ /^(repo|aur|host-programs|user-programs)$/ {
+        print $3 }' | sort -u | grep -xF -f <(personal_names) || true)"
+  [ -z "$leaked" ] || { echo "leaks: $leaked"; return 1; }
+}
+
+@test "a blank session with one desktop lands it stock" {
+  local config; config="$(guided_blank new_user_name=guest desktop=kde)"
+  [ "$(install_config_from_json "$config" stock)" = true ]
+}
+
+@test "Proceed with no user is refused" {
+  run guided_blank
+  local answers="$BATS_TEST_TMPDIR/answers"
+  printf '%s\n' disk=/dev/disk/by-id/wwn-0xDEAD confirm=INSTALL >"$answers"
+  live_medium_disks() { :; }
+  picker_enum_disks() { printf '%s\n' /dev/disk/by-id/wwn-0xDEAD; }
+  guided_load_replay "$answers"
+  run guided_build
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no user"* ]]
 }

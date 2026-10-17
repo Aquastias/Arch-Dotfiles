@@ -41,12 +41,11 @@ _guided_shell_users_reset() {
   _GUIDED_USERFORMS_JSON=""
 }
 
-# _guided_shell_seed_primary_user — pre-select aquastias as the default
-# committed Primary User so the launch state has a user (matching the seeded
-# users[0]) and adding an ad-hoc user keeps aquastias first. The operator drops
-# aquastias by re-picking the committed users without it. Run after
+# _guided_shell_seed_primary_user — a blank session pre-selects NO committed
+# user (ADR 0157): the operator picks or creates one, and Proceed refuses until
+# they do. A profile pick then commits that profile's users. Run after
 # _guided_shell_users_reset.
-_guided_shell_seed_primary_user() { _GUIDED_USERS_COMMITTED=("aquastias"); }
+_guided_shell_seed_primary_user() { _GUIDED_USERS_COMMITTED=(); }
 
 # _guided_shell_user_names — committed user names (users/*/ with a
 # profile.jsonc), excluding the User Core layer and the users/vm/

@@ -18,8 +18,17 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
 }
 
+# secure_baseline — every extra on: the fleet hosts' selection, a full fixture.
+secure_baseline() {
+  jq -nc '{
+    security: { firewall: "firewalld", antivirus: true, rootkit: true,
+                apparmor: true },
+    backup:   { zfs_auto_snapshot: true, borg: true }
+  }'
+}
+
 @test "a tool in both post_install and the user's programs installs once" {
-  run runner_resolve_post_install "$(post_install_default)" true \
+  run runner_resolve_post_install "$(secure_baseline)" true \
     firewalld docker
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' firewalld docker clamav rkhunter apparmor \

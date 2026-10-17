@@ -15,7 +15,9 @@ setup() {
          GUIDED_BASELINE_FILE="$TEST_DIR/b" GUIDED_RESULT_FILE="$TEST_DIR/r" \
          GUIDED_POS_FILE="$TEST_DIR/pos"
   printf '{}\n' > "$GUIDED_STATE_FILE"
-  printf '{}\n' > "$GUIDED_BASELINE_FILE"
+  # A blank session presets no user (ADR 0157) and Proceed refuses without one,
+  # so the fixture baseline carries one.
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_BASELINE_FILE"
   printf '{"screen":"top"}\n' > "$GUIDED_NAV_FILE"
   : > "$GUIDED_POS_FILE"
 }

@@ -51,7 +51,7 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'timezone: +Europe/Bucharest'
+  echo "$output" | plain | grep -qE '^ *timezone:'   # autodetected (ADR 0118)
 }
 
 @test "detail(top): an overridden field carries a ● in the summary" {

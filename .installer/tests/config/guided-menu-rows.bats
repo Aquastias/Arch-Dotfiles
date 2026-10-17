@@ -314,7 +314,7 @@ load guided-menu-helpers
   ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
   echo "$output" | row post_install.backup.borg       | jq -e '.section == "Backup"'
   echo "$output" | row post_install.security.firewall | jq -e '.section == "Security"'
-  echo "$output" | row post_install.security.firewall | jq -e '.value == "firewalld"'
+  echo "$output" | row post_install.security.firewall | jq -e '.value == "none"'
 }
 
 

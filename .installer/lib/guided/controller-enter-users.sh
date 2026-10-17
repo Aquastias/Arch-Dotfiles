@@ -451,6 +451,13 @@ _controller_enter_user_field() {
 # not here.
 _controller_proceed_directive() {
   local state; state="$(_controller_state)"
+  # A blank session presets no user (ADR 0157): never install a machine with
+  # no login.
+  if [[ "$(jq '(.users // []) | length' <<<"$(_controller_live_effective)")" \
+        == 0 ]]; then
+    echo "notice No user — add one on Users ▸ before Proceed"
+    return
+  fi
   # Manual Partitioning (ADR 0073): refuse to Proceed on an out-of-bounds layout
   # (missing root/ESP, an unsupported filesystem or mountpoint). The full list
   # of problems is shown live on the Partitions screen; this just blocks Proceed

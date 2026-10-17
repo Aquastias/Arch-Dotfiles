@@ -32,8 +32,14 @@ setup() {
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
+# write_answers <key=value…> — a replay answers file, with a `tester` user
+# unless the answers name one (an install needs a user, ADR 0157).
 write_answers() {
-  local answers_file="$TEST_DIR/answers"; printf '%s\n' "$@" > "$answers_file"; printf '%s' "$answers_file"
+  local answers_file="$TEST_DIR/answers"
+  printf '%s\n' "$@" > "$answers_file"
+  grep -qE '^(users|new_user_name)=' "$answers_file" \
+    || printf '%s\n' new_user_name=tester >> "$answers_file"
+  printf '%s' "$answers_file"
 }
 
 # ── device injection into the Config State (AC1) ─────────────────────────────

@@ -210,8 +210,8 @@ guided_build() {
 
   local action; action="$(_guided_shell_terminal_action)"
 
-  # No-user guard (M5), ahead of every terminal action.
-  _guided_shell_guard_post_install || return 1
+  # No-user guards, ahead of every terminal action.
+  _guided_shell_guard_terminal "$action" || return 1
 
   hostname="$(config_state_get "$(_guided_shell_effective)" system.hostname)"
 
