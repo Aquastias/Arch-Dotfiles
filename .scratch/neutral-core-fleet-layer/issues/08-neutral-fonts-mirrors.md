@@ -8,11 +8,11 @@ full font selection and country list. See PRD and [[ADR 0157]].
 
 **Blocked by:** 04 (Fleet Layer)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Golden test (02) passes unchanged for `desktop` and `laptop`
-- [ ] A non-fleet profile resolves only the three neutral font families
-- [ ] Empty countries produce a valid worldwide reflector configuration
-- [ ] Guided Fonts and Mirrors rows show the new defaults with no ●
-- [ ] fonts / mirrors bats updated; CONTEXT.md Font Catalog and Mirror
+- [x] Golden test (02) passes unchanged for `desktop` and `laptop`
+- [x] A non-fleet profile resolves only the three neutral font families
+- [x] Empty countries produce a valid worldwide reflector configuration
+- [x] Guided Fonts and Mirrors rows show the new defaults with no ●
+- [x] fonts / mirrors bats updated; CONTEXT.md Font Catalog and Mirror
       Service entries updated

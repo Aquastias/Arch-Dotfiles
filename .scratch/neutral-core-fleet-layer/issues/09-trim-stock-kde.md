@@ -8,9 +8,9 @@ PRD, [[ADR 0112]], [[ADR 0157]].
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `explain-packages kde-pure` lists none of papirus, breeze-gtk, the
+- [x] `explain-packages kde-pure` lists none of papirus, breeze-gtk, the
       weather widget
-- [ ] Curated KDE (e.g. `desktop`, `arch-kde`) still includes them
-- [ ] Resolver report and adapter install agree (existing parity test green)
+- [x] Curated KDE (e.g. `desktop`, `arch-kde`) still includes them
+- [x] Resolver report and adapter install agree (existing parity test green)

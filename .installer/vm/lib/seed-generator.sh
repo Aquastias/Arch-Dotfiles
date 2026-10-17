@@ -228,6 +228,10 @@ _seed_generator_render_guided_user_data() {
   local verify_user="" verify_extras="" disk_step
   _seed_generator_guided_user_answers "$guided_user"
   _seed_generator_guided_extras_answers "$guided_extras"
+  # A blank guided session presets no user and refuses to install without one
+  # (ADR 0157): a replay naming none picks the neutral committed `stock` user.
+  [[ "$extra_answers" == *new_user_name=* || "$extra_answers" == *users=* ]] \
+    || extra_answers+='users=stock\n'
   _seed_generator_guided_disk_step
 
   local boot_block=""

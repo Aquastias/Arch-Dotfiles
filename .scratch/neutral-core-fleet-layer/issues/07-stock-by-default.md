@@ -9,10 +9,10 @@ fixtures (`arch-kde`, `arch-niri`, `arch-hyprland`, `arch-combined*`,
 
 **Blocked by:** 04 (Fleet Layer)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Golden test (02) passes unchanged for `desktop` and `laptop`
-- [ ] A profile with a desktop and no `stock` key resolves stock
-- [ ] Curated VM fixtures resolve to the same set as before
-- [ ] The Guided `stock` Cycle Field shows the new default with no ●
-- [ ] install-config-defaults bats updated; suite green
+- [x] Golden test (02) passes unchanged for `desktop` and `laptop`
+- [x] A profile with a desktop and no `stock` key resolves stock
+- [x] Curated VM fixtures resolve to the same set as before
+- [x] The Guided `stock` Cycle Field shows the new default with no ●
+- [x] install-config-defaults bats updated; suite green

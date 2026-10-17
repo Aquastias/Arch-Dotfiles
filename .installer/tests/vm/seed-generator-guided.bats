@@ -143,6 +143,20 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [[ ! "$output" =~ "new_user_name=" ]]
 }
 
+# A blank guided session presets no user (ADR 0157), so a replay naming none
+# picks the neutral `stock` user; one that names a user keeps it alone.
+@test "guided user-data: no named user falls back to the neutral stock user" {
+  run render
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "users=stock" ]]
+}
+
+@test "guided user-data: a named user suppresses the stock fallback" {
+  run render false false false false single 1 '{"name":"carol"}'
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "users=stock" ]]
+}
+
 # ── guided_extras (arg 10): Security & Backup smoke driving (issue 04/05) ────
 # Re-picks a minimal committed user, replays toggle overrides, and injects the
 # daemons-enabled boot check.

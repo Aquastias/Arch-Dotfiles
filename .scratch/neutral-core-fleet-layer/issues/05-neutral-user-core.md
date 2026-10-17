@@ -8,11 +8,11 @@ PRD and [[ADR 0157]].
 
 **Blocked by:** 02 (Golden capture)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Golden test (02) passes unchanged for `desktop` and `laptop`
-- [ ] A user with no User Profile programs resolves to no programs and bash
-- [ ] VM users carry no `programs_exclude` of former core programs; VM
+- [x] Golden test (02) passes unchanged for `desktop` and `laptop`
+- [x] A user with no User Profile programs resolves to no programs and bash
+- [x] VM users carry no `programs_exclude` of former core programs; VM
       fixtures resolve as before
-- [ ] Root Shell behaviour unchanged for `desktop`/`laptop`
-- [ ] CONTEXT.md User Core / Root Shell entries updated
+- [x] Root Shell behaviour unchanged for `desktop`/`laptop`
+- [x] CONTEXT.md User Core / Root Shell entries updated

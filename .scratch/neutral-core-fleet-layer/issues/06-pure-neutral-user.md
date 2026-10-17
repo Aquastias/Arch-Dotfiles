@@ -7,8 +7,8 @@ stated in the profile headers). See PRD, [[ADR 0112]], [[ADR 0157]].
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The three pure profiles resolve with no User Program of `aquastias`
-- [ ] Each still validates and installs a working login for its desktop
-- [ ] CONTEXT.md Pure (Stock) Profiles entry updated
+- [x] The three pure profiles resolve with no User Program of `aquastias`
+- [x] Each still validates and installs a working login for its desktop
+- [x] CONTEXT.md Pure (Stock) Profiles entry updated
