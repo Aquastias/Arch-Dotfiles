@@ -305,3 +305,51 @@ _stub_io='
     verb_reboot"
   [ "$(grep -cx 'virsh reset t' "$BATS_TEST_TMPDIR/v")" -eq 1 ]
 }
+
+# ── power verbs (agent-lifecycle.sh, ADR 0155) ──────────────────────────────
+
+# _lifecycle <state> <running-names> <expr> — call a lifecycle helper with
+# `virsh` stubbed: domstate prints <state> (or fails for `undefined`), list
+# prints <running-names>, start logs to stdout.
+_lifecycle() {
+  run bash -c "source '$AGENT'
+    virsh() {
+      case \"\$1\" in
+        domstate) [[ '$1' == undefined ]] && return 1; echo '$1' ;;
+        list) printf '%b\n' '$2' ;;
+        start) echo \"started \$2\" ;;
+      esac
+    }
+    _vm_ip() { echo 192.168.122.5; }
+    VM_NAME=arch-combined; $3"
+}
+
+@test "status: running VM shows its ip and other running VMs" {
+  _lifecycle running 'arch-combined\nmatrix-a' agent_lifecycle_status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"arch-combined: running ip=192.168.122.5"* ]]
+  [[ "$output" == *"other running: matrix-a"* ]]
+}
+
+@test "status: an undefined VM says so" {
+  _lifecycle undefined '' agent_lifecycle_status
+  [ "$output" = "arch-combined: undefined" ]
+}
+
+@test "start: refuses while another VM runs (one at a time)" {
+  _lifecycle 'shut off' 'matrix-a' agent_lifecycle_start
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"other VM(s) running: matrix-a"* ]]
+}
+
+@test "start: VM_ALLOW_PARALLEL=true lifts the one-at-a-time rule" {
+  _lifecycle 'shut off' 'matrix-a' \
+    'VM_ALLOW_PARALLEL=true agent_lifecycle_start'
+  [ "$status" -eq 0 ]
+}
+
+@test "start: boots a shut-off VM when nothing else runs" {
+  _lifecycle 'shut off' '' agent_lifecycle_start
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"started 'arch-combined'"* ]]
+}

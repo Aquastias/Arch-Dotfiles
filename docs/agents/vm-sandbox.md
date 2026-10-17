@@ -1,35 +1,33 @@
 # VM harness under a sandbox
 
-The VM Harness (`.installer/vm/vm.sh`) and every `virsh`/libvirt command it runs
-talk to libvirtd over a Unix socket. When the harness runs inside a command
-sandbox (e.g. Claude Code's Bash sandbox), that socket is often **blocked** — so
-the command fails with a connection error even though libvirtd is running fine on
-the host.
+The VM Harness (`.installer/vm/vm.sh`), `vm-agent.sh`, and the Combination
+Matrix need three host resources a command sandbox (e.g. Claude Code's Bash
+sandbox) can hide even though they exist on this box:
+
+- **libvirt socket** — allowed (the seeded `sandbox.network.allowUnixSockets`).
+- **`/dev/kvm`** — hidden (the sandbox mounts a minimal `/dev`): "no
+  `/dev/kvm`", "no KVM".
+- **Guest SSH** (192.168.122.x) — may be refused by the network filter: `ssh`
+  timeouts.
+
+**This dev box has KVM and libvirtd.** A "`/dev/kvm` absent" or
+"libvirt unreachable" result from a sandboxed command is the sandbox, never a
+reason to skip a VM run or report one as impossible.
 
 ## The rule
 
-**If a `virsh`/libvirt command is unreachable under the sandbox, retry the exact
-same command with the sandbox disabled.** A script cannot disable its own
-caller's sandbox — only the agent driving the shell can — so this is an agent
-operating rule, not something `vm.sh` can do for you.
+Run VM work (`vm.sh`, `vm-agent.sh`, `matrix.sh run`, `run.sh --vm`) with the
+sandbox disabled — in Claude Code, `dangerouslyDisableSandbox: true` on that
+Bash call. Default back to the sandbox for the next non-VM command.
 
-## The signal to watch for
+## The signals
 
-`vm.sh` runs a reachability preflight and emits a recognizable message so you
-know this is the sandbox case and not a genuinely dead daemon:
+- **`libvirt unreachable (sandbox?)`** — libvirtd runs but `virsh` cannot reach
+  its socket: retry the same command with the sandbox disabled.
+- **`libvirt unreachable`** (no qualifier) — libvirtd is down. Start it
+  (`sudo systemctl enable --now libvirtd`), then retry.
+- **`matrix: preflight abort — no /dev/kvm`** while sandboxed — the hidden
+  device: retry with the sandbox disabled.
 
-- **`libvirt unreachable (sandbox?)`** — libvirtd *is* running but `virsh` still
-  cannot reach its socket. This is almost always a sandbox-blocked socket (or a
-  permissions issue). **Retry the same command with the sandbox disabled.**
-- **`libvirt unreachable`** (without the `(sandbox?)` qualifier) — libvirtd is
-  not reachable at all. Start it (`sudo systemctl enable --now libvirtd`) first;
-  if it is already up and you are sandboxed, retry outside the sandbox.
-
-## What "retry outside the sandbox" means
-
-Re-run the identical command with the sandbox turned off (in Claude Code, set
-`dangerouslyDisableSandbox: true` for that Bash call). Treat each such command
-individually — default back to the sandbox for the next unrelated command.
-
-Do not add the libvirt socket or other sensitive paths to the sandbox allowlist
-to work around this; disable the sandbox per-command instead.
+A script cannot disable its caller's sandbox — only the agent driving the shell
+can — so this is an agent operating rule, not something `vm.sh` does for you.

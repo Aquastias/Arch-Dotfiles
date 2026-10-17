@@ -40,7 +40,7 @@ declare -F matrix_run >/dev/null 2>&1 \
 # host-resource policy knobs (see ADR 0046 / issue 06); pure cores get these as
 # args, the IO seams below read them.
 : "${MATRIX_HOST_RESERVE_MB:=4096}"   # RAM held back for the host
-: "${MATRIX_MAX_PARALLEL:=3}"         # hard cap on concurrent VMs
+: "${MATRIX_MAX_PARALLEL:=1}"         # concurrent VMs; >1 opts in (ADR 0155)
 : "${MATRIX_VM_RAM_MB:=8192}"         # per-VM RAM (the synthesizer uses it)
 
 # matrix_run_select <smoke|full> [seed] — the Tier-2 cells to run, one JSON cell
@@ -161,7 +161,13 @@ _driver_guard_gate() {
 # 124 timeout, 125 boot-fail). The default drives the real VM Harness via
 # matrix_run; tests override this to inject an outcome without a VM.
 _driver_run_cell() {
-  matrix_run "$(jq -r '.id' <<<"$1")"
+  # A raised cap is the opt-in to stacked VMs, so lift vm.sh's own
+  # one-VM-at-a-time guard for the cells this scheduler admits (ADR 0155).
+  if (( MATRIX_MAX_PARALLEL > 1 )); then
+    VM_ALLOW_PARALLEL=true matrix_run "$(jq -r '.id' <<<"$1")"
+  else
+    matrix_run "$(jq -r '.id' <<<"$1")"
+  fi
 }
 
 # _driver_run_one <cell> — run one cell and emit its result record JSON

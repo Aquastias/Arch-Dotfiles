@@ -98,3 +98,24 @@ setup() {
   run vm_host_capacity_admit 4096 16384
   [ "$status" -eq 0 ]
 }
+
+# ── vm_host_capacity_others_running: one VM at a time (ADR 0155) ─────────────
+
+@test "others_running: only self running → clear (empty)" {
+  run vm_host_capacity_others_running arch-combined arch-combined
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "others_running: nothing running → clear (empty)" {
+  run vm_host_capacity_others_running arch-combined
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "others_running: lists every other running VM, skips blanks" {
+  run vm_host_capacity_others_running arch-combined \
+    arch-combined "" matrix-zfs-single-plain arch-kde
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'matrix-zfs-single-plain\narch-kde')" ]
+}

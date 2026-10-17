@@ -265,11 +265,24 @@ _core_host_total_mb() {
 # bypasses the Combination Matrix's own parallel guard, so this is the general
 # gate every flow gets. Best-effort: if MemTotal can't be probed, don't block.
 _core_vm_capacity_preflight() {
+  _core_vm_single_preflight
   local host_mb; host_mb="$(_core_host_total_mb)"
   [[ "$host_mb" =~ ^[0-9]+$ && "$host_mb" -gt 0 ]] || return 0
   vm_host_capacity_admit "$VM_RAM_MB" "$host_mb" || error \
     "VM RAM ${VM_RAM_MB} MiB exceeds ${HOST_CAP_SAFE_PCT}% of host RAM \
 (${host_mb} MiB) — lower VM_RAM_MB or free host memory before launching."
+}
+
+# Refuse to boot while another domain runs: one VM at a time (ADR 0155).
+# VM_ALLOW_PARALLEL=true opts in (the matrix sets it when its cap is raised).
+_core_vm_single_preflight() {
+  [[ "${VM_ALLOW_PARALLEL:-false}" == true ]] && return 0
+  local running others
+  mapfile -t running < <(virsh list --name --state-running 2>/dev/null)
+  others="$(vm_host_capacity_others_running "$VM_NAME" "${running[@]}")"
+  [[ -z "$others" ]] || error \
+    "other VM(s) running: ${others//$'\n'/, } — shut them down first (one VM \
+at a time, ADR 0155) or set VM_ALLOW_PARALLEL=true."
 }
 
 # Start the domain, force-stopping a stale running instance first.

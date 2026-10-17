@@ -10,6 +10,8 @@
 #   vm-agent.sh [--profile <cat>/<name> | --vm <name>] <verb> [args…]
 #
 # Verbs (ADR 0117):
+#   status                   VM state + IP, and any other running VM
+#   start | stop             boot (one VM at a time, ADR 0155) / shut down
 #   exec <cmd…>              run a command in the guest with the running
 #                            session's env auto-sourced (WAYLAND_DISPLAY, DBUS…)
 #   launch <app…>            launch a GUI app detached (never holds the channel)
@@ -57,11 +59,13 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  awk 'NR >= 4 && NR <= 37 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
+  awk 'NR >= 4 && NR <= 39 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
 }
 
 # shellcheck source=lib/agent-commands.sh
 source "$SELF_DIR/lib/agent-commands.sh"
+# shellcheck source=lib/agent-lifecycle.sh
+source "$SELF_DIR/lib/agent-lifecycle.sh"
 
 # ── connection (libvirt + ssh) ───────────────────────────────────────────────
 
@@ -71,14 +75,16 @@ _vm_ip() {
     'NR>2 { split($4, a, "/"); if (a[1] ~ /^[0-9]/) { print a[1]; exit } }'
 }
 
-# _preflight — confirm libvirt is reachable and the VM is running, emitting the
-# vm-sandbox.md signal so the agent knows to retry with the sandbox disabled.
+# _preflight [any-state] — confirm libvirt is reachable and (unless any-state)
+# the VM is running, emitting the vm-sandbox.md signal so the agent knows to
+# retry with the sandbox disabled.
 _preflight() {
   if ! virsh version >/dev/null 2>&1; then
     die "libvirt unreachable (sandbox?) — retry with the sandbox disabled"
   fi
+  [[ "${1:-}" == any-state ]] && return 0
   virsh domstate "$VM_NAME" 2>/dev/null | grep -qx running \
-    || die "VM '$VM_NAME' is not running (virsh start it, or check the name)"
+    || die "VM '$VM_NAME' is not running (\`start\` it, or check the name)"
 }
 
 _ssh() {
@@ -455,6 +461,10 @@ main() {
   VM_NAME="$(agent_resolve_name "$selection_kind" "$selection_reference")"
 
   case "$verb" in
+    status|start|stop)
+      _preflight any-state
+      "agent_lifecycle_${verb}"
+      return ;;
     exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot\
     |pull|push|sudo|net|key|keydown|keyup|mouse) ;;
     *) usage >&2; die "unknown verb '$verb'" ;;

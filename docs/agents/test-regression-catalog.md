@@ -10,8 +10,9 @@ the test that now guards it and the tier that catches it:
 
 Run `run.sh --fast` before a real install; the always-on rows are the
 confidence it gives. The VM-only rows are the residual you accept unless
-you run `matrix.sh run` on a KVM box first (`/dev/kvm` is absent on the
-current dev box, so VM rows do not run locally).
+you run `matrix.sh run` first. The dev box has KVM; a sandboxed shell
+hides `/dev/kvm`, so run VM rows with the sandbox off
+([vm-sandbox.md](vm-sandbox.md)).
 
 ## Running the suite ([ADR 0103])
 
@@ -56,9 +57,9 @@ via `run.sh`'s `FAST_ROOT` set.
 | Bug class | Guarding test (Tier 2) |
 | --- | --- |
 | busybox initramfs mounts only btrfs `@` subvol | VM boot-verify (`matrix.sh`) |
-| firstboot service hang | `vm/seed-generator.bats` asserts the emit; hang itself is VM |
+| firstboot service hang | `vm/seed-generator-runcmd.bats` asserts the emit; hang itself is VM |
 | multi-disk device rename (`/dev/sdX` reorder) breaks import | `vm/vm-reorder-disks.bats`, `vm/vm-pool-verify.bats` |
-| `zpool export rpool` left pool imported on reboot | `vm/seed-generator.bats` (emit) + VM boot |
+| `zpool export rpool` left pool imported on reboot | `vm/seed-generator-verify-blocks.bats` (emit) + VM boot |
 | encrypted-boot passphrase unlock over serial | Console Answerer (`matrix.sh`, [ADR 0046]) |
 | `switch_root` / initramfs handoff | VM boot only |
 

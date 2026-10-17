@@ -20,6 +20,8 @@
 #       → exit 0 when any heavy axis is set (such VMs must never stack)
 #   vm_host_capacity_admit <vm_ram_mb> <host_total_mb> [safe_pct]
 #       → exit 0 iff one VM of that size stays within safe_pct% of host RAM
+#   vm_host_capacity_others_running <self> [running_vm…]
+#       → the running VMs other than <self>, one per line (ADR 0155)
 # =============================================================================
 
 # Defaults (env overrides win).
@@ -60,4 +62,17 @@ vm_host_capacity_admit() {
   [[ "$vm_mb" =~ ^[0-9]+$ && "$host_mb" =~ ^[0-9]+$ ]] || return 1
   (( host_mb > 0 )) || return 1
   (( vm_mb * 100 <= host_mb * safe_percent ))
+}
+
+# vm_host_capacity_others_running <self> [running_vm…]
+# The one-VM-at-a-time rule (ADR 0155): stacked VMs froze the dev host even
+# with RAM to spare (CPU/IO contention), so a launch checks for any OTHER
+# running domain. Prints them; empty output means clear to launch.
+vm_host_capacity_others_running() {
+  local self="$1" name
+  shift
+  for name in "$@"; do
+    [[ -n "$name" && "$name" != "$self" ]] && printf '%s\n' "$name"
+  done
+  return 0
 }
