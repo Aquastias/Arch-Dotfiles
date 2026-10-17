@@ -98,7 +98,7 @@ the schema.
 
 ### Pre-Install Picker
 The interactive disk-resolution front-end of `install.sh --profile <name>`
-(`lib/picker.sh`) — no longer a separate `tools/pick.sh`. Because the Host
+(`lib/picker.sh`) — no longer a separate tools/pick.sh. Because the Host
 Profile already carries every machine property, the picker prompts only for what
 it cannot: which disk(s) to install onto. It validates the named profile against
 the closed schema, enumerates `/dev/disk/by-id/*` candidates with a
@@ -854,7 +854,8 @@ a core tool or a bash builtin).
 
 ### Readability Lint
 `.installer/tests/readability.sh` — checks the Readability Rules,
-Tool Tiers, and linked ADR mentions in docs. Strict: any violation fails.
+Tool Tiers, linked ADR mentions in docs, and that backticked doc paths are
+tracked files (`doc-path`, [ADR 0156]). Strict: any violation fails.
 (It began as a ratchet against the **Readability Baseline** — the list of
 violations that existed when the lint landed — which shrank to zero and
 was removed.)
@@ -1779,7 +1780,7 @@ refuses root), so they are **not** installed as Host Programs — the Runner
 unions the resolved program names into the **Primary User's** paru pass (the
 seam host AUR packages already use), and each tool's existing Program Install
 Script runs unchanged. Supersedes the former boolean `post_install.*` extras,
-which dispatched to never-shipped `extras/security.sh` / `extras/backup.sh` (ADR
+which dispatched to never-shipped extras/security.sh / extras/backup.sh (ADR
 0041). A host with no users cannot carry these — the Guided Installer aborts at
 the terminal action.
 
@@ -2516,5 +2517,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0151]: docs/adr/0151-a-formatter-for-every-language-manual-for-hand-formatted.md
 [ADR 0153]: docs/adr/0153-human-readable-installer-code.md
 [ADR 0154]: docs/adr/0154-install-config-reader-binds-json-schema-owns-defaults.md
+[ADR 0156]: docs/adr/0156-agent-session-guardrails.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md

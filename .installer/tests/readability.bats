@@ -418,3 +418,26 @@ SH
   check_repo
   [ "$status" -eq 0 ]
 }
+
+# ── doc-path (ADR 0156) ─────────────────────────────────────────────────────
+
+@test "catches a backticked doc path that is not a tracked file" {
+  make_repo
+  printf 'Run `tools/gone.sh` first.\n' > README.md
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"doc-path: README.md:1: tools/gone.sh is not a tracked"* ]]
+}
+
+@test "doc paths resolve by tracked tail; target paths and ADRs are skipped" {
+  make_repo
+  mkdir -p .installer/vm/lib docs/adr
+  printf 'true\n' > .installer/vm/lib/core.sh
+  printf 'See `vm/lib/core.sh`, `../.installer/vm/lib/core.sh`.\n' \
+    > README.md
+  printf 'Seeds `/usr/lib/x.sh`, `~/.zshrc.sh`, `<name>/a.sh`.\n' >> README.md
+  printf 'Plain removed name: tools/gone.sh.\n' >> README.md
+  printf '# ADR 0001: Old\n\nWas `tools/gone.sh`.\n' > docs/adr/0001-old.md
+  check_repo
+  [ "$status" -eq 0 ]
+}

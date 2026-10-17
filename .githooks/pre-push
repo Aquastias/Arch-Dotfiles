@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Opt-in pre-push gate: the curated install-correctness subset (ADR 0078).
+# Opt-in pre-push gate: the curated install-correctness subset (ADR 0145).
 # Enable once with:  git config core.hooksPath .githooks
 # Skip a single push with:  SKIP_FAST_TESTS=1 git push
 set -euo pipefail

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Pre-commit gate (ADR 0156): the whole-repo lints that take seconds, plus
+# a shellcheck of the staged shell files only (the full pass takes minutes
+# and stays in run.sh). Agents commit but never push, so this — not pre-push
+# — is the gate that catches their violations.
+# Enable once with:  git config core.hooksPath .githooks
+# Skip a single commit with:  SKIP_LINTS=1 git commit
+set -euo pipefail
+
+[[ -n "${SKIP_LINTS:-}" ]] && { echo "[pre-commit] skipped"; exit 0; }
+
+cd "$(git rev-parse --show-toplevel)"
+tests=.installer/tests
+
+bash "$tests/readability.sh"
+bash "$tests/no-python.sh" >/dev/null
+bash "$tests/raw-config-reads.sh" >/dev/null
+
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR \
+  | grep -E '^\.installer/.*\.sh$' | grep -v '^\.installer/tests/bats/' \
+  || true)
+((${#staged[@]})) || exit 0
+command -v shellcheck >/dev/null \
+  || { echo "[pre-commit] shellcheck missing; skipped" >&2; exit 0; }
+shellcheck -x -P SCRIPTDIR "${staged[@]}"

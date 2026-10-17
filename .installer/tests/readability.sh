@@ -8,7 +8,9 @@
 # the lint in reached zero and was retired with ADR 0153's last ticket.)
 #
 # Docs: every `ADR NNNN` in tracked Markdown (minus .scratch/, vendored
-# .agents/skills/, program payloads) must be a link (readability-adr-links.awk).
+# .agents/skills/, program payloads) must be a link (readability-adr-links.awk),
+# and every backticked repo path in them (ADRs aside) must be a tracked file
+# (readability-doc-paths.awk, ADR 0156).
 #
 # Usage: readability.sh [--list | --fix-adr-links]
 #   (none)            fail on any violation
@@ -23,6 +25,7 @@ script_path="${BASH_SOURCE[0]}"
 TESTS_DIR="$(cd "${script_path%/*}" && pwd)"
 SCANNER="$TESTS_DIR/readability-scan.awk"
 ADR_LINKER="$TESTS_DIR/readability-adr-links.awk"
+DOC_PATH_CHECKER="$TESTS_DIR/readability-doc-paths.awk"
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -75,6 +78,10 @@ violations() {
   ((${#files[@]})) || return 0
   awk -v mode=check -v adr_index="$(adr_index)" -f "$ADR_LINKER" \
     "${files[@]}"
+  # ADRs are history: they keep naming files that later moved.
+  mapfile -t files < <(linked_docs | grep -v '^docs/adr/' || true)
+  ((${#files[@]})) || return 0
+  awk -f "$DOC_PATH_CHECKER" <(git ls-files) "${files[@]}"
 }
 
 case "$mode" in
