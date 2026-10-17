@@ -1,0 +1,36 @@
+// VM smoke (ADR 0157): a BLANK Guided session that picks only KDE lands the
+// distro's stock Plasma with no personal software.
+//   vm.sh --guided --profile single/guided-stock-kde --verify-boot
+//
+// guided_extras replays one answer (desktop=kde) and names no user, so the seed
+// generator falls back to the neutral committed `stock` user. Nothing else is
+// answered: no profile is picked, so the install shows exactly what a stranger
+// gets — stock KDE (plasma-meta, no curated apps/seed), no Fleet Layer
+// packages, no aquastias programs, no Security & Backup Extras. Unencrypted so
+// the installed system boot-verifies headlessly; the install log is the
+// evidence of what pacman installed.
+{
+  "name": "arch-zfs-test-guided-stock-kde",
+  "hardware": { "disks": [80], "ram_mb": 8192, "vcpus": 4 },
+  "timeouts": { "install": 5400, "boot": 600 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided-stock-kde",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "guided_extras": {
+      "answers": { "desktop": "kde" }
+    },
+    "mode": "single",
+    "disk": "/dev/sda"
+  }
+}
