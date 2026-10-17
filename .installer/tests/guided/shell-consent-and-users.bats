@@ -157,18 +157,19 @@ load shell-helpers
 
 # ── headless replay: `profile=<name>` seeds the state (ADR 0055) ─────────────
 
-@test "_guided_shell_seed_from_profile: replay 'profile=' seeds the state" {
+@test "_guided_shell_seed_from_profile: replay 'profile=' re-baselines the session" {
   mkdir -p "$INSTALLER_DIR/hosts/desktop"
   cat > "$INSTALLER_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
 { "system": { "hostname": "eterniox" },
   "options": { "encryption": true }, "filesystem": "zfs" }
 JSONC
   guided_load_replay "$(write_answers 'profile=desktop')"
-  _GUIDED_STATE="$(config_state_new)"
+  _GUIDED_STATE='{"marker":1}'
   _guided_shell_seed_from_profile
-  jq -e '.options.encryption == true' <<<"$_GUIDED_STATE"
-  jq -e '.filesystem == "zfs"' <<<"$_GUIDED_STATE"
-  jq -e '.system.hostname == "eterniox"' <<<"$_GUIDED_STATE"
+  jq -e '.options.encryption == true' <<<"$_GUIDED_BASELINE"
+  jq -e '.filesystem == "zfs"' <<<"$_GUIDED_BASELINE"
+  jq -e '.system.hostname == "eterniox"' <<<"$_GUIDED_BASELINE"
+  jq -e '. == {}' <<<"$_GUIDED_STATE"       # earlier overrides dropped
 }
 
 @test "_guided_shell_seed_from_profile: no 'profile=' key leaves the state untouched" {

@@ -6,8 +6,8 @@
 #
 #   - Enumerate the installable Host Profiles under a hosts/ root (names +
 #     leading // header comment), so the picker can list them.
-#   - Seed a Config State from a chosen profile (the profile's values merged in),
-#     so picking one populates the whole menu.
+#   - Build the Guided baseline a chosen profile installs, so picking one
+#     populates the whole menu and installs exactly that profile.
 #
 # Distinct from lib/config/profile-loader.sh (singular), which authors the
 # device-less profile DELTA for Save. This module CONSUMES committed profiles.
@@ -17,12 +17,18 @@
 #                                            line, alphabetical (excl core / vm)
 #   profiles_header <hosts-root> <name>   → the profile's leading // header
 #                                            comment (// stripped), or nothing
-#   profiles_seed   <state> <profile-json>→ <state> with the profile merged over
-#                                            it (profile wins), devices flattened
+#   profiles_baseline <name>              → the Guided baseline for Host Profile
+#                                            <name>, resolved as --profile does
 #
 # Used by: lib/guided/controller.sh.
 # =============================================================================
 
+# shellcheck source=./profile-loader.sh
+declare -F profile_loader_load >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/profile-loader.sh"
+# shellcheck source=./config-state.sh
+declare -F config_state_install_defaults >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 # shellcheck source=./skeleton.sh
 declare -F skeleton_flatten_devices >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/skeleton.sh"
@@ -61,15 +67,19 @@ profiles_header() {
   ' "$profile_file"
 }
 
-# profiles_seed <state> <profile-json> — the Config State with <profile-json>
-# merged OVER it (jq `*`: profile scalars/arrays replace, objects deep-merge —
-# the same rule _guided_shell_effective uses to overlay overrides on the
-# baseline), so picking a profile populates every category with its values.
-# Device paths are flattened out first: profiles are device-less (ADR 0036) and
-# disks stay operator-picked at Proceed, so a stray devices[] never enters the
-# seed.
-profiles_seed() {
-  local state="$1" profile="$2"
+# profiles_baseline <name> — the Guided baseline after picking Host Profile
+# <name> (ADR 0157): the profile resolved exactly as `install.sh --profile`
+# resolves it (the Profile Loader, then the hostname fallback), laid over the
+# schema Install Defaults the menu shows. Nothing else survives — no launch
+# preset, no Host Core content the profile opted out of, no earlier pick — so
+# one profile produces one install through every front-end. Device paths are
+# flattened out: disks stay operator-picked at Proceed. rc 1 when <name> does
+# not load.
+profiles_baseline() {
+  local name="$1" profile
+  profile="$(profile_loader_load "$name" 2>/dev/null)" || return 1
+  profile="$(profile_loader_default_hostname "$name" "$profile")"
   profile="$(skeleton_flatten_devices "$profile")"
-  jq -n --argjson s "$state" --argjson p "$profile" '$s * $p'
+  jq -n --argjson defaults "$(config_state_install_defaults '{}')" \
+    --argjson profile "$profile" '$defaults * $profile'
 }

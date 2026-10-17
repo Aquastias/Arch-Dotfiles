@@ -133,14 +133,7 @@ profile_loader_assemble_config() {
   profile_json="$(profile_loader_load "$name")" || return $?
   effective="$(picker_assign_disks "$profile_json" "$assignment")" || return $?
 
-  # Printing Service (ADR 0079): fold the toggle-derived cups into
-  # host_programs when printing is on, so the Runner installs it exactly as an
-  # authored Host Program. cups is no longer declared in Host Core.
-  effective="$(jq --arg name "$name" '
-    .system = (.system // {})
-    | .system.hostname =
-        (if (.system.hostname // "") == "" then $name else .system.hostname end)
-  ' <<<"$effective")"
+  effective="$(profile_loader_default_hostname "$name" "$effective")"
   # Section-derived Host Programs (ADR 0079/0080/0089): fold cups (printing),
   # bluetooth, the power daemon, then reflector (mirrors) into host_programs.
   # Chained so each derives independently and the Runner installs them as
@@ -148,6 +141,18 @@ profile_loader_assemble_config() {
   # mirrors, so the Mirrors section always brings it.
   mirrors_inject "$(power_inject \
     "$(bluetooth_inject "$(printing_inject "$effective")")")"
+}
+
+# profile_loader_default_hostname <name> <config> — <config> with the
+# dirname-is-identity hostname fallback (ADR 0036): an absent or empty
+# system.hostname becomes the profile name. Shared with the Guided profile
+# pick, so both front-ends name the machine alike.
+profile_loader_default_hostname() {
+  jq --arg name "$1" '
+    .system = (.system // {})
+    | .system.hostname =
+        (if (.system.hostname // "") == "" then $name else .system.hostname end)
+  ' <<<"$2"
 }
 
 # =============================================================================

@@ -46,6 +46,9 @@ guided_run_persistent() {
 
   _guided_shell_launch_fzf
 
+  # A profile pick or `＋ New host` re-baselines the session (ADR 0157), so the
+  # baseline is read back alongside the override map.
+  _GUIDED_BASELINE="$(config_store_baseline)"
   _GUIDED_STATE="$(config_store_state)"
   # Load the in-menu credentials captured via execute() into the held-aside vars
   # so the existing manifest path (_guided_shell_secrets_manifest) is unchanged.

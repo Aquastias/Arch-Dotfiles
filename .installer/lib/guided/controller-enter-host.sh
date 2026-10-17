@@ -39,14 +39,15 @@ _controller_enter_top() {
 }
 
 # _controller_enter_profiles <line> — Enter on the Profiles screen (ADR 0055).
-# `← Back` returns to the top screen unchanged. A profile row SEEDS the menu:
-# the chosen hosts/<name>/profile.jsonc is parsed and merged over the current
-# Config State (profiles_seed — profile wins, devices flattened), so every
-# category reflects it, then nav returns to the top screen for tweak-or-Proceed.
-# A profile that fails to parse leaves the state untouched and warns via a
-# notice.
+# `← Back` returns to the top screen unchanged. A profile row RE-BASELINES the
+# session on that profile (ADR 0157): the same full session reset as
+# `＋ New host`, but onto profiles_baseline — the profile resolved exactly as
+# `install.sh --profile` resolves it — so every category reflects it with no ●
+# marks and nothing from Host Core or an earlier pick survives. Nav returns to
+# the top screen for tweak-or-Proceed. A profile that fails to load leaves the
+# session untouched and warns via a notice.
 _controller_enter_profiles() {
-  local line="$1" navigation profile_file profile
+  local line="$1" navigation baseline
   navigation="$(_controller_navigation)"
   if [[ "$line" == "← Back" ]]; then
     _controller_write_navigation \
@@ -58,45 +59,40 @@ _controller_enter_profiles() {
     _controller_write_navigation \
       "$(navigation_to_new_host)"; echo render; return
   fi
-  profile_file="$(_controller_hosts_root)/${line}/profile.jsonc"
-  if ! profile="$(_program_registry_parse "$profile_file" 2>/dev/null)"; then
+  if ! baseline="$(profiles_baseline "$line")"; then
     echo "notice ⚠ Could not read profile '${line}'"; return
   fi
-  # Seed the RESOLVED profile, not the raw delta. A committed profile is a
-  # delta over Host Core, and the Config State is an override map that
-  # REPLACES baseline values — so seeding the delta verbatim would show (and
-  # install) `host_programs: ["grub"]` where `install.sh --profile desktop`
-  # installs `["cups","grub"]`. Resolving here means one profile produces one
-  # install through every front-end.
-  profile="$(layer_resolver_resolve host "$(config_state_host_core)" "$profile")"
-  _controller_write_state "$(profiles_seed "$(_controller_state)" "$profile")"
+  _controller_session_reset "$baseline"
   _controller_write_navigation '{"screen":"top"}'
   echo render
 }
 
-# _controller_session_stash — snapshot the pre-reset session side-state
-# (per-user editor forms + the password/secret manifest) into
-# GUIDED_SESSION_UNDO_FILE, so a single undo after a `+ New host` reset can
-# restore it. The Config State is already undoable through the history stack;
-# this covers only the two side files the stack does not. No-op when no undo
-# file is wired (non-persistent).
+# _controller_session_stash — snapshot the pre-reset session side-state (the
+# baseline, per-user editor forms and the password/secret manifest) into
+# GUIDED_SESSION_UNDO_FILE, so a single undo after a session reset can restore
+# it. The Config State is already undoable through the history stack; this
+# covers only what the stack does not. No-op when no undo file is wired
+# (non-persistent).
 _controller_session_stash() {
   [[ -n "${GUIDED_SESSION_UNDO_FILE:-}" ]] || return 0
   local userforms='{}' secrets='{}'
   [[ -s "${GUIDED_USERFORMS_FILE:-}" ]] \
     && userforms="$(<"$GUIDED_USERFORMS_FILE")"
   [[ -s "${GUIDED_SECRETS_FILE:-}" ]] && secrets="$(<"$GUIDED_SECRETS_FILE")"
-  jq -n --argjson u "$userforms" --argjson s \
-    "$secrets" '{userforms:$u, secrets:$s}' \
+  jq -n --argjson b "$(_controller_baseline)" --argjson u "$userforms" \
+    --argjson s "$secrets" '{baseline:$b, userforms:$u, secrets:$s}' \
     >"$GUIDED_SESSION_UNDO_FILE"
 }
 
-# _controller_session_unstash — restore the userforms + secrets files from the
-# stash and drop it. Called by the first undo after a `+ New host` reset. No-op
-# when the stash is absent/empty (nothing to restore).
+# _controller_session_unstash — restore the baseline, userforms and secrets
+# files from the stash and drop it. Called by the first undo after a session
+# reset. No-op when the stash is absent/empty (nothing to restore).
 _controller_session_unstash() {
   [[ -s "${GUIDED_SESSION_UNDO_FILE:-/nonexistent}" ]] || return 0
   local stash; stash="$(<"$GUIDED_SESSION_UNDO_FILE")"
+  [[ -n "${GUIDED_BASELINE_FILE:-}" ]] && jq -e 'has("baseline")' \
+    <<<"$stash" >/dev/null && config_store_write_baseline \
+    "$(jq -c '.baseline' <<<"$stash")"
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && jq -c '.userforms // {}' <<<"$stash" >"$GUIDED_USERFORMS_FILE"
   [[ -n "${GUIDED_SECRETS_FILE:-}" ]] \
@@ -104,15 +100,19 @@ _controller_session_unstash() {
   rm -f "$GUIDED_SESSION_UNDO_FILE"
 }
 
-# _controller_new_host_reset — the `+ New host` full session reset (ADR 0063).
-# Broader than Reset-all (which clears Config State only): it returns Config
-# State to the Host Core baseline (a `{}` override map — like ^R, and recorded
-# on the undo stack) AND clears the session-created users' editor forms and the
-# secret / password manifest overrides (the in-menu disk bindings live in Config
-# State, so the `{}` reset drops them too). The side files are stashed first, so
-# a single undo restores the whole pre-reset session.
-_controller_new_host_reset() {
+# _controller_session_reset <baseline> — the full session reset behind
+# `＋ New host` (ADR 0063) and a profile pick (ADR 0157). Broader than Reset-all
+# (which clears Config State only): it installs <baseline> as the session
+# baseline, returns Config State to a `{}` override map (like ^R, recorded on
+# the undo stack) AND clears the session-created users' editor forms and the
+# secret / password manifest overrides (the in-menu disk bindings live in
+# Config State, so the `{}` reset drops them too). The previous baseline and
+# side files are stashed first, so a single undo restores the whole pre-reset
+# session.
+_controller_session_reset() {
+  local baseline="$1"
   _controller_session_stash
+  [[ -n "${GUIDED_BASELINE_FILE:-}" ]] && config_store_write_baseline "$baseline"
   if [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]]; then
     local history; history="$(<"$GUIDED_HIST_FILE")"
     history="$(history_commit "$history" '{}')"
@@ -123,7 +123,9 @@ _controller_new_host_reset() {
   fi
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && printf '{}\n' >"$GUIDED_USERFORMS_FILE"
-  [[ -n "${GUIDED_SECRETS_FILE:-}" ]] && printf '{}\n' >"$GUIDED_SECRETS_FILE"
+  if [[ -n "${GUIDED_SECRETS_FILE:-}" ]]; then
+    printf '{}\n' >"$GUIDED_SECRETS_FILE"
+  fi
 }
 
 # _controller_enter_new_host <line> — the `+ New host` confirm screen (ADR
@@ -209,7 +211,7 @@ _controller_enter_new_host() {
   local line="$1" navigation; navigation="$(_controller_navigation)"
   case "$line" in
   "Yes"*)
-    _controller_new_host_reset
+    _controller_session_reset "$(config_state_seed_defaults "$(config_state_new)")"
     _controller_write_navigation '{"screen":"top"}'
     echo render ;;
   *)

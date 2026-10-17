@@ -122,8 +122,10 @@ the on-ramp for ad-hoc installs (archinstall's role). It may optionally **seed**
 from a Host Profile via the in-menu **Profiles** picker (a top-screen row above
 the category divider, shown **unconditionally** — even on a repo with no
 committed profiles — that drills to a list of installable profiles; picking one
-merges its delta over Host Core into the Config State, then the operator tweaks
-or Proceeds — disks stay operator-picked), so guided is "from scratch **or** from
+**re-baselines** the session on it — a full session reset onto the profile
+resolved exactly as `install.sh --profile` resolves it, so nothing from Host
+Core or an earlier pick survives ([ADR 0157]) — then the operator tweaks or
+Proceeds — disks stay operator-picked), so guided is "from scratch **or** from
 a profile" per run ([ADR 0055], superseding [ADR 0039]'s require-a-profile
 rejection). Each profile row previews a **deep tree** of that machine (hostname,
 users → shell·groups, options incl. encryption/impermanence, environment,
@@ -2527,5 +2529,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0153]: docs/adr/0153-human-readable-installer-code.md
 [ADR 0154]: docs/adr/0154-install-config-reader-binds-json-schema-owns-defaults.md
 [ADR 0156]: docs/adr/0156-agent-session-guardrails.md
+[ADR 0157]: docs/adr/0157-neutral-core-personal-software-in-fleet-layer.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md

@@ -177,21 +177,21 @@ guided_pick_disk() {
 }
 
 
-# _guided_shell_seed_from_profile — headless replay seed (ADR 0055): when the
-# answers declare `profile=<name>`, merge hosts/<name>/profile.jsonc over
-# _GUIDED_STATE (profiles_seed — profile wins, devices flattened) BEFORE the
-# per-field edits, so a replay can install a committed machine yet still
-# override any field. A missing/unreadable profile is a no-op; disks stay
-# operator/replay-resolved.
+# _guided_shell_seed_from_profile — headless replay seed (ADR 0055, ADR 0157):
+# when the answers declare `profile=<name>`, re-baseline the session on that
+# profile (profiles_baseline — resolved as `install.sh --profile` resolves it)
+# BEFORE the per-field edits, so a replay installs exactly the committed
+# machine yet can still override any field. The override map and the committed
+# user picks restart from the profile. A profile that does not load is a no-op;
+# disks stay operator/replay-resolved.
 _guided_shell_seed_from_profile() {
-  local name="${_GUIDED_ANSWERS[profile]-}" profile_file profile
+  local name="${_GUIDED_ANSWERS[profile]-}" baseline
   [[ -n "$name" ]] || return 0
-  profile_file="${INSTALLER_DIR}/hosts/${name}/profile.jsonc"
-  profile="$(_program_registry_parse "$profile_file" 2>/dev/null)" || return 0
-  # Resolve over Host Core first — see _controller_enter_profiles: seeding the raw
-  # delta would install a different set from `install.sh --profile <name>`.
-  profile="$(layer_resolver_resolve host "$(config_state_host_core)" "$profile")"
-  _GUIDED_STATE="$(profiles_seed "$_GUIDED_STATE" "$profile")"
+  baseline="$(profiles_baseline "$name")" || return 0
+  _GUIDED_BASELINE="$baseline"
+  _GUIDED_STATE="$(config_state_new)"
+  mapfile -t _GUIDED_USERS_COMMITTED < <(jq -r '(.users // [])[]' \
+    <<<"$baseline")
 }
 
 guided_build() {

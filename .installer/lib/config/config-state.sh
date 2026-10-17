@@ -22,6 +22,8 @@
 #   config_state_seed_defaults <state>     → <state> with the launch defaults
 #                                            set, resolved over Host Core
 #   config_state_host_core                 → Host Core as JSON
+#   config_state_install_defaults <state>  → <state> with the schema Install
+#                                            Defaults the menu shows laid over
 #
 # <path> is a dotted JSON path ("system.hostname"); <v> is a JSON value
 # ('"eterniox"', 'true', '"single"').
@@ -122,7 +124,7 @@ config_state_seed_defaults() {
 # without Host Core. Split out so the fold above has a clean upper layer.
 _config_state_computed_defaults() {
   local state="$1"
-  state="$(_config_state_install_defaults "$state")"
+  state="$(config_state_install_defaults "$state")"
   _config_state_preset_defaults "$state"
 }
 
@@ -155,9 +157,9 @@ _CONFIG_STATE_SCHEMA_SEEDED=(
   zswap_max_pool_percent
 )
 
-# _config_state_install_defaults <state> — the schema defaults laid over
+# config_state_install_defaults <state> — the schema defaults laid over
 # <state>; locale / keymap / gpu seed their primary as a scalar (menu shape).
-_config_state_install_defaults() {
+config_state_install_defaults() {
   local state="$1" path name
   state="$(jq -c --argjson d "$(install_config_default_object \
     "${_CONFIG_STATE_SCHEMA_SEEDED[@]}")" '. * $d' <<<"$state")"

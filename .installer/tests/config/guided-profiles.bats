@@ -35,7 +35,7 @@ JSONC
     > "$HOSTS/laptop/profile.jsonc"
 }
 
-teardown() { rm -rf "$HOSTS"; }
+teardown() { rm -rf "$HOSTS" "$HOSTS.installer"; }
 
 # ── tracer: enumeration lists the two installable profiles, alphabetical ─────
 
@@ -78,24 +78,36 @@ teardown() { rm -rf "$HOSTS"; }
   [ -z "$output" ]
 }
 
-# ── seed-merge: profile values win, seed fields survive ─────────────────────
+# ── profiles_baseline: the profile, resolved as --profile does (ADR 0157) ────
 
-@test "profiles_seed: profile values win over the seeded state" {
-  state="$(config_state_set "$(config_state_new)" system.hostname '"seeded"')"
-  state="$(config_state_set "$state" system.keymap '"us"')"
-  profile='{"system":{"hostname":"eterniox"},"options":{"encryption":true}}'
-
-  run profiles_seed "$state" "$profile"
-  [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'   # profile wins
-  echo "$output" | jq -e '.system.keymap == "us"'           # seed survives
-  echo "$output" | jq -e '.options.encryption == true'
+# use_hosts_tree — point INSTALLER_DIR at a tree whose hosts/ is the fixture.
+use_hosts_tree() {
+  export INSTALLER_DIR="$HOSTS.installer"
+  mkdir -p "$INSTALLER_DIR"
+  ln -sfn "$HOSTS" "$INSTALLER_DIR/hosts"
 }
 
-@test "profiles_seed: introduces no device paths (flattened)" {
-  profile='{"os_pool":{"pool_name":"rpool","topology":"mirror",
-            "devices":["/dev/disk/by-id/a","/dev/disk/by-id/b"]}}'
-  run profiles_seed "$(config_state_new)" "$profile"
+@test "profiles_baseline: the profile over the schema Install Defaults" {
+  use_hosts_tree
+  run profiles_baseline desktop
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system.hostname == "eterniox"'   # profile value
+  echo "$output" | jq -e '.options.encryption == true'
+  echo "$output" | jq -e '.options.bootloader == "systemd-boot"'  # a default
+}
+
+@test "profiles_baseline: an unknown profile is rc 1" {
+  use_hosts_tree
+  run profiles_baseline ghost
+  [ "$status" -eq 1 ]
+}
+
+@test "profiles_baseline: introduces no device paths (flattened)" {
+  use_hosts_tree
+  printf '%s\n' '{"os_pool":{"pool_name":"rpool","topology":"mirror",
+    "devices":["/dev/disk/by-id/a","/dev/disk/by-id/b"]}}' \
+    > "$HOSTS/laptop/profile.jsonc"
+  run profiles_baseline laptop
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.os_pool | has("devices") | not'
   echo "$output" | jq -e '.os_pool.disk_count == 2'   # count derived

@@ -209,24 +209,50 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   jq -e '.users.alice.password == "p"' "$GUIDED_SECRETS_FILE"   # secrets restored
 }
 
-# ── seed-on-pick: the chosen profile populates the Config State ──────────────
+# ── pick re-baselines: the chosen profile IS the session (ADR 0157) ──────────
 
-@test "enter(profiles): picking a profile seeds the state + returns to top" {
+@test "enter(profiles): picking a profile re-baselines + returns to top" {
+  printf '%s\n' '{"system":{"keymap":"de"}}' > "$GUIDED_STATE_FILE"
   set_navigation '{"screen":"profiles"}'
   run guided_controller_enter desktop
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
-  jq -e '.system.hostname == "eterniox"' "$GUIDED_STATE_FILE"
-  jq -e '.options.encryption == true' "$GUIDED_STATE_FILE"
-  jq -e '.filesystem == "zfs"' "$GUIDED_STATE_FILE"
+  jq -e '.system.hostname == "eterniox"' "$GUIDED_BASELINE_FILE"
+  jq -e '.options.encryption == true' "$GUIDED_BASELINE_FILE"
+  jq -e '.filesystem == "zfs"' "$GUIDED_BASELINE_FILE"
+  jq -e '. == {}' "$GUIDED_STATE_FILE"         # no ● — earlier edit dropped
 }
 
-@test "enter(profiles): a prior edit survives unless the profile overrides it" {
-  printf '%s\n' '{"system":{"keymap":"de"}}' > "$GUIDED_STATE_FILE"
+@test "enter(profiles): a profile with no hostname is named after itself" {
+  printf '{ "options": { "encryption": false } }\n' \
+    > "$INSTALLER_DIR/hosts/laptop/profile.jsonc"
+  set_navigation '{"screen":"profiles"}'
+  guided_controller_enter laptop >/dev/null
+  jq -e '.system.hostname == "laptop"' "$GUIDED_BASELINE_FILE"
+}
+
+@test "enter(profiles): a later pick leaves no residue of an earlier one" {
   set_navigation '{"screen":"profiles"}'
   guided_controller_enter desktop >/dev/null
-  jq -e '.system.keymap == "de"' "$GUIDED_STATE_FILE"        # kept
-  jq -e '.system.hostname == "eterniox"' "$GUIDED_STATE_FILE" # merged
+  set_navigation '{"screen":"profiles"}'
+  guided_controller_enter laptop >/dev/null
+  jq -e '.system.hostname == "chronos"' "$GUIDED_BASELINE_FILE"
+  jq -e '.options.encryption == false' "$GUIDED_BASELINE_FILE" # default, not desktop's
+}
+
+@test "enter(profiles): the pick is undoable — undo restores the baseline" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist.json"
+  export GUIDED_SESSION_UNDO_FILE="$TEST_DIR/undo.json"
+  source "$BATS_TEST_DIRNAME/../../lib/config/history.sh"
+  printf '%s\n' '{"marker":1}' > "$GUIDED_BASELINE_FILE"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
+  set_navigation '{"screen":"profiles"}'
+  guided_controller_enter desktop >/dev/null
+
+  guided_controller_key ctrl-z >/dev/null
+  jq -e '. == {"marker":1}' "$GUIDED_BASELINE_FILE"
+  jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"
 }
 
 @test "enter(profiles): an unreadable profile warns without touching state" {
@@ -237,38 +263,9 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   jq -e '.seed == "me"' "$GUIDED_STATE_FILE"                 # untouched
 }
 
-# ── seeding a profile must match what --profile installs (ADR 0058) ─────────
-# A committed profile is a DELTA over Host Core, and Config State is an
-# override map that REPLACES baseline values. Seeding the raw delta therefore
-# showed (and installed) only the delta, where `install.sh --profile <name>`
-# resolves core+delta. The picker resolves before seeding so one profile
-# produces one install through every front-end.
-
-@test "seeding resolves the profile over Host Core, not the raw delta" {
-  local installer_directory; installer_directory="$TEST_DIR/os2"
-  mkdir -p "$installer_directory/hosts"/{core,desktop}
-  cat > "$installer_directory/hosts/core/profile.jsonc" <<'JSON'
-{"host_programs":["cups"],
- "packages":{"repo":{"shell":["htop"]}},"sysctl":{"vm.swappiness":10}}
-JSON
-  cat > "$installer_directory/hosts/desktop/profile.jsonc" <<'JSON'
-{"host_programs":["grub"],"packages":{"repo":{"virt":["qemu-full"]}}}
-JSON
-  export INSTALLER_DIR="$installer_directory"
-  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
-
-  set_navigation "$(navigation_to_profiles)"
-  run guided_controller_enter "desktop"
-  [ "$status" -eq 0 ]
-
-  # the seeded state carries core's contribution as well as the delta
-  jq -e '.host_programs == ["cups","grub"]' "$GUIDED_STATE_FILE"
-  jq -e '.packages.repo.shell == ["htop"]'    "$GUIDED_STATE_FILE"
-  jq -e '.packages.repo.virt == ["qemu-full"]' "$GUIDED_STATE_FILE"
-  jq -e '.sysctl["vm.swappiness"] == 10'      "$GUIDED_STATE_FILE"
-}
-
-@test "a seeded profile matches profile_loader_load exactly" {
+# The baseline a pick installs is the profile resolved by the Profile Loader
+# (Host Core + delta), exactly as `install.sh --profile` resolves it.
+@test "a picked profile matches profile_loader_load exactly" {
   local installer_directory; installer_directory="$TEST_DIR/os3"
   mkdir -p "$installer_directory/hosts"/{core,desktop}
   cat > "$installer_directory/hosts/core/profile.jsonc" <<'JSON'
@@ -278,15 +275,31 @@ JSON
 {"host_programs":["grub"],"options":{"kernel":["zen"]}}
 JSON
   export INSTALLER_DIR="$installer_directory"
-  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
   set_navigation "$(navigation_to_profiles)"
   guided_controller_enter "desktop" >/dev/null
 
   source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
-  local seeded resolved
-  seeded="$(jq -cS '{host_programs, packages, options}' "$GUIDED_STATE_FILE")"
+  local picked resolved
+  picked="$(jq -cS '{host_programs, packages, kernel: .options.kernel}' \
+    "$GUIDED_BASELINE_FILE")"
   resolved="$(profile_loader_load desktop \
-    | jq -cS '{host_programs, packages, options}')"
-  [ "$seeded" = "$resolved" ]
+    | jq -cS '{host_programs, packages, kernel: .options.kernel}')"
+  [ "$picked" = "$resolved" ]
+}
+
+@test "a profile opting out of Host Core packages carries none" {
+  local installer_directory; installer_directory="$TEST_DIR/os4"
+  mkdir -p "$installer_directory/hosts"/{core,bare}
+  printf '%s\n' '{"packages":{"repo":{"shell":["htop"]}}}' \
+    > "$installer_directory/hosts/core/profile.jsonc"
+  printf '%s\n' '{"packages":{"inherit":false}}' \
+    > "$installer_directory/hosts/bare/profile.jsonc"
+  export INSTALLER_DIR="$installer_directory"
+  printf '%s\n' '{"packages":{"repo":{"shell":["htop"]}}}' \
+    > "$GUIDED_BASELINE_FILE"
+
+  set_navigation "$(navigation_to_profiles)"
+  guided_controller_enter "bare" >/dev/null
+  jq -e '.packages == null' "$GUIDED_BASELINE_FILE"
 }
