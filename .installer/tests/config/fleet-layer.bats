@@ -106,3 +106,22 @@ installed_names() {
       || { echo "$file"; return 1; }
   done
 }
+
+# ── pure profiles: stock userland too (ADR 0157 amending ADR 0112) ──────────
+
+@test "the pure profiles carry no User Program" {
+  local profile programs
+  for profile in kde-pure niri-pure hyprland-pure; do
+    programs="$(package_resolver_resolve "$(profile_loader_load "$profile")" \
+      | awk -F '\t' '$1 == "user-programs" { print $3 }')"
+    [ -z "$programs" ] || { echo "$profile: $programs"; return 1; }
+  done
+}
+
+@test "the pure profiles still declare a login user" {
+  local profile
+  for profile in kde-pure niri-pure hyprland-pure; do
+    profile_loader_load "$profile" | jq -e '(.users | length) == 1' >/dev/null \
+      || { echo "$profile"; return 1; }
+  done
+}

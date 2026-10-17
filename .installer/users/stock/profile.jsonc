@@ -1,0 +1,8 @@
+// User Profile for `stock` — the neutral login user of the Pure (Stock)
+// Profiles (`kde-pure`, `niri-pure`, `hyprland-pure`; ADR 0112, ADR 0157).
+// Resolved over the neutral User Core, so it carries no programs and a bash
+// shell: a stock desktop install lands no personal userland. sudo for
+// administration.
+{
+  "sudo": true
+}

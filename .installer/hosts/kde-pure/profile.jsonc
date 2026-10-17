@@ -6,6 +6,9 @@
 // first-run. Modelled on `minimal`: bare userland (`packages.inherit: false`,
 // no host_programs), one operator-picked disk, no encryption. Copy and edit to
 // build up from a stock base.
+//
+// The login user is the neutral `stock` user (no programs, bash — ADR
+// 0157), so the userland is stock too, not the operator's.
 {
   "system": {
     "locale":   "en_US.UTF-8",
@@ -28,7 +31,7 @@
   },
 
   "packages": { "inherit": false },
-  "users": ["aquastias"],
+  "users": ["stock"],
   "host_programs": [],
 
   "mode":   "single",

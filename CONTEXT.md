@@ -50,7 +50,8 @@ GUI userland.
 The three committed `*-pure` Host Profiles — `kde-pure`, `hyprland-pure`,
 `niri-pure` (`.installer/hosts/<name>-pure/`) — each an upstream-**stock**
 single-desktop install ([ADR 0112]). Modelled on the Minimal Profile
-(`packages.inherit: false`, `host_programs: []`, one operator-picked disk) but
+(`packages.inherit: false`, `host_programs: []`, one operator-picked disk, and
+the neutral `stock` login user — no programs, bash, [ADR 0157]) but
 with one `environment.desktop` and `environment.stock: true`, so the DE lands as
 the distro's own default: KDE = the `plasma-meta` shell only (no curated apps,
 no captured settings seed — [ADR 0087]/[0111]), niri/Hyprland = the bare
