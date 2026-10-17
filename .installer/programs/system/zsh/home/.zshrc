@@ -48,5 +48,9 @@ done
 [[ -f "$HOME/.zsh/themes/noctalia.zsh" ]] \
   && source "$HOME/.zsh/themes/noctalia.zsh"
 
+# Coding agents (Claude Code sets CLAUDECODE) parse plain coreutils output and
+# cannot answer prompts: eza's `ls` rejects `-t`, `cp -i` blocks on overwrite.
+[[ -n "${CLAUDECODE:-}" ]] && unalias -m '*'
+
 # Initialize zoxide (must be last)
 eval "$(zoxide init zsh)"
