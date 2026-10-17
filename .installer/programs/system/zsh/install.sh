@@ -55,6 +55,18 @@ sudo mkdir -p /etc/skel/.zsh/themes
 sudo cp "${SELF}/themes/noctalia.zsh"    /etc/skel/.zsh/themes/noctalia.zsh
 sudo cp "${SELF}/themes/p10k-accent.zsh" /etc/skel/.zsh/themes/p10k-accent.zsh
 
+# ── seed the nvm dir (init-nvm.sh layout) ────────────────────────────────────
+# NVM_DIR=~/.nvm (exports.zsh) holds versions; the OMZ plugin needs nvm.sh in
+# it, so link Arch's copies like /usr/share/nvm/init-nvm.sh would.
+print_status info "Seeding ~/.nvm (links to /usr/share/nvm)..."
+for nvm_home in "${HOME}" /etc/skel /root; do
+  sudo mkdir -p "${nvm_home}/.nvm"
+  sudo ln -sfn /usr/share/nvm/nvm.sh   "${nvm_home}/.nvm/nvm.sh"
+  sudo ln -sfn /usr/share/nvm/nvm-exec "${nvm_home}/.nvm/nvm-exec"
+done
+sudo chown -R "$(id -un):$(id -gn)" "${HOME}/.nvm"
+sudo chown -R root:root /root/.nvm
+
 # ── pre-warm the zinit plugin cache ──────────────────────────────────────────
 # Source the zinit config from the BUNDLE (+ powerlevel10k) in a throwaway
 # ZDOTDIR so ~/.zinit is cloned/compiled now — install.sh no longer seeds the

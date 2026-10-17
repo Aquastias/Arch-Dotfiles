@@ -155,8 +155,10 @@ setup() {
 
 @test "nvm is lazy OMZ-only with NVM_DIR set — no eager init-nvm.sh source" {
   grep -q "zstyle ':omz:plugins:nvm' lazy yes" "$ZSTYLE"
-  # NVM_DIR points the OMZ plugin at Arch's /usr/share/nvm (else nvm is absent)
-  grep -q 'export NVM_DIR="/usr/share/nvm"' "$HOMESEED/.zsh/env/exports.zsh"
+  # NVM_DIR is ~/.nvm (where versions live), never /usr/share/nvm (nvm then
+  # falls back to system node: no npx); install.sh links nvm.sh into it
+  grep -q 'export NVM_DIR="$HOME/.nvm"' "$HOMESEED/.zsh/env/exports.zsh"
+  grep -q 'ln -sfn /usr/share/nvm/nvm.sh' "$INSTALL"
   ! grep -rq '/usr/share/nvm/init-nvm.sh' "$HOMESEED/.zsh" "$ZSHRC"
   [ ! -e "$HOMESEED/.zsh/vendors/nodejs" ]
 }

@@ -8,9 +8,11 @@ export SUDO="sudo"
 ## Dotfiles
 export DOTFILES="$HOME/.dotfiles"
 
-# NVM — Arch installs nvm under /usr/share/nvm; point NVM_DIR there so the OMZ
-# nvm plugin (lazy) can find and source it (no eager /usr/share/nvm source).
-export NVM_DIR="/usr/share/nvm"
+# NVM — versions live in ~/.nvm; Arch's nvm.sh is symlinked in by install.sh
+# (init-nvm.sh layout) so the OMZ nvm plugin (lazy) finds it. NVM_DIR must
+# not be /usr/share/nvm: nvm then sees no versions and falls back to system
+# node, which has no npm/npx.
+export NVM_DIR="$HOME/.nvm"
 
 # Zoxide
 export ZOXIDE_CMD_OVERRIDE="cd"

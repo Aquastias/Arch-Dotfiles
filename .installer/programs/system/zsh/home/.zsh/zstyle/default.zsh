@@ -10,7 +10,7 @@ zstyle ':omz:plugins:eza' icons yes
 
 # NVM plugin: lazy-load (defer nvm until first `nvm`/`node`/`npm` use) so shell
 # startup stays fast. OMZ's nvm plugin is the single init — no eager
-# /usr/share/nvm source.
+# init-nvm.sh source.
 zstyle ':omz:plugins:nvm' lazy yes
 
 # SSH Agent plugin options
