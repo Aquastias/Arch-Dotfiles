@@ -191,6 +191,7 @@ JSON
 @test "explain-packages: a bare profile reports no User Programs" {
   run bash "$TOOL" minimal --flat
   [ "$status" -eq 0 ]
-  ! echo "$output" | grep -qx "claude"
-  ! echo "$output" | grep -qx "lact"
+  grep -qx "claude" <<<"$output" && return 1
+  grep -qx "lact" <<<"$output" && return 1
+  return 0
 }

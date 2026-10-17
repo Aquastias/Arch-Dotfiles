@@ -79,6 +79,6 @@ assert_equivalent() {
 
 @test "picking minimal carries no Host Core packages and no extras" {
   local config; config="$(guided_pick minimal)"
-  ! package_resolver_resolve "$config" | grep -qP '^(repo|aur)\t'
+  package_resolver_resolve "$config" | grep -qP '^(repo|aur)\t' && return 1
   jq -e '.post_install == null' <<<"$config"
 }

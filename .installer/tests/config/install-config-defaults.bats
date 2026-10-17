@@ -14,16 +14,21 @@ load install-config-helpers
   [ "$output" = "systemd-boot" ]
 }
 
-@test "default: an array field's default lists every element in order" {
+@test "default: an array field's default lists its elements" {
+  run install_config_default optional_repos
+  [ "$status" -eq 0 ]
+  [ "$output" = "multilib" ]
+}
+
+@test "default: an empty array default lists nothing (ADR 0157)" {
   run install_config_default mirror_countries
   [ "$status" -eq 0 ]
-  [ "$output" = "$(printf '%s\n' Germany Switzerland Sweden France Romania)" ]
+  [ -z "$output" ]
 }
 
 @test "default: an absent array field reads as its default" {
   write_config '{}'
-  [ "$(install_config_mirror_countries)" \
-    = "$(printf '%s\n' Germany Switzerland Sweden France Romania)" ]
+  [ -z "$(install_config_mirror_countries)" ]
   [ "$(install_config_gpu)" = "auto" ]
   [ "$(install_config_locales)" = "en_US.UTF-8" ]
   [ "$(install_config_keymaps)" = "us" ]
@@ -33,11 +38,10 @@ load install-config-helpers
 
 @test "default_object: named defaults as typed JSON at their paths" {
   run install_config_default_object pacman_parallel_downloads pacman_color \
-    mirror_countries bootloader
+    optional_repos bootloader
   [ "$status" -eq 0 ]
   jq -e '. == {"options":{"pacman":{"parallel_downloads":5,"color":true},
-    "mirror_countries":["Germany","Switzerland","Sweden","France","Romania"],
-    "bootloader":"systemd-boot"}}' <<<"$output"
+    "optional_repos":["multilib"], "bootloader":"systemd-boot"}}' <<<"$output"
 }
 
 @test "default_object: a field with no install default is left out" {

@@ -31,12 +31,14 @@ setup() {
   ! echo "$output" | grep -qx ttf-fira-code
 }
 
-@test "fonts_default_selection: the on-by-default set, without the off ones" {
+@test "fonts_default_selection: the neutral on-by-default set (ADR 0157)" {
   run fonts_default_selection
   echo "$output" | grep -qx noto-fonts
   echo "$output" | grep -qx noto-fonts-cjk
-  echo "$output" | grep -qx ttf-ms-fonts
-  echo "$output" | grep -qx ttf-firacode-nerd
+  echo "$output" | grep -qx ttf-dejavu
+  echo "$output" | grep -qx ttf-liberation
+  grep -qx ttf-ms-fonts <<<"$output" && return 1
+  grep -qx ttf-firacode-nerd <<<"$output" && return 1
   ! echo "$output" | grep -qx otf-monaspace-nerd
   ! echo "$output" | grep -qx ttf-sazanami
 }
@@ -70,13 +72,17 @@ setup() {
 @test "fonts_repo_packages: defaults route repo fonts, not ttf-ms-fonts" {
   run fonts_repo_packages '{}'
   echo "$output" | grep -qx noto-fonts
-  echo "$output" | grep -qx ttf-firacode-nerd
   ! echo "$output" | grep -qx ttf-ms-fonts
 }
 
-@test "fonts_aur_packages: defaults route ttf-ms-fonts to the paru pass only" {
-  run fonts_aur_packages '{}'
+@test "fonts_aur_packages: a selected ttf-ms-fonts routes to the paru pass only" {
+  run fonts_aur_packages '{"options":{"fonts":["noto-fonts","ttf-ms-fonts"]}}'
   [ "$output" = "ttf-ms-fonts" ]
+}
+
+@test "fonts_aur_packages: the neutral defaults need no AUR font" {
+  run fonts_aur_packages '{}'
+  [ -z "$output" ]
 }
 
 @test "fonts_aur_packages: an all-repo selection yields nothing" {

@@ -115,7 +115,7 @@ JSON
   echo "$output" | jq -e '.options.kernel == ["lts"]'
   echo "$output" | jq -e '.environment.gpu == "auto"'
   echo "$output" | jq -e '.environment.desktop == ["kde"]'
-  echo "$output" | jq -e '(.options.mirror_countries | length) == 5'
+  echo "$output" | jq -e '.options.mirror_countries == null'  # worldwide
 }
 
 @test "config_state_seed_defaults: seeds the secure Security/Backup baseline" {

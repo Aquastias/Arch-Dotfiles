@@ -141,3 +141,24 @@ installed_names() {
       = false ] || { echo "$profile"; return 1; }
   done
 }
+
+# ── neutral fonts and mirrors: the Fleet Layer carries the operator's ───────
+
+@test "a non-fleet profile installs only the neutral font families" {
+  local fonts
+  fonts="$(package_resolver_resolve "$(profile_loader_load minimal)" \
+    | awk -F '\t' '$1 == "fonts" { print $3 }')"
+  grep -qE 'nerd|ttf-ms-fonts' <<<"$fonts" && return 1
+  grep -qx noto-fonts <<<"$fonts"
+}
+
+@test "a non-fleet profile ranks mirrors worldwide" {
+  [ -z "$(install_config_from_json "$(profile_loader_load minimal)" \
+    mirror_countries)" ]
+}
+
+@test "the fleet hosts keep the full font set and their mirror countries" {
+  local config; config="$(profile_loader_load desktop)"
+  package_resolver_resolve "$config" | grep -qP '^fonts\t.*\tttf-firacode-nerd$'
+  install_config_from_json "$config" mirror_countries | grep -qx Romania
+}

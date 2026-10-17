@@ -100,8 +100,9 @@ _INSTALL_CONFIG_SCHEMA=(
   "gpu|.environment.gpu|array|auto"
   "locales|.system.locale|array|en_US.UTF-8"
   "keymaps|.system.keymap|array|us"
-  "mirror_countries|.options.mirror_countries|array|"\
-"Germany,Switzerland,Sweden,France,Romania"
+  # Empty: reflector ranks every mirror worldwide (ADR 0157); the Fleet Layer
+  # pins the operator's countries.
+  "mirror_countries|.options.mirror_countries|array|"
   "optional_repos|.options.optional_repos|array|multilib"
   "kernels|.options.kernel|array|lts"
 )

@@ -658,7 +658,9 @@ section is its sole menu home, filtered from the Programs pickers
 (`mirrors_owned_programs`) and reported by the resolver as `source=mirrors`
 (layer `derived`). Distinct from the install-time use of `reflector` (the ISO's
 copy ranks mirrors once during `package_list_install_base` from the operator's
-Mirror Countries) — this is the *installed system's* recurring refresh.
+Mirror Countries — none by default, so every mirror is ranked; the
+[[Fleet Layer]] pins the operator's countries, [ADR 0157]) — this is the
+*installed system's* recurring refresh.
 
 ### Bluetooth Service (`options.bluetooth.enabled`)
 The second **toggle-derived Host Program**, twinning [[Printing Service]]: a
@@ -700,12 +702,14 @@ repo+AUR aware — the lone AUR entry (`ttf-ms-fonts`, kept because
 Verdana/Georgia/Tahoma) routes to the Primary-User paru pass. Lives as a leaf
 in the **System** Category ([ADR 0080]; renamed from General by [ADR 0081]), the
 one non-identity resident there.
-Default-checked spans the Noto family (incl. `noto-fonts-cjk` for CJK glyphs),
-`ttf-liberation`, `ttf-dejavu`, `ttf-ms-fonts`, and the Nerd-patched monospace
-trio (`ttf-jetbrains-mono-nerd`, `ttf-iosevka-nerd`, `ttf-firacode-nerd`);
-`otf-monaspace-nerd` and `ttf-sazanami` are selectable-but-off. The Nerd builds
-supersede plain ones (`ttf-fira-code` dropped) because the tracked shell payload
-is Powerlevel10k, which renders Nerd glyphs.
+Default-checked is **neutral** ([ADR 0157]): the Noto family (incl.
+`noto-fonts-cjk` for CJK glyphs), `ttf-liberation` and `ttf-dejavu`.
+`ttf-ms-fonts`, the Nerd-patched monospace trio (`ttf-jetbrains-mono-nerd`,
+`ttf-iosevka-nerd`, `ttf-firacode-nerd`), `otf-monaspace-nerd` and
+`ttf-sazanami` are selectable-but-off; the [[Fleet Layer]] selects the first
+four for the operator's machines. The Nerd builds supersede plain ones
+(`ttf-fira-code` dropped) because the tracked shell payload is Powerlevel10k,
+which renders Nerd glyphs.
 
 ### Program Registry
 The in-memory index built once per run by `program_registry_build`

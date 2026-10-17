@@ -210,6 +210,8 @@ _package_list_add_filesystem_userland() {
 package_list_reflector_country_arguments() {
   local -a countries
   mapfile -t countries < <(install_config_mirror_countries)
+  # No countries: no --country, so reflector ranks every mirror (ADR 0157).
+  ((${#countries[@]})) || return 0
   local joined; printf -v joined '%s,' "${countries[@]}"
   printf '%s\n' "--country" "${joined%,}"
 }

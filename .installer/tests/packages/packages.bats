@@ -140,12 +140,11 @@ write_config() {
 # the arg construction is covered. reflector takes a comma-separated --country
 # value.
 
-@test "package_list_reflector_country_arguments: default five become one --country list" {
+@test "package_list_reflector_country_arguments: no countries ranks worldwide" {
   write_config '{}'
   run package_list_reflector_country_arguments
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "--country" ]
-  [ "${lines[1]}" = "Germany,Switzerland,Sweden,France,Romania" ]
+  [ -z "$output" ]               # no --country: every mirror (ADR 0157)
 }
 
 @test "package_list_reflector_country_arguments: an explicit list is joined in order" {

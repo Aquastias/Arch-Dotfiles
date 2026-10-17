@@ -18,14 +18,26 @@
 // on) and injected into host_programs at Effective-Config assembly, so it has
 // exactly one home — the Guided Installer's Printing service category.
 //
-// Fonts are likewise NOT declared in packages (ADR 0080): they live in the
-// curated `options.fonts` Font Catalog. ttf-ms-fonts left the AUR list for the
-// same reason (the catalog routes it to the paru pass).
+// Fonts are likewise NOT declared in packages (ADR 0080): they are selected
+// below in `options.fonts`, the Font Catalog (which routes ttf-ms-fonts to the
+// paru pass).
 {
   // The curated environment (ADR 0157): KDE apps + captured settings, the
   // Noctalia shell and theme. The schema default is stock, so the fleet opts in.
   "environment": {
     "stock": false
+  },
+  "options": {
+    // The full Font Catalog selection: the neutral default set plus the Nerd
+    // builds the Powerlevel10k shell payload renders and ttf-ms-fonts (ADR
+    // 0080, ADR 0157).
+    "fonts": [
+      "noto-fonts", "noto-fonts-emoji", "noto-fonts-cjk", "noto-fonts-extra",
+      "ttf-liberation", "ttf-dejavu", "ttf-ms-fonts",
+      "ttf-jetbrains-mono-nerd", "ttf-iosevka-nerd", "ttf-firacode-nerd"
+    ],
+    // The operator's mirror countries; the neutral default ranks worldwide.
+    "mirror_countries": ["Germany", "Switzerland", "Sweden", "France", "Romania"]
   },
   "host_programs": [
     "ccache",

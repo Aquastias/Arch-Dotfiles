@@ -391,18 +391,14 @@ load install-config-helpers
 
 # ── options.mirror_countries (issue 06): array special, default-5 ──────────
 # Mirrors the Kernel/locale specials: one country per line, order preserved.
-# Feeds `reflector --country`; the default is the operator's near-DE set.
+# Feeds `reflector --country`; the default is none — every mirror is ranked
+# (ADR 0157). The Fleet Layer pins the operator's near-DE set.
 
-@test "mirror_countries: absent yields the default five, in order" {
+@test "mirror_countries: absent yields no countries" {
   write_config '{}'
   run install_config_mirror_countries
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "Germany" ]
-  [ "${lines[1]}" = "Switzerland" ]
-  [ "${lines[2]}" = "Sweden" ]
-  [ "${lines[3]}" = "France" ]
-  [ "${lines[4]}" = "Romania" ]
-  [ "${#lines[@]}" -eq 5 ]
+  [ -z "$output" ]
 }
 
 @test "mirror_countries: an explicit array overrides, order preserved" {

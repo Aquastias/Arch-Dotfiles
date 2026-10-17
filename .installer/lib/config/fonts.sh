@@ -28,8 +28,12 @@
 # Catalog rows: package|kind|default  (kind: repo|aur; default: on|off).
 # Nerd-patched monospace builds supersede plain ones (ttf-fira-code dropped for
 # ttf-firacode-nerd) because the tracked shell payload is Powerlevel10k, which
-# renders Nerd glyphs. Monaspace + Sazanami ship selectable-but-off: Monaspace
-# per the operator's default, Sazanami because Noto CJK covers Japanese.
+# renders Nerd glyphs. The default-checked set is neutral (ADR 0157): Noto,
+# Liberation and DejaVu cover every script and the metric-compatible core
+# families; the Nerd builds and ttf-ms-fonts ship selectable-but-off, and the
+# Fleet Layer selects them for the operator's machines. Monaspace + Sazanami are
+# off too: Monaspace per the operator's default, Sazanami because Noto CJK
+# covers Japanese.
 _FONTS_CATALOG=(
   "noto-fonts|repo|on"
   "noto-fonts-emoji|repo|on"
@@ -37,10 +41,10 @@ _FONTS_CATALOG=(
   "noto-fonts-extra|repo|on"
   "ttf-liberation|repo|on"
   "ttf-dejavu|repo|on"
-  "ttf-ms-fonts|aur|on"
-  "ttf-jetbrains-mono-nerd|repo|on"
-  "ttf-iosevka-nerd|repo|on"
-  "ttf-firacode-nerd|repo|on"
+  "ttf-ms-fonts|aur|off"
+  "ttf-jetbrains-mono-nerd|repo|off"
+  "ttf-iosevka-nerd|repo|off"
+  "ttf-firacode-nerd|repo|off"
   "otf-monaspace-nerd|repo|off"
   "ttf-sazanami|repo|off"
 )

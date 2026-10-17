@@ -266,7 +266,7 @@ load guided-menu-helpers
   echo "$output" | row options.mirror_countries \
     | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.mirror_countries \
-    | jq -e '.value == "Germany, Switzerland, Sweden, France, Romania"'
+    | jq -e '.value == ""'   # no countries: every mirror (ADR 0157)
   echo "$output" | row options.optional_repos \
     | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.optional_repos | jq -e '.value == "multilib"'
@@ -470,8 +470,8 @@ load guided-menu-helpers
 @test "menu: a schema-owned field shows the schema's install default" {
   local rows
   rows="$(menu_rows '{}' '{}')"
-  jq -e '[.[] | select(.field == "options.mirror_countries")][0].value
-    == "Germany, Switzerland, Sweden, France, Romania"' <<<"$rows"
+  jq -e '[.[] | select(.field == "options.optional_repos")][0].value
+    == "multilib"' <<<"$rows"
   jq -e '[.[] | select(.field == "options.pacman.parallel_downloads")][0].value
     == "5"' <<<"$rows"
   jq -e '[.[] | select(.field == "__language__")][0].value == "en_US"' \
