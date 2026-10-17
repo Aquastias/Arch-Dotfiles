@@ -54,12 +54,15 @@ _package_resolver_adapter_sets() {
     _package_resolver_emit_list kde-shell "$json" shell_packages
   fi
 
-  # Stock (pure) KDE (ADR 0112): the plasma-meta shell only — no apps/aur, so
-  # the report matches what the stock adapter installs (no query/install
-  # drift).
+  # Stock (pure) KDE (ADR 0112): the plasma-meta shell only — no curated shell
+  # extras, apps or aur, so the report matches what the stock adapter installs
+  # (no query/install drift).
   if [[ "$(install_config_from_json "$config" stock)" \
         == "true" ]]; then
     return 0
+  fi
+  if [[ "$shell_enabled" == "true" ]]; then
+    _package_resolver_emit_list kde-shell "$json" curated_shell_packages
   fi
 
   if [[ "$(jq -r '.apps // true' <<<"$json")" == "true" ]]; then

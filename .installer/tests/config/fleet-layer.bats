@@ -29,6 +29,12 @@ leaked_names() {
     | grep -vxF -f <(declared_names "$own") || true
 }
 
+# installed_all <profile> — every package the Package Resolver installs for it.
+installed_all() {
+  package_resolver_resolve "$(profile_loader_load "$1")" \
+    | awk -F '\t' '{ print $3 }' | sort -u
+}
+
 # installed_names <profile> — what the Package Resolver installs for it
 # through the layered slots (packages + Host Programs) — the only paths the
 # Fleet Layer feeds; a derived set (e.g. a Noctalia plugin dep) is not a leak.
@@ -161,4 +167,22 @@ installed_names() {
   local config; config="$(profile_loader_load desktop)"
   package_resolver_resolve "$config" | grep -qP '^fonts\t.*\tttf-firacode-nerd$'
   install_config_from_json "$config" mirror_countries | grep -qx Romania
+}
+
+# ── stock KDE is plasma-meta, not the curated look (ADR 0157) ───────────────
+
+@test "stock KDE installs no curated shell extras" {
+  local packages
+  packages="$(installed_all kde-pure)"
+  grep -qx plasma-meta <<<"$packages"
+  grep -qx papirus-icon-theme <<<"$packages" && return 1
+  grep -qx plasma-applets-weather-widget-3 <<<"$packages" && return 1
+  return 0
+}
+
+@test "curated KDE keeps the curated shell extras" {
+  local packages
+  packages="$(installed_all arch-kde)"
+  grep -qx papirus-icon-theme <<<"$packages"
+  grep -qx plasma-applets-weather-widget-3 <<<"$packages"
 }

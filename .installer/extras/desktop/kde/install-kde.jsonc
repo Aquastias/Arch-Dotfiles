@@ -27,20 +27,30 @@
     "integration": {
       "sddm-kcm": true,
       "print-manager": true,
-      "xdg-utils": true,
-      // The panel weather widget (ADR 0120): a coordinate-capable plasmoid from
-      // the official repos (met.no, keyless), required by the seeded panel
-      // layout so applet 55 resolves instead of showing a missing-widget box.
-      "plasma-applets-weather-widget-3": true
+      "xdg-utils": true
     },
     "theming": {
-      "papirus-icon-theme": true,
       "breeze-gtk": true,
       "kde-gtk-config": true
     },
     "wayland": {
       "qt5-wayland": true,
       "qt6-wayland": true
+    }
+  },
+  // The curated look's shell extras (ADR 0157): installed with the shell only
+  // when the desktop is NOT stock, so a stock install stays the distro's own
+  // Plasma. Same Categorized List shape as shell_packages, reported under the
+  // same kde-shell source.
+  "curated_shell_packages": {
+    "integration": {
+      // The panel weather widget (ADR 0120): a coordinate-capable plasmoid from
+      // the official repos (met.no, keyless), required by the seeded panel
+      // layout so applet 55 resolves instead of showing a missing-widget box.
+      "plasma-applets-weather-widget-3": true
+    },
+    "theming": {
+      "papirus-icon-theme": true
     }
   },
   // Install KDE applications (controlled individually below).

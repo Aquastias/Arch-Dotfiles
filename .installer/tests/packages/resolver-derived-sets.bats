@@ -268,14 +268,20 @@ load resolver-helpers
 # Drift guard (Candidate 5): the KDE adapter installs shell_packages from
 # install-kde.jsonc and the resolver reports them — assert the resolver's
 # kde-shell set equals the jsonc data, so install and query cannot diverge.
-@test "kde-shell source == install-kde.jsonc shell_packages" {
+@test "kde-shell source == install-kde.jsonc shell + curated shell packages" {
   source "$INSTALLER_DIR/lib/config/categorized-list.sh"
-  local json expected got
+  local json expected got stock_expected stock_got
   json="$(jsonc_strip "$INSTALLER_DIR/extras/desktop/kde/install-kde.jsonc")"
-  expected="$(categorized_list_parse \
+  stock_expected="$(categorized_list_parse \
     "$(jq -c '.shell_packages' <<<"$json")" bool shell_packages | sort -u)"
+  expected="$({ printf '%s\n' "$stock_expected"; categorized_list_parse \
+    "$(jq -c '.curated_shell_packages' <<<"$json")" bool \
+    curated_shell_packages; } | sort -u)"
   got="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
   diff <(printf '%s\n' "$expected") <(printf '%s\n' "$got")
+  # stock KDE reports the shell_packages alone (ADR 0157)
+  stock_got="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":true}}' kde-shell)"
+  diff <(printf '%s\n' "$stock_expected") <(printf '%s\n' "$stock_got")
 }
 
 @test "kde-shell set includes the packaged weather widget (ADR 0120)" {

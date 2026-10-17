@@ -49,6 +49,25 @@ JSON
   ! grep -q "sentinel-shell" "$PACMAN_LOG"
 }
 
+# Curated shell extras (ADR 0157): installed with the curated look, never on a
+# stock install.
+@test "curated_shell_packages install only when not stock" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"shell_packages":{"core":{"sentinel-shell":true}},
+ "curated_shell_packages":{"look":{"sentinel-curated":true}}}
+JSON
+  ENVIRONMENT_STOCK=false run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-curated" "$PACMAN_LOG"
+
+  : > "$PACMAN_LOG"
+  ENVIRONMENT_STOCK=true run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-shell" "$PACMAN_LOG"
+  grep -q "sentinel-curated" "$PACMAN_LOG" && return 1
+  return 0
+}
+
 
 # ── display manager is no longer the KDE adapter's concern (ADR 0069) ─────────
 # The display manager is an operator choice owned by a separate Display Manager

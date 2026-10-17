@@ -88,6 +88,18 @@ if [[ "$do_shell" == "true" ]]; then
   # first-run — upstream Breeze. Everything below is the opinionated look.
   if [[ "$STOCK" != true ]]; then
 
+  # The curated look's shell extras (ADR 0157) — the weather widget the seeded
+  # panel needs and the Papirus icons — stay out of a stock install.
+  curated_shell_pkgs=()
+  _curated_json="$(jsonc "$KDE_JSON" | jq -c '.curated_shell_packages // {}')"
+  if [[ "$_curated_json" != "{}" ]]; then
+    mapfile -t curated_shell_pkgs < <(categorized_list_parse "$_curated_json" \
+      bool curated_shell_packages)
+  fi
+  if [[ ${#curated_shell_pkgs[@]} -gt 0 ]]; then
+    pacman -S --noconfirm --needed "${curated_shell_pkgs[@]}"
+  fi
+
   # ── CAPTURED PLASMA SETTINGS, seeded so a fresh login is ready ────────────
   # (ADR 0111). Copy the operator's vendored captured config files verbatim into
   # /etc/skel, konsave-style — whole-file copy, no heredocs, so the custom
