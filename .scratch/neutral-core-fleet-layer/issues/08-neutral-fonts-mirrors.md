@@ -1,0 +1,18 @@
+# 08: Neutral fonts and mirrors
+
+**What to build:** nobody inherits the operator's fonts or mirror countries.
+The Font Catalog's default-checked set becomes noto, dejavu, liberation; the
+`mirror_countries` Install Default becomes empty and the Mirror Service then
+ranks mirrors worldwide (no country filter). The Fleet Layer carries today's
+full font selection and country list. See PRD and [[ADR 0157]].
+
+**Blocked by:** 04 (Fleet Layer)
+
+**Status:** ready-for-agent
+
+- [ ] Golden test (02) passes unchanged for `desktop` and `laptop`
+- [ ] A non-fleet profile resolves only the three neutral font families
+- [ ] Empty countries produce a valid worldwide reflector configuration
+- [ ] Guided Fonts and Mirrors rows show the new defaults with no ●
+- [ ] fonts / mirrors bats updated; CONTEXT.md Font Catalog and Mirror
+      Service entries updated

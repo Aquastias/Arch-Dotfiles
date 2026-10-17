@@ -329,6 +329,15 @@ Host Programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
 0089); `cups`, once its sole entry, has since moved out to a toggle-derived Host
 Program with its own menu home ([ADR 0079]).
 
+### Fleet Layer
+The operator's personal software image, shared by the `desktop` and `laptop`
+Host Profiles only — the layer between Host Core and those two hosts (Host Core
+→ Fleet Layer → host). Holds what Host Core held under [ADR 0114]: the
+workstation packages, base Host Programs, curated (non-stock) environment, the
+full Font Catalog selection. Not an installable profile on its own. Exists so a
+Guided session that never picks `desktop`/`laptop` installs none of it: Host
+Core and User Core stay neutral. _Avoid_: workstation base, core packages.
+
 ### Layer Resolver
 `.installer/lib/config/layer-resolver.sh`. The pure module answering "given Host
 Core and a host profile, what is the effective set?" — and the same for User
