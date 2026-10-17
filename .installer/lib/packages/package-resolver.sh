@@ -91,6 +91,9 @@ declare -F noctalia_preset_packages >/dev/null 2>&1 \
 # shellcheck source=./package-resolver-desktop.sh
 declare -F _package_resolver_desktop_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/package-resolver-desktop.sh"
+# shellcheck source=./package-resolver-programs.sh
+declare -F _package_resolver_programs_host >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/package-resolver-programs.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -122,6 +125,8 @@ _PACKAGE_RESOLVER_SOURCES=(
   "mirrors|Mirrors & Repositories"
   "fonts|System"
   "sops|secrets on disk"
+  "host-programs|Packages"
+  "user-programs|Users"
   "repo|Packages"
   "aur|Packages"
 )
@@ -223,6 +228,8 @@ package_resolver_resolve() {
   fi
 
   _package_resolver_authored_slots "$config"
+  _package_resolver_programs_host "$config"
+  _package_resolver_programs_user "$config"
 }
 
 # _package_resolver_services <config> — toggle-derived Host Programs, not

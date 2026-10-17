@@ -170,3 +170,27 @@ JSON
   [[ "$output" == *"no profile 'no-such-profile' — resolved core only."* ]]
   grep -qx base <<<"$output"
 }
+
+# Host Programs and each user's User Programs land too (ADR 0157), so the
+# report covers the whole install, not only the package slots.
+@test "explain-packages: reports Host Programs and User Programs" {
+  run bash "$TOOL" desktop --flat
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "lact"     # a Host Core base Host Program
+  echo "$output" | grep -qx "claude"   # a User Program of aquastias
+  echo "$output" | grep -qx "docker"   # a User Program of aquastias
+}
+
+@test "explain-packages: --sources lists host-programs and user-programs" {
+  run bash "$TOOL" desktop --sources
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE '^ +host-programs +[0-9]+$'
+  echo "$output" | grep -qE '^ +user-programs +[0-9]+$'
+}
+
+@test "explain-packages: a bare profile reports no User Programs" {
+  run bash "$TOOL" minimal --flat
+  [ "$status" -eq 0 ]
+  ! echo "$output" | grep -qx "claude"
+  ! echo "$output" | grep -qx "lact"
+}
