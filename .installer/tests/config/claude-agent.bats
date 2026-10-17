@@ -83,11 +83,42 @@ setup() {
 
 # ── single source under the program home/ (ADR 0134) ─────────────────────────
 
-@test "home/.claude is the single source: the 3 files live here, +x preserved" {
-  for seed_file in settings.json CLAUDE.md scripts/statusline.sh; do
+@test "home/.claude is the single source: the seed files live here, +x kept" {
+  for seed_file in settings.json CLAUDE.md scripts/statusline.sh \
+    scripts/block-sleep-poll.sh; do
     [ -f "$HOMESEED/$seed_file" ]
   done
   [ -x "$HOMESEED/scripts/statusline.sh" ]
+  [ -x "$HOMESEED/scripts/block-sleep-poll.sh" ]
+}
+
+# ── sleep-poll hook (ADR 0156) ───────────────────────────────────────────────
+
+@test "seeded settings.json registers the sleep-poll PreToolUse hook" {
+  jq -e '.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[]
+    | select(.command == "~/.claude/scripts/block-sleep-poll.sh")' \
+    "$HOMESEED/settings.json" >/dev/null
+}
+
+_sleep_hook() {
+  jq -n --arg command "$1" --argjson background "${2:-false}" \
+    '{tool_name:"Bash",
+      tool_input:{command:$command, run_in_background:$background}}' \
+    | "$HOMESEED/scripts/block-sleep-poll.sh"
+}
+
+@test "sleep-poll hook blocks a foreground sleep of 60 s or more" {
+  run _sleep_hook 'sleep 240; tail task.output'
+  [ "$status" -eq 2 ]
+  run _sleep_hook 'cd x && sleep 2m'
+  [ "$status" -eq 2 ]
+}
+
+@test "sleep-poll hook passes short sleeps and background tasks" {
+  run _sleep_hook 'until ready; do sleep 5; done'
+  [ "$status" -eq 0 ]
+  run _sleep_hook 'sleep 600; make' true
+  [ "$status" -eq 0 ]
 }
 
 @test "repo-root .claude/settings.json stays identical to the source (ADR 0142)" {

@@ -17,3 +17,9 @@
 ## Plans
 
 - At the end of each plan, give me a list of un-resolved questions if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision.
+
+## Skills
+
+- Some skills are user-invoked only and missing from your skill list. Check
+  `ls ~/.claude/skills` before saying a skill does not exist; when one fits,
+  ask me to run `/<name>`.
