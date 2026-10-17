@@ -22,6 +22,11 @@
 // curated `options.fonts` Font Catalog. ttf-ms-fonts left the AUR list for the
 // same reason (the catalog routes it to the paru pass).
 {
+  // The curated environment (ADR 0157): KDE apps + captured settings, the
+  // Noctalia shell and theme. The schema default is stock, so the fleet opts in.
+  "environment": {
+    "stock": false
+  },
   "host_programs": [
     "ccache",
     "fwupd",

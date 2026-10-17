@@ -97,14 +97,14 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 }
 
 @test "feature_audit_bind_gate: no shell skips niri/Hyprland, not KDE" {
-  local config='{"environment":{"wayland_shell":"none"}}'
+  local config='{"environment":{"wayland_shell":"none","stock":false}}'
   run feature_audit_bind_gate niri "$config";     [ "$status" -eq 0 ]
   run feature_audit_bind_gate hyprland "$config"; [ "$status" -eq 0 ]
   run feature_audit_bind_gate kde "$config";      [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 
 @test "feature_audit_bind_gate: curated base with a shell runs every session" {
-  local config='{"environment":{"wayland_shell":"noctalia"}}'
+  local config='{"environment":{"wayland_shell":"noctalia","stock":false}}'
   run feature_audit_bind_gate niri "$config"; [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 

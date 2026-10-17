@@ -24,7 +24,8 @@
 
   "environment": {
     "desktop": "kde",
-    "gpu":     "auto"
+    "gpu":     "auto",
+    "stock":   false
   },
 
   "post_install": {

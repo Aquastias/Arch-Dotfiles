@@ -91,10 +91,12 @@ teardown() { rm -rf "$T"; }
 }
 
 @test "_live_session_client: the shell process a session should bring up" {
-  [ "$(_live_session_client kde '{}')" = plasmashell ]
-  [ "$(_live_session_client niri '{}')" = noctalia ]
+  local curated='{"environment":{"stock":false}}'
+  [ "$(_live_session_client kde "$curated")" = plasmashell ]
+  [ "$(_live_session_client niri "$curated")" = noctalia ]
   [ "$(_live_session_client niri \
-    '{"environment":{"wayland_shell":"waybar"}}')" = waybar ]
+    '{"environment":{"wayland_shell":"waybar","stock":false}}')" = waybar ]
+  [ -z "$(_live_session_client niri '{}')" ]   # stock by default (ADR 0157)
   [ -z "$(_live_session_client hyprland \
     '{"environment":{"wayland_shell":"none"}}')" ]
   [ -z "$(_live_session_client niri '{"environment":{"stock":true}}')" ]

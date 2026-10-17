@@ -96,7 +96,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "pacman_no_progress_bar|.options.pacman.no_progress_bar|bool|false"
   "pacman_parallel_downloads|.options.pacman.parallel_downloads|number|5"
   "swap_size|.options.swap_size|scalar|auto"
-  "stock|.environment.stock|bool|false"
+  "stock|.environment.stock|bool|true"
   "gpu|.environment.gpu|array|auto"
   "locales|.system.locale|array|en_US.UTF-8"
   "keymaps|.system.keymap|array|us"

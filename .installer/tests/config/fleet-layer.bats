@@ -125,3 +125,19 @@ installed_names() {
       || { echo "$profile"; return 1; }
   done
 }
+
+# ── stock by default: curation is opt-in (ADR 0157) ─────────────────────────
+
+@test "a desktop with no stock key installs stock" {
+  [ "$(install_config_from_json '{"environment":{"desktop":["kde"]}}' stock)" \
+    = true ]
+}
+
+@test "the fleet hosts and curated VM fixtures stay curated" {
+  local profile
+  for profile in desktop laptop arch-kde arch-niri arch-hyprland arch-combined \
+                 arch-combined-sops-impermanence arch-audit; do
+    [ "$(install_config_from_json "$(profile_loader_load "$profile")" stock)" \
+      = false ] || { echo "$profile"; return 1; }
+  done
+}

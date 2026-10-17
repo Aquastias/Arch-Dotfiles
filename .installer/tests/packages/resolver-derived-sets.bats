@@ -83,7 +83,7 @@ load resolver-helpers
 @test "changing the desktop selection changes the audio and Plasma sets" {
   local none kde
   none="$(packages_of '{"users":[],"environment":{"desktop":[]}}')"
-  kde="$(packages_of  '{"users":[],"environment":{"desktop":["kde"]}}')"
+  kde="$(packages_of  '{"users":[],"environment":{"desktop":["kde"],"stock":false}}')"
 
   ! grep -qx "pipewire"    <<<"$none"
   ! grep -qx "plasma-meta" <<<"$none"
@@ -99,7 +99,7 @@ load resolver-helpers
 @test "niri-shell set reports the niri core packages" {
   source "$INSTALLER_DIR/lib/packages/niri.sh"
   local got want
-  got="$(packages_of '{"users":[],"environment":{"desktop":["niri"]}}' niri-shell)"
+  got="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' niri-shell)"
   want="$(niri_core_packages | sort)"
   [ "$(printf '%s\n' "$got" | sort)" = "$want" ]
   grep -qx "niri" <<<"$got"
@@ -108,13 +108,13 @@ load resolver-helpers
 
 @test "niri-shell set is empty when niri is not selected" {
   local got
-  got="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' niri-shell)"
+  got="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' niri-shell)"
   [ -z "$got" ]
 }
 
 @test "noctalia set reports the work preset when wayland_shell defaults on" {
   local noctalia_packages
-  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
   grep -qx "noctalia"      <<<"$noctalia_packages"
   grep -qx "kitty"         <<<"$noctalia_packages"
   grep -qx "brightnessctl" <<<"$noctalia_packages"
@@ -124,14 +124,14 @@ load resolver-helpers
 @test "noctalia set is empty for bare niri (wayland_shell=none)" {
   local noctalia_packages
   noctalia_packages="$(packages_of \
-    '{"users":[],"environment":{"desktop":["niri"],"wayland_shell":"none"}}' \
+    '{"users":[],"environment":{"desktop":["niri"],"stock":false,"wayland_shell":"none"}}' \
     noctalia)"
   [ -z "$noctalia_packages" ]
 }
 
 @test "noctalia set reports the shared preset on hyprland too (ADR 0097)" {
   local noctalia_packages
-  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"]}}' noctalia)"
+  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"],"stock":false}}' noctalia)"
   grep -qx "noctalia"      <<<"$noctalia_packages"
   grep -qx "kitty"         <<<"$noctalia_packages"
   grep -qx "playerctl"     <<<"$noctalia_packages"
@@ -142,7 +142,7 @@ load resolver-helpers
 @test "noctalia set is empty for bare hyprland (wayland_shell=none)" {
   local noctalia_packages
   noctalia_packages="$(packages_of \
-  '{"users":[],"environment":{"desktop":["hyprland"],"wayland_shell":"none"}}' \
+  '{"users":[],"environment":{"desktop":["hyprland"],"stock":false,"wayland_shell":"none"}}' \
     noctalia)"
   [ -z "$noctalia_packages" ]
 }
@@ -170,14 +170,14 @@ load resolver-helpers
 @test "noctalia set omits the dropped bitwarden-cli backend (ADR 0094)" {
   # bitwarden left the default set; its CLI backend must no longer resolve
   local noctalia_packages
-  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
   ! grep -qx "bitwarden-cli" <<<"$noctalia_packages"
 }
 
 @test "noctalia set reports enriched plugin tool deps (ADR 0093/0094)" {
   # committed install-noctalia.jsonc enables the curated plugin set by default
   local noctalia_packages
-  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
   grep -qx "smartmontools" <<<"$noctalia_packages"   # drive-health
   grep -qx "wl-mirror"     <<<"$noctalia_packages"    # wl-screen-mirror
   grep -qx "fzf"           <<<"$noctalia_packages"    # file-search
@@ -190,7 +190,7 @@ load resolver-helpers
 @test "noctalia set omits battery deps under the laptop:auto default" {
   # the resolver has no hardware, so auto does not report the battery pair
   local noctalia_packages
-  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
   ! grep -qx "upower" <<<"$noctalia_packages"
 }
 
@@ -202,7 +202,7 @@ load resolver-helpers
   INSTALLER_DIR="$test_directory" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
-    package_resolver_resolve '{\"users\":[],\"environment\":{\"desktop\":[\"niri\"]}}'"
+    package_resolver_resolve '{\"users\":[],\"environment\":{\"desktop\":[\"niri\"],\"stock\":false}}'"
   echo "$output" | grep -qP '^noctalia\tderived\tupower$'
   rm -rf "$test_directory"
 }
@@ -212,14 +212,14 @@ load resolver-helpers
 
 @test "display-manager set: auto on a kde-only box resolves to sddm" {
   local display_manager_packages
-  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' display-manager)"
+  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' display-manager)"
   grep -qx "sddm" <<<"$display_manager_packages"
   ! grep -qx "greetd" <<<"$display_manager_packages"
 }
 
 @test "display-manager set: auto on a hyprland-only box resolves to greetd" {
   local display_manager_packages
-  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"]}}' \
+  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"],"stock":false}}' \
     display-manager)"
   grep -qx "greetd"          <<<"$display_manager_packages"
   grep -qx "greetd-tuigreet" <<<"$display_manager_packages"
@@ -228,7 +228,7 @@ load resolver-helpers
 
 @test "display-manager set: auto on a niri-only box resolves to greetd" {
   local display_manager_packages
-  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"]}}' \
+  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' \
     display-manager)"
   grep -qx "greetd" <<<"$display_manager_packages"
   ! grep -qx "sddm" <<<"$display_manager_packages"
@@ -237,7 +237,7 @@ load resolver-helpers
 @test "display-manager set: auto with kde present resolves to sddm" {
   local display_manager_packages
   display_manager_packages="$(packages_of \
-    '{"users":[],"environment":{"desktop":["kde","hyprland"]}}' display-manager)"
+    '{"users":[],"environment":{"desktop":["kde","hyprland"],"stock":false}}' display-manager)"
   grep -qx "sddm" <<<"$display_manager_packages"
   ! grep -qx "greetd" <<<"$display_manager_packages"
 }
@@ -245,7 +245,7 @@ load resolver-helpers
 @test "display-manager set: an explicit greetd on a kde box wins over auto" {
   local display_manager_packages
   display_manager_packages="$(packages_of \
-    '{"users":[],"environment":{"desktop":["kde"],"display_manager":"greetd"}}' \
+    '{"users":[],"environment":{"desktop":["kde"],"stock":false,"display_manager":"greetd"}}' \
     display-manager)"
   grep -qx "greetd"          <<<"$display_manager_packages"
   grep -qx "greetd-tuigreet" <<<"$display_manager_packages"
@@ -260,7 +260,7 @@ load resolver-helpers
 
 @test "sddm is no longer reported inside the kde-shell set" {
   local kdeshell
-  kdeshell="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
+  kdeshell="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
   grep -qx "sddm-kcm" <<<"$kdeshell"
   ! grep -qx "sddm" <<<"$kdeshell"
 }
@@ -274,27 +274,27 @@ load resolver-helpers
   json="$(jsonc_strip "$INSTALLER_DIR/extras/desktop/kde/install-kde.jsonc")"
   expected="$(categorized_list_parse \
     "$(jq -c '.shell_packages' <<<"$json")" bool shell_packages | sort -u)"
-  got="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
+  got="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
   diff <(printf '%s\n' "$expected") <(printf '%s\n' "$got")
 }
 
 @test "kde-shell set includes the packaged weather widget (ADR 0120)" {
   local shell
-  shell="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
+  shell="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
   grep -qx "plasma-applets-weather-widget-3" <<<"$shell" \
     || { echo "kde-shell missing plasma-applets-weather-widget-3"; return 1; }
 }
 
 @test "kde extra-apps set includes orca and vlc (ADR 0120)" {
   local apps
-  apps="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' \
+  apps="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' \
     kde-apps-extra)"
   grep -qx "orca" <<<"$apps" || { echo "extra-apps missing orca"; return 1; }
   grep -qx "vlc"  <<<"$apps" || { echo "extra-apps missing vlc";  return 1; }
 }
 
 @test "the derived audio set covers the formerly hand-declared packages" {
-  local audio_packages; audio_packages="$(packages_of '{"users":[],"environment":{"desktop":["kde"]}}' audio)"
+  local audio_packages; audio_packages="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' audio)"
   local package
   for package in gst-plugin-pipewire pipewire-jack libpulse; do
     grep -qx "$package" <<<"$audio_packages" || { echo "audio set missing: $package"; return 1; }

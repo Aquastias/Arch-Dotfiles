@@ -62,8 +62,16 @@ write_config() {
 
 # ── environment.stock (ADR 0112) ─────────────────────────────────────────────
 
-@test "stock defaults to false and leaves wayland_shell at noctalia" {
+@test "stock defaults to true and forces wayland_shell=none (ADR 0157)" {
   write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
+  environment_resolve
+  [ "$ENVIRONMENT_STOCK" = "true" ]
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
+}
+
+@test "stock=false leaves wayland_shell at noctalia" {
+  write_config \
+    '{"environment": {"desktop": "niri", "gpu": "amd", "stock": false}}'
   environment_resolve
   [ "$ENVIRONMENT_STOCK" = "false" ]
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "noctalia" ]

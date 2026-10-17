@@ -172,8 +172,8 @@ write_config() {
 
 # ── wayland shell preset (ADR 0090/0097) ────────────────────────────────────
 
-@test "wayland_shell defaults to noctalia when absent" {
-  write_config '{"environment": {"desktop": "niri"}}'
+@test "wayland_shell defaults to noctalia when absent (curated)" {
+  write_config '{"environment": {"desktop": "niri", "stock": false}}'
   _environment_validate
   [ "$ENVIRONMENT_WAYLAND_SHELL" = "noctalia" ]
 }
@@ -202,10 +202,10 @@ write_config() {
 
 # ── stock selector (ADR 0112) ─────────────────────────────────────────────
 
-@test "stock defaults to false when absent" {
+@test "stock defaults to true when absent (ADR 0157)" {
   write_config '{"environment": {"desktop": "niri"}}'
   _environment_validate
-  [ "$ENVIRONMENT_STOCK" = "false" ]
+  [ "$ENVIRONMENT_STOCK" = "true" ]
 }
 
 @test "stock=true validates and forces wayland_shell=none" {

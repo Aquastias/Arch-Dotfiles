@@ -25,7 +25,8 @@
   "environment": {
     "desktop":       ["kde", "niri", "hyprland"],
     "wayland_shell": "noctalia",
-    "gpu":           "auto"
+    "gpu":           "auto",
+    "stock":         false
   },
 
   "post_install": {

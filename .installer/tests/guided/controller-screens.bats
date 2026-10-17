@@ -295,12 +295,12 @@ load controller-helpers
 @test "enter(category): environment.stock flips on, stores, then clears on flip-back" {
   _seed_baseline
   set_navigation "$(navigation_to_category Environment)"
-  run guided_controller_enter "Stock: false"        # default false → true, override kept
+  run guided_controller_enter "Stock: true"         # default true → false, override kept
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.environment.stock' "$GUIDED_STATE_FILE")" = "true" ]
+  [ "$(jq -c '.environment.stock' "$GUIDED_STATE_FILE")" = "false" ]
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
   set_navigation "$(navigation_to_category Environment)"
-  guided_controller_enter "Stock: true" >/dev/null  # true → back to default false, drop
+  guided_controller_enter "Stock: false" >/dev/null # false → back to default true, drop
   ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
 }
 
