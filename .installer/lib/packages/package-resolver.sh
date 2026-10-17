@@ -405,15 +405,13 @@ _package_resolver_post_install() {
 }
 
 # _package_resolver_authored_slots <config> — packages.repo / packages.aur.
-# Layer provenance: an authored package Host Core also declares is tagged
-# `core`, otherwise `host` — so the report answers "do I edit Host Core or
-# this host profile?" rather than only "was this authored or derived?".
+# Layer provenance: an authored package the Fleet Layer declares is tagged
+# `fleet`, one Host Core declares `core`, otherwise `host` — so the report
+# answers "which layer do I edit?" rather than only "was this authored or
+# derived?".
 _package_resolver_authored_slots() {
-  local config="$1" core_json=""
-  local core_profile="${INSTALLER_DIR:-}/hosts/core/profile.jsonc"
-  if [[ -n "${INSTALLER_DIR:-}" && -f "$core_profile" ]]; then
-    core_json="$(jsonc_strip "$core_profile" 2>/dev/null)"
-  fi
+  local config="$1" layers_json
+  layers_json="$(_package_resolver_layers_json)"
   local slot json package
   for slot in repo aur; do
     json="$(_package_resolver_jq "$config" ".packages.${slot} // {} | tojson")"
@@ -421,26 +419,38 @@ _package_resolver_authored_slots() {
     while IFS= read -r package; do
       [[ -n "$package" ]] || continue
       _package_resolver_emit "$slot" \
-        "$(_package_resolver_authored_layer "$core_json" "$slot" "$package")" \
-        "$package"
+        "$(_package_resolver_authored_layer "$layers_json" "$slot" \
+          "$package")" "$package"
     done < <(categorized_list_parse "$json" string \
       "packages.${slot}" 2>/dev/null)
   done
 }
 
-# _package_resolver_authored_layer <core-json> <slot> <package> — `core` when
-# Host Core declares <package> in <slot>, `host` otherwise; `authored` when no
-# Host Core is readable.
+# _package_resolver_layers_json — {fleet, core} as one JSON object, each the
+# layer's profile (null when unreadable); `{}` when no INSTALLER_DIR is set.
+_package_resolver_layers_json() {
+  [[ -n "${INSTALLER_DIR:-}" ]] || { printf '{}'; return 0; }
+  local layer file json layer_profiles='{}'
+  for layer in fleet core; do
+    file="${INSTALLER_DIR}/hosts/${layer}/profile.jsonc"
+    [[ -f "$file" ]] || continue
+    json="$(jsonc_strip "$file" 2>/dev/null)" || continue
+    layer_profiles="$(jq -c --arg l "$layer" --argjson j "$json" '.[$l] = $j' \
+      <<<"$layer_profiles")"
+  done
+  printf '%s' "$layer_profiles"
+}
+
+# _package_resolver_authored_layer <layers-json> <slot> <package> — the first
+# layer (fleet, then core) declaring <package> in <slot>, else `host`;
+# `authored` when no layer is readable.
 _package_resolver_authored_layer() {
-  local core_json="$1" slot="$2" package="$3"
-  [[ -n "$core_json" ]] || { printf 'authored'; return 0; }
-  if jq -e --arg s "$slot" --arg p "$package" \
-       '[(.packages[$s] // {}) | to_entries[].value[]] | index($p)' \
-       <<<"$core_json" >/dev/null 2>&1; then
-    printf 'core'
-  else
-    printf 'host'
-  fi
+  local layers_json="$1" slot="$2" package="$3"
+  [[ "$layers_json" != "{}" ]] || { printf 'authored'; return 0; }
+  jq -r --arg s "$slot" --arg p "$package" '
+    [to_entries[] | select([(.value.packages[$s] // {})
+      | to_entries[].value[]] | index($p)) | .key] | first // "host"
+  ' <<<"$layers_json"
 }
 
 # _package_resolver_user_shells <config> — the login shell package of every

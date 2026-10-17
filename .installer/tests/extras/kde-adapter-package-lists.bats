@@ -361,7 +361,8 @@ JSON
 }
 
 # octopi (a Qt pacman GUI) is KDE-tied by operator decision (ADR 0094) and ships
-# via the adapter aur; pacmanlogviewer is not KDE and stays a Host Core package.
+# via the adapter aur; pacmanlogviewer is not KDE and stays a Fleet Layer
+# package.
 @test "octopi ships via the KDE adapter aur; pacmanlogviewer does not" {
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
@@ -372,10 +373,11 @@ JSON
   ! grep -qx "pacmanlogviewer" <<<"$all"
 }
 
-# pacmanlogviewer is not KDE — it stays a Host Core package so both machines get
-# it. octopi moved OUT of Host Core into the KDE adapter aur (ADR 0094).
-@test "pacmanlogviewer is Host Core; octopi is not host-declared" {
-  local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
+# pacmanlogviewer is not KDE — it stays a Fleet Layer package so both
+# machines get it. octopi moved OUT of Host Core into the KDE adapter aur (ADR
+# 0094).
+@test "pacmanlogviewer is in the Fleet Layer; octopi is not host-declared" {
+  local core="$BATS_TEST_DIRNAME/../../hosts/fleet/profile.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   jsonc_strip "$core" | jq -e '[.packages.repo | to_entries[].value[]]
     | index("pacmanlogviewer")'

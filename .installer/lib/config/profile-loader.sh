@@ -81,8 +81,8 @@ _profile_loader_load() {
     echo "profile: INSTALLER_DIR is not set" >&2
     return 2
   fi
-  if [[ "$name" == "core" ]]; then
-    echo "profile: 'core' is a reserved name and cannot be loaded" >&2
+  if profile_loader_is_layer "$kind" "$name"; then
+    echo "profile: '${name}' is a reserved name (a layer) and cannot be loaded" >&2
     return 3
   fi
 
@@ -116,8 +116,48 @@ _profile_loader_load() {
   # _program_registry_merge does: with Host Core carrying real content, a core
   # options.kernel of ["lts"] plus a host wanting ["zen"] would otherwise
   # install both. The menu resolves through the same module, so display and
-  # install cannot disagree.
-  layer_resolver_resolve "${kind%s}" "$core_json" "$spec_json"
+  # install cannot disagree. A fleet host folds the Fleet Layer between the two
+  # (ADR 0157).
+  local -a layers=("$core_json")
+  local fleet_json
+  fleet_json="$(_profile_loader_fleet_layer "$kind" "$name")" || return 2
+  [[ -n "$fleet_json" ]] && layers+=("$fleet_json")
+  layer_resolver_resolve "${kind%s}" "${layers[@]}" "$spec_json"
+}
+
+# _profile_loader_fleet_layer <kind> <name> — the Fleet Layer JSON when Host
+# Profile <name> folds it, else nothing. A tree with no Fleet Layer file (a test
+# fixture) folds nothing. rc 2 when the file does not parse.
+_profile_loader_fleet_layer() {
+  local fleet_file="${INSTALLER_DIR}/hosts/fleet/profile.jsonc"
+  [[ "$1" == hosts && -f "$fleet_file" ]] || return 0
+  _profile_loader_folds_fleet "$2" || return 0
+  _program_registry_parse "$fleet_file" || {
+    echo "profile: failed to parse the Fleet Layer" >&2
+    return 2
+  }
+}
+
+# The Host Profiles that fold the Fleet Layer (ADR 0157): the operator's own
+# machines. Every other profile resolves over the neutral Host Core alone.
+_PROFILE_LOADER_FLEET_HOSTS=(desktop laptop)
+
+# _profile_loader_folds_fleet <name> — rc 0 when Host Profile <name> folds the
+# Fleet Layer.
+_profile_loader_folds_fleet() {
+  local host
+  for host in "${_PROFILE_LOADER_FLEET_HOSTS[@]}"; do
+    [[ "$host" == "$1" ]] && return 0
+  done
+  return 1
+}
+
+# profile_loader_is_layer <kind> <name> — rc 0 when <name> is a layer, not a
+# profile: `core` for both kinds, plus the Fleet Layer `fleet` for hosts. A
+# layer is never loaded, listed or installed on its own.
+profile_loader_is_layer() {
+  [[ "$2" == core ]] && return 0
+  [[ "$1" == hosts && "$2" == fleet ]]
 }
 
 # profile_loader_assemble_config <name> <assignment_json> — the install-time

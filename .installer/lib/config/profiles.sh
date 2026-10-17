@@ -34,16 +34,18 @@ declare -F skeleton_flatten_devices >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/skeleton.sh"
 
 # profiles_list <hosts-root> — the installable Host Profiles: immediate
-# subdirectories carrying a profile.jsonc, EXCLUDING `core` (the merge base, not
-# installable alone) and `vm` (harness fixtures, ADR 0035 — its profiles nest a
-# level deeper and are never immediate here anyway). Alphabetical, stable.
+# subdirectories carrying a profile.jsonc, EXCLUDING the layers `core` and
+# `fleet` (merge bases, not installable alone — ADR 0157) and `vm` (harness
+# fixtures, ADR 0035 — its profiles nest a level deeper and are never immediate
+# here anyway). Alphabetical, stable.
 profiles_list() {
   local root="${1:?profiles_list needs a hosts root}" host_directory name
   for host_directory in "$root"/*/; do
     [[ -d "$host_directory" ]] || continue
     name="${host_directory%/}"
     name="${name##*/}"
-    [[ "$name" == "core" || "$name" == "vm" ]] && continue
+    [[ "$name" == "vm" ]] && continue
+    profile_loader_is_layer hosts "$name" && continue
     [[ -f "${host_directory}profile.jsonc" ]] || continue
     printf '%s\n' "$name"
   done | LC_ALL=C sort

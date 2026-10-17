@@ -1,0 +1,182 @@
+// Fleet Layer — the operator's personal software image (ADR 0157), folded
+// Host Core → Fleet Layer → host by `desktop` and `laptop` ONLY (the Profile
+// Loader's fleet-host list). Not a machine: hidden from the Profiles picker and
+// rejected by `install.sh --profile fleet`.
+//
+// Both machines run the same software (ADR 0114: laptop is a superset, so
+// everything shared lives here, and neither host carries a packages block).
+// It used to live in Host Core, which made it everyone's default — a Guided
+// session that never picked desktop/laptop installed it all. Host Core is now
+// neutral; adding fleet software is an edit here.
+//
+// Resolution is per-key (ADR 0057): packages/host_programs are additive, so a
+// fleet host drops something declared here via `packages.exclude` /
+// `host_programs_exclude`.
+//
+// `cups` is deliberately NOT declared here (ADR 0079): the print daemon is a
+// toggle-derived Host Program, driven by `options.printing.enabled` (default
+// on) and injected into host_programs at Effective-Config assembly, so it has
+// exactly one home — the Guided Installer's Printing service category.
+//
+// Fonts are likewise NOT declared in packages (ADR 0080): they live in the
+// curated `options.fonts` Font Catalog. ttf-ms-fonts left the AUR list for the
+// same reason (the catalog routes it to the paru pass).
+{
+  "host_programs": [
+    "ccache",
+    "fwupd",
+    "gamemode",
+    "lact",
+    "nix",
+    "smartmontools"
+  ],
+  "packages": {
+    "repo": {
+      "system": [
+        "logrotate",
+        "lsb-release",
+        "pacmanlogviewer",
+        "sbctl",
+        "sof-firmware",
+        "stress",
+        "stress-ng",
+        "tectonic"
+      ],
+      "filesystems": [
+        "bcachefs-tools",
+        "exfatprogs",
+        "f2fs-tools",
+        "fatresize",
+        "jfsutils",
+        "lvm2",
+        "nilfs-utils",
+        "udftools"
+      ],
+      "network": [
+        "dnsmasq",
+        "iwd",
+        "network-manager-applet",
+        "openbsd-netcat",
+        "wget"
+      ],
+      "shell": [
+        "bc",
+        "btop",
+        "eza",
+        "fd",
+        "fzf",
+        "htop",
+        "inxi",
+        "lynx",
+        "nano",
+        "parallel",
+        "ripgrep",
+        "zoxide"
+      ],
+      "editors": [
+        "neovide",
+        "neovim"
+      ],
+      "dev": [
+        "biome",
+        "go",
+        "kdlfmt",
+        "mermaid-cli",
+        "nvm",
+        "php",
+        "prettier",
+        "python-pip",
+        "python-pipx",
+        "ruff",
+        "shfmt",
+        "stylua",
+        "taplo-cli",
+        "tree-sitter-cli"
+      ],
+      "language-servers": [
+        "bash-language-server",
+        "clang",
+        // delve + python-debugpy are DAP adapters, installed as system
+        // packages beside the LSP servers, not mason (ADR 0140).
+        "delve",
+        "gopls",
+        "lua-language-server",
+        "python-debugpy",
+        "rust-analyzer",
+        "svelte-language-server",
+        "tailwindcss-language-server",
+        "typescript-language-server",
+        "vue-language-server",
+        "yaml-language-server",
+        "zls"
+      ],
+      "browsers": [
+        "firefox"
+      ],
+      "media": [
+        "gimp",
+        "imagemagick",
+        "mpv",
+        "obs-studio",
+        "pavucontrol",
+        "qbittorrent",
+        "speech-dispatcher",
+        "vlc",
+        "vlc-plugin-freetype",
+        "vlc-plugin-notify",
+        "vlc-plugin-srt"
+      ],
+      "gaming": [
+        "lutris",
+        "steam",
+        "wine",
+        "wine-gecko",
+        "wine-mono"
+      ],
+      "communication": [
+        "discord"
+      ],
+      "virt": [
+        "libguestfs",
+        "qemu-full",
+        "virt-viewer"
+      ],
+      "archive": [
+        "7zip",
+        "arj",
+        "lhasa",
+        "unace",
+        "unarj",
+        "unzip",
+        "zip"
+      ]
+    },
+    "aur": {
+      "misc": [
+        "ani-cli-git",
+        "bolt-launcher",
+        "bridge-utils",
+        "grayjay-bin",
+        "lua-format",
+        // rar (proprietary) replaces repo `unrar`: it Provides unrar so
+        // extraction still works, and adds .rar creation (mktarrar).
+        "rar",
+        "runelite",
+        // VSCodium is the opt-in dev/vscodium program, Open VSX only (ADR
+        // 0148): no vscodium-bin here, never the vscodium-marketplace patch.
+        "zen-browser-bin"
+      ],
+      "language-servers": [
+        "basedpyright",
+        // codelldb-bin + vscode-js-debug-bin are DAP adapters (ADR 0140):
+        // rust/c/cpp and js/ts respectively. Prebuilt -bin per repo custom.
+        "codelldb-bin",
+        "emmet-language-server",
+        "nixd",
+        "nixfmt",
+        "vscode-js-debug-bin",
+        "vscode-langservers-extracted"
+      ]
+    }
+  }
+}

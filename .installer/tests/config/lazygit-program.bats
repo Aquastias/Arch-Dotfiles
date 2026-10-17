@@ -11,7 +11,7 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home"
   LZG="$REPO/.config/lazygit"
-  CORE="$REPO/.installer/hosts/core/profile.jsonc"
+  CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
 }
 

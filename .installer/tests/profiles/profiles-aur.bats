@@ -167,10 +167,10 @@ _adapter() {
   done
 }
 
-# steam is shared by both machines, so it lives in Host Core now (ADR 0056);
+# steam is shared by both machines, so it lives in the Fleet Layer (ADR 0157);
 # the hosts inherit it rather than each declaring it.
-@test "repo steam is declared once, in Host Core" {
-  grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
+@test "repo steam is declared once, in the Fleet Layer" {
+  grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/fleet/profile.jsonc"
   local host
   for host in desktop laptop; do
     ! grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"

@@ -37,7 +37,7 @@ if [[ ! -d "$host_directory" ]]; then
                      "${INSTALLER_DIR}"/hosts/vm/*/; do
       [[ -f "${directory}profile.jsonc" ]] || continue
       name="${directory%/}"; name="${name##*/}"
-      [[ "$name" == "core" ]] && continue
+      [[ "$name" == core || "$name" == fleet ]] && continue
       echo "  - $name"
     done
   } >&2

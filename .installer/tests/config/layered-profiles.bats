@@ -23,7 +23,7 @@ repo_of() { profile_loader_load "$1" | jq -r '.packages.repo // {}
   | to_entries[].value[]' | sort -u; }
 aur_of()  { profile_loader_load "$1" | jq -r '.packages.aur // {}
   | to_entries[].value[]' | sort -u; }
-core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
+fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   | jq -r '.packages.repo | to_entries[].value[]' | sort -u; }
 
 # ── the committed profiles resolve ──────────────────────────────────────────
@@ -37,23 +37,22 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   done
 }
 
-@test "laptop resolves to exactly Host Core's package set" {
-  # laptop declares no packages, so its resolved set IS core's — the whole
-  # point of the two-layer model for this fleet.
-  [ "$(repo_of laptop)" = "$(core_repo)" ]
+@test "laptop resolves to exactly the Fleet Layer's package set" {
+  # laptop declares no packages, so its resolved set IS the Fleet Layer's
+  # (ADR 0157) — one software image for the fleet.
+  [ "$(repo_of laptop)" = "$(fleet_repo)" ]
 }
 
-# desktop carries no packages delta now — all apps live in Host Core (ADR 0114),
-# so desktop's repo set equals core's exactly (every core package survives, and
-# desktop adds none of its own).
-@test "desktop resolves to core's repo set with no delta of its own" {
-  local desktop_packages core
-  desktop_packages="$(repo_of desktop)"; core="$(core_repo)"
+# desktop carries no packages delta — all apps live in the Fleet Layer (ADR
+# 0114, ADR 0157), so its repo set equals the Fleet Layer's exactly.
+@test "desktop resolves to the Fleet Layer's repo set, no delta of its own" {
+  local desktop_packages fleet
+  desktop_packages="$(repo_of desktop)"; fleet="$(fleet_repo)"
   local package
   while IFS= read -r package; do
-    grep -qx "$package" <<<"$desktop_packages" || { echo "core package missing: $package"; return 1; }
-  done <<<"$core"
-  [ "$(printf '%s\n' "$desktop_packages" | sort -u)" = "$(printf '%s\n' "$core" | sort -u)" ]
+    grep -qx "$package" <<<"$desktop_packages" || { echo "fleet package missing: $package"; return 1; }
+  done <<<"$fleet"
+  [ "$(printf '%s\n' "$desktop_packages" | sort -u)" = "$(printf '%s\n' "$fleet" | sort -u)" ]
 }
 
 @test "desktop's delta packages land in the resolved set" {
@@ -64,26 +63,26 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   done
 }
 
-@test "core packages reach both machines" {
+@test "Fleet Layer packages reach both machines" {
   local package host
   for host in desktop laptop; do
     local packages; packages="$(repo_of "$host")"
     for package in firefox steam htop gimp vlc; do
-      grep -qx "$package" <<<"$packages" || { echo "$host missing core pkg: $package"; return 1; }
+      grep -qx "$package" <<<"$packages" || { echo "$host missing fleet pkg: $package"; return 1; }
     done
   done
 }
 
-# aur lives entirely in core now too (ADR 0114): runelite moved from desktop's
-# delta into Host Core, so both machines get it.
-@test "aur resolves from core on both machines (no desktop-only delta)" {
+# aur lives entirely in the Fleet Layer too (ADR 0114, ADR 0157), so both
+# machines get it.
+@test "aur resolves from the Fleet Layer on both machines" {
   local desktop_aur laptop_aur
   desktop_aur="$(aur_of desktop)"; laptop_aur="$(aur_of laptop)"
   local package
   # ttf-ms-fonts left the core AUR list for the options.fonts Font Catalog (ADR
   # 0080) — it is routed to the paru pass by the font resolver, not packages.aur.
   for package in rar zen-browser-bin runelite; do
-    grep -qx "$package" <<<"$desktop_aur" || { echo "desktop missing core aur: $package"; return 1; }
+    grep -qx "$package" <<<"$desktop_aur" || { echo "desktop missing fleet aur: $package"; return 1; }
     grep -qx "$package" <<<"$laptop_aur" || { echo "laptop missing core aur: $package"; return 1; }
   done
 }
@@ -168,7 +167,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 @test "every dropped package is absent from every committed profile" {
   local host package packages
   for host in desktop laptop; do
-    packages="$(repo_of "$host"; aur_of "$host"; core_repo)"
+    packages="$(repo_of "$host"; aur_of "$host"; fleet_repo)"
     for package in zram-generator uwsm nftables iptables wireless_tools less zed \
              flatpak libavif qemu-base vde2 cpio zinit qt6ct-kde \
              btop-theme-catppuccin catppuccin-cursors-mocha \
@@ -184,7 +183,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
 
 @test "no catppuccin package survives anywhere" {
   local host
-  for host in core desktop laptop; do
+  for host in core fleet desktop laptop; do
     ! grep -q "catppuccin" "$INSTALLER_DIR/hosts/$host/profile.jsonc" \
       || { echo "$host still declares a catppuccin package"; return 1; }
   done

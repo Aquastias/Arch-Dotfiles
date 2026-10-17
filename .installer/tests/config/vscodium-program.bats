@@ -15,7 +15,7 @@ setup() {
   SETTINGS="$USERDIR/settings.json"
   KEYS="$USERDIR/keybindings.json"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
-  HOSTCORE="$REPO/.installer/hosts/core/profile.jsonc"
+  HOSTCORE="$REPO/.installer/hosts/fleet/profile.jsonc"
   COVERAGE="$PROG/coverage.txt"
   LANGS="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/config"
   LANGS="$LANGS/languages.lua"             # the Language Registry
@@ -265,10 +265,10 @@ vsc_lang() {
 }
 
 # System path settings → the package providing that path. Each package must be
-# declared by Host Core, be a dependency of one it declares (rust ← rust-src ←
-# rust-analyzer, zig ← zls), or be installed by dev/nvim (phpactor,
+# declared by the Fleet Layer, be a dependency of one it declares (rust ←
+# rust-src ← rust-analyzer, zig ← zls), or be installed by dev/nvim (phpactor,
 # php-codesniffer).
-@test "toolchain path settings point at Host Core system binaries" {
+@test "toolchain path settings point at Fleet Layer system binaries" {
   local key path package
   while read -r key path package; do
     got="$(setting ".$key" | jq -r 'if type == "array" then .[0] else . end')"
@@ -278,7 +278,7 @@ vsc_lang() {
         "$REPO/.installer/programs/dev/nvim/install.sh"
     else
       grep -q "\"$package\"" "$HOSTCORE" \
-        || { echo "$package not in Host Core"; false; }
+        || { echo "$package not in the Fleet Layer"; false; }
     fi
   done <<'EOF_'
 "rust-analyzer.server.path" /usr/bin/rust-analyzer rust-analyzer
@@ -469,7 +469,7 @@ V=vim.visualModeKeyBindingsNonRecursive
   [ "$(setting '."python.languageServer"')" = '"None"' ]
 }
 
-@test "Host Core serves no VSCodium and no MS Marketplace patch (ADR 0148)" {
+@test "the Fleet Layer serves no VSCodium and no MS Marketplace patch (ADR 0148)" {
   # The program owns vscodium-bin (opt-in); vscodium-marketplace would point
   # --install-extension at the MS Marketplace instead of Open VSX.
   [ -z "$(grep '"vscodium-bin"' "$HOSTCORE")" ]

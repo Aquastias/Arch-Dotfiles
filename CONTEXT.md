@@ -309,36 +309,28 @@ unattended `install.sh <config-file>` path. Distinct from the predefined (auto)
 layouts, whose pool skeleton is the installer's default.
 
 ### Host Core
-Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. Declares the
-base set
-of users, Sysctl Defaults, **and the Host Package List** shared across all hosts
-([ADR 0056], amending [ADR 0007] — whose "the lists are machine-specific"
-premise failed). [ADR 0114] then went further: `desktop` and `laptop` run the
-**same** software (both are dev + gaming machines), so **every fleet package
-lives in core** and **both** host profiles carry no packages block — a host
-profile is now purely per-machine facts (hostname, impermanence, disk skeleton,
-GPU). The two machines are one software image plus hardware. Every Host Profile
-is resolved over core by the
+Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. The
+**neutral** base layer every Host Profile is resolved over by the
 [[Layer Resolver]] — core applies first, then the host profile per the
-[ADR 0057] per-key classification. A host drops something core declares via
-`packages.exclude[]` or `host_programs_exclude[]`; the three VM fixtures opt
-out of the inherited package set wholesale with `packages.inherit: false`
-(which also drops core's base `host_programs`; they still inherit core's users
-and sysctl). Also the
-Guided Installer's menu baseline ([ADR 0058]), so everything core installs is
-visible and deselectable in the menu. Core declares **five** free-standing base
-Host Programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
-0089); `cups`, once its sole entry, has since moved out to a toggle-derived Host
-Program with its own menu home ([ADR 0079]).
+[ADR 0057] per-key classification. Declares only Sysctl Defaults and an empty
+user list: no packages, no Host Programs ([ADR 0157]). It is also the Guided
+Installer's blank baseline, so anything declared here is everyone's default —
+which is why the operator's software moved out to the [[Fleet Layer]]. History:
+[ADR 0056] put a shared Host Package List here and [ADR 0114] put every fleet
+package here; [ADR 0157] moved both to the Fleet Layer. `cups` is a
+toggle-derived Host Program with its own menu home ([ADR 0079]).
 
 ### Fleet Layer
 The operator's personal software image, shared by the `desktop` and `laptop`
 Host Profiles only — the layer between Host Core and those two hosts (Host Core
 → Fleet Layer → host). Holds what Host Core held under [ADR 0114]: the
 workstation packages, base Host Programs, curated (non-stock) environment, the
-full Font Catalog selection. Not an installable profile on its own. Exists so a
-Guided session that never picks `desktop`/`laptop` installs none of it: Host
-Core and User Core stay neutral. _Avoid_: workstation base, core packages.
+full Font Catalog selection, at `.installer/hosts/fleet/profile.jsonc`. Not an
+installable profile on its own (hidden from the Profiles picker, rejected by
+`install.sh --profile`); the Profile Loader folds it for the two fleet hosts.
+Exists so a Guided session that never picks `desktop`/`laptop` installs none
+of it: Host Core and User Core stay neutral.
+_Avoid_: workstation base, core packages.
 
 ### Layer Resolver
 `.installer/lib/config/layer-resolver.sh`. The pure module answering "given Host

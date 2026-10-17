@@ -74,12 +74,12 @@ load nvim-program-helpers
 
 
 # ── ticket 02: LSP + completion ──────────────────────────────────────────────
-# Servers install as system packages in Host Core language-servers, not the
-# program and not mason (ADR 0135); the program owns only the config + a guarded
+# Servers install as system packages in the Fleet Layer language-servers, not
+# the program and not mason (ADR 0135); the program owns only the config + a guarded
 # best-effort Swift.
 
-@test "Host Core declares the added repo language servers (ADR 0135)" {
-  local host_core_profile="$REPO/.installer/hosts/core/profile.jsonc"
+@test "the Fleet Layer declares the added repo language servers (ADR 0135)" {
+  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   grep -q '"lua-language-server"' "$host_core_profile"
   grep -q '"svelte-language-server"' "$host_core_profile"
   grep -q '"vue-language-server"' "$host_core_profile"
@@ -87,8 +87,8 @@ load nvim-program-helpers
   grep -q '"php"' "$host_core_profile"                       # phpactor runtime
 }
 
-@test "Host Core declares the added AUR language servers (ADR 0135)" {
-  local host_core_profile="$REPO/.installer/hosts/core/profile.jsonc"
+@test "the Fleet Layer declares the added AUR language servers (ADR 0135)" {
+  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   grep -q '"basedpyright"' "$host_core_profile"
   grep -q '"nixd"' "$host_core_profile"
   grep -q '"emmet-language-server"' "$host_core_profile"
@@ -97,10 +97,10 @@ load nvim-program-helpers
 @test "phpactor installs via the program with php iconv enabled (ADR 0135)" {
   # phpactor's AUR build needs php's iconv extension, so it can't be a bare
   # package (VM-verified). The program enables iconv, then installs it — and it
-  # is NOT declared as a bare Host Core package.
+  # is NOT declared as a bare Fleet Layer package.
   grep -q 'extension=iconv' "$INSTALL"
   grep -q 'needed phpactor' "$INSTALL"
-  ! grep -q '"phpactor"' "$REPO/.installer/hosts/core/profile.jsonc"
+  ! grep -q '"phpactor"' "$REPO/.installer/hosts/fleet/profile.jsonc"
 }
 
 @test "install.sh installs Swift best-effort, never failing the install" {
@@ -168,7 +168,7 @@ load nvim-program-helpers
 
 
 # ── Debugging: nvim-dap (ADR 0140) ───────────────────────────────────────────
-# Adapters are system packages (Host Core), never mason.
+# Adapters are system packages (the Fleet Layer), never mason.
 
 @test "nvim-dap + dap-ui + adapters are declared and lazy on <leader>d" {
   local plugin_file="$NVIM/lua/plugins/dap.lua"
@@ -198,8 +198,8 @@ load nvim-program-helpers
   ! grep -rqiE 'mason-nvim-dap|jay-babu/mason' "$NVIM/lua"
 }
 
-@test "Host Core declares the DAP adapter packages (ADR 0140)" {
-  local host_core_profile="$REPO/.installer/hosts/core/profile.jsonc"
+@test "the Fleet Layer declares the DAP adapter packages (ADR 0140)" {
+  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   grep -q '"delve"' "$host_core_profile"
   grep -q '"python-debugpy"' "$host_core_profile"
   grep -q '"codelldb-bin"' "$host_core_profile"
@@ -217,8 +217,8 @@ load nvim-program-helpers
 
 # ── ticket 03: format + lint ─────────────────────────────────────────────────
 
-@test "Host Core declares the formatter/linter packages (ADR 0135)" {
-  local host_core_profile="$REPO/.installer/hosts/core/profile.jsonc"
+@test "the Fleet Layer declares the formatter/linter packages (ADR 0135)" {
+  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   grep -q '"stylua"' "$host_core_profile"
   grep -q '"prettier"' "$host_core_profile"
   grep -q '"ruff"' "$host_core_profile"
@@ -244,9 +244,9 @@ load nvim-program-helpers
     grep -q "\"$formatter\"" "$registry_file" || { echo "missing $formatter"; false; }
   done
   grep -q '"scss", "less"' "$registry_file"
-  local host_core_profile="$REPO/.installer/hosts/core/profile.jsonc"
+  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   for formatter in shfmt taplo-cli kdlfmt nixfmt; do
-    grep -q "\"$formatter\"" "$host_core_profile" || { echo "$formatter not in Host Core"; false; }
+    grep -q "\"$formatter\"" "$host_core_profile" || { echo "$formatter not in the Fleet Layer"; false; }
   done
   grep -q 'needed php-codesniffer' "$INSTALL"
 }

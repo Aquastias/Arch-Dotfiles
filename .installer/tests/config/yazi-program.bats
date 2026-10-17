@@ -11,7 +11,7 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home"
   YAZI="$REPO/.config/yazi"
-  CORE="$REPO/.installer/hosts/core/profile.jsonc"
+  CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
 }
 
