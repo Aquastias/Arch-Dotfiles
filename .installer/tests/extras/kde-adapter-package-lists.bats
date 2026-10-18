@@ -377,11 +377,11 @@ JSON
 # machines get it. octopi moved OUT of Host Core into the KDE adapter aur (ADR
 # 0094).
 @test "pacmanlogviewer is in the Fleet Layer; octopi is not host-declared" {
-  local core="$BATS_TEST_DIRNAME/../../hosts/fleet/profile.jsonc"
+  local fleet="$BATS_TEST_DIRNAME/../../hosts/fleet/profile.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
-  jsonc_strip "$core" | jq -e '[.packages.repo | to_entries[].value[]]
+  jsonc_strip "$fleet" | jq -e '[.packages.repo | to_entries[].value[]]
     | index("pacmanlogviewer")'
-  ! jsonc_strip "$core" | jq -e '[.packages.aur | to_entries[].value[]]
+  ! jsonc_strip "$fleet" | jq -e '[.packages.aur | to_entries[].value[]]
     | index("octopi")'
 }
 

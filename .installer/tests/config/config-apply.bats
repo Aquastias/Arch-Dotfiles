@@ -144,3 +144,15 @@ select4_() { config_apply_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '. == ["a"]'
 }
+
+# ── ./stow-configs.sh end to end: a stale helper name once broke it silently ──
+
+@test "stow-configs.sh stows a named program's home/ into \$HOME" {
+  local fake_home; fake_home="$(mktemp -d)"
+  run env HOME="$fake_home" bash "$BATS_TEST_DIRNAME/../../../stow-configs.sh" \
+    claude
+  [ "$status" -eq 0 ]
+  [ -L "$fake_home/.claude/settings.json" ]
+  [ -L "$fake_home/.claude/scripts/block-sleep-poll.sh" ]
+  rm -rf "$fake_home"
+}

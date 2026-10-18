@@ -55,16 +55,16 @@ _json_arr() {
   printf '%s\n' "$@" | jq -R . | jq -s -c .
 }
 
-ships="$(ca_ships_home_list "$PROGRAMS")"
-selection="$(ca_stow_selection "$ships" \
+ships="$(config_apply_ships_home_list "$PROGRAMS")"
+selection="$(config_apply_stow_selection "$ships" \
   "$(_json_arr "${except[@]+"${except[@]}"}")" \
   "$(_json_arr "${only[@]+"${only[@]}"}")" \
-  "$(ca_stow_opt_in_list "$PROGRAMS")")"
+  "$(config_apply_stow_opted_in_programs "$PROGRAMS")")"
 
 count=0
 while IFS= read -r name; do
   [[ -n "$name" ]] || continue
-  home="$(ca_home_dir "$PROGRAMS" "$name")" || {
+  home="$(config_apply_home_directory "$PROGRAMS" "$name")" || {
     echo "stow-configs.sh: '${name}' ships no home/ — skipping" >&2; continue; }
   stow -d "$(dirname "$home")" -t "$HOME" --adopt --no-folding home
   echo "stow-configs.sh: stowed ${name}"

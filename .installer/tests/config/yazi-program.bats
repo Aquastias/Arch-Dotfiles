@@ -11,7 +11,7 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home"
   YAZI="$REPO/.config/yazi"
-  CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
+  FLEET="$REPO/.installer/hosts/fleet/profile.jsonc"
   OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
 }
 
@@ -58,8 +58,8 @@ setup() {
 
 # ── package move: exclusivity (ADR 0115) ─────────────────────────────────────
 
-@test "yazi left core packages.shell (Program/package exclusivity)" {
-  ! grep -q '"yazi"' "$CORE"
+@test "yazi is no bare Fleet Layer package (Program/package exclusivity)" {
+  ! grep -q '"yazi"' "$FLEET"
 }
 
 # ── profile wiring ───────────────────────────────────────────────────────────

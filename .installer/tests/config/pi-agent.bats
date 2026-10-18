@@ -13,7 +13,7 @@ setup() {
   ASTOW="$REPO/.pi/agent"                 # repo-root stow copy (retired)
   SEED="$ASEED/settings.json"
   STOW="$ASTOW/settings.json"
-  CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
+  FLEET="$REPO/.installer/hosts/fleet/profile.jsonc"
   OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
   GI="$REPO/.gitignore"
   SKILLS="$REPO/.agents/skills"       # vendored mattpocock skills (stow tree)
@@ -69,12 +69,12 @@ setup() {
 # ── package + profile wiring ─────────────────────────────────────────────────
 
 @test "pi's tool deps resolve: ripgrep + fd in the Fleet Layer, git in the base list" {
-  # git ships in the Base Package List (base.sh) — not re-declared in core, or
-  # packages.bats flags it as a base-list duplicate.
-  grep -q '"ripgrep"' "$CORE"
-  grep -q '"fd"' "$CORE"
+  # git ships in the Base Package List (base.sh) — not re-declared in the Fleet
+  # Layer, or packages.bats flags it as a base-list duplicate.
+  grep -q '"ripgrep"' "$FLEET"
+  grep -q '"fd"' "$FLEET"
   grep -qE '\bgit\b' "$REPO/.installer/lib/packages/base.sh"
-  ! grep -q '"git"' "$CORE"
+  ! grep -q '"git"' "$FLEET"
 }
 
 @test "the operator user carries pi (ADR 0127)" {

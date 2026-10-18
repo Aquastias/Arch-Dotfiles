@@ -11,7 +11,7 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home"
   LZG="$REPO/.config/lazygit"
-  CORE="$REPO/.installer/hosts/fleet/profile.jsonc"
+  FLEET="$REPO/.installer/hosts/fleet/profile.jsonc"
   OPERATOR_USER="$REPO/.installer/users/aquastias/profile.jsonc"
 }
 
@@ -59,8 +59,8 @@ setup() {
 
 # ── package move: exclusivity (ADR 0115) ─────────────────────────────────────
 
-@test "lazygit left core packages.shell (Program/package exclusivity)" {
-  ! grep -q '"lazygit"' "$CORE"
+@test "lazygit is no bare Fleet Layer package (Program/package exclusivity)" {
+  ! grep -q '"lazygit"' "$FLEET"
 }
 
 # ── profile wiring ───────────────────────────────────────────────────────────

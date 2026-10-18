@@ -79,19 +79,19 @@ load nvim-program-helpers
 # best-effort Swift.
 
 @test "the Fleet Layer declares the added repo language servers (ADR 0135)" {
-  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
-  grep -q '"lua-language-server"' "$host_core_profile"
-  grep -q '"svelte-language-server"' "$host_core_profile"
-  grep -q '"vue-language-server"' "$host_core_profile"
-  grep -q '"tailwindcss-language-server"' "$host_core_profile"
-  grep -q '"php"' "$host_core_profile"                       # phpactor runtime
+  local fleet_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
+  grep -q '"lua-language-server"' "$fleet_profile"
+  grep -q '"svelte-language-server"' "$fleet_profile"
+  grep -q '"vue-language-server"' "$fleet_profile"
+  grep -q '"tailwindcss-language-server"' "$fleet_profile"
+  grep -q '"php"' "$fleet_profile"                       # phpactor runtime
 }
 
 @test "the Fleet Layer declares the added AUR language servers (ADR 0135)" {
-  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
-  grep -q '"basedpyright"' "$host_core_profile"
-  grep -q '"nixd"' "$host_core_profile"
-  grep -q '"emmet-language-server"' "$host_core_profile"
+  local fleet_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
+  grep -q '"basedpyright"' "$fleet_profile"
+  grep -q '"nixd"' "$fleet_profile"
+  grep -q '"emmet-language-server"' "$fleet_profile"
 }
 
 @test "phpactor installs via the program with php iconv enabled (ADR 0135)" {
@@ -199,11 +199,11 @@ load nvim-program-helpers
 }
 
 @test "the Fleet Layer declares the DAP adapter packages (ADR 0140)" {
-  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
-  grep -q '"delve"' "$host_core_profile"
-  grep -q '"python-debugpy"' "$host_core_profile"
-  grep -q '"codelldb-bin"' "$host_core_profile"
-  grep -q '"vscode-js-debug-bin"' "$host_core_profile"
+  local fleet_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
+  grep -q '"delve"' "$fleet_profile"
+  grep -q '"python-debugpy"' "$fleet_profile"
+  grep -q '"codelldb-bin"' "$fleet_profile"
+  grep -q '"vscode-js-debug-bin"' "$fleet_profile"
 }
 
 @test "checkhealth gate loads dap and requires the adapter binaries" {
@@ -218,11 +218,11 @@ load nvim-program-helpers
 # ── ticket 03: format + lint ─────────────────────────────────────────────────
 
 @test "the Fleet Layer declares the formatter/linter packages (ADR 0135)" {
-  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
-  grep -q '"stylua"' "$host_core_profile"
-  grep -q '"prettier"' "$host_core_profile"
-  grep -q '"ruff"' "$host_core_profile"
-  grep -q '"biome"' "$host_core_profile"                     # already present for js/ts
+  local fleet_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
+  grep -q '"stylua"' "$fleet_profile"
+  grep -q '"prettier"' "$fleet_profile"
+  grep -q '"ruff"' "$fleet_profile"
+  grep -q '"biome"' "$fleet_profile"                     # already present for js/ts
 }
 
 @test "formatting via conform, formatters from the registry" {
@@ -244,9 +244,9 @@ load nvim-program-helpers
     grep -q "\"$formatter\"" "$registry_file" || { echo "missing $formatter"; false; }
   done
   grep -q '"scss", "less"' "$registry_file"
-  local host_core_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
+  local fleet_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   for formatter in shfmt taplo-cli kdlfmt nixfmt; do
-    grep -q "\"$formatter\"" "$host_core_profile" || { echo "$formatter not in the Fleet Layer"; false; }
+    grep -q "\"$formatter\"" "$fleet_profile" || { echo "$formatter not in the Fleet Layer"; false; }
   done
   grep -q 'needed php-codesniffer' "$INSTALL"
 }

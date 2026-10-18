@@ -15,7 +15,7 @@ setup() {
   SETTINGS="$USERDIR/settings.json"
   KEYS="$USERDIR/keybindings.json"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
-  HOSTCORE="$REPO/.installer/hosts/fleet/profile.jsonc"
+  FLEET="$REPO/.installer/hosts/fleet/profile.jsonc"
   COVERAGE="$PROG/coverage.txt"
   LANGS="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/config"
   LANGS="$LANGS/languages.lua"             # the Language Registry
@@ -277,7 +277,7 @@ vsc_lang() {
       grep -q "needed ${package#@nvim:}" \
         "$REPO/.installer/programs/dev/nvim/install.sh"
     else
-      grep -q "\"$package\"" "$HOSTCORE" \
+      grep -q "\"$package\"" "$FLEET" \
         || { echo "$package not in the Fleet Layer"; false; }
     fi
   done <<'EOF_'
@@ -472,8 +472,8 @@ V=vim.visualModeKeyBindingsNonRecursive
 @test "the Fleet Layer serves no VSCodium and no MS Marketplace patch (ADR 0148)" {
   # The program owns vscodium-bin (opt-in); vscodium-marketplace would point
   # --install-extension at the MS Marketplace instead of Open VSX.
-  [ -z "$(grep '"vscodium-bin"' "$HOSTCORE")" ]
-  ! grep -q '"vscodium-marketplace"' "$HOSTCORE"
+  [ -z "$(grep '"vscodium-bin"' "$FLEET")" ]
+  ! grep -q '"vscodium-marketplace"' "$FLEET"
 }
 
 @test "window nav <C-h/j/k/l> are native chords, normal mode + lists only" {
