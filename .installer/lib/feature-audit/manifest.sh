@@ -56,10 +56,11 @@ feature_audit_variant_phases() {
     '(.phases // ($all | split(" "))) | join(" ")' <<<"$variant"
 }
 
-# feature_audit_variant_host_core <id> — "true" unless the variant's Host
-# Profile sets packages.inherit false (a pure host gets no Host Core packages).
-# The probes read it as the Host Core gate (Probe Gate).
-feature_audit_variant_host_core() {
+# feature_audit_variant_fleet <id> — "true" when the variant's Host Profile is a
+# fleet host (`"fleet": true`, ADR 0157), so it folds the Fleet Layer and its
+# workstation toolchain; "false" otherwise (a pure host gets none of it). The
+# probes read it as the Fleet gate (Probe Gate).
+feature_audit_variant_fleet() {
   local manifest variant host profile_file
   manifest="$(feature_audit_manifest_json)"
   variant="$(feature_audit_variant_json "$1")" || return 1
@@ -69,7 +70,7 @@ feature_audit_variant_host_core() {
     source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   }
   profile_file="$(profile_loader_directory hosts "$host")/profile.jsonc"
-  jsonc_strip "$profile_file" | jq -r '.packages.inherit != false'
+  jsonc_strip "$profile_file" | jq -r '.fleet == true'
 }
 
 # feature_audit_variant_vm_profile <id> — the VM Profile vm.sh provisions. The

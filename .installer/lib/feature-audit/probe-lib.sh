@@ -105,7 +105,7 @@ feature_audit_has_shell() {
   feature_audit_curated && [[ "$(feature_audit_config "$filter")" != none ]]
 }
 
-# feature_audit_host_core — the variant inherits Host Core packages (the run
-# stamps `_audit.host_core`; absent = the product default, inherited).
-feature_audit_host_core() { [[ \
-  "$(feature_audit_config '._audit.host_core')" != false ]]; }
+# feature_audit_fleet — the variant folds the Fleet Layer and its toolchain (the
+# run stamps `_audit.fleet`; absent = the product default, a fleet host).
+feature_audit_fleet() { [[ \
+  "$(feature_audit_config '._audit.fleet')" != false ]]; }

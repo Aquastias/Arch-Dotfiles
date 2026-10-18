@@ -152,10 +152,10 @@ feature_audit_run_variant() {
     || { feature_audit_fatal "$directory/install" \
     "variant does not resolve"; return 1; }
   config="$(feature_audit_variant_config "$id")" || config='{}'
-  # the Host Core gate the probes read (feature_audit_host_core)
+  # the Fleet gate the probes read (feature_audit_fleet)
   config="$(jq -c \
-    --argjson hc "$(feature_audit_variant_host_core "$id" || echo true)" \
-    '. + {_audit: {host_core: $hc}}' <<<"$config")"
+    --argjson fleet "$(feature_audit_variant_fleet "$id" || echo true)" \
+    '. + {_audit: {fleet: $fleet}}' <<<"$config")"
   # shellcheck disable=SC2034 # read by live-phases.sh / live-probes.sh
   FA_USER="$(jq -r '.users[0] // "aquastias"' <<<"$config")"
   FA_VARIANT_PHASES="$(feature_audit_variant_phases "$id")"

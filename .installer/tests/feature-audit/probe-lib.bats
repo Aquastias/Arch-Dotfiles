@@ -124,20 +124,21 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   [ "$status" -eq 1 ]
 }
 
-# ── Host Core gate ──────────────────────────────────────────────────────────
+# ── Fleet gate (ADR 0157) ───────────────────────────────────────────────────
 
-@test "feature_audit_host_core: true unless the variant opts out of Host Core" {
+@test "feature_audit_fleet: true unless the run stamps a non-fleet host" {
   write_variant_config '{}'
-  feature_audit_host_core
-  write_variant_config '{"_audit":{"host_core":true}}'
-  feature_audit_host_core
-  write_variant_config '{"_audit":{"host_core":false}}'
-  ! feature_audit_host_core
+  feature_audit_fleet
+  write_variant_config '{"_audit":{"fleet":true}}'
+  feature_audit_fleet
+  write_variant_config '{"_audit":{"fleet":false}}'
+  feature_audit_fleet && return 1
+  return 0
 }
 
-@test "feature_audit_variant_host_core: pure hosts don't inherit, the base does" {
+@test "feature_audit_variant_fleet: the base folds the Fleet Layer, pure hosts not" {
   source "$INSTALLER_DIR/lib/jsonc.sh"
   source "$INSTALLER_DIR/lib/feature-audit/manifest.sh"
-  [ "$(feature_audit_variant_host_core kde-pure)" = false ]
-  [ "$(feature_audit_variant_host_core base)" = true ]
+  [ "$(feature_audit_variant_fleet kde-pure)" = false ]
+  [ "$(feature_audit_variant_fleet base)" = true ]
 }

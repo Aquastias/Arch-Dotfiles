@@ -12,8 +12,8 @@ local function fail(id, m)
   emit("FAIL", id, (tostring(m or "")):gsub("\n", " "))
 end
 local function skip(id, m) emit("SKIP", id, m) end
--- audit.sh sets FA_HOST_CORE=0 on a host not inheriting Host Core packages
-local host_core = os.getenv("FA_HOST_CORE") ~= "0"
+-- audit.sh sets FA_FLEET=0 on a host that does not fold the Fleet Layer
+local fleet = os.getenv("FA_FLEET") ~= "0"
 
 -- capture error notifications raised while loading/probing
 local errors = {}
@@ -93,10 +93,10 @@ if not ok_reg then fail("nvim-registry", langs) else
     if ok then pass("nvim-ts-" .. p, "parser loads")
     else fail("nvim-ts-" .. p, "parser missing") end
   end
-  -- The toolchain is Host Core (ADR 0135): a host that does not inherit it
-  -- (packages.inherit: false) has none of it by design (Probe Gate).
-  if not host_core then
-    skip("nvim-toolchain", "Host Core not inherited (packages.inherit false)")
+  -- The toolchain is the Fleet Layer's (ADR 0135, ADR 0157): a host that does
+  -- not fold it has none of it by design (Probe Gate).
+  if not fleet then
+    skip("nvim-toolchain", "not a fleet host (no Fleet Layer toolchain)")
   else
   for _, s in ipairs(langs.servers()) do
     local cfg = vim.lsp.config[s]
@@ -183,7 +183,7 @@ if ok_h then
         hl = hl or msg:find(p, 1, true) ~= nil
       end
       if hl then skip("nvim-health", "headless only: " .. msg)
-      elseif not host_core then skip("nvim-health", "no Host Core: " .. msg)
+      elseif not fleet then skip("nvim-health", "no Fleet Layer: " .. msg)
       else fail("nvim-health", msg) end
     end
   end

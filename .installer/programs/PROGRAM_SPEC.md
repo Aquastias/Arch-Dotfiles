@@ -331,8 +331,8 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
   `feature_audit_no_stderr <cmd…>` (`feature_audit_no_stderr_but <ere> <cmd…>` tolerates one
   known-benign line), and the Probe Gate: `feature_audit_gate <id> <reason> <cmd…>`
   (SKIP with a reason when the variant lacks what the check needs) with
-  `feature_audit_stock` / `feature_audit_curated` / `feature_audit_has_shell` / `feature_audit_host_core` (Host Core
-  packages inherited). A program the variant does not
+  `feature_audit_stock` / `feature_audit_curated` / `feature_audit_has_shell` / `feature_audit_fleet` (folds the
+  Fleet Layer, [ADR 0157]). A program the variant does not
   select is skipped by the runner before its probe runs.
 - **Env:** `FA_USER FA_HOME FA_IS_ROOT FA_ONLINE FA_PHASE FA_SESSION`
   (`niri|Hyprland|kwin_wayland|none`) `FA_DIR` (this probe's staged dir)
@@ -384,3 +384,4 @@ Wiki page. Do not invent steps not mentioned on the Wiki.
 [ADR 0115]: ../../docs/adr/0115-program-conflicts-mutual-exclusion.md
 [ADR 0148]: ../../docs/adr/0148-vscodium-opt-in-parity-twin-of-neovim-config.md
 [ADR 0152]: ../../docs/adr/0152-feature-audit-max-feature-variants-co-located-probes.md
+[ADR 0157]: ../../docs/adr/0157-neutral-core-personal-software-in-fleet-layer.md

@@ -12,9 +12,9 @@ export TERM=xterm-256color
 # with no display (a session-less variant), Qt children of :checkhealth
 # (snacks probes kioclient for trash) would abort: give them offscreen
 [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] || export QT_QPA_PLATFORM=offscreen
-# probe.lua SKIPs the Host Core toolchain where it is not inherited
-if feature_audit_host_core; then export FA_HOST_CORE=1
-else export FA_HOST_CORE=0; fi
+# probe.lua SKIPs the Fleet Layer toolchain on a host that does not fold it
+if feature_audit_fleet; then export FA_FLEET=1
+else export FA_FLEET=0; fi
 fx="$FA_DIR/audit-fixtures"
 o="$(mktemp)" live="$(mktemp)"
 # Run the lua after VimEnter, as a user's keypress would be: -c runs before
@@ -55,11 +55,11 @@ while IFS=$'\x1f' read -r key mode effect arg needs; do
           continue ;;
     unverifiable) feature_audit_skip "$id" "unverifiable: $arg"; continue ;;
   esac
-  # an LSP bind needs a server, a host-core one a Host Core tool (rg…):
-  # neither is on a host not inheriting Host Core (Probe Gate)
-  if [[ "$needs" == *lsp* || "$needs" == *host-core* ]] \
-     && [[ "$FA_HOST_CORE" == 0 ]]; then
-    feature_audit_skip "$id" "needs $needs: Host Core not inherited"; continue
+  # an LSP bind needs a server, a fleet one a Fleet Layer tool (rg…): neither
+  # is on a host that does not fold the Fleet Layer (Probe Gate)
+  if [[ "$needs" == *lsp* || "$needs" == *fleet* ]] \
+     && [[ "$FA_FLEET" == 0 ]]; then
+    feature_audit_skip "$id" "needs $needs: not a fleet host"; continue
   fi
   : > "$o"
   FA_KEY="$key" FA_MODE="$mode" FA_EFFECT="$effect" FA_ARG="$arg" \
