@@ -1,7 +1,8 @@
 # Stock (pure) environment variants — bare KDE / Hyprland / niri
 
 ---
-Status: accepted. Adds `environment.stock` (bool, default `false`). Generalises
+Status: accepted. Adds `environment.stock` (bool, default `false` — `true` since
+[ADR 0157], which also gives the pure profiles a neutral user). Generalises
 [ADR 0097]'s `wayland_shell: none` ("truly bare compositor, seeding nothing") to
 a single cross-desktop lever and extends it to KDE, which had no bare mode.
 Threaded to the chroot like `ENVIRONMENT_WAYLAND_SHELL` ([ADR 0090]). Committed
@@ -82,3 +83,4 @@ daemons are **not** DE config and stay on their own toggles: bluetooth
 [ADR 0088]: 0088-kde-adapter-seeds-de-defaults.md
 [ADR 0090]: 0090-niri-adapter-with-noctalia-shell-preset.md
 [ADR 0097]: 0097-noctalia-as-shared-niri-hyprland-shell.md
+[ADR 0157]: 0157-neutral-core-personal-software-in-fleet-layer.md

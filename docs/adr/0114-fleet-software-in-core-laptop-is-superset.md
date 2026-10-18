@@ -1,8 +1,10 @@
 # Fleet software lives in Host Core; laptop is a superset, not a subset
 
 ---
-Status: accepted. **Supersedes [ADR 0056]'s framing** ("`laptop` is a strict
-*subset* of `desktop`"). The relationship is reversed and, in practice,
+Status: accepted; where the software lives is partly superseded by
+[ADR 0157] (it moved to the Fleet Layer). **Supersedes [ADR 0056]'s framing**
+("`laptop` is a strict *subset* of `desktop`"). The relationship is reversed
+and, in practice,
 collapsed: desktop and laptop run the **same** software, so every app lives in
 Host Core and both host profiles carry **no packages block**. Also re-triages
 the user layer (User Core vs `users/aquastias`) and drops a legacy `grub`
@@ -80,3 +82,4 @@ user profile now matters):
 [ADR 0056]: 0056-host-core-carries-packages.md
 [ADR 0065]: 0065-program-requires-dependency-ordering.md
 [ADR 0086]: 0086-menu-owned-programs-and-software-area.md
+[ADR 0157]: 0157-neutral-core-personal-software-in-fleet-layer.md

@@ -1,13 +1,14 @@
 // Host Profile for `laptop` (chronos) — the unified, self-contained profile
-// (ADR 0036). Resolved over hosts/core/profile.jsonc. One file carries the
+// (ADR 0036). Resolved over hosts/core then the Fleet Layer
+// (hosts/fleet/profile.jsonc, ADR 0157). One file carries the
 // hostname, core machine defaults, and users, declares the kde+niri+hyprland
 // desktop, and a single-disk skeleton (one operator-picked disk → ESP + rpool
 // + dpool).
 //
-// **No packages block.** laptop is a strict subset of desktop, so everything
-// it wants is in Host Core (ADR 0056). That is the confirmation two layers fit
-// this fleet. To drop something core declares, add `packages.exclude`; to add
-// something, declare the category here and it concatenates.
+// **No packages block.** desktop and laptop run the same software, so every
+// app lives in the Fleet Layer (ADR 0114, ADR 0157). To drop something it
+// declares, add `packages.exclude`; to add something, declare the category
+// here and it concatenates.
 //
 // Encrypted, SSH-enabled ZFS (persistent root — impermanence disabled).
 {

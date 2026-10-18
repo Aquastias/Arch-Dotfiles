@@ -90,14 +90,15 @@ if [[ "$do_shell" == "true" ]]; then
 
   # The curated look's shell extras (ADR 0157) — the weather widget the seeded
   # panel needs and the Papirus icons — stay out of a stock install.
-  curated_shell_pkgs=()
-  _curated_json="$(jsonc "$KDE_JSON" | jq -c '.curated_shell_packages // {}')"
-  if [[ "$_curated_json" != "{}" ]]; then
-    mapfile -t curated_shell_pkgs < <(categorized_list_parse "$_curated_json" \
-      bool curated_shell_packages)
+  curated_shell_packages=()
+  _curated_shell_json="$(jsonc "$KDE_JSON" \
+    | jq -c '.curated_shell_packages // {}')"
+  if [[ "$_curated_shell_json" != "{}" ]]; then
+    mapfile -t curated_shell_packages < <(categorized_list_parse \
+      "$_curated_shell_json" bool curated_shell_packages)
   fi
-  if [[ ${#curated_shell_pkgs[@]} -gt 0 ]]; then
-    pacman -S --noconfirm --needed "${curated_shell_pkgs[@]}"
+  if [[ ${#curated_shell_packages[@]} -gt 0 ]]; then
+    pacman -S --noconfirm --needed "${curated_shell_packages[@]}"
   fi
 
   # ── CAPTURED PLASMA SETTINGS, seeded so a fresh login is ready ────────────

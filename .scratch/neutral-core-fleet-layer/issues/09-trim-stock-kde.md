@@ -10,7 +10,7 @@ PRD, [[ADR 0112]], [[ADR 0157]].
 
 **Status:** done
 
-- [x] `explain-packages kde-pure` lists none of papirus, breeze-gtk, the
-      weather widget
+- [x] `explain-packages kde-pure` lists none of papirus, the weather widget
+      (breeze-gtk stays: a hard dependency of plasma-meta)
 - [x] Curated KDE (e.g. `desktop`, `arch-kde`) still includes them
 - [x] Resolver report and adapter install agree (existing parity test green)

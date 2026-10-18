@@ -1,5 +1,6 @@
 // Host Profile for `desktop` (eterniox) — the unified, self-contained
-// profile (ADR 0036). Merged under hosts/core/profile.jsonc.
+// profile (ADR 0036). Merged under hosts/core then the Fleet Layer
+// (hosts/fleet/profile.jsonc, ADR 0157).
 //
 // Encrypted, impermanent, SSH-enabled ZFS. Persists /home + /var/lib/docker
 // + /var/lib/libvirt over the impermanence base set.
@@ -9,9 +10,9 @@
 //   os_pool  rpool  mirror (2x NVMe, ashift 12)
 //   dpool    raidz1 (3x SSD, ashift 12) -> /data, 1-disk fault tolerant
 //
-// **No packages block.** desktop and laptop run the same software, so every app
-// lives in Host Core; both machines are core + per-machine hardware/hostname
-// (ADR 0114, superseding ADR 0056's laptop-subset framing).
+// **No packages block.** desktop and laptop run the same software, so every
+// app lives in the Fleet Layer; both machines are Fleet Layer + per-machine
+// hardware/hostname (ADR 0114, ADR 0157).
 {
   "system": {
     "hostname": "eterniox",

@@ -23,7 +23,8 @@
 // paru pass).
 {
   // The curated environment (ADR 0157): KDE apps + captured settings, the
-  // Noctalia shell and theme. The schema default is stock, so the fleet opts in.
+  // Noctalia shell and theme. The schema default is stock, so the fleet opts
+  // in.
   "environment": {
     "stock": false
   },
@@ -37,7 +38,9 @@
       "ttf-jetbrains-mono-nerd", "ttf-iosevka-nerd", "ttf-firacode-nerd"
     ],
     // The operator's mirror countries; the neutral default ranks worldwide.
-    "mirror_countries": ["Germany", "Switzerland", "Sweden", "France", "Romania"]
+    "mirror_countries": [
+      "Germany", "Switzerland", "Sweden", "France", "Romania"
+    ]
   },
   "host_programs": [
     "ccache",

@@ -62,7 +62,7 @@ explain_usage() {
                    "${INSTALLER_DIR}"/hosts/vm/*/; do
     [[ -f "${directory}profile.jsonc" ]] || continue
     name="$(base_name "$directory")"
-    [[ "$name" == core || "$name" == fleet ]] && continue
+    profile_loader_is_layer hosts "$name" && continue
     printf '  - %s\n' "$name"
   done
   return 0

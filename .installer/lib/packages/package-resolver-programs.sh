@@ -3,7 +3,8 @@
 # lib/packages/package-resolver-programs.sh — Package Resolver program sets
 # =============================================================================
 # The Host Programs and each declared user's User Programs (ADR 0157), so the
-# report covers the whole install and not only the package slots.
+# report covers the whole install and not only the package slots. Programs are
+# reported by name: a program's install script owns the packages it pulls.
 #
 # Used by: lib/packages/package-resolver.sh (sources it; uses its
 # _package_resolver_emit / _package_resolver_jq / _package_resolver_services).

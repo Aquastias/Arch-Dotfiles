@@ -200,7 +200,6 @@ guided_build() {
   _GUIDED_DISK=""
   _guided_shell_set_identity
   _guided_shell_users_reset
-  _guided_shell_seed_primary_user
 
   if ((_GUIDED_REPLAY)); then
     _guided_shell_replay_edits

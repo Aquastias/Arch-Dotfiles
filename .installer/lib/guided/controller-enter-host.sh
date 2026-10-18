@@ -112,7 +112,8 @@ _controller_session_unstash() {
 _controller_session_reset() {
   local baseline="$1"
   _controller_session_stash
-  [[ -n "${GUIDED_BASELINE_FILE:-}" ]] && config_store_write_baseline "$baseline"
+  [[ -n "${GUIDED_BASELINE_FILE:-}" ]] \
+    && config_store_write_baseline "$baseline"
   if [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]]; then
     local history; history="$(<"$GUIDED_HIST_FILE")"
     history="$(history_commit "$history" '{}')"
@@ -211,7 +212,8 @@ _controller_enter_new_host() {
   local line="$1" navigation; navigation="$(_controller_navigation)"
   case "$line" in
   "Yes"*)
-    _controller_session_reset "$(config_state_seed_defaults "$(config_state_new)")"
+    _controller_session_reset \
+      "$(config_state_seed_defaults "$(config_state_new)")"
     _controller_write_navigation '{"screen":"top"}'
     echo render ;;
   *)

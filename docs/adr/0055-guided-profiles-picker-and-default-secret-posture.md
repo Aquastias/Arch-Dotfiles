@@ -1,7 +1,7 @@
 # Guided in-menu Profiles picker + default-`12345` secret posture
 
 ---
-Status: accepted
+Status: accepted; the personal launch presets are superseded by [ADR 0157].
 ---
 
 The Guided Installer gains an in-menu **Profiles** picker that **seeds** the menu
@@ -127,3 +127,4 @@ secret-free-state invariant of
 [ADR 0039]: 0039-guided-installer-profile-optional-front-end.md
 [ADR 0042]: 0042-guided-persistent-fzf-controller.md
 [ADR 0051]: 0051-guided-inline-masked-credentials-and-user-editor.md
+[ADR 0157]: 0157-neutral-core-personal-software-in-fleet-layer.md

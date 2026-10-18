@@ -29,6 +29,8 @@
       "print-manager": true,
       "xdg-utils": true
     },
+    // breeze-gtk + kde-gtk-config are hard dependencies of plasma-meta, so they
+    // stay in the stock set (listed to document intent, a --needed no-op).
     "theming": {
       "breeze-gtk": true,
       "kde-gtk-config": true

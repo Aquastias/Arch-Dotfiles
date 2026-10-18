@@ -55,6 +55,10 @@ declare -F mirrors_inject >/dev/null 2>&1 \
 declare -F bootloader_is_valid >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloader.sh"
 
+# The Host Profiles that fold the Fleet Layer (ADR 0157): the operator's own
+# machines. Every other profile resolves over the neutral Host Core alone.
+_PROFILE_LOADER_FLEET_HOSTS=(desktop laptop)
+
 # profile_loader_load <name> — effective host config on stdout.
 # profile_loader_load_user <name> — effective user config on stdout (symmetric).
 # Both merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc.
@@ -82,7 +86,7 @@ _profile_loader_load() {
     return 2
   fi
   if profile_loader_is_layer "$kind" "$name"; then
-    echo "profile: '${name}' is a reserved name (a layer) and cannot be loaded" >&2
+    echo "profile: '${name}' is a reserved name (a layer)" >&2
     return 3
   fi
 
@@ -137,10 +141,6 @@ _profile_loader_fleet_layer() {
     return 2
   }
 }
-
-# The Host Profiles that fold the Fleet Layer (ADR 0157): the operator's own
-# machines. Every other profile resolves over the neutral Host Core alone.
-_PROFILE_LOADER_FLEET_HOSTS=(desktop laptop)
 
 # _profile_loader_folds_fleet <name> — rc 0 when Host Profile <name> folds the
 # Fleet Layer.

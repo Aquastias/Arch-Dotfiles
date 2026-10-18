@@ -36,8 +36,9 @@ The committed `minimal` Host Profile (`.installer/hosts/minimal/`) — the
 desktop-less,
 bare base install, archinstall's "minimal" role. Selects no desktop
 (`environment.desktop: []`, so the display manager resolves to `none` and no DE
-adapter runs — [ADR 0005]) and opts out of Host Core's workstation Host Package
-List (`packages.inherit: false` — [ADR 0056]), leaving the installer's own base
+adapter runs — [ADR 0005]) and resolves over the neutral Host Core alone (it never
+folds the [[Fleet Layer]]; `packages.inherit: false` — [ADR 0056] — stays as an
+explicit guarantee), leaving the installer's own base
 on a TTY. Not a new capability: no-desktop was always representable; this is the
 canonical example of it. Guided reaches the same state from scratch (Host Core
 declares no desktop) or by seeding this profile. `packages.inherit: false` is
@@ -389,9 +390,11 @@ in.
 `.installer/lib/packages/package-resolver.sh`. The pure module answering "what
 actually lands on this machine?" — an Effective Config in, every package out,
 each tagged with its **source** and **layer**. The layer is provenance:
-`derived` for a computed set, or `core` vs `host` for an authored one, so the
-report answers "do I edit Host Core or this host profile?". Covers the authored
-slots, the [[Base Package List]], and every derived set: kernel and headers,
+`derived` for a computed set, or `fleet` / `core` / `host` for an authored
+one, so the report answers "which layer do I edit?". Covers the authored slots,
+the Host Programs and each user's User Programs (reported by program name,
+[ADR 0157]), the [[Base Package List]], and every derived set: kernel and
+headers,
 bootloader, GPU drivers, audio, filesystem tools, ZFS/LUKS userland, login
 shells, the Plasma shell, KDE applications (+ apps_extra, plugins, AUR), the
 niri shell, the Noctalia preset, the display manager (`sddm` / `greetd` /
@@ -582,9 +585,10 @@ completing [ADR 0084]'s deferral). Usually declared in a Host Profile or Host
 Core. Marked `"kind": "host"` in its program config (the `"system": true` bool
 became a `kind` enum, [ADR 0085]). Only official repo packages (no AUR) should
 be Host Programs. The registry now marks **twelve** programs `kind: host`,
-reaching the install four ways. **Authored**: Host Core declares five
-free-standing base host programs (`ccache`, `fwupd`, `gamemode`, `lact`,
-`smartmontools` — [ADR 0089]), and a Host Profile declares `grub`.
+reaching the install four ways. **Authored**: the [[Fleet Layer]] declares
+six free-standing base host programs (`ccache`, `fwupd`, `gamemode`, `lact`,
+`smartmontools`, `nix` — [ADR 0089], moved out of Host Core by [ADR 0157]),
+and a Host Profile declares `grub`.
 **Control-derived**, injected into `host_programs` at assembly and never in a
 committed list: `cups`/`bluetooth` by a Daemons toggle,
 `power-profiles-daemon`|`tuned` by the Power enum, `reflector` by the Mirrors &
@@ -614,8 +618,8 @@ Generalizes the `*_owned_programs` filter that already delisted `cups` /
 section, [ADR 0089] — its sole home, like cups' is Printing). The unconditional
 base host programs promoted under [ADR 0089]'s rule (`ccache`, `fwupd`,
 `gamemode`, `lact`, `smartmontools`) are the exception — free-standing `kind:
-host` programs owned by no control; they install via Host Core's `host_programs`
-and are dropped from a bare install by `inherit: false`. Consequence: no `kind:
+host` programs owned by no control; they install via the [[Fleet Layer]]'s
+`host_programs`, so only the fleet hosts get them ([ADR 0157]). Consequence: no `kind:
 host` program is operator-pickable — the Guided Installer's **Packages**
 category lists no Programs at all (its `host programs` row dropped; the name
 stays `Packages` — no longer a misnomer, and avoids echoing the `SOFTWARE`
@@ -1485,7 +1489,7 @@ Marketplace patch. **Parity** with the Neovim
 Config means *feature* parity (same languages, formatters, linters, debuggers)
 plus *key* parity via VSCodeVim wherever a VSCodium command backs the nvim
 mapping; nvim-only features with no honest equivalent are listed, not faked.
-Extensions drive the **same system-package toolchain** (Host Core
+Extensions drive the **same system-package toolchain** (the [[Fleet Layer]]'s
 `language-servers`/`dev`) wherever they accept a binary path; bundled servers
 are the listed exception. Settings/keybindings live in the program's `home/`
 (Config Apply Pass, user + `/etc/skel`); extensions install per owning user.
@@ -1706,8 +1710,8 @@ what "base" is. Config-*conditional* additions (selected kernel + headers, CPU
 microcode, `zfs-dkms`/`zfs-utils`, `cryptsetup`, `xfsprogs`/`btrfs-progs`, GPU +
 audio) are **not** part of this set — they come from their own Package
 Derivation Maps. What the **installer itself** needs, as distinct from the
-[[Host Package List]] in Host Core, which is what this *fleet* wants — the two
-are different layers, not competing ones. A Host Package List is deduplicated
+[[Host Package List]] in the [[Fleet Layer]], which is what this *fleet* wants —
+the two are different layers, not competing ones. A Host Package List is deduplicated
 against it at install time. `stow` belongs here so the operator's day-2
 `stow-configs.sh` works on every host (the installer itself never stows since
 [ADR 0095]; it was added when a Runner stow step still existed and VM fixtures
@@ -1745,8 +1749,9 @@ kebab-case category keys mapped to string arrays — flattened to a sorted-uniqu
 list by the Categorized List Parser at install time. Categories are cosmetic;
 renaming `media` to `multimedia` does not change what installs. Shape,
 leaf-type, or category-name violations abort at config-load with the offending
-path. Declared in **Host Core** for what every machine shares and in a Host
-Profile for that machine's delta ([ADR 0056]). Deduplicated against base
+path. Declared in the **[[Fleet Layer]]** for what the fleet machines share and
+in a Host Profile for that machine's delta ([ADR 0056], [ADR 0157]); Host Core
+declares none. Deduplicated against base
 packages by the installer. AUR packages are installed once for the system via
 the first declared user's paru instance before any user programs run.
 
@@ -2378,8 +2383,9 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 - "base packages" vs "core packages" — **re-resolved ([ADR 0056])**: there are
   now two shared bases and they are different layers, not competitors. The
   **Base Package List** (the pure `lib/packages/base.sh:base_packages` map) is
-  what the *installer* needs on any host it builds. **Host Core**'s `packages`
-  object is what this *fleet* wants on every real machine. [ADR 0007]'s rule
+  what the *installer* needs on any host it builds. The **[[Fleet Layer]]**'s
+  `packages` object is what this *fleet* wants on its machines ([ADR 0157]
+  moved it out of Host Core). [ADR 0007]'s rule
   that Host Core carries no package list is **superseded**: its
   "machine-specific lists" premise failed against the actual fleet (desktop and
   laptop run the same software — [ADR 0056], then [ADR 0114] folding *all* fleet

@@ -50,7 +50,6 @@ guided_pick() {
   _GUIDED_STATE="$(config_state_new)"
   _guided_shell_set_identity
   _guided_shell_users_reset
-  _guided_shell_seed_primary_user
   _guided_shell_replay_edits
   skeleton_flatten_devices "$(_guided_shell_effective)"
 }
@@ -101,7 +100,6 @@ guided_blank() {
   _GUIDED_STATE="$(config_state_new)"
   _guided_shell_set_identity
   _guided_shell_users_reset
-  _guided_shell_seed_primary_user
   _guided_shell_replay_edits
   skeleton_flatten_devices "$(_guided_shell_effective)"
 }
