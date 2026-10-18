@@ -9,9 +9,9 @@
 // no VM can prove (feature or program:<name>) — each needs a reason and
 // maintainer review.
 //
-// Real hosts: desktop and laptop install as-is; `core` is Host Core, a
-// reserved layer every host merges over (never loadable alone), so every
-// variant covers it. The guided variant runs the disposable guided test flow
+// Real hosts: desktop and laptop install as-is; `core` (Host Core) and `fleet`
+// (the Fleet Layer) are reserved layers, never loadable alone: every variant
+// covers core, and every fleet-host variant covers fleet. The guided variant runs the disposable guided test flow
 // (install + boot-verify only: not agent-controllable, so no later phases).
 // Variants beyond the bootloader/firewall/pure/real-host set exist because
 // the feature-coverage check derives every menu value that needs a VM.

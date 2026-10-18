@@ -11,8 +11,9 @@
 # here (ADR 0134): install.sh installs the package only. This script still seeds
 # the Noctalia-generated theme file (Catppuccin Mocha Sapphire default, ADR
 # 0109) — seed-only/gitignored, kitty.conf includes it, so first boot and KDE
-# (where Noctalia never runs the template) have color. The kitty binary is
-# owned elsewhere (core packages.shell + the Noctalia preset), not here.
+# (where Noctalia never runs the template) have color. The program owns the
+# kitty package (below); the Noctalia preset also ensures it on compositor
+# boxes.
 # =============================================================================
 
 set -Eeuo pipefail

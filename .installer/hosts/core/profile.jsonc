@@ -2,7 +2,7 @@
 // resolved over (ADR 0036, ADR 0057). It is also the Guided Installer's blank
 // baseline, so it declares nothing personal (ADR 0157): no packages, no Host
 // Programs. The operator's software lives in the Fleet Layer
-// (hosts/fleet/profile.jsonc), which only `desktop` and `laptop` fold.
+// (hosts/fleet/profile.jsonc), which only fleet hosts (`"fleet": true`) fold.
 //
 // What every install gets regardless lives with the installer, not here: the
 // Base Package List, the derived sets (kernel, bootloader, filesystem, desktop,

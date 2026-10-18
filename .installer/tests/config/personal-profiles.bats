@@ -40,9 +40,10 @@ persists() {  # <profile-name>
   flags_on desktop
 }
 
-# Discord (extra repo) is a fleet app declared in Host Core, so it resolves onto
-# both real machines (desktop, laptop) with no per-profile packages block.
-@test "discord (from core) resolves onto desktop and laptop" {
+# Discord (extra repo) is a fleet app declared in the Fleet Layer, so it
+# resolves onto both real machines (desktop, laptop) with no per-profile
+# packages block.
+@test "discord (from the Fleet Layer) resolves onto desktop and laptop" {
   profile_loader_load desktop | jq -e '[.packages.repo[]?[]?] | index("discord")'
   profile_loader_load laptop  | jq -e '[.packages.repo[]?[]?] | index("discord")'
 }

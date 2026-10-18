@@ -3,14 +3,14 @@
 // kind=user → installed by the profile runner inside the chroot as the owning
 // user via paru. The hand-rolled Neovim config (home/) is applied by the
 // Runner's Config Apply pass (ADR 0134); install.sh installs the editor
-// toolchain only. The neovim binary itself stays in Host Core packages.editors
-// (this program's name "nvim" does not collide with the "neovim" package, so
-// exclusivity ADR 0115 does not force it out). The LSP/formatter toolchain is
-// declared in Host Core language-servers as bare packages (editor-agnostic, no
-// mason — ADR 0135); this program stages the config and installs only the
-// best-effort Swift toolchain (AUR swift-bin, guarded). Static default look is
-// Catppuccin Mocha with a sapphire accent, follow_noctalia off by default
-// (ADR 0136).
+// toolchain only. The neovim binary itself stays in the Fleet Layer's
+// packages.editors (this program's name "nvim" does not collide with the
+// "neovim" package, so exclusivity ADR 0115 does not force it out). The
+// LSP/formatter toolchain is declared in the Fleet Layer's language-servers as
+// bare packages (editor-agnostic, no mason — ADR 0135); this program stages
+// the config and installs only the best-effort Swift toolchain (AUR swift-bin,
+// guarded). Static default look is Catppuccin Mocha with a sapphire accent,
+// follow_noctalia off by default (ADR 0136).
 
 {
   "name": "nvim",

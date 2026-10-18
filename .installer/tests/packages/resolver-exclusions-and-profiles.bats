@@ -87,10 +87,10 @@ load resolver-helpers
 # The curation's headline number: desktop adds exactly 25 packages over
 # laptop, and laptop declares none of its own. (Was 31 before the dev
 # toolchain moved to Host Core — both hosts are dev boxes.)
-# desktop and laptop run identical software — every app lives in Host Core, so
-# both profiles resolve to the same package set (ADR 0114, superseding ADR 0056's
-# laptop-subset framing). They differ only in hardware/hostname/impermanence.
-@test "desktop and laptop resolve to the same package set (all apps in core)" {
+# desktop and laptop run identical software — every app lives in the Fleet
+# Layer, so both profiles resolve to the same package set (ADR 0114, ADR 0157).
+# They differ only in hardware/hostname/impermanence.
+@test "desktop and laptop resolve to the same package set (all apps in fleet)" {
   source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   local desktop_packages laptop_packages
   desktop_packages="$(package_resolver_resolve "$(profile_loader_load desktop)" | awk -F'\t' '{ print $3 }' | sort -u)"

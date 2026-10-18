@@ -6,10 +6,10 @@
 # user, with INSTALLER_DIR/PROGRAMS/SHELL_COMMONS/AUR_HELPER pre-exported.
 #
 # The Neovim config (home/) is applied by the Runner's Config Apply pass, not
-# here (ADR 0134). The LSP/formatter toolchain is declared in Host Core
+# here (ADR 0134). The LSP/formatter toolchain is declared in the Fleet Layer's
 # language-servers as bare packages (editor-agnostic, no mason — ADR 0135); a
-# host not inheriting Host Core has none of it, by design. This program
-# installs the editor and what its plugin restore builds with, plus ONE
+# host that does not fold the Fleet Layer has none of it, by design. This
+# program installs the editor and what its plugin restore builds with, plus ONE
 # best-effort exception: Swift's sourcekit-lsp, which ships
 # with the AUR swift-bin toolchain (AUR-only, heavy). It is attempted but never
 # fails the install — a missing Swift is an optional gap, not a broken editor
@@ -26,8 +26,8 @@ SELF="${PROGRAMS}/dev/nvim"
 # iconv extension, which Arch ships (iconv.so) but leaves DISABLED — so phpactor
 # can't be a bare package (its build aborts: "iconv extension is not installed",
 # VM-verified). Enable iconv, then install phpactor here in the user-program
-# phase. php is installed here too: a host with `packages.inherit: false`
-# (e.g. the arch-kde VM fixture) never gets Host Core's dev php.
+# phase. php is installed here too: a host that does not fold the Fleet Layer
+# (e.g. the arch-kde VM fixture) never gets its dev php.
 print_status info "Enabling php iconv + installing phpactor (PHP LSP)..."
 ${AUR_HELPER} -S --noconfirm --needed php
 echo 'extension=iconv' | sudo tee /etc/php/conf.d/iconv.ini >/dev/null
@@ -36,15 +36,15 @@ ${AUR_HELPER} -S --noconfirm --needed phpactor
 ${AUR_HELPER} -S --noconfirm --needed php-codesniffer
 
 # The editor and what its plugin restore builds with (git for lazy clones,
-# tree-sitter-cli for parsers and the tree-sitter-http rock): Host Core places
-# them, but a `packages.inherit: false` host would reach the restore below
-# without them.
+# tree-sitter-cli for parsers and the tree-sitter-http rock): the Fleet Layer
+# places them, but a non-fleet host would reach the restore below without
+# them.
 print_status info "Installing neovim + git + tree-sitter-cli..."
 ${AUR_HELPER} -S --noconfirm --needed neovim git tree-sitter-cli
 
 # lazy.nvim installs rest.nvim's rock deps with system luarocks against Lua 5.1
-# (hererocks is off: Python bootstrap). Installed here, not Host Core, so
-# `packages.inherit: false` hosts get them too (ADR 0150).
+# (hererocks is off: Python bootstrap). Installed here, not in the Fleet Layer,
+# so non-fleet hosts get them too (ADR 0150).
 print_status info "Installing luarocks + lua51 (rest.nvim rocks) + jq..."
 ${AUR_HELPER} -S --noconfirm --needed luarocks lua51 jq
 
@@ -92,4 +92,4 @@ sudo -H env XDG_CONFIG_HOME="$_cfg" nvim "${_restore[@]}" \
 sudo rm -rf "$_cfg"
 
 print_status success "Neovim staged." \
-  "Config applied by the Runner pass; LSP toolchain from Host Core."
+  "Config applied by the Runner pass; LSP toolchain from the Fleet Layer."

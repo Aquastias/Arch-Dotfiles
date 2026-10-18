@@ -1,6 +1,6 @@
 -- LSP (ADR 0135). nvim-lspconfig ships the server configs; we turn them on with
 -- native vim.lsp.enable (0.11+). Every server installs as a system package
--- (Host Core language-servers) — no mason. ts_ls covers js/ts/jsx/tsx and
+-- (Fleet Layer language-servers) — no mason. ts_ls covers js/ts/jsx/tsx and
 -- solid; html/cssls/jsonls/eslint come from vscode-langservers-extracted.
 -- Swift (sourcekit) is best-effort — enabled only when its binary is present.
 return {

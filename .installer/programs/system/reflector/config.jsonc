@@ -4,8 +4,9 @@
 // pacman. install.sh installs reflector; the runner enables reflector.timer
 // (weekly mirror refresh) from system_services. The shipped
 // /etc/xdg/reflector/reflector.conf default is left as-is; enabling the service
-// too would be redundant (Arch Wiki: Reflector). Declared unconditionally in
-// Host Core's host_programs (ADR 0089).
+// too would be redundant (Arch Wiki: Reflector). Injected into every
+// install's host_programs by the Mirrors section (ADR 0089), not declared in
+// any layer.
 
 {
   "name": "reflector",

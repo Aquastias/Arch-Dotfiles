@@ -1,6 +1,7 @@
 // Fleet Layer — the operator's personal software image (ADR 0157), folded
-// Host Core → Fleet Layer → host by `desktop` and `laptop` ONLY (the Profile
-// Loader's fleet-host list). Not a machine: hidden from the Profiles picker and
+// Host Core → Fleet Layer → host ONLY by fleet hosts — profiles declaring
+// `"fleet": true` (desktop, laptop and the VM fixtures modelling them). Not a
+// machine: hidden from the Profiles picker and
 // rejected by `install.sh --profile fleet`.
 //
 // Both machines run the same software (ADR 0114: laptop is a superset, so

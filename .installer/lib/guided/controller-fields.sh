@@ -387,7 +387,7 @@ _controller_curated_persist_count() {
 # row needs kind host, the User Editor's row needs kind user. [[Menu-Owned
 # Program]]s are filtered from BOTH (ADR 0086): a program a dedicated control
 # governs has that control as its sole home. Unconditional base host programs
-# (ADR 0089) install via Host Core's host_programs and are never picker-chosen
+# (ADR 0089) install via the Fleet Layer's host_programs, never picker-chosen
 # either — the host row itself was dropped (ADR 0086), so
 # _controller_host_program_names is not reached. (`|| :` keeps an empty result a
 # success, not grep's rc 1.)

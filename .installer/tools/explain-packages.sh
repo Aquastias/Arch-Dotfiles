@@ -68,10 +68,11 @@ explain_usage() {
   return 0
 }
 
-# explain_load_profile <profile> — the profile resolved over Host Core
-# through the Layer Resolver — the same path install.sh --profile takes, so
-# the report matches the install. A profile with no file resolves Host
-# Core alone (the loader's status 1), reported on stderr.
+# explain_load_profile <profile> — the profile resolved over its layers (Host
+# Core, plus the Fleet Layer for a fleet host) through the Layer Resolver —
+# the same path install.sh --profile takes, so the report matches the install.
+# A profile with no file resolves Host Core alone (the loader's status 1),
+# reported on stderr.
 explain_load_profile() {
   local profile="$1" effective status=0
   effective="$(profile_loader_load "$profile" 2>/dev/null)" || status=$?

@@ -33,4 +33,4 @@ if ((${#failed[@]})); then
 fi
 
 print_status success "VSCodium staged." \
-  "Config applied by the Runner pass; toolchain from Host Core."
+  "Config applied by the Runner pass; toolchain from the Fleet Layer."

@@ -176,7 +176,7 @@ JSON
 @test "explain-packages: reports Host Programs and User Programs" {
   run bash "$TOOL" desktop --flat
   [ "$status" -eq 0 ]
-  echo "$output" | grep -qx "lact"     # a Host Core base Host Program
+  echo "$output" | grep -qx "lact"     # a Fleet Layer base Host Program
   echo "$output" | grep -qx "claude"   # a User Program of aquastias
   echo "$output" | grep -qx "docker"   # a User Program of aquastias
 }

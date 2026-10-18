@@ -3,7 +3,7 @@
 // kind=host → installed by the profile runner inside arch-chroot as root via
 // pacman. install.sh installs ccache and enables the ccache BUILDENV flag in
 // /etc/makepkg.conf so makepkg / paru cache compilations (ADR 0089). Declared
-// unconditionally in Host Core's host_programs.
+// unconditionally in the Fleet Layer's host_programs (ADR 0157).
 
 {
   "name": "ccache",

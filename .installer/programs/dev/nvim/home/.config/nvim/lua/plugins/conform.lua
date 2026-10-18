@@ -3,7 +3,7 @@
 -- nixfmt, phpcbf, xmllint, clang-format; native rustfmt/gofmt/zigfmt.
 -- shfmt/kdlfmt/taplo are manual-only (<leader>cf): on save they'd rewrite the
 -- repo's hand-formatted shell/niri/noctalia files (ADR 0151). Tools install as
--- system packages (Host Core), no mason. Falls back to the LSP formatter.
+-- system packages (the Fleet Layer), no mason. Falls back to the LSP formatter.
 local save_opts = { timeout_ms = 1000, lsp_format = "fallback" }
 
 return {

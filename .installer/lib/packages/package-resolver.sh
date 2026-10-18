@@ -16,9 +16,9 @@
 #     <source>\t<layer>\t<package>
 # where <source> names the mechanism (base, kernel, gpu, kde-apps, …) and
 # <layer> is provenance: `derived` for a computed set, or — for the authored
-# slots — `core` vs `host`, so the report answers "do I edit Host Core or this
-# host profile?". Excluded packages and the sets that cannot be resolved without
-# hardware are reported separately (package_resolver_excluded,
+# slots — `fleet`, `core` or `host`, so the report answers "which layer do I
+# edit?" (ADR 0157). Excluded packages and the sets that cannot be resolved
+# without hardware are reported separately (package_resolver_excluded,
 # package_resolver_unresolved).
 #
 # Consumed by the CLI inspector (tools/explain-packages.sh), the menu's
@@ -233,7 +233,7 @@ package_resolver_resolve() {
 }
 
 # _package_resolver_services <config> — toggle-derived Host Programs, not
-# authored in Host Core: each is reported under its own source via the
+# authored in any layer: each is reported under its own source via the
 # single source of truth the injector shares, so explain-packages and the
 # guided derived section answer "why is this here?". Printing → cups (ADR
 # 0079); Mirrors & Repositories → reflector (ADR 0089); bluetooth (ADR

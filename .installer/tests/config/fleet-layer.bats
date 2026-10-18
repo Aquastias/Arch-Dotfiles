@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # The Fleet Layer (ADR 0157): the operator's personal software, folded
-# Host Core → Fleet Layer → host by `desktop` and `laptop` only. Runs against
-# the REAL tree — the point is what the committed profiles resolve to.
+# Host Core → Fleet Layer → host by fleet hosts (`"fleet": true`) only. Runs
+# against the REAL tree — the point is what the committed profiles resolve to.
 
 setup() {
   export INSTALLER_DIR; INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
@@ -200,10 +200,12 @@ installed_names() {
 }
 
 @test "exactly the declared fleet hosts carry fleet: true" {
-  local hosts
-  hosts="$(grep -l '"fleet": *true' "$INSTALLER_DIR"/hosts/*/profile.jsonc \
-    "$INSTALLER_DIR"/hosts/vm/*/profile.jsonc | awk -F/ '{ print $(NF-1) }' \
-    | sort | awk '{ printf "%s ", $0 }')"
-  [ "$hosts" = "arch-audit arch-combined arch-combined-sops-impermanence \
-arch-hyprland arch-niri desktop laptop " ]
+  local file hosts=""
+  for file in "$INSTALLER_DIR"/hosts/*/profile.jsonc \
+              "$INSTALLER_DIR"/hosts/vm/*/profile.jsonc; do
+    jsonc_strip "$file" | jq -e '.fleet == true' >/dev/null || continue
+    file="${file%/profile.jsonc}"; hosts+="${file##*/} "
+  done
+  [ "$hosts" = "desktop laptop arch-audit arch-combined \
+arch-combined-sops-impermanence arch-hyprland arch-niri " ]
 }

@@ -4,8 +4,9 @@
 // No desktop: `environment.desktop: []` resolves the display manager to `none`,
 // so the Environment Runner dispatches no DE adapter (ADR 0005) — a TTY boot.
 //
-// Bare userland: `packages.inherit: false` opts out of Host Core's workstation
-// Host Package List (ADR 0056) — the installer's own base only, nothing else.
+// Bare userland: not a fleet host, so no Fleet Layer software, and
+// `packages.inherit: false` (ADR 0056) explicitly drops anything Host Core may
+// ever carry — the installer's own base only, nothing else.
 // Minimal end-to-end (ADR 0134): the bare `server` user sets
 // `programs_inherit: false`, so it also carries none of User Core's workstation
 // programs (kitty, yazi, virt-manager, pi, claude, …) — a headless box, not a
