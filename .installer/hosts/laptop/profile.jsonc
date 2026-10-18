@@ -12,6 +12,9 @@
 //
 // Encrypted, SSH-enabled ZFS (persistent root — impermanence disabled).
 {
+  // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
+  "fleet": true,
+
   "system": {
     "hostname": "chronos",
     "locale": "en_US.UTF-8",

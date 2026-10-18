@@ -7,6 +7,9 @@
 // isolates to SOPS / impermanence, not ZFS native crypto (arch-secure covers
 // all three on a mirror).
 {
+  // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
+  "fleet": true,
+
   "system": {
     "locale":   "en_US.UTF-8",
     "keymap":   "us"

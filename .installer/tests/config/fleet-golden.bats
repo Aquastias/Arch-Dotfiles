@@ -24,3 +24,15 @@ GOLDEN_DIR="$BATS_TEST_DIRNAME/../fixtures/golden"
 @test "desktop and laptop install the same package set" {
   diff <(fleet_golden_packages desktop) <(fleet_golden_packages laptop)
 }
+
+# The VM fixtures modelling the operator's machines fold the Fleet Layer too
+# (`"fleet": true`, ADR 0157); captured after restoring them, and checked then
+# to match their pre-split package sets exactly.
+@test "the fleet VM fixtures resolve exactly as their golden snapshots" {
+  local profile
+  for profile in arch-audit arch-combined arch-combined-sops-impermanence \
+                 arch-hyprland arch-niri; do
+    diff <(fleet_golden_snapshot "$profile") "$GOLDEN_DIR/$profile.txt" \
+      || { echo "drift: $profile"; return 1; }
+  done
+}

@@ -5,10 +5,13 @@
 // Theming Bridge isolation (ADR 0104) — KDE seeds Breeze Dark, the shared
 // Noctalia preset seeds the wlroots session, and neither must break the other.
 // display_manager is left to auto-resolve; with kde in the set the box is not
-// KDE-free, so it resolves to sddm (ADR 0091). Inherits Host Core's full
+// KDE-free, so it resolves to sddm (ADR 0091). Folds the Fleet Layer's full
 // userland like arch-niri, on the single-disk skeleton (one operator-picked
 // disk auto-partitioned into ESP + rpool + dpool; no os_pool block needed).
 {
+  // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
+  "fleet": true,
+
   "system": {
     "locale":   "en_US.UTF-8",
     "keymap":   "us"

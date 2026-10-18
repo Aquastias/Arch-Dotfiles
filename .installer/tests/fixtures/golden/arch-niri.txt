@@ -1,0 +1,334 @@
+## schema
+bootloader=systemd-boot
+swap_enabled=true
+zswap_enabled=true
+zswap_compressor=zstd
+zswap_max_pool_percent=20
+esp_size=auto
+root_shell=/bin/bash
+ssh_enabled=false
+printing_enabled=true
+bluetooth_enabled=true
+power_profile=power-profiles-daemon
+impermanence_enabled=false
+impermanence_dataset=rpool/persist
+impermanence_mount=/persist
+age_key_url=
+hostname=
+fullname=Alex
+console_font=default8x16
+desktop=niri
+display_manager=auto
+wayland_shell=noctalia
+dotfiles_repo=
+os_pool_name=rpool
+storage_pool_name=dpool
+storage_mount=/data
+ashift=13
+os_pool_ashift=13
+encryption_enabled=false
+filesystem=zfs
+disk_kind=auto
+pacman_ilovecandy=true
+pacman_color=true
+pacman_verbose_pkg_lists=true
+pacman_disable_download_timeout=false
+pacman_no_progress_bar=false
+pacman_parallel_downloads=5
+swap_size=auto
+stock=false
+gpu=auto
+locales=en_US.UTF-8
+keymaps=us
+mirror_countries=Germany,Switzerland,Sweden,France,Romania
+optional_repos=multilib
+kernels=lts
+## machine
+{
+  "ashift": 13,
+  "data_pools": null,
+  "mode": "single",
+  "os_pool": null,
+  "persist": null,
+  "post_install": {
+    "backup": {
+      "borg": true,
+      "zfs_auto_snapshot": true
+    },
+    "security": {
+      "antivirus": true,
+      "apparmor": true,
+      "firewall": "firewalld",
+      "rootkit": true
+    }
+  },
+  "storage_groups": null,
+  "sysctl": {
+    "vm.swappiness": 10
+  },
+  "system": {
+    "keymap": "us",
+    "locale": "en_US.UTF-8",
+    "timezone": "UTC"
+  },
+  "users": [
+    "aquastias"
+  ]
+}
+## users
+# aquastias
+{
+  "git": {
+    "email": "alexandrumlakar@gmail.com",
+    "name": "Mlakar Alexandru Laurian"
+  },
+  "groups": [
+    "audio",
+    "video",
+    "storage",
+    "optical",
+    "network",
+    "seat",
+    "docker",
+    "libvirt",
+    "kvm"
+  ],
+  "programs": [
+    "zsh",
+    "kitty",
+    "lazygit",
+    "yazi",
+    "virt-manager",
+    "podman",
+    "searxng",
+    "pi",
+    "claude",
+    "nvim",
+    "docker",
+    "teamspeak3",
+    "vscodium"
+  ],
+  "shell": "/bin/zsh",
+  "ssh_authorized_keys": [],
+  "sudo": true
+}
+## packages
+audio	gst-plugin-pipewire
+audio	libpulse
+audio	pipewire
+audio	pipewire-alsa
+audio	pipewire-jack
+audio	pipewire-pulse
+audio	rtkit
+audio	wireplumber
+aur	ani-cli-git
+aur	basedpyright
+aur	bolt-launcher
+aur	bridge-utils
+aur	codelldb-bin
+aur	emmet-language-server
+aur	grayjay-bin
+aur	lua-format
+aur	nixd
+aur	nixfmt
+aur	rar
+aur	runelite
+aur	vscode-js-debug-bin
+aur	vscode-langservers-extracted
+aur	zen-browser-bin
+backup	borg
+backup	zfs-auto-snapshot
+base	base
+base	base-devel
+base	cronie
+base	dosfstools
+base	efibootmgr
+base	git
+base	jq
+base	linux-firmware
+base	man-db
+base	man-pages
+base	networkmanager
+base	openssh
+base	pacman-contrib
+base	rsync
+base	stow
+base	sudo
+base	texinfo
+base	vim
+bluetooth	bluetooth
+display-manager	greetd
+display-manager	greetd-tuigreet
+fonts	noto-fonts
+fonts	noto-fonts-cjk
+fonts	noto-fonts-emoji
+fonts	noto-fonts-extra
+fonts	ttf-dejavu
+fonts	ttf-firacode-nerd
+fonts	ttf-iosevka-nerd
+fonts	ttf-jetbrains-mono-nerd
+fonts	ttf-liberation
+fonts	ttf-ms-fonts
+host-programs	ccache
+host-programs	fwupd
+host-programs	gamemode
+host-programs	lact
+host-programs	nix
+host-programs	smartmontools
+kernel	linux-lts
+kernel	linux-lts-headers
+login-shell	zsh
+mirrors	reflector
+niri-shell	niri
+niri-shell	seatd
+niri-shell	wl-clipboard
+niri-shell	xdg-desktop-portal-gnome
+niri-shell	xdg-desktop-portal-gtk
+niri-shell	xwayland-satellite
+noctalia	adw-gtk-theme
+noctalia	alsa-utils
+noctalia	bc
+noctalia	bind
+noctalia	bluez-utils
+noctalia	brightnessctl
+noctalia	ffmpeg
+noctalia	flatpak
+noctalia	fzf
+noctalia	grim
+noctalia	imagemagick
+noctalia	inotify-tools
+noctalia	iw
+noctalia	jq
+noctalia	kitty
+noctalia	less
+noctalia	libcanberra
+noctalia	libpulse
+noctalia	noctalia
+noctalia	ollama
+noctalia	openssh
+noctalia	pacman-contrib
+noctalia	pcmanfm-qt
+noctalia	playerctl
+noctalia	procps-ng
+noctalia	satty
+noctalia	slurp
+noctalia	smartmontools
+noctalia	tesseract
+noctalia	translate-shell
+noctalia	udiskie
+noctalia	udisks2
+noctalia	wf-recorder
+noctalia	wl-mirror
+noctalia	xdg-utils
+noctalia	zbar
+power	power-profiles-daemon
+printing	cups
+repo	7zip
+repo	arj
+repo	bash-language-server
+repo	bc
+repo	bcachefs-tools
+repo	biome
+repo	btop
+repo	clang
+repo	delve
+repo	discord
+repo	dnsmasq
+repo	exfatprogs
+repo	eza
+repo	f2fs-tools
+repo	fatresize
+repo	fd
+repo	firefox
+repo	fzf
+repo	gimp
+repo	go
+repo	gopls
+repo	htop
+repo	imagemagick
+repo	inxi
+repo	iwd
+repo	jfsutils
+repo	kdlfmt
+repo	lhasa
+repo	libguestfs
+repo	logrotate
+repo	lsb-release
+repo	lua-language-server
+repo	lutris
+repo	lvm2
+repo	lynx
+repo	mermaid-cli
+repo	mpv
+repo	nano
+repo	neovide
+repo	neovim
+repo	network-manager-applet
+repo	nilfs-utils
+repo	nvm
+repo	obs-studio
+repo	openbsd-netcat
+repo	pacmanlogviewer
+repo	parallel
+repo	pavucontrol
+repo	php
+repo	prettier
+repo	python-debugpy
+repo	python-pip
+repo	python-pipx
+repo	qbittorrent
+repo	qemu-full
+repo	ripgrep
+repo	ruff
+repo	rust-analyzer
+repo	sbctl
+repo	shfmt
+repo	sof-firmware
+repo	speech-dispatcher
+repo	steam
+repo	stress
+repo	stress-ng
+repo	stylua
+repo	svelte-language-server
+repo	tailwindcss-language-server
+repo	taplo-cli
+repo	tectonic
+repo	tree-sitter-cli
+repo	typescript-language-server
+repo	udftools
+repo	unace
+repo	unarj
+repo	unzip
+repo	virt-viewer
+repo	vlc
+repo	vlc-plugin-freetype
+repo	vlc-plugin-notify
+repo	vlc-plugin-srt
+repo	vue-language-server
+repo	wget
+repo	wine
+repo	wine-gecko
+repo	wine-mono
+repo	yaml-language-server
+repo	zip
+repo	zls
+repo	zoxide
+security	apparmor
+security	clamav
+security	firewalld
+security	rkhunter
+user-programs	claude
+user-programs	docker
+user-programs	kitty
+user-programs	lazygit
+user-programs	nvim
+user-programs	pi
+user-programs	podman
+user-programs	searxng
+user-programs	teamspeak3
+user-programs	virt-manager
+user-programs	vscodium
+user-programs	yazi
+user-programs	zsh
+zfs	zfs-dkms
+zfs	zfs-utils

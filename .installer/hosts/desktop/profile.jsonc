@@ -14,6 +14,9 @@
 // app lives in the Fleet Layer; both machines are Fleet Layer + per-machine
 // hardware/hostname (ADR 0114, ADR 0157).
 {
+  // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
+  "fleet": true,
+
   "system": {
     "hostname": "eterniox",
     "locale":   "en_US.UTF-8",

@@ -23,9 +23,12 @@ none of the operator's setup**, and a Guided profile pick yields the same
 Effective Config as `install.sh --profile` (disks and secrets aside).
 
 - **Fleet Layer** (`hosts/fleet/profile.jsonc`), folded Host Core → Fleet →
-  `desktop`/`laptop` only. Takes Host Core's packages and host_programs,
-  `environment.stock: false`, the full Font Catalog set and the mirror
-  countries. Not installable: hidden from the Profiles picker, rejected by
+  host by **fleet hosts** only: profiles declaring `"fleet": true` —
+  `desktop`, `laptop` and the VM fixtures that model them (`arch-audit`,
+  `arch-combined*`, `arch-hyprland`, `arch-niri`). A key, not a list in the
+  loader, so a machine says what it is and adding one needs no code. Takes
+  Host Core's packages and host_programs, `environment.stock: false`, the
+  full Font Catalog set and the mirror countries. Not installable: hidden from the Profiles picker, rejected by
   `--profile`.
 - **Neutral Host Core**: `vm.swappiness` only.
 - **Neutral User Core**: `/bin/bash`, no programs. The programs and

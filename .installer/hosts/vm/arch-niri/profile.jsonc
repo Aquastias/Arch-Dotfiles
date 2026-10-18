@@ -1,10 +1,13 @@
 // Host Profile for vm/arch-niri — niri + Noctalia VM (ADR 0036/0090/0093).
-// Merged under hosts/core/profile.jsonc. A COMPLETE desktop: inherits Host
-// Core's full package userland + the niri/Noctalia environment, on a
+// Merged under hosts/core + the Fleet Layer. A COMPLETE desktop: folds the
+// Fleet Layer's full package userland + the niri/Noctalia environment, on a
 // single-disk skeleton (one operator-picked disk auto-partitioned into ESP +
 // rpool + dpool; no os_pool block needed). No display_manager → auto resolves
 // to greetd for a KDE-free Wayland session (ADR 0091).
 {
+  // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
+  "fleet": true,
+
   "system": {
     "locale":   "en_US.UTF-8",
     "timezone": "UTC",

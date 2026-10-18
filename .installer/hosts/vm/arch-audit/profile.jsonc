@@ -7,6 +7,9 @@
 // is a variant). Audit Variants patch this to reach the other side
 // of each mutually-exclusive choice (bootloader, firewall, power daemon, ...).
 {
+  // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
+  "fleet": true,
+
   "system": {
     "locale":   "en_US.UTF-8",
     "timezone": "UTC",

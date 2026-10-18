@@ -325,15 +325,16 @@ package here; [ADR 0157] moved both to the Fleet Layer. `cups` is a
 toggle-derived Host Program with its own menu home ([ADR 0079]).
 
 ### Fleet Layer
-The operator's personal software image, shared by the `desktop` and `laptop`
-Host Profiles only — the layer between Host Core and those two hosts (Host Core
-→ Fleet Layer → host). Holds what Host Core held under [ADR 0114]: the
-workstation packages, base Host Programs, curated (non-stock) environment, the
-full Font Catalog selection, at `.installer/hosts/fleet/profile.jsonc`. Not an
+The operator's personal software image, folded only by **fleet hosts** — Host
+Profiles declaring `"fleet": true`: `desktop`, `laptop`, and the VM fixtures
+that model them (`arch-audit`, `arch-combined*`, `arch-hyprland`, `arch-niri`).
+It sits between Host Core and the host (Host Core → Fleet Layer → host) and
+holds what Host Core held under [ADR 0114]: the workstation packages, base Host
+Programs, curated (non-stock) environment, the full Font Catalog selection and
+the mirror countries, at `.installer/hosts/fleet/profile.jsonc`. Not an
 installable profile on its own (hidden from the Profiles picker, rejected by
-`install.sh --profile`); the Profile Loader folds it for the two fleet hosts.
-Exists so a Guided session that never picks `desktop`/`laptop` installs none
-of it: Host Core and User Core stay neutral.
+`install.sh --profile`). Exists so a Guided session that never picks a fleet
+host installs none of it: Host Core and User Core stay neutral ([ADR 0157]).
 _Avoid_: workstation base, core packages.
 
 ### Layer Resolver

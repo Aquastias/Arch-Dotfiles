@@ -67,10 +67,9 @@ installed_names() {
   done
 }
 
-@test "no VM fixture installs Fleet Layer software" {
-  local directory profile leaked
-  for directory in "$INSTALLER_DIR"/hosts/vm/*/; do
-    profile="${directory%/}"; profile="${profile##*/}"
+@test "no non-fleet VM fixture installs Fleet Layer software" {
+  local profile leaked
+  for profile in arch-kde arch-data arch-secure; do
     leaked="$(leaked_names "$profile")"
     [ -z "$leaked" ] || { echo "$profile leaks: $leaked"; return 1; }
   done
@@ -185,4 +184,26 @@ installed_names() {
   packages="$(installed_all arch-kde)"
   grep -qx papirus-icon-theme <<<"$packages"
   grep -qx plasma-applets-weather-widget-3 <<<"$packages"
+}
+
+# ── `"fleet": true` marks a fleet host (ADR 0157) ───────────────────────────
+# The reference/audit VM fixtures model the operator's machines, so they fold
+# the Fleet Layer like desktop and laptop.
+
+@test "the fleet VM fixtures fold the Fleet Layer" {
+  local profile
+  for profile in arch-audit arch-combined arch-combined-sops-impermanence \
+                 arch-hyprland arch-niri; do
+    installed_names "$profile" | grep -qx steam \
+      || { echo "$profile lacks the Fleet Layer"; return 1; }
+  done
+}
+
+@test "exactly the declared fleet hosts carry fleet: true" {
+  local hosts
+  hosts="$(grep -l '"fleet": *true' "$INSTALLER_DIR"/hosts/*/profile.jsonc \
+    "$INSTALLER_DIR"/hosts/vm/*/profile.jsonc | awk -F/ '{ print $(NF-1) }' \
+    | sort | awk '{ printf "%s ", $0 }')"
+  [ "$hosts" = "arch-audit arch-combined arch-combined-sops-impermanence \
+arch-hyprland arch-niri desktop laptop " ]
 }

@@ -439,3 +439,20 @@ load profile-loader-helpers
            return 1; }
   done
 }
+
+# ── the Fleet Layer folds for `"fleet": true` hosts only (ADR 0157) ─────────
+
+@test "profile_loader_load: a fleet: true host folds the Fleet Layer" {
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
+    '{"host_programs":["lact"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/mybox/profile.jsonc" '{"fleet":true}'
+  write_jsonc "$INSTALLER_DIR/hosts/guest/profile.jsonc" '{}'
+
+  run profile_loader_load mybox
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.host_programs == ["lact"]'
+  run profile_loader_load guest
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '(.host_programs // []) == []'
+}

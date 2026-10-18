@@ -55,10 +55,6 @@ declare -F mirrors_inject >/dev/null 2>&1 \
 declare -F bootloader_is_valid >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloader.sh"
 
-# The Host Profiles that fold the Fleet Layer (ADR 0157): the operator's own
-# machines. Every other profile resolves over the neutral Host Core alone.
-_PROFILE_LOADER_FLEET_HOSTS=(desktop laptop)
-
 # profile_loader_load <name> — effective host config on stdout.
 # profile_loader_load_user <name> — effective user config on stdout (symmetric).
 # Both merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc.
@@ -124,32 +120,23 @@ _profile_loader_load() {
   # (ADR 0157).
   local -a layers=("$core_json")
   local fleet_json
-  fleet_json="$(_profile_loader_fleet_layer "$kind" "$name")" || return 2
+  fleet_json="$(_profile_loader_fleet_layer "$kind" "$spec_json")" || return 2
   [[ -n "$fleet_json" ]] && layers+=("$fleet_json")
   layer_resolver_resolve "${kind%s}" "${layers[@]}" "$spec_json"
 }
 
-# _profile_loader_fleet_layer <kind> <name> — the Fleet Layer JSON when Host
-# Profile <name> folds it, else nothing. A tree with no Fleet Layer file (a test
-# fixture) folds nothing. rc 2 when the file does not parse.
+# _profile_loader_fleet_layer <kind> <profile-json> — the Fleet Layer JSON when
+# the Host Profile declares `"fleet": true` (ADR 0157: the operator's machines
+# and the VM fixtures modelling them), else nothing. A tree with no Fleet Layer
+# file (a test fixture) folds nothing. rc 2 when the file does not parse.
 _profile_loader_fleet_layer() {
   local fleet_file="${INSTALLER_DIR}/hosts/fleet/profile.jsonc"
   [[ "$1" == hosts && -f "$fleet_file" ]] || return 0
-  _profile_loader_folds_fleet "$2" || return 0
+  jq -e '.fleet == true' <<<"$2" >/dev/null || return 0
   _program_registry_parse "$fleet_file" || {
     echo "profile: failed to parse the Fleet Layer" >&2
     return 2
   }
-}
-
-# _profile_loader_folds_fleet <name> — rc 0 when Host Profile <name> folds the
-# Fleet Layer.
-_profile_loader_folds_fleet() {
-  local host
-  for host in "${_PROFILE_LOADER_FLEET_HOSTS[@]}"; do
-    [[ "$host" == "$1" ]] && return 0
-  done
-  return 1
 }
 
 # profile_loader_is_layer <kind> <name> — rc 0 when <name> is a layer, not a
@@ -213,6 +200,8 @@ _PROFILE_SCHEMA_host=(
   "system.hostname" "system.locale[]" "system.timezone" "system.keymap[]"
   "system.console_font" "system.fullname"
   "dotfiles_repo"
+  # — Fleet host (ADR 0157): true folds the Fleet Layer between core and host —
+  "fleet"
   # — options (kernel is a string|array union — the [] form admits both) —
   "options.kernel[]" "options.bootloader" "options.encryption"
   "options.root_shell"
