@@ -132,11 +132,30 @@ _profile_loader_load() {
 _profile_loader_fleet_layer() {
   local fleet_file="${INSTALLER_DIR}/hosts/fleet/profile.jsonc"
   [[ "$1" == hosts && -f "$fleet_file" ]] || return 0
-  jq -e '.fleet == true' <<<"$2" >/dev/null || return 0
+  profile_loader_is_fleet_host "$2" || return 0
   _program_registry_parse "$fleet_file" || {
     echo "profile: failed to parse the Fleet Layer" >&2
     return 2
   }
+}
+
+# profile_loader_is_fleet_host <profile-json> — rc 0 when the Host Profile
+# declares `"fleet": true` (ADR 0157): the one test of "is this a fleet host".
+profile_loader_is_fleet_host() { jq -e '.fleet == true' <<<"$1" >/dev/null; }
+
+# profile_loader_folded_layers <profile-json> — the layers a Host Profile
+# resolves over, folded into one JSON: Host Core, plus the Fleet Layer for a
+# fleet host. Guided Save subtracts it so a saved profile stays a delta.
+profile_loader_folded_layers() {
+  local core fleet_json
+  core="$(_program_registry_parse "${INSTALLER_DIR}/hosts/core/profile.jsonc" \
+    2>/dev/null)" || core='{}'
+  fleet_json="$(_profile_loader_fleet_layer hosts "$1")" || return 2
+  if [[ -n "$fleet_json" ]]; then
+    layer_resolver_resolve host "$core" "$fleet_json"
+  else
+    printf '%s\n' "$core"
+  fi
 }
 
 # profile_loader_is_layer <kind> <name> — rc 0 when <name> is a layer, not a

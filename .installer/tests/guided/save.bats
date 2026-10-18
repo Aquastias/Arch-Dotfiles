@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
 # Tests for the Guided Installer's two non-Proceed terminal actions (issue 08):
-# Save profile (a device-less Host Profile delta over Host Core, re-installable
-# via `install.sh --profile`) and Export effective config (the device-baked
+# Save profile (a device-less Host Profile delta over its layers — Host Core,
+# plus the Fleet Layer for a fleet session — re-installable via
+# `install.sh --profile`) and Export effective config (the device-baked
 # artifact, re-installable via `install.sh <config-file>`). The committed Save
 # strips disks (0036's invariant: device paths are never repo source of truth);
 # only Export carries them.
@@ -74,7 +75,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 # profile a small delta that still tracks the Fleet Layer instead of baking
 # every fleet package into the new file.
 
-@test "guided_save_host_profile: a fleet session saves fleet: true, no fleet copy" {
+@test "guided_save_host_profile: a fleet session saves as a fleet delta" {
   mkdir -p "$INSTALLER_DIR/hosts/fleet"
   printf '%s\n' \
     '{"host_programs":["lact"],"packages":{"repo":{"games":["steam"]}}}' \

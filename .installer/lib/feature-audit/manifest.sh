@@ -70,7 +70,11 @@ feature_audit_variant_fleet() {
     source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   }
   profile_file="$(profile_loader_directory hosts "$host")/profile.jsonc"
-  jsonc_strip "$profile_file" | jq -r '.fleet == true'
+  if profile_loader_is_fleet_host "$(jsonc_strip "$profile_file")"; then
+    echo true
+  else
+    echo false
+  fi
 }
 
 # feature_audit_variant_vm_profile <id> — the VM Profile vm.sh provisions. The

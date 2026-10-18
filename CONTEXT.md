@@ -194,9 +194,12 @@ SSH keys). Computed defaults
 seed an untouched run **neutrally** ([ADR 0157]): hostname `archlinux`, no user
 (Proceed refuses until one is picked or created), no desktop, single-disk ZFS
 layout, locale `en_US.UTF-8` / keymap `us`, timezone left to the install-time
-autodetect. The **baseline is loaded from Host Core**
-rather than hand-copying a few of its values ([ADR 0058]), so everything core
-installs surfaces as a seeded-but-unmarked row — core's package list, once
+autodetect. The **session baseline** is what every row is measured against —
+unmarked when it matches, ● when the session changed it. A blank session
+loads it from Host Core rather than hand-copying a few of its values
+([ADR 0058]); a profile pick replaces it with the resolved profile
+([ADR 0157]). So everything the baseline installs surfaces as a
+seeded-but-unmarked row — core's package list, once
 hand-copied and invisible. (`cups` was the original example; it has since become
 a toggle-derived Host Program with its own menu home — [ADR 0079].) Core
 therefore enters the pipeline exactly once; the

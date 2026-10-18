@@ -11,8 +11,9 @@
 //
 // Real hosts: desktop and laptop install as-is; `core` (Host Core) and `fleet`
 // (the Fleet Layer) are reserved layers, never loadable alone: every variant
-// covers core, and every fleet-host variant covers fleet. The guided variant runs the disposable guided test flow
-// (install + boot-verify only: not agent-controllable, so no later phases).
+// covers core, and every fleet-host variant covers fleet. The guided variant
+// runs the disposable guided test flow (install + boot-verify only: not
+// agent-controllable, so no later phases).
 // Variants beyond the bootloader/firewall/pure/real-host set exist because
 // the feature-coverage check derives every menu value that needs a VM.
 {

@@ -136,7 +136,7 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   return 0
 }
 
-@test "feature_audit_variant_fleet: the base folds the Fleet Layer, pure hosts not" {
+@test "feature_audit_variant_fleet: the base is a fleet host, pure hosts not" {
   source "$INSTALLER_DIR/lib/jsonc.sh"
   source "$INSTALLER_DIR/lib/feature-audit/manifest.sh"
   [ "$(feature_audit_variant_fleet kde-pure)" = false ]

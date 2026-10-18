@@ -331,9 +331,9 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
   `feature_audit_no_stderr <cmd…>` (`feature_audit_no_stderr_but <ere> <cmd…>` tolerates one
   known-benign line), and the Probe Gate: `feature_audit_gate <id> <reason> <cmd…>`
   (SKIP with a reason when the variant lacks what the check needs) with
-  `feature_audit_stock` / `feature_audit_curated` / `feature_audit_has_shell` / `feature_audit_fleet` (folds the
-  Fleet Layer, [ADR 0157]). A program the variant does not
-  select is skipped by the runner before its probe runs.
+  `feature_audit_stock` / `feature_audit_curated` / `feature_audit_has_shell` /
+  `feature_audit_fleet` (folds the Fleet Layer, [ADR 0157]). A program the
+  variant does not select is skipped by the runner before its probe runs.
 - **Env:** `FA_USER FA_HOME FA_IS_ROOT FA_ONLINE FA_PHASE FA_SESSION`
   (`niri|Hyprland|kwin_wayland|none`) `FA_DIR` (this probe's staged dir)
   `FA_CONFIG` (the variant's Effective Config); a user run also carries the

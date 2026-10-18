@@ -96,7 +96,8 @@ _controller_enter_packages() {
   local state; state="$(_controller_state)"
   if [[ "${line:0:3}" == "[x]" ]]; then
     # currently installed → remove it
-    if _controller_package_in_baseline "$slot" "$package_category" "$package"; then
+    if _controller_package_in_baseline "$slot" "$package_category" \
+      "$package"; then
       state="$(jq --arg p "$package" \
         '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
         <<<"$state")"

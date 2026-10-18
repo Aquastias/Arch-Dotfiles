@@ -5,7 +5,8 @@
 # The two non-Proceed terminal actions, as testable file writers:
 #
 #   guided_save_host_profile <state> <name>  — write a device-LESS Host Profile
-#       delta over Host Core to hosts/<name>/profile.jsonc (re-installs via
+#       delta over its layers (Host Core, plus the Fleet Layer for a fleet
+#       session — ADR 0157) to hosts/<name>/profile.jsonc (re-installs via
 #       `install.sh --profile <name>`). Refuses to overwrite an existing
 #       hosts/<name>/ — there is no overwrite path; the operator picks a new
 #       name. Disks are stripped (emit_profile_delta); the committed audit
@@ -51,7 +52,8 @@ guided_save_host_profile() {
   # its layers on the next edit.
   local delta
   delta="$(emit_profile_delta "$(config_state_emit "$state")")"
-  delta="$(emit_core_delta "$delta" "$(_save_folded_layers "$delta")")"
+  delta="$(emit_core_delta "$delta" \
+    "$(profile_loader_folded_layers "$delta")")"
   profile_loader_validate_schema host "$delta" || return 1
   mkdir -p "$directory"
   printf '%s\n' "$delta" > "${directory}/profile.jsonc"
@@ -75,18 +77,4 @@ guided_export_config() {
   local parent="${absolute_path%/*}"
   mkdir -p "${parent:-/}"
   printf '%s\n' "$effective" > "$absolute_path"
-}
-
-# _save_folded_layers <profile-json> — the layers a saved profile folds over:
-# Host Core, plus the Fleet Layer when the profile is a fleet host
-# (`"fleet": true`, ADR 0157), resolved into one JSON to subtract.
-_save_folded_layers() {
-  local core fleet_file="${INSTALLER_DIR}/hosts/fleet/profile.jsonc"
-  core="$(config_state_host_core)"
-  if jq -e '.fleet == true' <<<"$1" >/dev/null && [[ -f "$fleet_file" ]]; then
-    layer_resolver_resolve host "$core" "$(_program_registry_parse \
-      "$fleet_file")"
-  else
-    printf '%s\n' "$core"
-  fi
 }

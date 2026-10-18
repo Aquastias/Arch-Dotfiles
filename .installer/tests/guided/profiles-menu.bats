@@ -131,6 +131,21 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "bootloader: grub"     # inherited from Host Core
 }
 
+# The preview shows what the pick installs: a fleet host folds the Fleet Layer
+# (ADR 0157), exactly as the pick and `install.sh --profile` do.
+@test "preview(profiles): a fleet host previews its Fleet Layer too" {
+  local installer_directory; installer_directory="$TEST_DIR/os6"
+  mkdir -p "$installer_directory/hosts"/{core,fleet,box}
+  printf '{}\n' > "$installer_directory/hosts/core/profile.jsonc"
+  printf '{"options":{"bootloader":"grub"}}\n' \
+    > "$installer_directory/hosts/fleet/profile.jsonc"
+  printf '{"fleet":true}\n' > "$installer_directory/hosts/box/profile.jsonc"
+  export INSTALLER_DIR="$installer_directory"
+  set_navigation '{"screen":"profiles"}'
+  run guided_controller_preview box
+  echo "$output" | grep -q "bootloader: grub"     # from the Fleet Layer
+}
+
 @test "preview(profiles): rows stay clean — only the name (no inline hint)" {
   set_navigation '{"screen":"profiles"}'
   run guided_controller_list

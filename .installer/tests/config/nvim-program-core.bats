@@ -222,7 +222,7 @@ load nvim-program-helpers
   grep -q '"stylua"' "$fleet_profile"
   grep -q '"prettier"' "$fleet_profile"
   grep -q '"ruff"' "$fleet_profile"
-  grep -q '"biome"' "$fleet_profile"                     # already present for js/ts
+  grep -q '"biome"' "$fleet_profile"   # already present for js/ts
 }
 
 @test "formatting via conform, formatters from the registry" {
@@ -246,7 +246,8 @@ load nvim-program-helpers
   grep -q '"scss", "less"' "$registry_file"
   local fleet_profile="$REPO/.installer/hosts/fleet/profile.jsonc"
   for formatter in shfmt taplo-cli kdlfmt nixfmt; do
-    grep -q "\"$formatter\"" "$fleet_profile" || { echo "$formatter not in the Fleet Layer"; false; }
+    grep -q "\"$formatter\"" "$fleet_profile" \
+      || { echo "$formatter not in the Fleet Layer"; false; }
   done
   grep -q 'needed php-codesniffer' "$INSTALL"
 }

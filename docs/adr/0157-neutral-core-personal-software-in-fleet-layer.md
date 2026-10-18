@@ -28,8 +28,10 @@ Effective Config as `install.sh --profile` (disks and secrets aside).
   `arch-combined*`, `arch-hyprland`, `arch-niri`). A key, not a list in the
   loader, so a machine says what it is and adding one needs no code. Takes
   Host Core's packages and host_programs, `environment.stock: false`, the
-  full Font Catalog set and the mirror countries. Not installable: hidden from the Profiles picker, rejected by
-  `--profile`.
+  full Font Catalog set and the mirror countries. Not installable: hidden from
+  the Profiles picker, rejected by `--profile`. The `fleet` key stays in the
+  resolved profile and the Effective Config (a schema key no back-end reads):
+  it is how a Guided Save knows the session folds the Fleet Layer.
 - **Neutral Host Core**: `vm.swappiness` only.
 - **Neutral User Core**: `/bin/bash`, no programs. The programs and
   `/bin/zsh` move to `users/aquastias`; a second human declares their own.

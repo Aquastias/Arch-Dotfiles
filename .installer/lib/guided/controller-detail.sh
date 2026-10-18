@@ -188,17 +188,17 @@ _controller_live_layout_graph() {
     "$(_controller_live_effective)"
 }
 
-# _controller_preview_profile <line> — a deep ASCII tree of the resolved
-# (Host-Core-merged) profile (ADR 0063), down to its leaves — replacing the
-# header-comment-only preview. The Reset-to-blank / Back rows preview nothing.
+# _controller_preview_profile <line> — a deep ASCII tree of the profile resolved
+# exactly as the pick and `install.sh --profile` resolve it (Host Core, plus the
+# Fleet Layer for a fleet host — ADR 0063, ADR 0157), down to its leaves —
+# replacing the header-comment-only preview. The Reset-to-blank / Back rows
+# preview nothing.
 _controller_preview_profile() {
-  local line="$1" profile_file profile
+  local line="$1" profile
   [[ "$line" == "← Back" || "$line" == "↺ Reset to blank"* || -z "$line" ]] \
     && return 0
-  profile_file="$(_controller_hosts_root)/${line}/profile.jsonc"
-  if profile="$(_program_registry_parse "$profile_file" 2>/dev/null)"; then
-    _controller_profile_tree "$(layer_resolver_resolve host \
-      "$(config_state_host_core)" "$profile")"
+  if profile="$(profile_loader_load "$line" 2>/dev/null)"; then
+    _controller_profile_tree "$profile"
   else
     printf '\033[2m(no profile — hosts/%s/profile.jsonc)\033[0m\n' "$line"
   fi

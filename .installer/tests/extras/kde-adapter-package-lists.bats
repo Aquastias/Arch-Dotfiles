@@ -325,7 +325,7 @@ JSON
     recordmydesktop sshfs | sort)" ]
 }
 
-@test "Ark backends are not duplicated into plugins (they live in the Fleet Layer)" {
+@test "Ark backends are not duplicated into plugins (Fleet Layer ships them)" {
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   local names
