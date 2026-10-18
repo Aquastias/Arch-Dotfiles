@@ -2,8 +2,8 @@
 # Tests for .installer/lib/config/timezone.sh — the Timezone resolver (ADR
 # 0118): a pure helper turning system.timezone into the effective IANA zone —
 # an explicit value wins, otherwise a validated geo-IP autodetect, otherwise
-# Europe/Bucharest. The network fetch and the zoneinfo root are injectable so
-# the resolver is exercised entirely offline.
+# UTC (neutral, ADR 0157). The network fetch and the zoneinfo root are
+# injectable so the resolver is exercised entirely offline.
 #
 # Behaviour under test (external only — the zone the helper produces), never
 # internal structure. Prior art: tests/config/printing.bats.
@@ -51,17 +51,17 @@ teardown() { rm -rf "$ZI"; }
 
 # ── fallback ────────────────────────────────────────────────────────────────
 
-@test "invalid geo-IP zone falls back to Europe/Bucharest" {
+@test "invalid geo-IP zone falls back to UTC" {
   export TIMEZONE_FETCH_CMD='echo Not/AZone'
-  [ "$(timezone_resolve '{}')" = "Europe/Bucharest" ]
+  [ "$(timezone_resolve '{}')" = "UTC" ]
 }
 
-@test "empty geo-IP reply (offline) falls back to Europe/Bucharest" {
+@test "empty geo-IP reply (offline) falls back to UTC" {
   export TIMEZONE_FETCH_CMD='true'
-  [ "$(timezone_resolve '{}')" = "Europe/Bucharest" ]
+  [ "$(timezone_resolve '{}')" = "UTC" ]
 }
 
 @test "path-traversal geo-IP reply is rejected, falls back" {
   export TIMEZONE_FETCH_CMD='echo ../../etc/shadow'
-  [ "$(timezone_resolve '{}')" = "Europe/Bucharest" ]
+  [ "$(timezone_resolve '{}')" = "UTC" ]
 }

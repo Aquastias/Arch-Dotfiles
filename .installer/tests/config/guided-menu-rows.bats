@@ -266,7 +266,7 @@ load guided-menu-helpers
   echo "$output" | row options.mirror_countries \
     | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.mirror_countries \
-    | jq -e '.value == ""'   # no countries: every mirror (ADR 0157)
+    | jq -e '.value == "worldwide"'   # no countries: every mirror (ADR 0157)
   echo "$output" | row options.optional_repos \
     | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.optional_repos | jq -e '.value == "multilib"'

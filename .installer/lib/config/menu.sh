@@ -312,6 +312,10 @@ _menu_schema_defaults() {
 # scalar→string, empty→default) and the locale projection.
 # shellcheck disable=SC2016 # a jq program, not shell
 _MENU_ROWS_JQ_DEFINITIONS='
+  # empty_label($path) — what an empty value means, for the rows where blank
+  # would read as unset (display only: the stored value stays empty).
+  def empty_label($path):
+    {"options.mirror_countries": "worldwide"}[$path] // "";
   def render($v; $d):
     (if   $v == null            then null
      elif ($v | type) == "array"  then
@@ -376,7 +380,8 @@ menu_rows() {
                then (loc_lang($mloc) | if . == "" then $def else . end)
                elif $fp == "__encoding__"
                then (loc_enc($mloc) | if . == "" then $def else . end)
-               else render($m | getpath($pp); $def) end),
+               else render($m | getpath($pp); $def)
+                 | if . == "" then empty_label($fp) else . end end),
             overridden:
               (if   $fp == "__language__"
                then ($loc_ov and (loc_lang($mloc) != loc_lang($bloc)))

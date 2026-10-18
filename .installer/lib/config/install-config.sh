@@ -244,7 +244,7 @@ install_config_apparmor_enabled() {
 }
 
 # Timezone is resolved, not read raw (ADR 0118): an explicit/guided value wins,
-# else geo-IP autodetect, else Europe/Bucharest. A hand-written special (no
+# else geo-IP autodetect, else UTC. A hand-written special (no
 # schema row) because it breaks the pure-default mould. The Timezone resolver is
 # sourced by 03-install before the single persist call site; tests that stub
 # install_config_timezone override this (last definition wins).

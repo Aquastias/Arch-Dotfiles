@@ -300,7 +300,7 @@ _lifecycle_print_settings() {
   hostname="${hostname:-(prompted during install)}"
   printf "  %-16s %s\n" "Hostname:" "$hostname"
   # Resolved, not raw (ADR 0118): shows the value that will actually apply
-  # (explicit/guided → geo-IP autodetect → Europe/Bucharest), and never aborts
+  # (explicit/guided → geo-IP autodetect → UTC), and never aborts
   # on an absent field the way the required-field config_required reader would.
   printf "  %-16s %s\n" "Timezone:" "$(install_config_timezone)"
   printf "  %-16s %s\n" "Encryption:" "$encryption"

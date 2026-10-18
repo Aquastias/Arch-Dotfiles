@@ -4,8 +4,9 @@
 # =============================================================================
 # Pure resolver turning a config's `system.timezone` into the effective zone:
 # an explicit/guided value wins; otherwise the zone is autodetected by geo-IP;
-# otherwise it falls back to Europe/Bucharest. Mirrors the Printing Service
-# resolver (printing.sh): JSON in, decision out, no TTY, no disk writes.
+# otherwise it falls back to UTC (ADR 0157: neutral, not the operator's zone).
+# Mirrors the Printing Service resolver (printing.sh): JSON in, decision out, no
+# TTY, no disk writes.
 #
 # The network fetch is behind an injectable seam so the resolver is testable
 # offline: TIMEZONE_FETCH_CMD overrides the geo-IP call and TIMEZONE_ZONEINFO_DIR
@@ -40,8 +41,8 @@ timezone_valid() {
 
 # timezone_resolve <config-json> — the effective zone (ADR 0118). An explicit
 # `.system.timezone` wins verbatim (guided/profile already own it); otherwise a
-# validated geo-IP autodetect; otherwise Europe/Bucharest. The fallback keeps an
-# offline install functional.
+# validated geo-IP autodetect; otherwise UTC. The fallback keeps an offline
+# install functional.
 timezone_resolve() {
   local config="${1:-{\}}" explicit detected
   explicit="$(jq -r '.system.timezone // empty' <<<"$config" 2>/dev/null)"
@@ -55,5 +56,5 @@ timezone_resolve() {
     printf '%s\n' "$detected"
     return 0
   fi
-  printf '%s\n' "Europe/Bucharest"
+  printf '%s\n' "UTC"
 }

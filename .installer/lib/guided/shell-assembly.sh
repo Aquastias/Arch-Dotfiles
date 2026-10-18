@@ -67,7 +67,7 @@ _guided_shell_edit_locale() {
   _guided_shell_edit_scalar locale "Locale (e.g. en_US.UTF-8)" system.locale
 }
 _guided_shell_edit_timezone() {
-  _guided_shell_edit_scalar timezone "Timezone (e.g. Europe/Bucharest)" \
+  _guided_shell_edit_scalar timezone "Timezone (e.g. Europe/Berlin)" \
     system.timezone
 }
 _guided_shell_edit_keymap() {

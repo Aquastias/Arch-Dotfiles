@@ -532,7 +532,7 @@ yazi, virt-manager, podman, searxng, pi, claude, nvim, docker, teamspeak3 and
 vscodium. `zsh` itself is not declared as a package:
 `ensure_login_shell_installed` pacman-installs a user's login shell when the
 binary is missing. The two throwaway VM test users (`users/vm/test`,
-`users/vm/data`) stay on bash and carry only `nvim`.
+`users/vm/data`) stay on bash with no programs.
 
 ### Primary User
 The first entry in a host's `users` array (`users[0]` in

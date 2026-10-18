@@ -1,14 +1,12 @@
 // User Profile for vm/data (ADR 0036) — throwaway user for the multi
 // data-pools ownership smoke test (pool-owners, ADR 0031). Merged under
 // users/core/profile.jsonc. Ships no secrets.json (secrets_load is a no-op)
-// and only nvim, to keep the install focused on data-pool ownership.
+// and no programs, to keep the install focused on data-pool ownership.
 {
   "shell": "/bin/bash",
   "sudo":  true,
   "groups": [],
-  // User Core is neutral (ADR 0157), so there is nothing to exclude. `nvim` is
-  // the one program this throwaway always carried (User Core used to give it),
-  // kept so the VM install is unchanged.
-  "programs": ["nvim"],
+  // No user programs: User Core is neutral (ADR 0157), so nothing to exclude.
+  "programs": [],
   "ssh_authorized_keys": []
 }

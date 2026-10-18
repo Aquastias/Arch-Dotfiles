@@ -61,7 +61,7 @@ _validation_system_fields() {
   config_required '.system.locale' 'system.locale'
   # Timezone is NOT required in the config (ADR 0118): it is resolved at persist
   # time — an explicit/guided value wins, else geo-IP autodetect, else
-  # Europe/Bucharest — so an absent field is valid, not an error.
+  # UTC — so an absent field is valid, not an error.
 }
 
 # =============================================================================
