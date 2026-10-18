@@ -69,6 +69,29 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
 }
 
+# ── a fleet-derived session saves as a fleet host (ADR 0157) ────────────────
+# Picking `desktop` folds the Fleet Layer into the session; Save keeps the
+# profile a small delta that still tracks the Fleet Layer instead of baking
+# every fleet package into the new file.
+
+@test "guided_save_host_profile: a fleet session saves fleet: true, no fleet copy" {
+  mkdir -p "$INSTALLER_DIR/hosts/fleet"
+  printf '%s\n' \
+    '{"host_programs":["lact"],"packages":{"repo":{"games":["steam"]}}}' \
+    > "$INSTALLER_DIR/hosts/fleet/profile.jsonc"
+  state='{"fleet":true,"mode":"single","host_programs":["cups","lact"],
+    "packages":{"repo":{"games":["steam"],"cli":["htop"]}},
+    "sysctl":{"vm.swappiness":10}}'
+
+  run guided_save_host_profile "$state" "newbox"
+  [ "$status" -eq 0 ]
+  local saved="$INSTALLER_DIR/hosts/newbox/profile.jsonc"
+  jq -e '.fleet == true' "$saved"
+  jq -e '.packages.repo == {"cli":["htop"]}' "$saved"   # only the delta
+  jq -e '(.host_programs // []) == []' "$saved"
+  profile_loader_load newbox | jq -e '.packages.repo.games == ["steam"]'
+}
+
 # ── Save never overwrites — an existing profile forces a new name ────────────
 
 @test "guided_save_host_profile: refuses to overwrite an existing profile" {

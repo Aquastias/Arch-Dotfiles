@@ -44,13 +44,14 @@ guided_save_host_profile() {
     return 1
   fi
   # Two reductions, in order: strip device paths (the committed artifact is
-  # device-less, ADR 0036), then subtract Host Core so the saved profile is a
-  # DELTA and stays layered (ADR 0056). Without the second, every save would
-  # bake core's whole inherited package list into the new profile and decouple
-  # it from core on the next edit.
+  # device-less, ADR 0036), then subtract the layers it folds over so the saved
+  # profile is a DELTA and stays layered (ADR 0056) — Host Core, plus the Fleet
+  # Layer for a fleet session (ADR 0157). Without the second, every save would
+  # bake the inherited package list into the new profile and decouple it from
+  # its layers on the next edit.
   local delta
   delta="$(emit_profile_delta "$(config_state_emit "$state")")"
-  delta="$(emit_core_delta "$delta" "$(config_state_host_core)")"
+  delta="$(emit_core_delta "$delta" "$(_save_folded_layers "$delta")")"
   profile_loader_validate_schema host "$delta" || return 1
   mkdir -p "$directory"
   printf '%s\n' "$delta" > "${directory}/profile.jsonc"
@@ -74,4 +75,18 @@ guided_export_config() {
   local parent="${absolute_path%/*}"
   mkdir -p "${parent:-/}"
   printf '%s\n' "$effective" > "$absolute_path"
+}
+
+# _save_folded_layers <profile-json> — the layers a saved profile folds over:
+# Host Core, plus the Fleet Layer when the profile is a fleet host
+# (`"fleet": true`, ADR 0157), resolved into one JSON to subtract.
+_save_folded_layers() {
+  local core fleet_file="${INSTALLER_DIR}/hosts/fleet/profile.jsonc"
+  core="$(config_state_host_core)"
+  if jq -e '.fleet == true' <<<"$1" >/dev/null && [[ -f "$fleet_file" ]]; then
+    layer_resolver_resolve host "$core" "$(_program_registry_parse \
+      "$fleet_file")"
+  else
+    printf '%s\n' "$core"
+  fi
 }
