@@ -294,9 +294,9 @@ _controller_list_packages() {
       mark="[ ]"; override_mark="  ●"          # excluded by this profile
     else
       mark="[x]"
-      if _controller_package_in_core "$slot" "$package_category" \
+      if _controller_package_in_baseline "$slot" "$package_category" \
         "$package"; then
-        override_mark=""                        # inherited from Host Core
+        override_mark=""                        # inherited from the baseline
       else
         override_mark="  ●"                     # added here
       fi
@@ -333,24 +333,24 @@ _controller_list_package_browse() {
     # Mark the ~15k rows in one awk pass off precomputed sets (a per-row jq
     # would fork per package). `●` flags a session/profile-touched row; `⟲`
     # a package another choice already pulls in (derived, read-only here).
-    local effective _bcore _bextra _bexcl _bderiv
+    local effective _bbase _bextra _bexcl _bderiv
     effective="$(_controller_effective "$state" "$base")"
-    _bcore="$(jq -rn --argjson c "$(config_state_host_core)" --arg s "$slot" \
+    _bbase="$(jq -rn --argjson c "$(_controller_baseline)" --arg s "$slot" \
       '($c.packages[$s] // {}) | [ .[] | .[]? ] | unique | .[]')"
     _bextra="$(jq -rn --argjson e "$effective" --arg s "$slot" \
       '($e.packages[$s].extra // []) | .[]')"
     _bexcl="$(jq -rn --argjson e "$effective" \
       '($e.packages.exclude // [])|.[]')"
     _bderiv="$(_controller_package_derived_names "$effective")"
-    awk -v core="$_bcore" -v extra="$_bextra" -v excl="$_bexcl" \
+    awk -v base="$_bbase" -v extra="$_bextra" -v excl="$_bexcl" \
         -v deriv="$_bderiv" -v dot='  ●' -v der='  ⟲ derived' '
-      BEGIN{ n=split(core,a,"\n"); for(i=1;i<=n;i++) if(a[i]!="") C[a[i]]=1
+      BEGIN{ n=split(base,a,"\n"); for(i=1;i<=n;i++) if(a[i]!="") C[a[i]]=1
              n=split(extra,b,"\n"); for(i=1;i<=n;i++) if(b[i]!="") X[b[i]]=1
              n=split(excl,d,"\n"); for(i=1;i<=n;i++) if(d[i]!="") E[d[i]]=1
              n=split(deriv,g,"\n"); for(i=1;i<=n;i++) if(g[i]!="") D[g[i]]=1 }
       { p=$0
-        if      (E[p]) print "[ ] " p dot   # core, excluded here
-        else if (C[p]) print "[x] " p       # inherited from core
+        if      (E[p]) print "[ ] " p dot   # baseline, excluded here
+        else if (C[p]) print "[x] " p       # inherited from the baseline
         else if (X[p]) print "[x] " p dot   # added here
         else if (D[p]) print "[x] " p der   # derived by another choice
         else           print "[ ] " p }     # available to add

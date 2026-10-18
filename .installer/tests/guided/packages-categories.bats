@@ -361,3 +361,21 @@ load packages-helpers
   run guided_controller_back
   [ "$(jq -c '.' "$GUIDED_STATE_FILE")" = '{}' ]
 }
+
+# ── provenance is the session baseline, not Host Core (ADR 0157) ────────────
+# After a profile pick the baseline IS the profile; Host Core is neutral and
+# empty. A picked profile's packages are inherited (no ●), and one unchecked
+# here stays offered so it can be re-checked.
+
+@test "a picked profile's packages render inherited, and stay re-checkable" {
+  printf '{"users":[]}\n' > "$INSTALLER_DIR/hosts/core/profile.jsonc"
+  printf '%s\n' '{"packages":{"repo":{"shell":["htop","fzf"]}}}' \
+    > "$GUIDED_BASELINE_FILE"
+  set_navigation "$(navigation_to_packages Packages repo shell)"
+  run guided_controller_list
+  echo "$output" | grep -qx "\[x\] htop"          # inherited: no dot
+
+  printf '%s\n' '{"packages":{"exclude":["htop"]}}' > "$GUIDED_STATE_FILE"
+  run guided_controller_list
+  echo "$output" | grep -qx "\[ \] htop  ●"       # still offered
+}

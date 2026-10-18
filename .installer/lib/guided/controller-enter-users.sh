@@ -96,7 +96,7 @@ _controller_enter_packages() {
   local state; state="$(_controller_state)"
   if [[ "${line:0:3}" == "[x]" ]]; then
     # currently installed → remove it
-    if _controller_package_in_core "$slot" "$package_category" "$package"; then
+    if _controller_package_in_baseline "$slot" "$package_category" "$package"; then
       state="$(jq --arg p "$package" \
         '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
         <<<"$state")"
@@ -113,7 +113,7 @@ _controller_enter_packages() {
          .packages.exclude |= map(select(. != $p)) else . end
        | if (.packages.exclude // null) == [] then del(.packages.exclude)
          else . end' <<<"$state")"
-    _controller_package_in_core "$slot" "$package_category" "$package" \
+    _controller_package_in_baseline "$slot" "$package_category" "$package" \
       || state="$(jq \
       --arg s "$slot" --arg k "$package_category" --arg p "$package" \
       '.packages[$s][$k] = (((.packages[$s][$k] // []) + [$p]) | unique)' \
@@ -123,14 +123,14 @@ _controller_enter_packages() {
   echo refresh
 }
 
-# _controller_package_in_core_any <slot> <pkg> — rc 0 when <pkg> is in ANY of
-# the Host Core's <slot> category arrays. The browser has no single pkgcat, so
-# it tests the whole slot to decide add-vs-exclude the way
+# _controller_package_in_baseline_any <slot> <pkg> — rc 0 when <pkg> is in ANY
+# of the session baseline's <slot> category arrays. The browser has no single
+# pkgcat, so it tests the whole slot to decide add-vs-exclude the way
 # _controller_enter_packages does per-cat.
-_controller_package_in_core_any() {
+_controller_package_in_baseline_any() {
   jq -e --arg s "$1" --arg p "$2" \
     '[(.packages[$s] // {}) | .[] | .[]?] | index($p)' \
-    <<<"$(config_state_host_core)" >/dev/null 2>&1
+    <<<"$(_controller_baseline)" >/dev/null 2>&1
 }
 
 # _controller_enter_package_browse <line> — toggle one package from the full
@@ -179,7 +179,7 @@ _controller_enter_package_browse() {
 _controller_toggle_browsed_package() {
   local state="$1" slot="$2" package="$3" mark="$4"
   if [[ "$mark" == "[x]" ]]; then
-    if _controller_package_in_core_any "$slot" "$package"; then
+    if _controller_package_in_baseline_any "$slot" "$package"; then
       state="$(jq --arg p "$package" \
         '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
         <<<"$state")"
@@ -189,7 +189,7 @@ _controller_toggle_browsed_package() {
            .packages[$s].extra |= map(select(. != $p)) else . end' <<<"$state")"
     fi
   else
-    if _controller_package_in_core_any "$slot" "$package"; then
+    if _controller_package_in_baseline_any "$slot" "$package"; then
       state="$(jq --arg p "$package" \
         'if .packages.exclude then
            .packages.exclude |= map(select(. != $p)) else . end

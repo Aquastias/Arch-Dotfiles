@@ -9,38 +9,39 @@
 
 # ── Packages screen helpers (ADR 0058) ───────────────────────────────────────
 # Provenance is three-state, reusing the existing override dot rather than
-# inventing glyphs:
-#   checked, no dot   — inherited from Host Core
-#   checked, with dot — added by this profile or session
-#   unchecked, with dot — excluded by this profile
+# inventing glyphs, and is measured against the SESSION BASELINE — Host Core
+# for a blank session, the picked profile after a pick (ADR 0157):
+#   checked, no dot   — inherited from the baseline
+#   checked, with dot — added this session
+#   unchecked, with dot — excluded this session
 #
-# The toggle list can only offer the DECLARED UNION across Host Core and the
-# profile: the universe of Arch packages is not enumerable, so adding a
+# The toggle list can only offer the DECLARED UNION across the baseline and the
+# session: the universe of Arch packages is not enumerable, so adding a
 # brand-new package stays a free-text entry (the `+ Add package` row).
 
 # _controller_package_union <effective> <slot> <cat> — the package names
 # offerable in one category: everything the effective view carries plus
-# everything Host Core declares there plus anything currently excluded (so it
-# can be re-checked).
+# everything the baseline declares there plus anything currently excluded (so
+# it can be re-checked).
 _controller_package_union() {
-  local effective="$1" slot="$2" cat="$3" core
-  core="$(config_state_host_core)"
-  jq -rn --argjson e "$effective" --argjson c "$core" \
+  local effective="$1" slot="$2" cat="$3" baseline
+  baseline="$(_controller_baseline)"
+  jq -rn --argjson e "$effective" --argjson b "$baseline" \
      --arg s "$slot" --arg k "$cat" '
-    (($e.packages[$s][$k] // []) + ($c.packages[$s][$k] // [])
+    (($e.packages[$s][$k] // []) + ($b.packages[$s][$k] // [])
      + [($e.packages.exclude // [])[]
-        | select(. as $x | ($c.packages[$s][$k] // []) | index($x))])
+        | select(. as $x | ($b.packages[$s][$k] // []) | index($x))])
     | unique | .[]'
 }
 
 # _controller_package_categories <effective> <slot> — the categories to list,
-# unioned across the effective view and Host Core so a core-only category still
-# shows.
+# unioned across the effective view and the baseline so a baseline-only
+# category still shows.
 _controller_package_categories() {
-  local effective="$1" slot="$2" core
-  core="$(config_state_host_core)"
-  jq -rn --argjson e "$effective" --argjson c "$core" --arg s "$slot" '
-    (($e.packages[$s] // {}) + ($c.packages[$s] // {}))
+  local effective="$1" slot="$2" baseline
+  baseline="$(_controller_baseline)"
+  jq -rn --argjson e "$effective" --argjson b "$baseline" --arg s "$slot" '
+    (($e.packages[$s] // {}) + ($b.packages[$s] // {}))
     | keys_unsorted | sort | .[]'
 }
 
@@ -59,12 +60,12 @@ _controller_package_excluded() {
     <<<"$1" >/dev/null 2>&1
 }
 
-# _controller_package_in_core <slot> <cat> <pkg> — rc 0 when Host Core declares
-# it there.
-_controller_package_in_core() {
+# _controller_package_in_baseline <slot> <cat> <pkg> — rc 0 when the session
+# baseline declares it there.
+_controller_package_in_baseline() {
   jq -e --arg s "$1" --arg k "$2" --arg p "$3" \
     '(.packages[$s][$k] // []) | index($p)' \
-    <<<"$(config_state_host_core)" >/dev/null 2>&1
+    <<<"$(_controller_baseline)" >/dev/null 2>&1
 }
 
 # _controller_package_derived <effective> — the Package Resolver's derived rows
