@@ -237,7 +237,7 @@ impermanence_common_persist_unapply() {
     temporary_file="$(mktemp)"
     awk -v t="$target" '
       {
-        if ($0 ~ "^[df] " t " ") next
+        if (($1 == "d" || $1 == "f") && $2 == t) next
         print
       }
     ' "$config_file" > "$temporary_file"

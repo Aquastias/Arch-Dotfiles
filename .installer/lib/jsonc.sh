@@ -153,27 +153,33 @@ _JSONC_REMOVE_PROGRAM='
   END { if (state == 1) exit 3 }
 '
 
+# _jsonc_array_has FILE SELECTOR VALUE — 0 when the array at SELECTOR holds
+# VALUE (comments stripped; a missing array or unparsable file is "no").
+_jsonc_array_has() {
+  jsonc_strip "$1" \
+    | jq -e --arg v "$3" "(${2} // []) | index(\$v) != null" >/dev/null 2>&1
+}
+
 # jsonc_append_to_array FILE SELECTOR VALUE
 #   Appends VALUE to the array at SELECTOR (e.g. ".persist.files"),
-#   preserving comments and formatting. No-op if VALUE already present.
+#   preserving comments and formatting. No-op if VALUE is already in that
+#   array (only that array: a mention elsewhere, e.g. a comment, does not count).
 #   Selector's last key is the array name; one such key per file is assumed.
 jsonc_append_to_array() {
   local file="$1" selector="$2" value="$3"
   local key="${selector##*.}"
-  if grep -qF "\"$value\"" "$file"; then
-    return 0
-  fi
+  _jsonc_array_has "$file" "$selector" "$value" && return 0
   local temporary_file; temporary_file="$(mktemp)"
   awk -v key="$key" -v value="$value" "$_JSONC_APPEND_PROGRAM" "$file" \
     > "$temporary_file" || : > "$temporary_file"
   # No such array: create it as the first member of its parent object.
   local parent="${selector%.*}"; parent="${parent##*.}"
   if [[ -s "$temporary_file" && -n "$parent" ]] \
-     && ! grep -qF "\"$value\"" "$temporary_file"; then
+     && ! _jsonc_array_has "$temporary_file" "$selector" "$value"; then
     awk -v parent="$parent" -v key="$key" -v value="$value" \
       "$_JSONC_CREATE_ARRAY_PROGRAM" "$file" > "$temporary_file"
   fi
-  grep -qF "\"$value\"" "$temporary_file" || {
+  _jsonc_array_has "$temporary_file" "$selector" "$value" || {
     rm -f "$temporary_file"
     echo "jsonc: cannot append to ${selector} in ${file}" \
          "(missing or unsupported array); file left unchanged" >&2

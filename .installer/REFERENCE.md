@@ -660,11 +660,13 @@ Four verbs. Host config is the source of truth: `add` and
 | Verb              | Effect                                                 |
 | ----------------- | ------------------------------------------------------ |
 | `add <path>`      | Detect dir vs file, append to host config, copy data   |
-|                   | to `/persist`, write `.mount` unit + tmpfiles, start.  |
+|                   | to `/persist`, write `.mount` unit + tmpfiles, start. |
+|                   | Refuses if `/persist<path>` already holds data.        |
 | `remove <path>`   | Reverse `add`: stop mount, remove unit + tmpfiles,     |
 |                   | optionally move data back, edit host config.           |
-| `status`          | List active `persist-*.mount` units; `zfs diff` each   |
-|                   | Rollback Dataset against `@blank`.                     |
+| `status`          | List active Persist Mount units; `zfs diff` each       |
+|                   | Rollback Dataset against `@blank` (btrfs: check each   |
+|                   | `@<name>@blank` subvolume exists).                     |
 | `apply-defaults`  | Regenerate Curated Persist Defaults from the current   |
 |                   | installer list. Idempotent.                            |
 

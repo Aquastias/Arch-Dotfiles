@@ -14,6 +14,7 @@
 #                           IMPERMANENCE_HOSTNAME
 #   IMPERMANENCE_HOSTNAME   default $(hostname)
 #   IMPERMANENCE_HOSTS_DIR  default <repo>/.installer/hosts
+#   IMPERMANENCE_FILESYSTEM default: the live root's fstype (zfs | btrfs)
 
 set -euo pipefail
 
@@ -33,6 +34,10 @@ source "$INSTALLER_DIR/lib/impermanence-common.sh"
 : "${IMPERMANENCE_HOSTNAME:=$(hostname)}"
 : "${IMPERMANENCE_HOSTS_DIR:=$INSTALLER_DIR/hosts}"
 : "${IMPERMANENCE_RPOOL:=rpool}"
+# The root filesystem decides the rollback mechanics (zfs datasets vs btrfs
+# subvolumes, ADR 0044); FILESYSTEM steers the shared mount-unit ordering.
+: "${IMPERMANENCE_FILESYSTEM:=$(findmnt -n -o FSTYPE --target / 2>/dev/null)}"
+export FILESYSTEM="$IMPERMANENCE_FILESYSTEM"
 
 usage() {
   cat >&2 <<EOF
@@ -179,6 +184,13 @@ impermanence_add() {
     echo "impermanence: '$target' is already persisted; no-op"
     return 0
   fi
+  # Data left by `remove` without --yes: copying over it would nest the live
+  # tree inside, and a failed add's cleanup would delete it.
+  if [[ -e "$IMPERMANENCE_MOUNT$target" ]]; then
+    echo "impermanence: $IMPERMANENCE_MOUNT$target already holds data (an" \
+      "earlier remove without --yes?) — move or delete it, then re-run" >&2
+    exit 2
+  fi
   kind="$(path_kind "$target")"
   declare_in_host_profile "$target" "$kind"
   if ! (
@@ -250,6 +262,15 @@ impermanence_status() {
     echo "[$label] $unit"
   done < <(systemctl list-units --type=mount --no-legend --all)
 
+  if [[ "$IMPERMANENCE_FILESYSTEM" == btrfs ]]; then
+    impermanence_status_btrfs_blanks
+  else
+    impermanence_status_zfs_blanks
+  fi
+}
+
+# impermanence_status_zfs_blanks — each Rollback Dataset's @blank and its drift.
+impermanence_status_zfs_blanks() {
   local entry suffix dataset count missing=0
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
@@ -264,6 +285,26 @@ impermanence_status() {
       | awk 'END { print NR }')"
     echo "$dataset: $count paths changed since @blank" \
       "(run: zfs diff $dataset@blank $dataset)"
+  done
+  (( missing == 0 ))
+}
+
+# impermanence_status_btrfs_blanks — each rollback subvolume's @<name>@blank
+# (ADR 0044); btrfs has no cheap per-path diff, so presence only.
+impermanence_status_btrfs_blanks() {
+  local entry suffix snapshot subvolumes missing=0
+  subvolumes="$(btrfs subvolume list -a "${IMPERMANENCE_ROOT:-/}" 2>/dev/null \
+    | awk '{ path = $NF; sub(/^<FS_TREE>\//, "", path); print path }')"
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    snapshot="@${suffix}@blank"
+    if ! grep -qxF "$snapshot" <<<"$subvolumes"; then
+      echo "ERROR: $snapshot is missing — Rollback Hook will fail closed" \
+        "on boot" >&2
+      missing=1
+      continue
+    fi
+    echo "$snapshot: present"
   done
   (( missing == 0 ))
 }

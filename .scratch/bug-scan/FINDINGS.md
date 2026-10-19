@@ -16,9 +16,9 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 
 ## Findings
 - ✔B1 high 01-bootstrap-zfs.sh:125 — ((waited++)) from 0 aborts under set -e
-- B2 high impermanence-common.sh:216 / tools/impermanence.sh:192 — re-add
+- ✔B2 high impermanence-common.sh:216 / tools/impermanence.sh:192 — re-add
   nests cp -a into preserved /persist data; rollback rm -rf deletes it
-- B3 med tools/impermanence.sh:254 — status zfs-only; false ERROR on btrfs
+- ✔B3 med tools/impermanence.sh:254 — status zfs-only; false ERROR on btrfs
 - ✔B4 low lib/wipe/execute.sh:40,52 — substring disk match (sda~sdab)
 - ✔B5 low lib/layout/core.sh:77-101 — leading-zero size parsed as octal
 - B6 low programs/system/zsh/install.sh:87 — cp -a nests on rerun
@@ -28,7 +28,7 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
   Export (rc 64) aborts with "aborted at line" + exit 64 instead of exit 0
 - ✔B10 med lib/wipe/execute.sh teardown_{zfs,lvm} — install-driven targets are
   /dev/disk/by-id paths; never match pvs (/dev/sdX) nor zpool vdev names
-- B11 med lib/jsonc.sh jsonc_append_to_array — early "already present" grep matches value anywhere in file (other array/comment) → silent no-op
+- ✔B11 med lib/jsonc.sh jsonc_append_to_array — early "already present" grep matches value anywhere in file (other array/comment) → silent no-op
 - B12 high lib/config/validation.sh:59 — RESOLVED_HOST_PROFILE=hostname, but
   profile≠hostname (desktop→eterniox, laptop→chronos, ADR 0020).
   install_state persist ← profile_loader_load(hostname) fails → {} (desktop's
@@ -45,7 +45,7 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - B21 trivial lib/packages/package-resolver.sh _package_resolver_user_shells — no users/vm/<name> fallback
 - B22 low lib/chroot/identity.sh — X11 XkbLayout written from console keymap names (de-latin1, uk, fr-latin9 ≠ xkb de, gb, fr) → invalid layout
 - ✔B23 CRITICAL lib/boot/esp-kernel-sync.sh esp_kernel_sync_planned_files — plans only from loader/entries/*.conf (systemd-boot); grub/limine/refind/efistub ESPs never receive upgraded vmlinuz/initramfs → stale kernel w/o modules → unbootable after first kernel upgrade
-- B24 low lib/impermanence-common.sh persist_unapply — awk uses target path as regex ("." etc.) → may drop other tmpfiles entries
+- ✔B24 low lib/impermanence-common.sh persist_unapply — awk uses target path as regex ("." etc.) → may drop other tmpfiles entries
 - ✔B25 low lib/impermanence-common.sh persist_stage_in_move — `((n)) && mv` last in subshell exits 1 for an empty mountpoint source → aborts under set -e
 - ✔B26 med lib/layout/zfs/single.sh:212 — OS size passed as +N 512-byte "s"; sgdisk sectors are logical (4096 on 4Kn) → OS partition 8× too big / fails
 - ✔B27 low lib/layout/zfs/single.sh (and others) — partprobe; sleep 2 then mkfs on by-id -partN symlink: races udev (no udevadm settle)

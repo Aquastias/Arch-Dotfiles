@@ -401,3 +401,14 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -f "$dest/etc/foo.conf" ]
   [ ! -e "$live/etc/foo.conf" ]
 }
+
+@test "impermanence_common_persist_unapply: drops only the exact tmpfiles path" {
+  # The target was matched as a regex, so "." in /etc/a.b also hit /etc/aXb.
+  local config_file="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  mkdir -p "${config_file%/*}"
+  printf 'd /etc/a.b 0755 root root - -\nd /etc/aXb 0755 root root - -\n' \
+    >"$config_file"
+  impermanence_common_persist_unapply /etc/a.b
+  ! grep -q ' /etc/a.b ' "$config_file"
+  grep -q ' /etc/aXb ' "$config_file"
+}

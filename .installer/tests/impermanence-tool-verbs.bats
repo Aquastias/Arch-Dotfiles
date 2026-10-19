@@ -223,6 +223,40 @@ load impermanence-tool-helpers
 }
 
 
+@test "add: refuses when /persist<path> already holds data, and keeps it" {
+  # `remove` without --yes leaves data on /persist; re-adding used to nest the
+  # live copy inside it (cp -a) and a failed add rm -rf'd the preserved data.
+  seed_live_directory /etc/wireguard
+  mkdir -p "$IMPERMANENCE_MOUNT/etc/wireguard"
+  echo preserved >"$IMPERMANENCE_MOUNT/etc/wireguard/marker"
+  run "$TOOL" add /etc/wireguard
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"already holds data"* ]]
+  grep -qx preserved "$IMPERMANENCE_MOUNT/etc/wireguard/marker"
+  [ ! -e "$IMPERMANENCE_MOUNT/etc/wireguard/wireguard" ]
+  run grep -F '"/etc/wireguard"' "$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc"
+  [ "$status" -ne 0 ]
+}
+
+@test "add: records the path even when the profile mentions it elsewhere" {
+  # The "already declared" check grepped the whole file, so a path named in
+  # another array (or a comment) was silently never recorded.
+  cat >"$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc" <<'JSONC'
+{
+  // keep "/etc/wireguard" in mind
+  "persist": {
+    "directories": [],
+    "files": []
+  }
+}
+JSONC
+  seed_live_directory /etc/wireguard
+  "$TOOL" add /etc/wireguard
+  source "$BATS_TEST_DIRNAME/../lib/jsonc.sh"
+  jsonc_strip "$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc" \
+    | jq -e '.persist.directories | index("/etc/wireguard")'
+}
+
 # ── cycle 5: remove happy path ──────────────────────────────────────────────
 
 @test "remove: errors when path is not currently persisted" {
@@ -412,6 +446,38 @@ EOF
   [[ "$output" == *"missing"* ]]
 }
 
+
+# _btrfs_snapshots <subvol>... — stub `btrfs subvolume list -a` output.
+_btrfs_snapshots() {
+  local subvolume
+  for subvolume in "$@"; do
+    echo "ID 260 gen 9 top level 5 path <FS_TREE>/${subvolume}"
+  done >"$MOCK_STATE/btrfs-list"
+  cat >"$BIN_STUBS/btrfs" <<'STUB'
+#!/usr/bin/env bash
+printf 'btrfs %s\n' "$*" >> "$CALLS"
+[[ "$1 $2" == "subvolume list" ]] && cat "$MOCK_STATE/btrfs-list"
+exit 0
+STUB
+  chmod +x "$BIN_STUBS/btrfs"
+}
+
+@test "status on btrfs: checks @<name>@blank subvolumes, never zfs" {
+  export IMPERMANENCE_FILESYSTEM=btrfs
+  _btrfs_snapshots @etc@blank @opt@blank @srv@blank @usrlocal@blank
+  run "$TOOL" status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"@etc@blank"* ]]
+  ! grep -q '^zfs ' "$CALLS"
+}
+
+@test "status on btrfs: a missing @blank subvolume is an error" {
+  export IMPERMANENCE_FILESYSTEM=btrfs
+  _btrfs_snapshots @etc@blank @opt@blank @usrlocal@blank
+  run "$TOOL" status
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"@srv@blank"*"missing"* ]]
+}
 
 # ── slice 5 cycle 6: apply-defaults precondition ────────────────────────────
 

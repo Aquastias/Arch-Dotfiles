@@ -78,6 +78,8 @@ STUB
   export IMPERMANENCE_MANIFEST="$FAKEROOT/usr/lib/impermanence/defaults.manifest"
   export IMPERMANENCE_HOSTNAME="testhost"
   export IMPERMANENCE_HOSTS_DIR="$FAKEROOT/os/hosts"
+  # Pin the filesystem the tool would otherwise detect from the live root.
+  export IMPERMANENCE_FILESYSTEM=zfs
   mkdir -p "$IMPERMANENCE_MOUNT" \
            "${IMPERMANENCE_MANIFEST%/*}" \
            "$IMPERMANENCE_HOSTS_DIR/testhost"
