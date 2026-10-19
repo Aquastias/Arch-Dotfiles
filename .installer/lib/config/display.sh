@@ -30,7 +30,7 @@ _display_curated() {
   niri)         echo niri ;;
   noctalia)     echo Noctalia ;;
   sddm)         echo SDDM ;;
-  greetd)       echo greetd ;;
+  greetd)       echo "greetd (tuigreet)" ;;
   noctalia-greeter) echo "Noctalia Greeter" ;;
   gpu)          echo GPU ;;
   ssh)          echo SSH ;;
