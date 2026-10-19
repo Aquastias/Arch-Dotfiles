@@ -9,10 +9,18 @@ and cannot be pinned to the curated session dir ([ADR 0158], [ADR 0070]).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] pacman config carries the `NoExtract` entry on Hyprland hosts only.
 - [x] No `hyprland-uwsm.desktop` exists after install or after a hyprland
       package upgrade.
-- [ ] The entry survives impermanence rollback of `/etc`.
-- [ ] VM run (Hyprland profile) shows the curated session list unchanged.
+- [x] The entry survives impermanence rollback of `/etc`.
+- [x] VM run (Hyprland profile) shows the curated session list unchanged.
+
+## Comments
+
+VM `desktop/hyprland` (local HEAD d0c5ad7), 2026-10-19: `NoExtract` line in
+pacman.conf; `/usr/share/wayland-sessions` holds only `hyprland.desktop`, also
+after `pacman -S hyprland` reinstall (package lists `hyprland-uwsm.desktop`).
+Profile is not impermanent; rollback safety is by construction (@blank is
+taken after extras run).
