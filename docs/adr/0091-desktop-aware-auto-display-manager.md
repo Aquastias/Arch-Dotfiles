@@ -4,6 +4,7 @@
 Status: accepted. Supersedes the `auto` resolution in [ADR 0069] (DM is an
 operator choice) and the fleet-wide-SDDM rule in [ADR 0068]/[0067]'s superseding
 note. Keeps [ADR 0069]'s operator-override model.
+Later decisions: `auto` amended by [ADR 0158].
 ---
 
 `environment.display_manager=auto` resolves **from the resolved desktop set**:
@@ -60,3 +61,4 @@ it is a smart default, freely overridable, not a lock.
 [0067]: 0067-greetd-owns-dm-when-hyprland-present.md
 [ADR 0068]: 0068-hyprland-uses-seatd-for-drm-master.md
 [ADR 0069]: 0069-display-manager-is-an-operator-choice.md
+[ADR 0158]: 0158-auto-display-manager-picks-noctalia-greeter.md

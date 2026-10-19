@@ -1124,9 +1124,11 @@ aborts at load ([ADR 0056]). Valid desktop values: `"kde"`, `"hyprland"`,
 `"niri"` (array-shaped, multi-select co-installs allowed; adding a DE stays
 zero-runner-change, [ADR 0005]/[0062]/[0090]). Valid GPU values: `"amd"`,
 `"nvidia"`, `"intel"`, `["amd", "nvidia"]`, or `"auto"`. Valid `display_manager`
-values: `"auto"` (default — desktop-aware: `sddm` when `kde` is present, else
-`greetd` for a KDE-free set; `none` if no desktop, [ADR 0091]), `"greetd"`,
-`"sddm"` ([ADR 0069]). Valid `wayland_shell` values: `"noctalia"` (default) |
+values: `"auto"` (default — desktop-aware: `sddm` when `kde` is present,
+else `noctalia-greeter` for a KDE-free set with the Noctalia shell, else
+`greetd`; `none` if no desktop, [ADR 0091]/[0158]), `"greetd"`,
+`"noctalia-greeter"`, `"sddm"` ([ADR 0069]). Valid `wayland_shell` values:
+`"noctalia"` (default) |
 `"none"` (compositor-agnostic — honored by both niri and Hyprland;
 [ADR 0090]/[0097], renamed from `niri_shell` by 0097). The optional `stock` bool
 (default `false`,
@@ -1609,16 +1611,18 @@ Replaces the never-invoked `envycontrol` switcher.
 
 ### Display Manager
 Operator-selected via `environment.display_manager` — `auto` | `greetd` |
-`sddm`, default `auto` ([ADR 0069], superseding [ADR 0067]'s "greetd owns the DM
-whenever Hyprland is installed"). **Full symmetry**: any DM launches any DE —
+`noctalia-greeter` | `sddm`, default `auto` ([ADR 0069], [ADR 0158],
+superseding [ADR 0067]'s "greetd owns the DM whenever Hyprland is installed").
+**Full symmetry**: any DM launches any DE —
 SDDM for Hyprland or KDE+Hyprland, greetd for KDE. This became a choice once
 **seatd** ([ADR 0068]) gave aquamarine DRM master independent of the DM; before
 that an SDDM-launched Hyprland session could not obtain master (atomic KMS
 commit `Permission denied`, retry-loop, black screen — kwin survived it, ADR
 0067), so greetd was *forced* whenever Hyprland was present. `auto` is
 **desktop-aware** ([ADR 0091], superseding the fleet-wide-SDDM code and
-[ADR 0069]'s stale body): `greetd` for a KDE-free non-empty desktop set
-(hyprland and/or niri), `sddm` when the set contains `kde`, and `none` when no
+[ADR 0069]'s stale body; [ADR 0158]): for a KDE-free non-empty desktop set
+(hyprland and/or niri), `noctalia-greeter` when `wayland_shell` is `noctalia`,
+else `greetd`; `sddm` when the set contains `kde`, and `none` when no
 desktop is selected. It is a smart default, not a lock — a concrete DM still
 overrides freely (seatd makes any DM launch any DE, so the pairing is
 preference, not constraint). A **concrete** DM with an empty desktop set aborts
@@ -2423,6 +2427,7 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [0108]: docs/adr/0108-app-theming-bridge-reaches-fresh-installs.md
 [0111]: docs/adr/0111-kde-adapter-seeds-captured-plasma-settings.md
 [0119]: docs/adr/0119-vm-seeds-full-hd-virtual-panel.md
+[0158]: docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR 0002]: docs/adr/0002-install-sh-source-of-truth-config-as-metadata.md
 [ADR 0005]: docs/adr/0005-desktop-environment-adapter-pattern.md
 [ADR 0007]: docs/adr/0007-host-package-list-and-sysctl-as-config-fields.md
@@ -2540,5 +2545,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0154]: docs/adr/0154-install-config-reader-binds-json-schema-owns-defaults.md
 [ADR 0156]: docs/adr/0156-agent-session-guardrails.md
 [ADR 0157]: docs/adr/0157-neutral-core-personal-software-in-fleet-layer.md
+[ADR 0158]: docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
