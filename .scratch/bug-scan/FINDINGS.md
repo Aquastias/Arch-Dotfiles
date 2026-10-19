@@ -44,7 +44,7 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - B20 low lib/packages/gpu.sh — nvidia set includes lib32-nvidia-utils; with optional_repos lacking multilib pacstrap fails after disks are partitioned (no guard)
 - B21 trivial lib/packages/package-resolver.sh _package_resolver_user_shells — no users/vm/<name> fallback
 - B22 low lib/chroot/identity.sh — X11 XkbLayout written from console keymap names (de-latin1, uk, fr-latin9 ≠ xkb de, gb, fr) → invalid layout
-- B23 CRITICAL lib/boot/esp-kernel-sync.sh esp_kernel_sync_planned_files — plans only from loader/entries/*.conf (systemd-boot); grub/limine/refind/efistub ESPs never receive upgraded vmlinuz/initramfs → stale kernel w/o modules → unbootable after first kernel upgrade
+- ✔B23 CRITICAL lib/boot/esp-kernel-sync.sh esp_kernel_sync_planned_files — plans only from loader/entries/*.conf (systemd-boot); grub/limine/refind/efistub ESPs never receive upgraded vmlinuz/initramfs → stale kernel w/o modules → unbootable after first kernel upgrade
 - B24 low lib/impermanence-common.sh persist_unapply — awk uses target path as regex ("." etc.) → may drop other tmpfiles entries
 - ✔B25 low lib/impermanence-common.sh persist_stage_in_move — `((n)) && mv` last in subshell exits 1 for an empty mountpoint source → aborts under set -e
 - B26 med lib/layout/zfs/single.sh:212 — OS size passed as +N 512-byte "s"; sgdisk sectors are logical (4096 on 4Kn) → OS partition 8× too big / fails

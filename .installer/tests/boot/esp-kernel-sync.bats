@@ -85,6 +85,33 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   ! in_output initramfs-linux-lts.img
 }
 
+@test "planner mirrors ESP-root boot images with no loader entries (grub etc.)" {
+  # GRUB/Limine/rEFInd/EFISTUB stage kernels at the ESP root and keep no
+  # loader/entries; their kernel upgrades must still reach the ESP.
+  rmdir "$ESP/loader/entries" "$ESP/loader"
+  local image
+  for image in vmlinuz-linux-lts initramfs-linux-lts.img \
+           initramfs-linux-lts-fallback.img intel-ucode.img; do
+    echo new >"$BOOT/$image"; echo old >"$ESP/$image"
+  done
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  in_output vmlinuz-linux-lts
+  in_output initramfs-linux-lts.img
+  in_output initramfs-linux-lts-fallback.img
+  in_output intel-ucode.img
+}
+
+@test "planner never mirrors a kernel that was not staged on the ESP" {
+  rmdir "$ESP/loader/entries" "$ESP/loader"
+  echo new >"$BOOT/vmlinuz-linux-lts"; echo old >"$ESP/vmlinuz-linux-lts"
+  echo stray >"$BOOT/vmlinuz-linux-zen"   # Stray Kernel: /boot only
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  in_output vmlinuz-linux-lts
+  ! in_output vmlinuz-linux-zen
+}
+
 @test "planner de-duplicates a file referenced by multiple entries" {
   _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
   _entry arch-zfs-fallback vmlinuz-linux-lts intel-ucode.img \

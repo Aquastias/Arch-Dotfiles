@@ -6,26 +6,34 @@
 # must be copied from the ZFS /boot onto the FAT32 ESP. Installed as a pacman
 # PostTransaction hook that fires on every kernel transaction.
 #
-# The set of files to mirror is driven by the loader entries: the planner emits
-# exactly the files the entries reference (their linux/initrd lines) that exist
-# in /boot. The entries name only Kernel-Selection kernels and the microcode
-# present, so a Stray Kernel — having no entry — is never mirrored, and a
-# never-referenced file is never copied. This replaces the old linux* glob.
+# The set of files to mirror is the Kernel-Selection boot images already on
+# the ESP: the files the systemd-boot loader entries reference (their
+# linux/initrd lines) plus the vmlinuz-*/initramfs-*/*-ucode images staged at
+# the ESP root — how GRUB, Limine, rEFInd and EFISTUB keep theirs (no entries
+# there). Only those that also exist in /boot are planned, so a Stray Kernel —
+# never staged on the ESP — is never mirrored, and nothing else is copied.
 #
 # Sourced lib-only by tests (ESP_KERNEL_SYNC_LIB_ONLY=1) to exercise the pure
 # planner without the runtime copy loop (mirrors initcpio.sh's lib-only guard).
 # =============================================================================
 
-# Pure: print the /boot filenames referenced by the loader entries under
-# <esp_dir>/loader/entries that also exist in <boot_dir>, one per line, sorted
-# and de-duplicated.
+# Pure: print the /boot filenames to mirror onto <esp_dir> — those its loader
+# entries reference plus the boot images staged at its root — that also exist
+# in <boot_dir>, one per line, sorted and de-duplicated.
 esp_kernel_sync_planned_files() {
-  local esp_directory="$1" boot_directory="$2" entry name
-  for entry in "$esp_directory"/loader/entries/*.conf; do
-    [[ -f "$entry" ]] || continue
-    awk '$1 == "linux" || $1 == "initrd" { sub(/^\//, "", $2); print $2 }' \
-      "$entry"
-  done | sort -u | while IFS= read -r name; do
+  local esp_directory="$1" boot_directory="$2" entry name staged
+  {
+    for entry in "$esp_directory"/loader/entries/*.conf; do
+      [[ -f "$entry" ]] || continue
+      awk '$1 == "linux" || $1 == "initrd" { sub(/^\//, "", $2); print $2 }' \
+        "$entry"
+    done
+    for staged in "$esp_directory"/vmlinuz-* "$esp_directory"/initramfs-*.img \
+                  "$esp_directory"/*-ucode.img; do
+      [[ -f "$staged" ]] || continue
+      printf '%s\n' "${staged##*/}"
+    done
+  } | sort -u | while IFS= read -r name; do
     [[ -n "$name" && -f "$boot_directory/$name" ]] && printf '%s\n' "$name"
   done
 }
