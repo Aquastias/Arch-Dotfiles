@@ -6,7 +6,8 @@
 # KDE from its install-kde.jsonc (ADR 0021); niri and Hyprland share the pure
 # Noctalia preset keyed on environment.wayland_shell (ADR 0090/0097). Read from
 # the same lists + bools the adapters install from, so query and install
-# cannot drift.
+# cannot drift. Also the display-manager set, derived from the desktop set and
+# the effective shell (ADR 0069/0158).
 #
 # Used by: lib/packages/package-resolver.sh (sources it; uses its
 # _package_resolver_emit / _package_resolver_jq).
@@ -107,6 +108,19 @@ _package_resolver_noctalia_plugin_deps() {
   done < <("$list_function")
 }
 
+# _package_resolver_wayland_shell <config> — the effective wayland_shell, as
+# the installer resolves it: a stock (pure) compositor (ADR 0112) forces `none`
+# regardless of the authored value. Shared by the Noctalia preset and the
+# display-manager `auto` rule (ADR 0158).
+_package_resolver_wayland_shell() {
+  local config="$1"
+  if [[ "$(install_config_from_json "$config" stock)" == "true" ]]; then
+    printf 'none\n'
+  else
+    install_config_from_json "$config" wayland_shell
+  fi
+}
+
 # _package_resolver_noctalia_preset <config> <slice-function> — the SHARED
 # Noctalia work preset (source `noctalia`, ADR 0097), keyed on
 # environment.wayland_shell: the base preset map, the enabled
@@ -114,15 +128,8 @@ _package_resolver_noctalia_plugin_deps() {
 # + this compositor's <slice-function> deps, and the laptop-gated battery
 # deps. Reused by both the niri and Hyprland resolver paths.
 _package_resolver_noctalia_preset() {
-  local config="$1" slice_function="$2" shell
-  # Stock (pure) compositor (ADR 0112) forces wayland_shell=none, so the preset
-  # is absent regardless of the authored wayland_shell value.
-  if [[ "$(install_config_from_json "$config" stock)" \
-        == "true" ]]; then
-    return 0
-  fi
-  shell="$(install_config_from_json "$config" wayland_shell)"
-  [[ "$shell" == noctalia ]] || return 0
+  local config="$1" slice_function="$2"
+  [[ "$(_package_resolver_wayland_shell "$config")" == noctalia ]] || return 0
 
   _package_resolver_emit_from noctalia noctalia_preset_packages
 
@@ -160,4 +167,33 @@ _package_resolver_noctalia_preset() {
 _package_resolver_niri_packages() {
   _package_resolver_emit_from niri-shell niri_core_packages
   _package_resolver_noctalia_preset "$1" noctalia_niri_plugins
+}
+
+# _package_resolver_display_manager <config> <desktops> — the greeter, its
+# own derived set keyed on the resolved display_manager (ADR 0069), not
+# smuggled inside kde-shell. `auto` resolves the same DESKTOP-AWARE way the
+# installer does (_environment_resolve_display_manager, ADR 0091/0158): sddm
+# when kde is present; else noctalia-greeter under the Noctalia shell, greetd
+# otherwise; none when no desktop. Explicit greetd/noctalia-greeter/sddm win.
+_package_resolver_display_manager() {
+  local config="$1" desktops="$2" display_manager
+  display_manager="$(install_config_from_json "$config" display_manager)"
+  if [[ -z "$desktops" ]]; then
+    display_manager="none"
+  elif [[ "$display_manager" == "auto" ]]; then
+    if grep -qx kde <<<"$desktops"; then
+      display_manager="sddm"
+    elif [[ "$(_package_resolver_wayland_shell "$config")" == noctalia ]]; then
+      display_manager="noctalia-greeter"
+    else
+      display_manager="greetd"
+    fi
+  fi
+  case "$display_manager" in
+    greetd) _package_resolver_emit display-manager derived \
+              greetd greetd-tuigreet ;;
+    noctalia-greeter) _package_resolver_emit display-manager derived \
+                        greetd noctalia-greeter ;;
+    sddm)   _package_resolver_emit display-manager derived sddm ;;
+  esac
 }

@@ -217,21 +217,33 @@ load resolver-helpers
   ! grep -qx "greetd" <<<"$display_manager_packages"
 }
 
-@test "display-manager set: auto on a hyprland-only box resolves to greetd" {
+@test "display-manager set: auto on a Noctalia hyprland box is noctalia-greeter" {
   local display_manager_packages
   display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"],"stock":false}}' \
     display-manager)"
-  grep -qx "greetd"          <<<"$display_manager_packages"
-  grep -qx "greetd-tuigreet" <<<"$display_manager_packages"
-  ! grep -qx "sddm" <<<"$display_manager_packages"
+  [ "$display_manager_packages" = "$(printf '%s\n' greetd noctalia-greeter)" ]
 }
 
-@test "display-manager set: auto on a niri-only box resolves to greetd" {
+@test "display-manager set: auto on a Noctalia niri box is noctalia-greeter" {
   local display_manager_packages
   display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' \
     display-manager)"
-  grep -qx "greetd" <<<"$display_manager_packages"
-  ! grep -qx "sddm" <<<"$display_manager_packages"
+  [ "$display_manager_packages" = "$(printf '%s\n' greetd noctalia-greeter)" ]
+}
+
+@test "display-manager set: auto on a shell-less niri box is greetd + tuigreet" {
+  local display_manager_packages
+  display_manager_packages="$(packages_of \
+    '{"users":[],"environment":{"desktop":["niri"],"stock":false,"wayland_shell":"none"}}' \
+    display-manager)"
+  [ "$display_manager_packages" = "$(printf '%s\n' greetd greetd-tuigreet)" ]
+}
+
+@test "display-manager set: auto on a stock hyprland box is greetd + tuigreet" {
+  local display_manager_packages
+  display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"],"stock":true}}' \
+    display-manager)"
+  [ "$display_manager_packages" = "$(printf '%s\n' greetd greetd-tuigreet)" ]
 }
 
 @test "display-manager set: auto with kde present resolves to sddm" {

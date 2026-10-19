@@ -352,30 +352,6 @@ _package_resolver_desktop_sets() {
   done <<<"$desktops"
 }
 
-# _package_resolver_display_manager <config> <desktops> — the greeter, its
-# own derived set keyed on the resolved display_manager (ADR 0069), not
-# smuggled inside kde-shell. `auto` resolves the same DESKTOP-AWARE way the
-# installer does (_environment_resolve_display_manager, ADR 0091): greetd for a
-# KDE-free desktop set (hyprland/niri), sddm when kde is present; none when no
-# desktop. Explicit greetd/noctalia-greeter/sddm win (ADR 0158).
-_package_resolver_display_manager() {
-  local config="$1" desktops="$2" display_manager
-  display_manager="$(install_config_from_json "$config" display_manager)"
-  if [[ -z "$desktops" ]]; then
-    display_manager="none"
-  elif [[ "$display_manager" == "auto" ]]; then
-    display_manager="greetd"
-    grep -qx kde <<<"$desktops" && display_manager="sddm"
-  fi
-  case "$display_manager" in
-    greetd) _package_resolver_emit display-manager derived \
-              greetd greetd-tuigreet ;;
-    noctalia-greeter) _package_resolver_emit display-manager derived \
-                        greetd noctalia-greeter ;;
-    sddm)   _package_resolver_emit display-manager derived sddm ;;
-  esac
-}
-
 # _package_resolver_login_shells <config> — the chroot installs a user's login
 # shell package when the binary is missing, so the shell is derived from the
 # setting, never declared.

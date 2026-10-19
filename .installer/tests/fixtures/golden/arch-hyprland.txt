@@ -158,7 +158,7 @@ base	texinfo
 base	vim
 bluetooth	bluetooth
 display-manager	greetd
-display-manager	greetd-tuigreet
+display-manager	noctalia-greeter
 fonts	noto-fonts
 fonts	noto-fonts-cjk
 fonts	noto-fonts-emoji

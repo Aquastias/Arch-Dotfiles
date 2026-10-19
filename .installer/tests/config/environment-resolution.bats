@@ -115,28 +115,43 @@ write_config() {
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }
 
-@test "display_manager auto resolves to greetd for a hyprland-only box" {
-  write_config '{"environment": {"desktop": "hyprland", "gpu": "amd"}}'
+@test "auto display_manager: Noctalia hyprland-only gets noctalia-greeter" {
+  write_config '{"environment": {"desktop": "hyprland", "stock": false}}'
   environment_resolve
-  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "noctalia-greeter" ]
 }
 
-@test "display_manager auto resolves to greetd for a niri-only box" {
-  write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
+@test "auto display_manager: Noctalia niri-only gets noctalia-greeter" {
+  write_config '{"environment": {"desktop": "niri", "stock": false}}'
   environment_resolve
-  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "noctalia-greeter" ]
 }
 
-@test "display_manager auto resolves to greetd for a hyprland+niri box" {
-  write_config '{"environment": {"desktop": ["hyprland","niri"], "gpu": "amd"}}'
+@test "auto display_manager: Noctalia hyprland+niri gets noctalia-greeter" {
+  write_config \
+    '{"environment": {"desktop": ["hyprland","niri"], "stock": false}}'
   environment_resolve
-  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "noctalia-greeter" ]
 }
 
 @test "display_manager auto resolves to sddm for a kde+niri box" {
   write_config '{"environment": {"desktop": ["kde","niri"], "gpu": "amd"}}'
   environment_resolve
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
+}
+
+@test "display_manager auto falls back to greetd with wayland_shell none" {
+  write_config \
+    '{"environment": {"desktop": "niri", "stock": false, "wayland_shell": "none"}}'
+  environment_resolve
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "display_manager auto falls back to greetd on a stock compositor" {
+  write_config \
+    '{"environment": {"desktop": "hyprland", "stock": true}}'
+  environment_resolve
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
 @test "explicit greetd is honored on a hyprland box" {

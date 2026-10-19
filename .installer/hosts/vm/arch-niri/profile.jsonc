@@ -3,7 +3,7 @@
 // Fleet Layer's full package userland + the niri/Noctalia environment, on a
 // single-disk skeleton (one operator-picked disk auto-partitioned into ESP +
 // rpool + dpool; no os_pool block needed). No display_manager → auto resolves
-// to greetd for a KDE-free Wayland session (ADR 0091).
+// to noctalia-greeter for a KDE-free Noctalia session (ADR 0091/0158).
 {
   // A fleet host (ADR 0157): folds the Fleet Layer — the operator's software.
   "fleet": true,
