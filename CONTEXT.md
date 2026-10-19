@@ -1636,8 +1636,9 @@ exactly the good sessions — its own `hyprland.desktop` (`env -u WAYLAND_DISPLA
 -u DISPLAY start-hyprland`, the 0.53+ launcher; unset vars force aquamarine's
 DRM backend over its nested one), the **sole** Hyprland session, niri's packaged
 session (symlinked in by the niri adapter), and — on a KDE co-install — Plasma.
-The packaged `hyprland-uwsm.desktop` is deliberately not curated and `uwsm` is
-not installed ([ADR 0070]): its systemd-user `graphical.target` orchestration
+The packaged `hyprland-uwsm.desktop` never reaches disk (pacman `NoExtract`,
+since noctalia-greeter scans `/usr/share` too, [ADR 0158]) and `uwsm` is not
+installed ([ADR 0070]): its systemd-user `graphical.target` orchestration
 deadlocks on the first post-boot login under impermanence ([ADR 0061] pre-starts
 `user@uid`), black-screening only the uwsm session while start-hyprland and
 Plasma work. Under impermanence the same display-manager login is used — no tty1

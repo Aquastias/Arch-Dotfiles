@@ -67,6 +67,14 @@ source "${SCRIPT_DIR}/../../../lib/chroot/noctalia-preset.sh"
 # Noctalia's IPC, so hyprlock is gone (ADR 0097). A file manager the curated
 # config's Super+E references stays operator-supplied.
 section "Hyprland core"
+# The packaged uwsm session never reaches disk (ADR 0070/0158): noctalia-greeter
+# scans /usr/share unconditionally, so keeping it out of the curated dir is not
+# enough. NoExtract (in [options], before the install) holds across upgrades.
+_uwsm_session=usr/share/wayland-sessions/hyprland-uwsm.desktop
+grep -qxF "NoExtract = ${_uwsm_session}" "${ROOT}/etc/pacman.conf" \
+  || sed -i "/^\[options\]/a NoExtract = ${_uwsm_session}" \
+    "${ROOT}/etc/pacman.conf"
+rm -f "${ROOT}/${_uwsm_session}"
 pacman -S --noconfirm --needed \
   hyprland \
   seatd \

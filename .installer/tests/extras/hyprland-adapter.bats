@@ -12,10 +12,19 @@
 # greeter.
 
 # _write_command_stubs — pacman/systemctl/git stubs on STUB_BIN that log
-# each call (git emulates a sparse-checkout of the Noctalia plugins).
+# each call (git emulates a sparse-checkout of the Noctalia plugins), plus the
+# pacman.conf the pacman stub reads.
 _write_command_stubs() {
-  printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
-    > "$STUB_BIN/pacman"
+  # The pacman stub also records the [options] NoExtract lines live when
+  # hyprland itself is installed, so a test can prove they precede it.
+  cat > "$STUB_BIN/pacman" <<'PACMAN'
+#!/usr/bin/env bash
+echo "pacman $*" >> "$PACMAN_LOG"
+case " $* " in
+  *" hyprland "*) sed -n 's/^NoExtract/hyprland-noextract: &/p' \
+                    "$ROOT/etc/pacman.conf" >> "$PACMAN_LOG" ;;
+esac
+PACMAN
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
   # git stub emulating a successful sparse-checkout (same as niri-adapter.bats):
@@ -40,7 +49,15 @@ esac
 exit 0
 GIT
   chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/git"
+  _write_pacman_config
   export PATH="$STUB_BIN:$PATH"
+}
+
+# _write_pacman_config — the chroot pacman.conf the adapter amends (uwsm
+# NoExtract, ADR 0158).
+_write_pacman_config() {
+  mkdir -p "$ROOT/etc"
+  printf '[options]\nHoldPkg = pacman glibc\n\n[core]\n' > "$ROOT/etc/pacman.conf"
 }
 
 setup() {
@@ -126,7 +143,7 @@ run_hypr() {
 @test "does not install uwsm" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
-  ! grep -qw "uwsm" "$PACMAN_LOG"
+  ! grep "^pacman " "$PACMAN_LOG" | grep -qw "uwsm"
 }
 
 # aquamarine can't get DRM master via logind on some hardware (atomic KMS
@@ -290,6 +307,26 @@ run_hypr() {
   run_hypr "kde hyprland"
   [ "$status" -eq 0 ]
   [ ! -e "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
+}
+
+# noctalia-greeter scans /usr/share unconditionally (ADR 0158), so the packaged
+# uwsm session must never reach disk — not just stay out of the curated dir.
+@test "keeps the packaged uwsm session off disk under every greeter" {
+  local uwsm=usr/share/wayland-sessions/hyprland-uwsm.desktop
+  mkdir -p "$ROOT/${uwsm%/*}"
+  touch "$ROOT/$uwsm"
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  [ ! -e "$ROOT/$uwsm" ]
+  # NoExtract lands in [options] before hyprland is installed.
+  grep -qx "hyprland-noextract: NoExtract = $uwsm" "$PACMAN_LOG"
+}
+
+@test "the uwsm NoExtract is written once across re-runs" {
+  run_hypr "hyprland"
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '^NoExtract = .*hyprland-uwsm' "$ROOT/etc/pacman.conf")" -eq 1 ]
 }
 
 # ── display manager relinquished to the DM adapter (ADR 0069) ────────────────

@@ -11,8 +11,8 @@ and cannot be pinned to the curated session dir ([ADR 0158], [ADR 0070]).
 
 **Status:** ready-for-agent
 
-- [ ] pacman config carries the `NoExtract` entry on Hyprland hosts only.
-- [ ] No `hyprland-uwsm.desktop` exists after install or after a hyprland
+- [x] pacman config carries the `NoExtract` entry on Hyprland hosts only.
+- [x] No `hyprland-uwsm.desktop` exists after install or after a hyprland
       package upgrade.
 - [ ] The entry survives impermanence rollback of `/etc`.
 - [ ] VM run (Hyprland profile) shows the curated session list unchanged.
