@@ -252,6 +252,14 @@ load resolver-helpers
   ! grep -qx "sddm" <<<"$display_manager_packages"
 }
 
+@test "display-manager set: explicit noctalia-greeter is greetd + the greeter" {
+  local display_manager_packages
+  display_manager_packages="$(packages_of \
+    '{"users":[],"environment":{"desktop":["kde"],"stock":false,"display_manager":"noctalia-greeter"}}' \
+    display-manager)"
+  [ "$display_manager_packages" = "$(printf '%s\n' greetd noctalia-greeter)" ]
+}
+
 @test "display-manager set: empty when no desktop is selected" {
   local display_manager_packages
   display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":[]}}' display-manager)"

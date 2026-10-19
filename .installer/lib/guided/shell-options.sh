@@ -76,8 +76,9 @@ _guided_shell_edit_bootloader() {
   _guided_shell_edit_choice bootloader "Bootloader" options.bootloader
 }
 
-# _guided_shell_edit_display_manager — pick the greeter (auto | greetd | sddm),
-# a single-select like the bootloader/firewall radiolists (ADR 0069).
+# _guided_shell_edit_display_manager — pick the greeter (auto | greetd |
+# noctalia-greeter | sddm), a single-select like the bootloader/firewall
+# radiolists (ADR 0069).
 _guided_shell_edit_display_manager() {
   _guided_shell_edit_choice display_manager "Display manager" \
     environment.display_manager

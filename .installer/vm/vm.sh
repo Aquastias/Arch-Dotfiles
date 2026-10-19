@@ -200,7 +200,9 @@ map_session_contract() {
   # Display Manager (ADR 0069/0091): resolve display_manager as the installer
   # does, so boot-verify asserts the right greeter. `auto` is desktop-aware
   # (ADR 0091): sddm when kde is present, else greetd for a KDE-free set; `none`
-  # (no desktop) yields no DM check.
+  # (no desktop) yields no DM check. The value is the systemd SERVICE checked:
+  # noctalia-greeter runs under greetd (ADR 0158), as does auto's KDE-free pick
+  # whichever greetd greeter it lands on.
   VM_VERIFY_DM="$(jq -r '
     (.install.environment.display_manager // "auto") as $dm
     | (.install.environment.desktop // []) as $d0
@@ -208,6 +210,7 @@ map_session_contract() {
     | if ($des | length) == 0 then "none"
       elif $dm == "auto" then (if ($des | index("kde")) then "sddm"
                                else "greetd" end)
+      elif $dm == "noctalia-greeter" then "greetd"
       else $dm end' <<<"$profile_json")"
   [[ "$VM_VERIFY_DM" == "none" ]] && VM_VERIFY_DM=""
   # Per-desktop LOGIN verification (ADR 0062): each name here is actually logged

@@ -1650,10 +1650,13 @@ rolled-back root ([ADR 0061]).
 Script at `extras/dm/<name>/<name>.sh`, invoked by the Environment Runner after
 the desktop loop based on the resolved `environment.display_manager`
 ([ADR 0069]). Mirrors the [[Desktop Environment Adapter]] and Bootloader Adapter
-convention-dispatch (no DM name is a literal in the runner). `greetd` and
-`sddm` are the two adapters. Each owns exactly its DM: **package install**,
-config, and `systemctl enable` — greetd writes `config.toml` pointing
-`tuigreet --sessions` at the curated `/usr/local/share/wayland-sessions`;
+convention-dispatch (no DM name is a literal in the runner). `greetd`,
+`noctalia-greeter` and `sddm` are the three adapters. Each owns exactly its DM:
+**package install**, config, and `systemctl enable` — greetd writes
+`config.toml` pointing `tuigreet --sessions` at the curated
+`/usr/local/share/wayland-sessions`; noctalia-greeter shares greetd's base
+config but launches `noctalia-greeter-session`, which scans `/usr/local/share`
+then `/usr/share` itself, deduped by session name ([ADR 0158]);
 sddm installs and enables sddm (so SDDM on a Hyprland-only host now has an
 owner — the KDE adapter no longer installs it) and writes a `Wayland.SessionDir`
 (+ X `SessionDir`) sddm.conf.d drop-in pinning that same curated dir ahead of

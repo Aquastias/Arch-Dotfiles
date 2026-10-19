@@ -31,6 +31,7 @@ _display_curated() {
   noctalia)     echo Noctalia ;;
   sddm)         echo SDDM ;;
   greetd)       echo greetd ;;
+  noctalia-greeter) echo "Noctalia Greeter" ;;
   gpu)          echo GPU ;;
   ssh)          echo SSH ;;
   zfs)          echo ZFS ;;

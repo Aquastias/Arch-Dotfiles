@@ -172,6 +172,21 @@ write_config() {
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }
 
+@test "explicit noctalia-greeter passes through on a kde-only box (ADR 0158)" {
+  write_config \
+    '{"environment": {"desktop": "kde", "display_manager": "noctalia-greeter"}}'
+  environment_resolve
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "noctalia-greeter" ]
+}
+
+@test "explicit noctalia-greeter with no desktop aborts" {
+  write_config \
+    '{"environment": {"desktop": null, "display_manager": "noctalia-greeter"}}'
+  run environment_resolve
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "desktop" ]]
+}
+
 @test "concrete display_manager with no desktop aborts" {
   write_config \
     '{"environment": {"desktop": null, "display_manager": "sddm"}}'

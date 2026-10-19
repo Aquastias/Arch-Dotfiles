@@ -123,7 +123,8 @@ menu_enum_options() {
   options.bootloader)
     printf '%s\n' systemd-boot grub efistub limine refind ;;
   environment.desktop)            printf '%s\n' kde hyprland niri ;;
-  environment.display_manager)    printf '%s\n' auto greetd sddm ;;
+  environment.display_manager)
+    printf '%s\n' auto greetd noctalia-greeter sddm ;;
   environment.wayland_shell)      printf '%s\n' noctalia none ;;
   environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;

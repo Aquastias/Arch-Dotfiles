@@ -357,7 +357,7 @@ _package_resolver_desktop_sets() {
 # smuggled inside kde-shell. `auto` resolves the same DESKTOP-AWARE way the
 # installer does (_environment_resolve_display_manager, ADR 0091): greetd for a
 # KDE-free desktop set (hyprland/niri), sddm when kde is present; none when no
-# desktop. Explicit greetd/sddm win.
+# desktop. Explicit greetd/noctalia-greeter/sddm win (ADR 0158).
 _package_resolver_display_manager() {
   local config="$1" desktops="$2" display_manager
   display_manager="$(install_config_from_json "$config" display_manager)"
@@ -370,6 +370,8 @@ _package_resolver_display_manager() {
   case "$display_manager" in
     greetd) _package_resolver_emit display-manager derived \
               greetd greetd-tuigreet ;;
+    noctalia-greeter) _package_resolver_emit display-manager derived \
+                        greetd noctalia-greeter ;;
     sddm)   _package_resolver_emit display-manager derived sddm ;;
   esac
 }

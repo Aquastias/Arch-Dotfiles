@@ -35,7 +35,7 @@ setup() {
 
 @test "menu_enum_options: display manager (auto first)" {
   run menu_enum_options environment.display_manager
-  [ "$output" == "$(printf '%s\n' auto greetd sddm)" ]
+  [ "$output" == "$(printf '%s\n' auto greetd noctalia-greeter sddm)" ]
 }
 
 @test "menu_enum_options: wayland shell (noctalia default, ADR 0090/0097)" {

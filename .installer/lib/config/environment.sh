@@ -60,7 +60,7 @@ AUDIO_PACKAGES=()
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
 _VALID_DESKTOP=(kde hyprland niri)
 _VALID_GPU=(amd nvidia intel auto)
-_VALID_DISPLAY_MANAGER=(auto greetd sddm)
+_VALID_DISPLAY_MANAGER=(auto greetd noctalia-greeter sddm)
 _VALID_WAYLAND_SHELL=(noctalia none)
 
 # The pure GPU + audio package maps, shared with the Package Resolver so the
@@ -248,12 +248,13 @@ _environment_is_one_of() {
   return 1
 }
 
-# Resolve ENVIRONMENT_DISPLAY_MANAGER (`auto`|`greetd`|`sddm`) into the concrete
-# greeter the chroot dispatches (ADR 0069). `auto` is DESKTOP-AWARE (ADR 0091):
-# `greetd` for a KDE-free non-empty desktop set (hyprland and/or niri), `sddm`
-# when the set contains `kde`, and `none` when no desktop is selected. It is a
-# smart default, not a lock — seatd (ADR 0068) lets any greeter launch any DE,
-# so an explicit `greetd`/`sddm` still passes through unchanged. A concrete
+# Resolve ENVIRONMENT_DISPLAY_MANAGER (auto|greetd|noctalia-greeter|sddm)
+# into the concrete greeter the chroot dispatches (ADR 0069). `auto` is
+# DESKTOP-AWARE (ADR 0091): `greetd` for a KDE-free non-empty desktop set
+# (hyprland and/or niri), `sddm` when the set contains `kde`, and `none` when no
+# desktop is selected. It is a smart default, not a lock — seatd (ADR 0068) lets
+# any greeter launch any DE, so an explicit greeter (noctalia-greeter included,
+# ADR 0158) still passes through unchanged. A concrete
 # greeter with no desktop aborts — a greeter with no session to launch. Requires
 # ENVIRONMENT_DESKTOP already resolved by _environment_validate.
 _environment_resolve_display_manager() {
