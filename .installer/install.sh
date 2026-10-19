@@ -370,8 +370,9 @@ run_guided_front_end() {
 
   local effective_config guided_status
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
-  guided_build >"$effective_config"
-  guided_status=$?
+  # `|| …` keeps errexit from firing on Save/Export's deliberate rc 64.
+  guided_status=0
+  guided_build >"$effective_config" || guided_status=$?
   # Exit 64 = a terminal action that is NOT install (Save/Export): artifact
   # written, nothing to install. Any other non-zero is a cancel/error.
   [[ "$guided_status" -eq 64 ]] && exit 0

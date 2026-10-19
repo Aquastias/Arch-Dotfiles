@@ -11,6 +11,10 @@
 set -Eeuo pipefail
 trap '_on_error $LINENO' ERR
 _on_error() {
+  # Only the top-level shell reports: `set -E` fires this inside command
+  # substitutions too, where an `exit` would kill a helper bash itself runs
+  # without errexit (e.g. a counter `((n++))` from 0).
+  (( BASH_SUBSHELL == 0 )) || return 0
   echo -e "\n${RED}[ERROR]${NC} Bootstrap failed at line $1." >&2
   echo -e "${DIM}Check the output above for details.${NC}" >&2
   exit 1
@@ -122,14 +126,14 @@ _wait_for_default_route() {
     ip route show default &>/dev/null && break
     info "Waiting for default route... (${waited}s)"
     sleep 1
-    ((waited++))
+    waited=$((waited + 1))
   done
 }
 
 # _any_host_reachable <host>... — 0 if any host answers HTTP within ~5s. All
 # checks fire in parallel; the first success writes a flag file.
 _any_host_reachable() {
-  local flag_directory host reachable=1 elapsed=0
+  local flag_directory host reachable=1 ticks=0
   flag_directory="$(mktemp -d)"
   for host in "$@"; do
     (
@@ -139,15 +143,15 @@ _any_host_reachable() {
       fi
     ) &
   done
-  while ((elapsed < 5)); do
-    if [[ -f "${flag_directory}/ok" ]]; then
-      reachable=0
-      break
-    fi
+  # 10 half-second ticks = the ~5s budget; the curls cap at 3s, so the final
+  # check after `wait` catches an answer that landed on the last tick.
+  while ((ticks < 10)); do
+    [[ -f "${flag_directory}/ok" ]] && break
     sleep 0.5
-    ((elapsed++)) || true
+    ticks=$((ticks + 1))
   done
   wait 2>/dev/null || true
+  [[ -f "${flag_directory}/ok" ]] && reachable=0
   rm -rf "${flag_directory}"
   return "$reachable"
 }

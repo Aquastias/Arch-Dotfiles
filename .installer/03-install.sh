@@ -13,6 +13,10 @@
 set -Eeuo pipefail
 trap '_on_error $LINENO' ERR
 _on_error() {
+  # Only the top-level shell reports: `set -E` fires this inside command
+  # substitutions too, where an `exit` would kill a helper bash itself runs
+  # without errexit (e.g. a counter `((n++))` from 0).
+  (( BASH_SUBSHELL == 0 )) || return 0
   # Colours may not be loaded yet if the error is very early, so use raw codes
   echo -e "\n\033[0;31m[ERROR]\033[0m Installer failed at line $1." >&2
   echo -e "\033[2mCheck the output above for details.\033[0m" >&2

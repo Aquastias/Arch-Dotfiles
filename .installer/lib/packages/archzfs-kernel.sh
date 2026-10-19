@@ -283,7 +283,7 @@ archzfs_kernel_lts_pin_prepare() {
   # version; use whatever it actually staged for the pacstrap spec.
   local chosen
   chosen="$(_archzfs_kernel_lts_pin_build_repository "$version" \
-    "${LTS_PIN_REPO_DIR:-/var/cache/archzfs-lts-pin}")"
+    "${LTS_PIN_REPO_DIR:-/var/cache/archzfs-lts-pin}")" || chosen=""
   if [[ -z "$chosen" ]]; then
     warn "archzfs LTS ceiling: could not stage the pinned kernel — proceeding"
     warn "  unpinned; the ZFS Module Guard remains the backstop."

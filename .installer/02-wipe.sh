@@ -27,6 +27,10 @@
 set -Eeuo pipefail
 trap '_on_error $LINENO' ERR
 _on_error() {
+  # Only the top-level shell reports: `set -E` fires this inside command
+  # substitutions too, where an `exit` would kill a helper bash itself runs
+  # without errexit (e.g. a counter `((n++))` from 0).
+  (( BASH_SUBSHELL == 0 )) || return 0
   echo -e "\n${RED}[ERROR]${NC} Wipe script failed at line $1." >&2
   exit 1
 }

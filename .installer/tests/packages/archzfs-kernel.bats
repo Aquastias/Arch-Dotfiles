@@ -304,3 +304,25 @@ CONF
   archzfs_kernel_lts_pin_prepare
   [ "$ARCHZFS_LTS_SUPPORTED" = "6.18.52-1" ]
 }
+
+@test "archzfs_kernel_lts_pin_prepare falls back unpinned when staging fails" {
+  # Mirror outruns the ceiling → a pin is wanted; the archive staging fails.
+  # Under the installer's errexit this used to abort instead of warning.
+  local script="$BATS_TEST_TMPDIR/pin.sh"
+  cat >"$script" <<SCRIPT
+set -Eeuo pipefail
+source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+source "$BATS_TEST_DIRNAME/../../lib/packages/archzfs-kernel.sh"
+_archzfs_kernel_fetch_lts_assets() {
+  printf '%s\n' "zfs-linux-lts-2.4.4_6.18.52.1-1-x86_64.pkg.tar.zst"
+}
+_archzfs_kernel_mirror_lts_package_version() { printf '6.18.60-1\n'; }
+_archzfs_kernel_lts_pin_build_repository() { return 1; }
+archzfs_kernel_lts_pin_prepare
+echo "pin=\${LTS_PIN_SPECS:-none}"
+SCRIPT
+  run bash "$script"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"proceeding"* ]]
+  [[ "$output" == *"pin=none"* ]]
+}

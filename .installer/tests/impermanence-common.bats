@@ -364,6 +364,17 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -z "$(ls -A "$IMPERMANENCE_ROOT/root")" ]
 }
 
+@test "impermanence_common_persist_stage_in_move: empty mountpoint is a no-op under errexit" {
+  # `((n)) && mv` as the subshell's last command exited 1 for an empty
+  # mountpoint, aborting impermanence.sh (set -e).
+  mountpoint() { [[ "$2" == "$IMPERMANENCE_ROOT/root" ]]; }
+  mkdir -p "$IMPERMANENCE_ROOT/root"
+  set -e
+  impermanence_common_persist_stage_in_move /root
+  set +e
+  [ -d "$IMPERMANENCE_MOUNT/root" ]
+}
+
 # ── impermanence_common_persist_apply: install-time path overrides ──────────────────────────────
 
 @test "impermanence_common_persist_apply: optional unit_dir overrides default location" {

@@ -36,7 +36,7 @@ zfs_pool_owners_mode() {
   # one group-owner — that needs POSIX ACLs (ADR 0031).
   local token_count=0 owner_token has_group=0
   for owner_token in $owners; do
-    ((token_count++))
+    token_count=$((token_count + 1))
     [[ "$owner_token" == @* ]] && has_group=1
   done
   if ((token_count > 1)) || ((has_group)); then printf 'acl'

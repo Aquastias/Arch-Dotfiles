@@ -281,7 +281,7 @@ impermanence_common_persist_stage_in_move() {
     (
       shopt -s dotglob nullglob
       local entries=("$source_path"/*)
-      ((${#entries[@]})) && mv -- "${entries[@]}" "$destination"/
+      if ((${#entries[@]})); then mv -- "${entries[@]}" "$destination"/; fi
     )
   else
     _impermanence_common_make_parent "$destination"

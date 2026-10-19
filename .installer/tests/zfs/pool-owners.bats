@@ -307,3 +307,19 @@ GR
   [ "$status" -eq 0 ]
   [[ "$output" == *"NOLEFT"* ]]
 }
+
+@test "zfs_pool_owners_mode survives 03-install's ERR trap in a substitution" {
+  # 03-install runs `set -E` with an exiting ERR trap; a counter `((n++))`
+  # from 0 inside $(…) used to fire it and abort the ownership step.
+  local script="$BATS_TEST_TMPDIR/owners.sh"
+  cat >"$script" <<SCRIPT
+set -Eeuo pipefail
+trap 'exit 1' ERR
+source "$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh"
+mode="\$(zfs_pool_owners_mode "alice" "alice")"
+echo "mode=\$mode"
+SCRIPT
+  run bash "$script"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mode=chown" ]
+}
