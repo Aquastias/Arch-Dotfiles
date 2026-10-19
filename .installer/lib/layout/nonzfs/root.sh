@@ -195,7 +195,7 @@ layout_partition() {
   confirm "Confirm partitioning?"
 
   layout_nonzfs_partition_one_disk "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN"
-  sleep 2
+  layout_settle
 
   # Resolve the device paths from the plan. Encrypted → root_dev/swap_dev are the
   # /dev/mapper/crypt* the resolver names; plaintext → the bare partitions.

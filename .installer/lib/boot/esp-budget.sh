@@ -66,9 +66,10 @@ esp_budget_fits_mib() {
 esp_budget_size_mib() {
   local size="${1^^}" number unit
   number="${size//[^0-9]/}"; unit="${size//[0-9]/}"
+  number=$((10#${number:-0}))   # base 10: a leading zero is not octal
   case "$unit" in
   G | GIB) printf '%s\n' "$(( number * 1024 ))" ;;
-  *)       printf '%s\n' "${number:-0}" ;;   # M / MiB / bare → MiB
+  *)       printf '%s\n' "$number" ;;   # M / MiB / bare → MiB
   esac
 }
 

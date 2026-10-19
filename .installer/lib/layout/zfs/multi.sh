@@ -106,7 +106,7 @@ layout_partition_os_disks_multi() {
     _LAYOUT_IMPL_ZFS_PARTS+=("$(part_name "$disk" 2)")
   done
 
-  sleep 2
+  layout_settle
   local i
   for i in "${!_LAYOUT_IMPL_ESP_PARTS[@]}"; do
     mkfs.fat -F32 -n "EFI$((i + 1))" "${_LAYOUT_IMPL_ESP_PARTS[$i]}"
@@ -153,7 +153,7 @@ layout_partition_storage_disks_multi() {
     _LAYOUT_IMPL_STORAGE_PARTS["_leftover"]="${lparts[*]}"
   fi
 
-  sleep 2
+  layout_settle
   info "Storage partitioning complete."
 }
 

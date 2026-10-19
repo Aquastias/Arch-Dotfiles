@@ -22,6 +22,7 @@ _stub_layout_commands() {
   sgdisk()    { printf 'sgdisk %s\n'    "$*" >>"$CALLS"; }
   partprobe() { printf 'partprobe %s\n' "$*" >>"$CALLS"; }
   sleep()     { :; }
+  udevadm() { :; }
   mkfs.fat()  { printf 'mkfs.fat %s\n'  "$*" >>"$CALLS"; }
   mount()     { printf 'mount %s\n'     "$*" >>"$CALLS"; }
   part_name() { printf '%s%s' "$1" "$2"; }
@@ -62,7 +63,7 @@ setup() {
   # device. Tests that exercise the real sizing math redefine it inline.
   layout_calculate_single_disk() {
     _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
-    _LAYOUT_IMPL_OS_SECTORS=$((30 * 1024 * 1024 * 2)) # ~30 GiB
+    _LAYOUT_IMPL_OS_MIB=$((30 * 1024)) # 30 GiB
   }
 }
 
@@ -119,6 +120,14 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   layout_plan
   layout_partition
   [ "$(grep -c '^sgdisk -n[123]' "$CALLS")" -eq 3 ]
+}
+
+@test "layout_partition: OS partition is sized in MiB, not 512-byte sectors" {
+  # sgdisk's "s" unit is the LOGICAL sector — 4096 bytes on a 4Kn disk, which
+  # made a 512-byte-sector count 8× too large.
+  layout_plan
+  layout_partition
+  grep -q '^sgdisk -n2:0:+30720M ' "$CALLS"
 }
 
 @test "layout_partition: wipefs runs before sgdisk" {

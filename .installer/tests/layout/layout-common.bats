@@ -22,6 +22,21 @@ write_config() {
   printf '%s\n' "$1" > "$CONFIG_FILE"
 }
 
+@test "size parsers read a leading zero as decimal, not octal" {
+  # bash arithmetic read 010 as 8 and aborted on 08.
+  run layout_parse_size_to_gib 010G
+  [ "$output" = "10" ]
+  run layout_parse_size_to_mib 08G
+  [ "$status" -eq 0 ]
+  [ "$output" = "8192" ]
+}
+
+@test "size parsers reject a unit with no number" {
+  run layout_parse_size_to_mib G
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Cannot parse size"* ]]
+}
+
 # ── layout_parse_size_to_gib ─────────────────────────────────────────────────────────
 
 @test "layout_parse_size_to_gib: 512M → 1 GiB (rounded up)" {

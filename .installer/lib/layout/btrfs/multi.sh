@@ -99,6 +99,9 @@ _layout_plan_mode() {
   LAYOUT_OS_POOL_NAME=""
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=()
+  # Standalone data pools, as every other root adapter plans them.
+  layout_resolve_data_pools
+  LAYOUT_DATA_POOL_NAMES+=("${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}")
 }
 
 # Every OS disk receives an ESP (core resolves LAYOUT_ESP_PARTS from disk p1).
@@ -128,7 +131,7 @@ layout_partition() {
     disk="${_LAYOUT_BTRFS_DISKS[$i]}"
     layout_nonzfs_partition_one_disk "$disk" "${_LAYOUT_BTRFS_PLANS[$i]}"
   done
-  sleep 2
+  layout_settle
 
   local index
   for index in "${!_LAYOUT_BTRFS_ESP_PARTS[@]}"; do
@@ -147,6 +150,7 @@ layout_partition() {
   fi
   info "Partitioned ${#_LAYOUT_BTRFS_DISKS[@]} disks;" \
        "raid members: ${_LAYOUT_BTRFS_ROOT_PARTS[*]}"
+  layout_partition_data_pools
   layout_verify_partition_contract
   layout_exit_phase partition
 }
@@ -179,6 +183,7 @@ layout_create_pools() {
   # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="$(layout_btrfs_root_fstab "$source_device")${_NZROOT_SWAP_FSTAB}"
   info "btrfs ${_LAYOUT_BTRFS_TOPOLOGY} root + subvolumes mounted at $MOUNT_ROOT"
+  layout_create_data_pools
   layout_exit_phase pools
 }
 
@@ -189,5 +194,14 @@ layout_mount_esp() {
   mkdir -p "${MOUNT_ROOT}/boot/efi"
   mount "${_LAYOUT_BTRFS_ESP_PARTS[0]}" "${MOUNT_ROOT}/boot/efi"
   info "Primary ESP: ${_LAYOUT_BTRFS_ESP_PARTS[0]} → /boot/efi"
+  # Secondary ESPs mount at /boot/efiN so the install-time mirror (configure.sh)
+  # and fstab reach them, as the ZFS multi adapter does.
+  local index
+  for ((index = 1; index < ${#_LAYOUT_BTRFS_ESP_PARTS[@]}; index++)); do
+    mkdir -p "${MOUNT_ROOT}/boot/efi${index}"
+    mount "${_LAYOUT_BTRFS_ESP_PARTS[index]}" "${MOUNT_ROOT}/boot/efi${index}"
+    info "Secondary ESP ${index}: ${_LAYOUT_BTRFS_ESP_PARTS[index]} →" \
+      "/boot/efi${index}"
+  done
   layout_exit_phase esp
 }

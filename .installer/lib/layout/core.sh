@@ -71,6 +71,14 @@ layout_validate_esp_size() {
 # `-b`.
 layout_disk_exists() { [[ -b "$1" ]]; }
 
+# layout_settle — after sgdisk + partprobe, wait for udev to create the
+# partition nodes and /dev/disk/by-id/*-partN links mkfs and zpool open; a
+# bare sleep raced it on slow controllers.
+layout_settle() {
+  udevadm settle --timeout=30 2>/dev/null || true
+  sleep 2
+}
+
 # ── Size parsers ─────────────────────────────────────────────────────────────
 
 # Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.
@@ -78,6 +86,9 @@ layout_parse_size_to_gib() {
   local raw="${1^^}"
   local number="${raw//[^0-9]/}"
   local unit="${raw//[0-9]/}"
+  # Base 10 explicitly: a leading zero (010G) must not read as octal.
+  [[ -n "$number" ]] || error "Cannot parse size string: '$1'"
+  number=$((10#$number))
   case "$unit" in
   M | MIB) echo $(((number + 1023) / 1024)) ;;
   G | GIB) echo "$number" ;;
@@ -93,6 +104,9 @@ layout_parse_size_to_mib() {
   local raw="${1^^}"
   local number="${raw//[^0-9]/}"
   local unit="${raw//[0-9]/}"
+  # Base 10 explicitly: a leading zero (010G) must not read as octal.
+  [[ -n "$number" ]] || error "Cannot parse size string: '$1'"
+  number=$((10#$number))
   case "$unit" in
   M | MIB) echo "$number" ;;
   G | GIB) echo $((number * 1024)) ;;

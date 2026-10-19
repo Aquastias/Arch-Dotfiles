@@ -11,6 +11,7 @@
 #   zfs_create_pool             — a pool with standard Arch ZFS settings
 #   zfs_create_os_datasets      — ROOT/arch, home, var, tmp, swap zvol
 #   zfs_vdev_spec               — (topology, parts) → vdev spec string
+#                                 (lib/zfs/vdev-spec.sh, sourced below)
 #   zfs_valid_pool_name, zfs_data_pool_topology_ok,
 #   zfs_redundant_size_mismatch — layout validation helpers
 # Encryption (zfs_collect_encryption_passphrase, zfs_encryption_options) lives
@@ -33,6 +34,8 @@ declare -F prompt_secret >/dev/null 2>&1 \
 # ZFS_PASSPHRASE); re-sourcing resets both, as before the split.
 # shellcheck source=./encryption.sh
 source "${BASH_SOURCE[0]%/*}/encryption.sh"
+# shellcheck source=vdev-spec.sh
+source "${BASH_SOURCE[0]%/*}/vdev-spec.sh"
 
 # =============================================================================
 # FALLBACK ZFS INSTALL
@@ -249,6 +252,22 @@ zfs_create_pool() {
 #   <pool>/var/cache         — separate so package cache can be cleared safely
 #   <pool>/tmp               — tmpfs-like (sync=off, no setuid/exec)
 #   <pool>/swap              — swap zvol (if enabled)
+# zfs_auto_swap_gib <ram_gib> <pool_bytes> — the auto swap zvol size in GiB:
+# RAM × 2, capped to a quarter of the pool, never below 2.
+zfs_auto_swap_gib() {
+  local ram_gib="$1" pool_bytes="$2" swap_gib cap_gib
+  swap_gib=$((ram_gib * 2))
+  cap_gib=$((pool_bytes / 1024 / 1024 / 1024 / 4))
+  ((cap_gib < 2)) && cap_gib=2
+  ((swap_gib > cap_gib)) && swap_gib=$cap_gib
+  printf '%s\n' "$swap_gib"
+}
+
+# _pools_pool_size_bytes <pool> — the pool's size in bytes (0 if unknown).
+_pools_pool_size_bytes() {
+  zpool list -Hp -o size "$1" 2>/dev/null | awk 'NR == 1 { print $1 + 0 }'
+}
+
 zfs_create_os_datasets() {
   local pool_name="$1"
   section "Creating OS Datasets (${pool_name})"
@@ -257,9 +276,11 @@ zfs_create_os_datasets() {
   swap_on="$(install_config_swap_enabled)"
   configured_swap_size="$(config_optional '.options.swap_size')"
   if [[ -z "$configured_swap_size" || "$configured_swap_size" == "auto" ]]; then
-    # auto = RAM × 2, which accommodates hibernation (suspend-to-disk)
-    swap_size="$(($(zfs_ram_gib) * 2))G"
-    info "Swap size: ${swap_size}  (RAM × 2, auto)"
+    # auto = RAM × 2 (accommodates hibernation), capped to a quarter of the
+    # pool so a big-RAM box on a small disk still fits its rpool.
+    swap_size="$(zfs_auto_swap_gib "$(zfs_ram_gib)" \
+      "$(_pools_pool_size_bytes "$pool_name")")G"
+    info "Swap size: ${swap_size}  (RAM × 2, capped to pool/4, auto)"
   else
     swap_size="$configured_swap_size"
     info "Swap size: ${swap_size}  (from config)"
@@ -341,40 +362,6 @@ _pools_create_swap_zvol() {
   mkswap -f "/dev/zvol/${pool_name}/swap"
 }
 
-# =============================================================================
-# STORAGE VDEV SPEC BUILDER
-# =============================================================================
-
-zfs_vdev_spec() {
-  # Converts a topology name and a list of partition paths into a zpool
-  # vdev specification string suitable for passing to zpool create.
-  #
-  # Usage: zfs_vdev_spec <topology> <part1> [part2] ...
-  # Outputs: the vdev spec string (echoed to stdout)
-  #
-  # Topologies:
-  #   mirror      — "mirror part1 part2 ..."  (all disks mirrored)
-  #   stripe      — "part1 part2 ..."          (striped, no redundancy)
-  #   none        — "part1"                    (single disk, first only)
-  #   raidz1      — "raidz1 part1 part2 ..."  (1 parity disk)
-  #   raidz2      — "raidz2 part1 part2 ..."  (2 parity disks)
-  #   independent — "part1 part2 ..."          (each disk its own vdev;
-  #                                             same as stripe at pool level
-  #                                             but datasets are per-disk)
-
-  local topology="$1"
-  shift
-  local parts=("$@")
-  case "$topology" in
-  mirror)      echo "mirror ${parts[*]}" ;;
-  stripe)      echo "${parts[*]}" ;;
-  none)        echo "${parts[0]}" ;;
-  raidz1)      echo "raidz1 ${parts[*]}" ;;
-  raidz2)      echo "raidz2 ${parts[*]}" ;;
-  independent) echo "${parts[*]}" ;;
-  *)           error "Unknown topology: '$topology'" ;;
-  esac
-}
 
 # =============================================================================
 # STANDALONE DATA POOL TOPOLOGY VALIDATION (ADR 0027)
@@ -400,7 +387,7 @@ _pools_validate_topology() {
     ;;
   stripe) min=1 ;;
   mirror) min=2 ;;
-  raidz1) min=2 ;;
+  raidz | raidz1) min=2 ;;
   raidz2) min=3 ;;
   *)
     printf '%s' "unknown topology '${topology}'"

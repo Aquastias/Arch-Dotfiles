@@ -67,6 +67,7 @@ layout_validate() {
   data_pool_count="$(jsonc_strip "$CONFIG_FILE" \
     | jq '(.data_pools // []) | length')"
   _zfs_multi_validate_data_pools "$data_pool_count"
+  _zfs_multi_validate_unique_disks
   # Cross-cutting data-pool guards (only when data_pools are declared, so
   # existing multi configs without them are untouched).
   if ((data_pool_count > 0)); then
@@ -153,7 +154,7 @@ _zfs_multi_validate_first_duplicate() {
 # Pool names must be unique across rpool + the Combined Data Pool (dpool) +
 # every Standalone Data Pool, and no disk may serve two pools.
 _zfs_multi_validate_unique_names() {
-  local rpool_name duplicate_name data_disk
+  local rpool_name duplicate_name
   rpool_name="$(config_required '.os_pool.pool_name')"
   duplicate_name="$( { printf '%s\n' "$rpool_name" dpool
                        jsonc_strip "$CONFIG_FILE" | jq -r '.data_pools[].name'
@@ -162,7 +163,13 @@ _zfs_multi_validate_unique_names() {
     || error "Duplicate pool name '${duplicate_name}': names must be" \
       "unique across rpool, dpool, and all data_pools."
 
-  # Disk reuse across OS pool, storage groups, and data pools.
+}
+
+# Disk reuse across OS pool, storage groups, and data pools — checked on every
+# multi layout, not only with data pools (an OS disk reused by a storage group
+# had its fresh partitions zapped).
+_zfs_multi_validate_unique_disks() {
+  local data_disk
   data_disk="$(jsonc_strip "$CONFIG_FILE" | jq -r '
     [ (.os_pool.disks // [])[],
       (.storage_groups[]?.disks // [])[],

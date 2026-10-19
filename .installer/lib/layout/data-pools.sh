@@ -139,7 +139,7 @@ layout_partition_data_pools() {
     _LAYOUT_IMPL_DATA_POOL_PARTS["$name"]="${parts[*]}"
   done
 
-  sleep 2
+  layout_settle
   info "Standalone data pool partitioning complete."
 }
 

@@ -140,14 +140,15 @@ part_name() {
   # Returns the full partition device path for a disk + partition number.
   # Stable /dev/disk symlinks use a '-part' suffix (udev), regardless of bus:
   #   /dev/disk/by-id/nvme-… + 1 → /dev/disk/by-id/nvme-…-part1
-  # NVMe/eMMC kernel nodes use a 'p' separator:
+  # Kernel nodes whose name ends in a digit use a 'p' separator (the kernel's
+  # rule — NVMe, eMMC, loop, nbd, md):
   #   nvme0n1 + 1 → nvme0n1p1
-  # SATA/SCSI kernel nodes do not:
+  # Names ending in a letter do not (SATA/SCSI, virtio, xen):
   #   sda     + 1 → sda1
   local disk="$1" partition_number="$2"
   case "$disk" in
   /dev/disk/*)       echo "${disk}-part${partition_number}" ;;
-  *nvme* | *mmcblk*) echo "${disk}p${partition_number}" ;;
+  *[0-9])            echo "${disk}p${partition_number}" ;;
   *)                 echo "${disk}${partition_number}" ;;
   esac
 }

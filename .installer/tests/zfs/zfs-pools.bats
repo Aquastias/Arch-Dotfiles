@@ -42,6 +42,27 @@ write_config() {
   [ "$output" = "mirror /dev/sda1 /dev/sdb1" ]
 }
 
+@test "zfs_vdev_spec: mirror over 4 disks is two 2-way mirrors (RAID-10)" {
+  # The topology menu promises "2 × 2-disk mirrors" / half capacity.
+  run zfs_vdev_spec mirror /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1
+  [ "$status" -eq 0 ]
+  [ "$output" = "mirror /dev/sda1 /dev/sdb1 mirror /dev/sdc1 /dev/sdd1" ]
+}
+
+@test "zfs_vdev_spec: mirror over an odd count stays one N-way mirror" {
+  run zfs_vdev_spec mirror /dev/sda1 /dev/sdb1 /dev/sdc1
+  [ "$status" -eq 0 ]
+  [ "$output" = "mirror /dev/sda1 /dev/sdb1 /dev/sdc1" ]
+}
+
+@test "zfs_vdev_spec: raidz is raidz1 (validation accepts the bare word)" {
+  run zfs_vdev_spec raidz /dev/sda1 /dev/sdb1 /dev/sdc1
+  [ "$status" -eq 0 ]
+  [ "$output" = "raidz1 /dev/sda1 /dev/sdb1 /dev/sdc1" ]
+  run _pools_validate_topology raidz 3
+  [ "$status" -eq 0 ]
+}
+
 @test "zfs_vdev_spec: none emits only the first part" {
   run zfs_vdev_spec none /dev/sda1 /dev/sdb1
   [ "$status" -eq 0 ]
@@ -429,4 +450,22 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^[0-9]+$ ]]
   [ "$output" -gt 0 ]
+}
+
+# ── zfs_auto_swap_gib (auto swap zvol size) ────────────────────────────────
+
+@test "zfs_auto_swap_gib: RAM × 2 when the pool has room" {
+  run zfs_auto_swap_gib 8 $((500 * 1024 ** 3))
+  [ "$output" = "16" ]
+}
+
+@test "zfs_auto_swap_gib: capped to a quarter of the pool (big RAM, small disk)" {
+  # RAM × 2 = 64G would not fit a 49G rpool; the planner capped it too.
+  run zfs_auto_swap_gib 32 $((49 * 1024 ** 3))
+  [ "$output" = "12" ]
+}
+
+@test "zfs_auto_swap_gib: never below 2 GiB" {
+  run zfs_auto_swap_gib 16 $((4 * 1024 ** 3))
+  [ "$output" = "2" ]
 }

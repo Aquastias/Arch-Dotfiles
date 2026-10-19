@@ -66,6 +66,21 @@ load layout-multi-helpers
   [[ "$output" == *"${osd}"* ]]
 }
 
+@test "layout_validate: disk reused between OS pool and a storage group aborts" {
+  # No data_pools at all: the disk-reuse check used to be skipped, so the
+  # storage-group pass zapped the OS disk's fresh partitions.
+  _LAYOUT_PHASE=0
+  layout_disk_exists() { return 0; }
+  write_multi_config '{
+    "os_pool":{"pool_name":"rpool","topology":"mirror",
+               "disks":["/dev/x1","/dev/x2"]},
+    "storage_groups":[{"name":"media","mount":"/media","disks":["/dev/x2"]}]
+  }'
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"/dev/x2"*"more than one"* ]]
+}
+
 @test "layout_validate: disk reused across two data pools aborts" {
   _LAYOUT_PHASE=0
   local osd; osd="$(_find_block_device)" || skip "no usable block device available"

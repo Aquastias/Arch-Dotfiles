@@ -8,9 +8,10 @@
 # 02-wipe.sh is the thin orchestrator that resolves the target set and calls
 # wipe_run_parallel.
 #
-# This is block-device I/O, not unit-tested — the real wipe path is covered by
-# the VM smoke tests. The decidable parts (method routing, prior-state, progress
-# maths) live in their own pure modules (method.sh, prior-state.sh, progress.sh).
+# The wipe itself is block-device I/O covered by the VM smoke tests; which pools
+# and PVs the teardown claims is unit-tested (tests/wipe-teardown.bats). The
+# other decidable parts (method routing, prior-state, progress maths) live in
+# their own pure modules (method.sh, prior-state.sh, progress.sh).
 #
 # Sourced by 02-wipe.sh. main()-free, so sourcing is inert. Colour codes and the
 # info/warn/section helpers come from common.sh, which the orchestrator sources.
@@ -27,17 +28,40 @@ declare -F wipe_progress_line >/dev/null 2>&1 \
 # PRE-WIPE TEARDOWN (ZFS / LVM / MD-RAID)
 # =============================================================================
 
+# _execute_device_on_disk <device> <disk> — 0 when <device> is <disk> itself or
+# one of its partitions. Decided by device identity (resolved path, else the
+# partition's parent disk), so a /dev/disk/by-id target matches the kernel
+# nodes zpool and pvs report, and sda never matches sdab.
+_execute_device_on_disk() {
+  local device disk parent
+  device="$(readlink -f "$1" 2>/dev/null)"; device="${device:-$1}"
+  disk="$(readlink -f "$2" 2>/dev/null)"; disk="${disk:-$2}"
+  [[ "$device" == "$disk" ]] && return 0
+  parent="$(lsblk -no PKNAME "$device" 2>/dev/null | awk 'NR == 1')"
+  [[ -n "$parent" && "/dev/${parent}" == "$disk" ]]
+}
+
+# _execute_pool_on_disk <pool> <disk> — 0 when any vdev of the imported <pool>
+# lives on <disk>. `status -P -L` prints full, symlink-resolved vdev paths.
+_execute_pool_on_disk() {
+  local pool="$1" disk="$2" vdev
+  while IFS= read -r vdev; do
+    _execute_device_on_disk "$vdev" "$disk" && return 0
+  done < <(zpool status -P -L "$pool" 2>/dev/null \
+    | awk '$1 ~ "^/dev/" { print $1 }')
+  return 1
+}
+
 wipe_teardown_zfs() {
-  local disk="$1" disk_name
+  local disk="$1"
   command_exists zpool || return 0
-  disk_name="$(base_name "$disk")"
 
   # Destroy any already-imported pools using this disk.
   # Pool names cannot contain whitespace, so word-splitting is safe.
   local pool
   while IFS= read -r pool; do
     [[ -z "$pool" ]] && continue
-    if zpool status "$pool" 2>/dev/null | grep -q "$disk_name"; then
+    if _execute_pool_on_disk "$pool" "$disk"; then
       warn "Destroying imported ZFS pool '${pool}' on ${disk}"
       zpool destroy -f "$pool" 2>/dev/null || true
     fi
@@ -49,7 +73,7 @@ wipe_teardown_zfs() {
   pools="$(zpool import -d /dev 2>/dev/null | awk '/pool:/{print $2}' || true)"
   for pool in $pools; do
     zpool import -N -d /dev "$pool" 2>/dev/null || continue
-    if zpool status "$pool" 2>/dev/null | grep -q "$disk_name"; then
+    if _execute_pool_on_disk "$pool" "$disk"; then
       warn "Destroying ZFS pool '${pool}' on ${disk}"
       zpool destroy -f "$pool" 2>/dev/null || true
     else
@@ -62,6 +86,8 @@ wipe_teardown_lvm() {
   local disk="$1" physical_volume volume_group
   command_exists pvs || return 0
   while IFS= read -r physical_volume; do
+    [[ -n "$physical_volume" ]] || continue
+    _execute_device_on_disk "$physical_volume" "$disk" || continue
     volume_group="$(pvs --noheadings -o vg_name "$physical_volume" 2>/dev/null \
       | awk '{ $1 = $1; print }' || true)"
     if [[ -n "$volume_group" ]]; then
@@ -70,7 +96,7 @@ wipe_teardown_lvm() {
     fi
     pvremove -f "$physical_volume" 2>/dev/null || true
   done < <(pvs --noheadings -o pv_name 2>/dev/null \
-    | grep "^[[:space:]]*${disk}" || true)
+    | awk '{ $1 = $1; print }' || true)
 }
 
 wipe_teardown_mdraid() {

@@ -25,7 +25,8 @@
 #   _LAYOUT_IMPL_ESP_PART   — partition 1 (ESP, FAT32)
 #   _LAYOUT_IMPL_OS_PART    — partition 2 (ZFS rpool)
 #   _LAYOUT_IMPL_STOR_PART  — partition 3 (ZFS dpool)
-#   _LAYOUT_IMPL_OS_SECTORS — size of the OS partition in 512-byte sectors
+#   _LAYOUT_IMPL_OS_MIB     — size of the OS partition in MiB (sgdisk "M";
+#                             never "s", a logical sector, 4096 B on 4Kn)
 # =============================================================================
 
 # shellcheck source=./common.sh
@@ -35,7 +36,7 @@ _LAYOUT_IMPL_DISK=""
 _LAYOUT_IMPL_ESP_PART=""
 _LAYOUT_IMPL_OS_PART=""
 _LAYOUT_IMPL_STOR_PART=""
-_LAYOUT_IMPL_OS_SECTORS=0
+_LAYOUT_IMPL_OS_MIB=0
 
 # =============================================================================
 # LAYOUT CALCULATION
@@ -85,7 +86,7 @@ layout_calculate_single_disk() {
   _zfs_single_check_sizes "$os_gib" "$usable_mib"
 
   # OS partition size in sectors for sgdisk (uses 512-byte sectors)
-  _LAYOUT_IMPL_OS_SECTORS=$((os_gib * 1024 * 1024 * 1024 / 512))
+  _LAYOUT_IMPL_OS_MIB=$((os_gib * 1024))
 
   _zfs_single_print_layout "$total_mib" "$esp_size" "$os_gib" "$swap_gib" \
     "$(( (usable_mib - os_gib * 1024) / 1024 ))"
@@ -209,13 +210,13 @@ layout_partition_single_disk() {
   # GPT partition layout adds the two ZFS pool members:
   #   2  ZFS OS pool           (type bf00 = Solaris/ZFS)
   #   3  ZFS storage pool      (type bf00)
-  sgdisk -n2:0:+"${_LAYOUT_IMPL_OS_SECTORS}s" -t2:bf00 \
+  sgdisk -n2:0:+"${_LAYOUT_IMPL_OS_MIB}M" -t2:bf00 \
     -c2:"ZFS rpool" "$_LAYOUT_IMPL_DISK"
   sgdisk -n3:0:0 -t3:bf00 -c3:"ZFS dpool" "$_LAYOUT_IMPL_DISK"
 
   # Re-probe so the kernel sees the new partition table
   partprobe "$_LAYOUT_IMPL_DISK"
-  sleep 2
+  layout_settle
 
   _LAYOUT_IMPL_ESP_PART="$(part_name "$_LAYOUT_IMPL_DISK" 1)"
   _LAYOUT_IMPL_OS_PART="$(part_name "$_LAYOUT_IMPL_DISK" 2)"

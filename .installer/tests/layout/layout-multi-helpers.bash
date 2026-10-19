@@ -58,6 +58,7 @@ JSONC
   mount()     { printf 'mount %s\n'     "$*" >>"$CALLS"; }
   lsblk()     { echo "?"; }
   sleep()     { :; }
+  udevadm() { :; }
   part_name() { printf '%s%s' "$1" "$2"; }
 
   zfs_encryption_options()      { :; }
@@ -122,6 +123,7 @@ setup_leftover_fixture() {
   confirm() { :; }
   lsblk()   { echo "?"; }
   sleep()   { :; }
+  udevadm() { :; }
   part_name() { printf '%s%s' "$1" "$2"; }
 
   wipefs()    { :; }

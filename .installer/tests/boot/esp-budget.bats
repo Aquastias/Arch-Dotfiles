@@ -72,6 +72,11 @@ setup() {
   [ "$(esp_budget_size_mib 800)"  -eq 800 ]
 }
 
+@test "esp_budget_size_mib: a leading zero is decimal, not octal" {
+  [ "$(esp_budget_size_mib 08G)" -eq 8192 ]
+  [ "$(esp_budget_size_mib 0512M)" -eq 512 ]
+}
+
 @test "esp_budget_fits_size: auto always fits" {
   esp_budget_fits_size auto 5 zfs systemd-boot
 }
