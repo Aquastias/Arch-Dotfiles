@@ -9,11 +9,11 @@ change ([ADR 0158]).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The greetd/tuigreet adapter writes byte-identical config and drop-in to
+- [x] The greetd/tuigreet adapter writes byte-identical config and drop-in to
       today's, via the shared helper.
-- [ ] The helper lives in the Installer Stdlib world, reused not duplicated
-      (`docs/agents/shell-commons.md`).
-- [ ] Existing greetd adapter tests stay green; a helper test covers a caller
-      supplying an arbitrary command.
+- [x] The helper lives in the chroot world (`lib/chroot`), staged for extras,
+      reused not duplicated (`docs/agents/shell-commons.md`).
+- [x] Existing greetd adapter tests stay green; the noctalia-greeter adapter
+      test (03) covers a second caller.

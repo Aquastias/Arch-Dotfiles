@@ -83,6 +83,8 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   "lib/chroot/noctalia-skeleton.sh|chroot/noctalia-skeleton.sh"
   # noctalia-preset.sh guard-sources this for its path helpers.
   "lib/chroot/chroot-common.sh|chroot/chroot-common.sh"
+  # Both greetd Display Manager Adapters source this shared base (ADR 0158).
+  "lib/chroot/greetd-config.sh|chroot/greetd-config.sh"
 )
 
 # _chroot_stage <dst-root> <entry...>   entry = "src-rel|dst-rel"
