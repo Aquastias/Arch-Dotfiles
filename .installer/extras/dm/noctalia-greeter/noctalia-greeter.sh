@@ -10,13 +10,6 @@
 # greeter inside it — so the greetd base (VT 2, `greeter` user) is the shared
 # greetd-config.sh. Installed from the official repos only, never the AUR.
 #
-# It scans /usr/local/share and /usr/share wayland-sessions itself (no path
-# option), deduped by Name= with /usr/local first; the curated sessions win and
-# the Hyprland adapter keeps the packaged uwsm session off disk (ADR 0158).
-#
-# Shell → greeter appearance sync stays manual (Noctalia Settings → Security →
-# Noctalia Greeter, polkit-authorized); no passwordless sync is configured.
-#
 # Injectable seams (tests):
 #   GREETD_CONF_DIR — greetd config dir (default: /etc/greetd)
 #   ROOT            — prefix for the config writes (default: empty)

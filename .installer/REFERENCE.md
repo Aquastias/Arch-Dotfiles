@@ -162,16 +162,17 @@ CONTEXT.md.
 |---|---|---|---|
 | `desktop` | string \| array | `[]` | `"kde"`/`"hyprland"`/`"niri"` (array = co-install), or `null` |
 | `gpu` | string \| array | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
-| `display_manager` | string | `"auto"` | `auto` (desktop-aware)/`greetd`/`sddm` ([ADR 0069]/[0091]) |
+| `display_manager` | string | `"auto"` | `auto` (desktop-aware)/`greetd`/`noctalia-greeter`/`sddm` ([ADR 0069]/[0091]/[0158]) |
 | `wayland_shell` | string | `"noctalia"` | Noctalia work shell on niri/Hyprland: `noctalia`/`none` ([ADR 0090]/[0097]) |
-| `stock` | bool | `false` | Every desktop upstream-stock: KDE shell only, bare compositor ([ADR 0112]) |
+| `stock` | bool | `true` | Every desktop upstream-stock: KDE shell only, bare compositor ([ADR 0112]) |
 
 Each selected desktop dispatches to
 `extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
 when any desktop is selected. Display manager is a separate
 operator choice via `environment.display_manager` (`auto` is
-desktop-aware: SDDM when KDE is present, else greetd — ADR
-0069/0091). GPU `"auto"` resolves all detected
+desktop-aware: SDDM when KDE is present, else noctalia-greeter
+under the Noctalia shell, greetd otherwise — ADR
+0069/0091/0158). GPU `"auto"` resolves all detected
 vendors and installs the right driver set (`vulkan-radeon`,
 `nvidia-open-dkms` — an amd+nvidia hybrid gets the deterministic
 GPU Configuration Module, not `envycontrol` ([ADR 0053]) —
@@ -967,6 +968,7 @@ journalctl -b | grep -i "plasma\|kwin\|sddm"
 [0091]: ../docs/adr/0091-desktop-aware-auto-display-manager.md
 [0094]: ../docs/adr/0094-curated-noctalia-config-as-stow-owned-dotfile.md
 [0097]: ../docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
+[0158]: ../docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR 0022]: ../docs/adr/0022-categorized-list-schema.md
 [ADR 0025]: ../docs/adr/0025-secrets-activated-sops-program.md
 [ADR 0027]: ../docs/adr/0027-standalone-data-pools.md

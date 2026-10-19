@@ -1131,7 +1131,7 @@ else `noctalia-greeter` for a KDE-free set with the Noctalia shell, else
 `"noctalia"` (default) |
 `"none"` (compositor-agnostic — honored by both niri and Hyprland;
 [ADR 0090]/[0097], renamed from `niri_shell` by 0097). The optional `stock` bool
-(default `false`,
+(default `true` — fleet hosts opt out, [ADR 0157];
 [ADR 0112]) installs every selected desktop **upstream-stock**: KDE = the
 `plasma-meta` shell only (no curated apps, no captured settings seed), niri /
 Hyprland = the bare compositor (`stock` forces `wayland_shell: none`). It

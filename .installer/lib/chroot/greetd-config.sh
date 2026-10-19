@@ -7,6 +7,8 @@
 # conflicted — and differ only in the greeter command, which the caller passes.
 #
 # Caller contract: ROOT (config-write prefix) and GREETD_CONF_DIR set.
+#
+# Used by: extras/dm/greetd/greetd.sh, extras/dm/noctalia-greeter/*.sh.
 # =============================================================================
 
 [[ -n "${_GREETD_CONFIG_SH_SOURCED:-}" ]] && return 0

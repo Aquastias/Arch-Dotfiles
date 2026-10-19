@@ -249,16 +249,10 @@ _environment_is_one_of() {
 }
 
 # Resolve ENVIRONMENT_DISPLAY_MANAGER (auto|greetd|noctalia-greeter|sddm)
-# into the concrete greeter the chroot dispatches (ADR 0069). `auto` is
-# DESKTOP-AWARE (ADR 0091, amended by ADR 0158): `sddm` when the set contains
-# `kde`; else, for a KDE-free set (hyprland and/or niri), `noctalia-greeter`
-# when the Noctalia shell is selected (wayland_shell=noctalia, not stock) and
-# `greetd` otherwise; `none` when no desktop is selected. It is a smart default,
-# not a lock — seatd (ADR 0068) lets any greeter launch any DE, so an explicit
-# greeter still passes through unchanged. A concrete greeter with no desktop
-# aborts — a greeter with no session to launch. Requires ENVIRONMENT_DESKTOP and
-# ENVIRONMENT_WAYLAND_SHELL (stock already folded in) resolved by
-# _environment_validate.
+# into the concrete greeter the chroot dispatches (ADR 0069). `auto` follows
+# the desktop set and shell (ADR 0091/0158), a default, not a lock; a concrete
+# greeter with no desktop aborts. Requires ENVIRONMENT_DESKTOP and
+# ENVIRONMENT_WAYLAND_SHELL (stock folded in) from _environment_validate.
 _environment_resolve_display_manager() {
   local authored="${ENVIRONMENT_DISPLAY_MANAGER:-auto}"
   if [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]]; then

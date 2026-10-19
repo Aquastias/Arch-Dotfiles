@@ -489,7 +489,7 @@ every boot without the USB.
 │
 ├── extras/                 # In-chroot extras (DE + DM adapters)
 │   ├── desktop/            # kde/, hyprland/, niri/  (<de>/<de>.sh)
-│   └── dm/                 # greetd/, sddm/  (<dm>/<dm>.sh)
+│   └── dm/                 # greetd/, noctalia-greeter/, sddm/
 │
 ├── tools/                  # Operator utilities (runtime)
 │   ├── save-pkglist.sh     # Snapshot current packages
@@ -579,7 +579,7 @@ Set under `environment` in the host profile:
 "environment": {
   "desktop":         "kde",   // "kde"/"hyprland"/"niri", array, or null
   "gpu":             "auto",  // or "amd"/"nvidia"/"intel"/array
-  "display_manager": "auto"   // "auto"/"greetd"/"sddm"
+  "display_manager": "auto"   // "auto"/"greetd"/"noctalia-greeter"/"sddm"
 }
 ```
 
@@ -588,7 +588,8 @@ Each desktop dispatches dynamically to `extras/desktop/<de>/
 adapter ([ADR 0069]). Audio (PipeWire) is auto-derived when any
 desktop is selected; GPU drivers are auto-detected with `"auto"`.
 `display_manager: "auto"` is desktop-aware — SDDM when KDE is in the
-set, else greetd, and none for a desktop-less install ([ADR 0091]).
+set, else noctalia-greeter under the Noctalia shell and greetd
+otherwise, and none for a desktop-less install ([ADR 0091]/[0158]).
 
 ### Impermanence
 
@@ -763,6 +764,7 @@ topology options, and advanced VM testing instructions.
 [0037]: ../docs/adr/0037-per-group-disk-count-assignment.md
 [0039]: ../docs/adr/0039-guided-installer-profile-optional-front-end.md
 [0043]: ../docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
+[0158]: ../docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR 0023]: ../docs/adr/0023-archzfs-compatible-iso-not-latest.md
 [ADR 0025]: ../docs/adr/0025-secrets-activated-sops-program.md
 [ADR 0036]: ../docs/adr/0036-unified-profile-driven-host-config.md

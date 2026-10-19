@@ -13,7 +13,7 @@ greetd. Shell → greeter appearance sync stays manual; no passwordless sync
 
 **Blocked by:** 01, 02, and external: `noctalia-greeter` available in Arch
 `extra` (`pacman -Si noctalia-greeter` resolves; was `extra-testing` only on
-2026-10-19).
+2026-10-19). Cleared 2026-10-19: 1.6.0 in `extra`.
 
 **Status:** ready-for-agent
 

@@ -1,7 +1,7 @@
 # ADR 0158: `auto` picks noctalia-greeter on KDE-free Noctalia hosts
 
 ## Status
-Accepted — not implemented (blocked on `noctalia-greeter` reaching `extra`).
+Accepted — implemented (noctalia-greeter 1.6.0 landed in `extra`).
 Amends the `auto` rule of [ADR 0091]; keeps [ADR 0069]'s operator choice.
 
 ## Context
@@ -9,6 +9,11 @@ Noctalia is the shared niri/Hyprland shell ([ADR 0097]). Its sibling,
 noctalia-greeter, is a greetd greeter with a bundled wlroots compositor and
 the shell's visual language. Today `auto` gives a KDE-free set greetd +
 tuigreet ([ADR 0091]).
+
+Arch Wiki grounding: greetd (enable `greetd.service`; the greeter is the
+`[default_session]` `command`, run as the `greeter` user by default) and
+pacman (`NoExtract` skips files from being installed). Neither page covers
+noctalia-greeter; its facts come from upstream docs and source.
 
 Upstream source shows the greeter's session scan **hardcodes**
 `/usr/local/share` and `/usr/share` (plus `XDG_DATA_DIRS`), deduped by
@@ -23,8 +28,7 @@ the dedupe. It cannot be pointed at the curated dir alone, as
 - `auto`: `sddm` if the set has `kde`; else `noctalia-greeter` when
   `wayland_shell` is `noctalia`; else `greetd`; `none` for an empty set.
 - Explicit `noctalia-greeter` is valid on any non-empty set (no lock).
-- Installed with pacman from `extra` only; no AUR, no `extra-testing`. Ships,
-  with the `auto` flip, once the package lands in `extra`.
+- Installed with pacman from `extra` only; no AUR, no `extra-testing`.
 - Both greetd adapters share the `config.toml` (`vt = 2`, `user = greeter`)
   and VT2 drop-in; each supplies only its `command`
   (`noctalia-greeter-session` here).
