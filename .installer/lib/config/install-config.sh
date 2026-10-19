@@ -330,6 +330,13 @@ install_config_custom_repositories() {
        | @tsv' 2>/dev/null
 }
 
+# install_config_persist_json — the effective config's Persist Extensions as
+# {directories, files} JSON (each defaulting to []).
+install_config_persist_json() {
+  _install_config_read '{directories: (.persist.directories // []),
+    files: (.persist.files // [])}'
+}
+
 # Kernel Selection — accepts a single flavour token (string) or a list. Emits
 # one token per line, ordered, primary (first selected) first. Defaults to
 # 'lts' when absent or null. Aborts on any unknown flavour token, so a typo

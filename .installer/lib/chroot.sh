@@ -429,9 +429,7 @@ _chroot_stage_configuration_module() {
   _chroot_stage "${MOUNT_ROOT}/root/lib-chroot" "${_CHROOT_STAGE_LIBCHROOT[@]}"
   find "${MOUNT_ROOT}/root/lib-chroot" -name '*.sh' -exec chmod +x {} \;
 
-  install_state_write \
-    "${MOUNT_ROOT}/root/lib-chroot/install-state.json" \
-    "$RESOLVED_HOST_PROFILE"
+  install_state_write "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 }
 

@@ -456,3 +456,31 @@ load profile-loader-helpers
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '(.host_programs // []) == []'
 }
+
+# ── profile_loader_name_for_hostname (ADR 0020: hostname ≠ profile name) ────
+
+@test "profile_loader_name_for_hostname: maps a hostname to its profile" {
+  # desktop installs hostname eterniox; the installer only knows the hostname.
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
+    '{"system":{"hostname":"eterniox"}}'
+  write_jsonc "$INSTALLER_DIR/hosts/laptop/profile.jsonc" \
+    '{"system":{"hostname":"chronos"}}'
+  run profile_loader_name_for_hostname eterniox
+  [ "$output" = "desktop" ]
+  run profile_loader_name_for_hostname chronos
+  [ "$output" = "laptop" ]
+}
+
+@test "profile_loader_name_for_hostname: a profile without hostname matches its dir" {
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{}'
+  write_jsonc "$INSTALLER_DIR/hosts/vm/arch-niri/profile.jsonc" '{}'
+  run profile_loader_name_for_hostname arch-niri
+  [ "$output" = "arch-niri" ]
+}
+
+@test "profile_loader_name_for_hostname: no match falls back to the hostname" {
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{}'
+  run profile_loader_name_for_hostname adhoc-box
+  [ "$output" = "adhoc-box" ]
+}

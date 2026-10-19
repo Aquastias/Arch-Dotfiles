@@ -493,3 +493,7 @@ _profile_loader_validate_program_configs() {
     profile_loader_validate_schema program "$json" || return 1
   done
 }
+
+# profile_loader_name_for_hostname lives in its own file (length budget).
+# shellcheck source=./profile-loader-hosts.sh
+source "${BASH_SOURCE[0]%/*}/profile-loader-hosts.sh"

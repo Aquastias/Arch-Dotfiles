@@ -73,6 +73,10 @@ setup_writer_globals() {
   install_config_impermanence_dataset() { echo "rpool/persist"; }
   install_config_impermanence_mount()   { echo "/persist"; }
   install_config_apparmor_enabled()     { echo "${MOCK_APPARMOR:-true}"; }
+  install_config_persist_json() {
+    local empty='{"directories":[],"files":[]}'
+    printf '%s\n' "${MOCK_PERSIST:-$empty}"
+  }
   LAYOUT_OS_POOL_NAME="rpool"
   LAYOUT_ROOT_CMDLINE="root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id"
   LAYOUT_HOOKS="base udev autodetect modconf block keyboard zfs filesystems"

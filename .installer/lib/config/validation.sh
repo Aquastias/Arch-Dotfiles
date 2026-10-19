@@ -54,9 +54,10 @@ _validation_system_fields() {
   # shellcheck disable=SC2034 # consumed by chroot_configure_system() in chroot.sh
   RESOLVED_HOSTNAME="$hostname"
 
-  # shellcheck disable=SC2034 # consumed by callers passing it to
-  # profile_loader_load and secrets_load.
-  RESOLVED_HOST_PROFILE="$hostname"
+  # The Host Profile behind this hostname (ADR 0020: `desktop` installs
+  # `eterniox`), for profile_loader_load and secrets_load.
+  # shellcheck disable=SC2034 # consumed by secrets_load and the runner
+  RESOLVED_HOST_PROFILE="$(profile_loader_name_for_hostname "$hostname")"
 
   config_required '.system.locale' 'system.locale'
   # Timezone is NOT required in the config (ADR 0118): it is resolved at persist
@@ -231,7 +232,7 @@ _validation_topology_for_filesystem() {
     "Valid for ${filesystem}: ${valid}."
 }
 
-# Validate persist paths from a merged host config JSON.
+# Validate persist paths from the effective (merged) config JSON.
 # Errors abort via error(); warnings are printed via warn().
 _validation_persist() {
   local host_json="$1"
@@ -347,10 +348,9 @@ validation_check_install_context() {
 
   _validation_preflight_programs "$RESOLVED_HOST_PROFILE"
 
-  local host_json
-  host_json="$(profile_loader_load "$RESOLVED_HOST_PROFILE" 2>/dev/null || \
-    printf '{}')"
-  _validation_persist "$host_json"
+  # The effective config, not a profile looked up by name: it carries the
+  # profile's persist paths and any Guided-added ones.
+  _validation_persist "$effective_json"
 
   info "Install context valid."
 }

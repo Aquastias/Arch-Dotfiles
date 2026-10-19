@@ -78,3 +78,4 @@ file .installer/lib/feature-audit/live*.sh feature_audit_ _live_
 file .installer/vm/lib/flow-persistent*.sh vm_ _flow_persistent_
 file .installer/vm/lib/seed-generator*.sh vm_ _seed_generator_
 file .installer/vm/lib/agent-*.sh agent_ _agent_
+file .installer/lib/config/profile-loader-hosts.sh profile_loader_ _profile_loader_

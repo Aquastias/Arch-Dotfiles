@@ -222,6 +222,7 @@ load install-state-helpers
 
 @test "install_state_write: assembles full schema with nested objects" {
   setup_writer_globals
+  MOCK_PERSIST='{"directories":["/etc/wireguard"],"files":["/etc/foo"]}'
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1 /dev/nvme1n1p1)
   install_state_write "$STATE" "host-a"
 
@@ -266,27 +267,18 @@ load install-state-helpers
   [ "$(jq -r '.persist.directories | type'  "$STATE")" = "array" ]
 }
 
-@test "install_state_write: persist empty when host dir absent (fallback)" {
+@test "install_state_write: persist comes from the effective config" {
+  # Not from a profile looked up by name: the installer only knows the
+  # hostname (desktop installs eterniox), and Guided adds persist paths to
+  # the effective config alone.
   setup_writer_globals
+  MOCK_PERSIST='{"directories":["/var/lib/docker"],"files":[]}'
   export INSTALLER_DIR="$TEST_DIR/no-such-os-dir"
-  install_state_write "$STATE" "ghost-host"
-  [ "$(jq -r '.persist.directories | length' "$STATE")" = "0" ]
-  [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
-}
-
-@test "install_state_write: core-only host (graceful) writes valid single JSON" {
-  # Real-install condition: hosts/core/profile.jsonc EXISTS but the
-  # host-specific dir does NOT, so profile_loader_load prints core JSON *and*
-  # returns 1. A `|| printf '{}'` fallback then concatenates a second JSON
-  # value, corrupting the --argjson persist payload. The state file must
-  # remain a single valid JSON document with an empty persist.
-  setup_writer_globals
-  export INSTALLER_DIR="$FIXTURES"   # core present, "ghost-host" absent → rc 1 + stdout
-  install_state_write "$STATE" "ghost-host"
+  install_state_write "$STATE"
   run jq -e . "$STATE"
   [ "$status" -eq 0 ]
-  [ "$(jq -r '.persist.directories | length' "$STATE")" = "0" ]
-  [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
+  [ "$(jq -r '.persist.directories[0]' "$STATE")" = "/var/lib/docker" ]
+  [ "$(jq -r '.persist.files | length' "$STATE")" = "0" ]
 }
 
 
@@ -294,6 +286,7 @@ load install-state-helpers
 
 @test "round-trip: write then load — every schema field intact" {
   setup_writer_globals
+  MOCK_PERSIST='{"directories":["/etc/wg"],"files":["/etc/foo"]}'
   MOCK_HOSTNAME="host-b"
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1 /dev/nvme1n1p1)
   install_state_write "$STATE" "host-b"

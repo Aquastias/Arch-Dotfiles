@@ -97,17 +97,6 @@ _INSTALL_STATE_TEMPLATE='{
 # _install_state_json_array — stdin lines as a compact JSON string array.
 _install_state_json_array() { jq -R . | jq -sc .; }
 
-# _install_state_host_profile_json <profile> — the assembled host profile, or {}
-# when there is none. profile_loader_load prints core-only JSON *and* returns 1
-# when no host profile exists (graceful): capture stdout, ignore the status,
-# fall back to {} only when nothing printed. A `|| printf '{}'` would append a
-# second JSON value, corrupting the --argjson persist payload.
-_install_state_host_profile_json() {
-  local host_json
-  host_json="$(profile_loader_load "$1" 2>/dev/null)" || true
-  printf '%s\n' "${host_json:-{\}}"
-}
-
 # _install_state_gpu_json — the resolved GPU vendor list (auto → detected
 # vendors) threaded to the chroot, where the GPU Configuration Module decides
 # whether to harden (ADR 0053). `${VAR+x}` guards the unset case under `set -u`
@@ -120,15 +109,15 @@ _install_state_gpu_json() {
   fi
 }
 
-# install_state_write <path> <profile>
-# <profile> is the Host Profile (directory key under hosts/), used only for
-# profile_loader_load to assemble the persist payload. The .hostname field
-# written into install-state.json comes from install_config_hostname,
-# which is the machine identity — not the profile name.
+# install_state_write <path>
+# Everything comes from the effective config (install_config_*) and the
+# resolved layout/environment globals — persist included, so Guided-added
+# paths count and no profile is looked up by name (hostname ≠ profile name,
+# ADR 0020). The .hostname field is install_config_hostname, the machine
+# identity.
 install_state_write() {
-  local path="$1" profile="$2" persist kernels locales keymaps
-  persist="$(_install_state_persist_obj \
-    "$(_install_state_host_profile_json "$profile")")"
+  local path="$1" persist kernels locales keymaps
+  persist="$(install_config_persist_json)"
   # Full Kernel Selection as a JSON array; KERNEL stays the scalar primary.
   kernels="$(install_config_kernels | _install_state_json_array)"
   # Locale/Keymap Selection as arrays (element 0 = default); the scalar
@@ -218,14 +207,6 @@ install_state_activates_sops() {
   [[ -f "$state" ]] || return 1
   jq -e '(.secrets.host // "") != ""
     or ((.secrets.users // {}) | length > 0)' "$state" >/dev/null 2>&1
-}
-
-# Builds the .persist sub-object from a merged host config JSON string.
-_install_state_persist_obj() {
-  printf '%s' "${1:-{\}}" | jq '{
-    directories: (.persist.directories // []),
-    files:       (.persist.files       // [])
-  }'
 }
 
 # Returns true iff every segment exists (parent contains key) AND the

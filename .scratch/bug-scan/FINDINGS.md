@@ -29,7 +29,7 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - ✔B10 med lib/wipe/execute.sh teardown_{zfs,lvm} — install-driven targets are
   /dev/disk/by-id paths; never match pvs (/dev/sdX) nor zpool vdev names
 - ✔B11 med lib/jsonc.sh jsonc_append_to_array — early "already present" grep matches value anywhere in file (other array/comment) → silent no-op
-- B12 high lib/config/validation.sh:59 — RESOLVED_HOST_PROFILE=hostname, but
+- ✔B12 high lib/config/validation.sh:59 — RESOLVED_HOST_PROFILE=hostname, but
   profile≠hostname (desktop→eterniox, laptop→chronos, ADR 0020).
   install_state persist ← profile_loader_load(hostname) fails → {} (desktop's
   persist dirs dropped); secrets_load host/user lookup by hostname misses.

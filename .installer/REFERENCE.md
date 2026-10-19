@@ -660,7 +660,7 @@ Four verbs. Host config is the source of truth: `add` and
 | Verb              | Effect                                                 |
 | ----------------- | ------------------------------------------------------ |
 | `add <path>`      | Detect dir vs file, append to host config, copy data   |
-|                   | to `/persist`, write `.mount` unit + tmpfiles, start. |
+|                   | to `/persist`, write `.mount` unit + tmpfiles, start.  |
 |                   | Refuses if `/persist<path>` already holds data.        |
 | `remove <path>`   | Reverse `add`: stop mount, remove unit + tmpfiles,     |
 |                   | optionally move data back, edit host config.           |
