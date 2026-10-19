@@ -9,11 +9,16 @@ previews the resolved `auto` correctly ([ADR 0158], amending [ADR 0091]).
 
 **Blocked by:** 03.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Installer resolution and resolver resolution agree for every
       desktop-set × shell × stock combination (tested).
 - [x] Guided shows the right resolved DM for `auto` — n/a: Guided shows the
       raw `auto`, it never previews the resolved DM.
-- [ ] VM run of a default niri profile boots to noctalia-greeter.
-- [ ] ADR 0158 status → implemented.
+- [x] VM run of a default niri profile boots to noctalia-greeter.
+- [x] ADR 0158 status → implemented.
+
+## Comments
+
+VM `desktop/niri` (default profile, no display_manager) booted to
+noctalia-greeter, 2026-10-19; see 03.
