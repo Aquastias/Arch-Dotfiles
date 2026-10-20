@@ -8,6 +8,8 @@
 setup() {
   TEST_DIR="$(mktemp -d)"
   export CONFIG_FILE="$TEST_DIR/install.jsonc"
+  # An empty config: schema defaults (optional_repos → [multilib]) apply.
+  echo '{}' >"$CONFIG_FILE"
 
   # ── common.sh stubs ────────────────────────────────────────────────────────
   jsonc_strip() { cat "$1"; }
