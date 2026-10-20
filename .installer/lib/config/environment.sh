@@ -146,6 +146,14 @@ _environment_resolve_gpu() {
     # shellcheck disable=SC2206
     GPU_PACMAN_PACKAGES+=( $vendor_packages )
   done
+  # lib32-* live in [multilib]; without it pacstrap would fail mid-install.
+  if [[ "$(install_config_multilib)" != true ]]; then
+    local -a kept=() package
+    for package in "${GPU_PACMAN_PACKAGES[@]}"; do
+      [[ "$package" == lib32-* ]] || kept+=("$package")
+    done
+    GPU_PACMAN_PACKAGES=("${kept[@]}")
+  fi
 
   # An amd+nvidia (hybrid) result no longer pulls envycontrol: the runtime
   # switcher was installed but never invoked. The deterministic hybrid config

@@ -423,6 +423,9 @@ run_numbered_phases() {
   # Pass the config so bootstrap can skip itself for a pure non-ZFS install
   # (ADR 0043): no archzfs repo / zfs module needed on the live ISO then.
   bash "${SCRIPT_DIR}/01-bootstrap-zfs.sh" "$CONFIG_FILE"
+  # Validate before 02 zeroes the disks: a config error must not cost data.
+  bash "${SCRIPT_DIR}/03-install.sh" --check "${forward_args[@]}" \
+    "${positional_args[@]}"
   bash "${SCRIPT_DIR}/02-wipe.sh" "${forward_args[@]}" "${wipe_targets[@]}"
   bash "${SCRIPT_DIR}/03-install.sh" "${forward_args[@]}" \
     "${positional_args[@]}"

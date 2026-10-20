@@ -89,6 +89,7 @@ _guided_shell_create_user() {
   local name shell sudo git_name git_email password
   name="$(guided_prompt new_user_name "New user name")"
   [[ -n "$name" ]] || return 1
+  edit_user_name_problem "$name" >&2 || error "guided: invalid user name"
   shell="$(guided_select new_user_shell "Shell" /bin/bash /bin/zsh /bin/fish)"
   # Default sudo ON (→ wheel), unifying with the persistent-menu create + the
   # materialize fallback (ADR 0051): the first option is the default under

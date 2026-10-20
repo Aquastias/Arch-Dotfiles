@@ -329,11 +329,15 @@ _package_resolver_filesystem_sets() {
 # `auto` is no vendor, so the map returns nothing — emitting no fake name to
 # pollute a --flat listing; package_resolver_unresolved reports it.
 _package_resolver_gpu() {
-  local vendor
+  local vendor package multilib
+  multilib="$(install_config_from_json "$1" multilib)"
   while IFS= read -r vendor; do
     [[ -n "$vendor" ]] || continue
-    # shellcheck disable=SC2046
-    _package_resolver_emit gpu derived $(gpu_vendor_packages "$vendor")
+    for package in $(gpu_vendor_packages "$vendor"); do
+      # lib32-* need [multilib], as the installer's GPU set (environment.sh).
+      [[ "$package" == lib32-* && "$multilib" != true ]] && continue
+      _package_resolver_emit gpu derived "$package"
+    done
   done < <(install_config_from_json "$1" gpu)
 }
 

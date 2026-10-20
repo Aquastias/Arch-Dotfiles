@@ -192,3 +192,31 @@ LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
   [[ "$row" == *"(unassigned)"* ]]
   [[ "$row" == *"[keep]"* ]]
 }
+
+# ── manual_partition_target_disk (ADR 0073: the operator picks the disk) ────
+
+@test "manual_partition_target_disk: one candidate is used without asking" {
+  picker_enum_disks() { echo /dev/disk/by-id/ata-ONLY; }
+  readlink() { echo /dev/sda; }
+  _manual_partition_choose_disk() { echo "asked" >&2; return 1; }
+  run manual_partition_target_disk
+  [ "$status" -eq 0 ]
+  [ "$output" = "/dev/sda" ]
+}
+
+@test "manual_partition_target_disk: several candidates go to the picker" {
+  # It used to take the first by-id disk silently — cfdisk on the wrong disk.
+  picker_enum_disks() { printf '%s\n' /dev/disk/by-id/ata-A /dev/disk/by-id/ata-B; }
+  readlink() { [[ "${*: -1}" == */ata-B ]] && echo /dev/sdb || echo /dev/sda; }
+  _manual_partition_choose_disk() { printf '%s\n' "${@: -1}"; }
+  run manual_partition_target_disk
+  [ "$status" -eq 0 ]
+  [ "$output" = "/dev/sdb" ]
+}
+
+@test "manual_partition_target_disk: cancelling the picker cancels cfdisk" {
+  picker_enum_disks() { printf '%s\n' /dev/disk/by-id/ata-A /dev/disk/by-id/ata-B; }
+  _manual_partition_choose_disk() { return 1; }
+  run manual_partition_target_disk
+  [ "$status" -ne 0 ]
+}

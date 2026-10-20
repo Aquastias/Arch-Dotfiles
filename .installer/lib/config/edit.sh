@@ -168,3 +168,22 @@ edit_set_users() {
   config_state_set "$state" users "$(printf '%s\n' "$@" | jq -R . | jq -s -c \
     'reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end)')"
 }
+
+# edit_user_name_problem <name> — rc 0 for a login useradd accepts and the
+# installer can own; else rc 1 and the reason on stdout. Checked when the name
+# is typed, not at useradd after the disks are wiped.
+edit_user_name_problem() {
+  local name="$1"
+  if [[ ! "$name" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    printf '%s\n' "'${name}': use 1-32 of a-z 0-9 _ -, starting with a" \
+      "letter or _"
+    return 1
+  fi
+  case "$name" in
+  root | core | greeter | sddm | nobody | bin | daemon | mail | ftp | http \
+    | dbus | systemd-*)
+    printf '%s\n' "'${name}' is a reserved system account"
+    return 1 ;;
+  esac
+  return 0
+}

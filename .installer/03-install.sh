@@ -31,6 +31,11 @@ main() {
   print_banner
   check_prerequisites
   load_configuration
+  # --check (install.sh, before 02-wipe): validation only, no disk touched.
+  if [[ "${INSTALL_CHECK_ONLY:-0}" == "1" ]]; then
+    info "Config valid — check only, nothing installed."
+    return 0
+  fi
   plan_and_confirm
   prepare_secrets
   prepare_disks
@@ -185,10 +190,15 @@ parse_arguments() {
         export INSTALL_UNATTENDED=1
         shift
         ;;
+      --check)
+        export INSTALL_CHECK_ONLY=1
+        shift
+        ;;
       -h | --help)
-        echo "Usage: ${0##*/} [-y|--unattended] [CONFIG_FILE]"
+        echo "Usage: ${0##*/} [-y|--unattended] [--check] [CONFIG_FILE]"
         echo ""
         echo "  -y, --unattended  Bypass the final 'Proceed?' confirmation."
+        echo "  --check           Validate the config, touch no disk, exit."
         echo "  -h, --help        Show this help and exit."
         exit 0
         ;;

@@ -99,6 +99,15 @@ secure_baseline() {
   [ "$status" -ne 0 ]
 }
 
+@test "post_install_validate: rejects a firewall that is only a substring" {
+  # jq inside() is substring-based: "uf", "fire" and "" used to pass.
+  local value
+  for value in uf fire wall ""; do
+    run post_install_validate "{\"security\":{\"firewall\":\"${value}\"}}"
+    [ "$status" -ne 0 ] || { echo "accepted: ${value}"; return 1; }
+  done
+}
+
 @test "post_install_validate: rejects a non-bool toggle" {
   run post_install_validate '{"security":{"antivirus":"yes"}}'
   [ "$status" -ne 0 ]

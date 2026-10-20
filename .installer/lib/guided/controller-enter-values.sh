@@ -284,6 +284,11 @@ _controller_accept_new_user_name() {
       "$(navigation_to_values "$category" users users)"
     echo render; return 1
   fi
+  local problem
+  if ! problem="$(edit_user_name_problem "$name")"; then
+    echo "notice ⚠ ${problem}"
+    return 1
+  fi
   if _controller_user_is_committed "$name" || jq -e --arg v "$name" \
       '(.users // []) | any(. == $v)' \
       <<<"$(_controller_effective "$(_controller_state)" \

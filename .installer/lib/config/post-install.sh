@@ -91,7 +91,7 @@ post_install_validate() {
       then "backup (must be an object, not the old bool form)" else empty end,
       ( ($pi.security // {}) as $s
         | if ($s | has("firewall"))
-             and ([$s.firewall] | inside(["firewalld","ufw","none"]) | not)
+             and ((["firewalld","ufw","none"] | index($s.firewall)) == null)
           then "security.firewall (must be firewalld | ufw | none)" else empty
           end ),
       ( ($pi.security // {}) as $s

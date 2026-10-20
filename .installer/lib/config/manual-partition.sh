@@ -85,16 +85,34 @@ manual_partition_autoassign_root() {
     end' <<< "$1"
 }
 
-# manual_partition_target_disk — the disk cfdisk runs on: the first enumerable
-# install candidate minus the live medium (GUIDED_LIVE_SET), resolved to its
-# kernel node. rc 1 when none found. (A multi-disk target picker is a
-# refinement.)
+# manual_partition_target_disk — the disk cfdisk runs on (ADR 0073): the
+# operator's pick among the install candidates minus the live medium
+# (GUIDED_LIVE_SET), resolved to its kernel node; a lone candidate is used
+# without asking. rc 1 when none is found or the pick is cancelled.
 manual_partition_target_disk() {
-  local first
-  first="$(picker_enum_disks "${GUIDED_LIVE_SET:-}" 2>/dev/null \
-    | awk 'NR == 1 { print; exit }')"
-  [[ -n "$first" ]] || return 1
-  readlink -f "$first"
+  local -a candidates
+  local chosen
+  mapfile -t candidates \
+    < <(picker_enum_disks "${GUIDED_LIVE_SET:-}" 2>/dev/null)
+  ((${#candidates[@]})) || return 1
+  if ((${#candidates[@]} == 1)); then
+    chosen="${candidates[0]}"
+  else
+    chosen="$(_manual_partition_choose_disk "${candidates[@]}")" || return 1
+  fi
+  [[ -n "$chosen" ]] || return 1
+  readlink -f "$chosen"
+}
+
+# _manual_partition_choose_disk <by-id>... — fzf pick, labelled like the main
+# disk picker (runs under fzf execute(), so it has the tty).
+_manual_partition_choose_disk() {
+  local path pick
+  pick="$(for path in "$@"; do
+      printf '%s\t%s\n' "$(picker_disk_label "$path")" "$path"
+    done | fzf --reverse --prompt='cfdisk on> ' --delimiter='\t' \
+      --with-nth=1)" || return 1
+  printf '%s\n' "${pick#*$'\t'}"
 }
 
 # manual_partition_set_field <partitions-json> <device> <field> <value> — set

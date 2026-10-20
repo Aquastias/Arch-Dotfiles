@@ -196,3 +196,23 @@ setup() {
   [ "$status" -eq 1 ]
   [ "$(jq -c . <<<"$output")" = '{"a":1}' ]
 }
+
+# ── edit_user_name_problem (useradd-safe names, checked before any disk) ────
+
+@test "edit_user_name_problem: accepts a plain lowercase login" {
+  run edit_user_name_problem alice
+  [ "$status" -eq 0 ]
+  run edit_user_name_problem dev_2-x
+  [ "$status" -eq 0 ]
+}
+
+@test "edit_user_name_problem: rejects names useradd or the installer refuse" {
+  # These used to pass the menu and fail at useradd after the disks were wiped.
+  local name
+  for name in "Bob Smith" Alice 9lives "a\"b" ../x root core greeter \
+              systemd-x "$(printf 'a%.0s' {1..33})"; do
+    run edit_user_name_problem "$name"
+    [ "$status" -ne 0 ] || { echo "accepted: $name"; return 1; }
+    [ -n "$output" ]
+  done
+}

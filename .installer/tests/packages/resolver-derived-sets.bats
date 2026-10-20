@@ -490,3 +490,11 @@ load resolver-helpers
     "disk_config":{"kind":"manual","partitions":[]}}'
   [ -z "$(packages_of "$config" luks)" ]
 }
+
+@test "gpu set: no lib32 package when [multilib] is off" {
+  local gpu_packages
+  gpu_packages="$(packages_of \
+    '{"users":[],"environment":{"gpu":"nvidia"},"options":{"optional_repos":[]}}' gpu)"
+  grep -qx "nvidia-utils" <<<"$gpu_packages"
+  ! grep -q "^lib32-" <<<"$gpu_packages"
+}

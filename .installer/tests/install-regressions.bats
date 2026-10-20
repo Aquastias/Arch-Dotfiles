@@ -55,3 +55,19 @@ _extract_function() {
   grep -qE 'guided_build >"\$effective_config" \|\| guided_status=\$\?' \
     "$R/install.sh"
 }
+
+@test "install.sh validates the config before 02-wipe zeroes the disks" {
+  local body check wipe
+  body="$(_extract_function "$R/install.sh" run_numbered_phases)"
+  check="$(awk '/03-install\.sh" --check/ { print NR; exit }' <<<"$body")"
+  wipe="$(awk '/02-wipe\.sh/ { print NR; exit }' <<<"$body")"
+  [ -n "$check" ] && [ -n "$wipe" ] && (( check < wipe ))
+}
+
+@test "03-install --check stops right after validation, before any disk phase" {
+  local body check plan
+  body="$(_extract_function "$R/03-install.sh" main)"
+  check="$(awk '/INSTALL_CHECK_ONLY/ { print NR; exit }' <<<"$body")"
+  plan="$(awk '/plan_and_confirm/ { print NR; exit }' <<<"$body")"
+  [ -n "$check" ] && [ -n "$plan" ] && (( check < plan ))
+}

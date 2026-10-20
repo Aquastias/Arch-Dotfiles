@@ -38,6 +38,9 @@ declare -F _validation_preflight_programs >/dev/null 2>&1 \
 _validation_system_fields() {
   local hostname
   hostname="$(install_config_hostname)"
+  # The pre-wipe --check pass must not prompt: the real run asks for it.
+  [[ -z "$hostname" && "${INSTALL_CHECK_ONLY:-0}" == "1" ]] \
+    && hostname=check-only
   if [[ -z "$hostname" ]]; then
     while true; do
       read -rp \

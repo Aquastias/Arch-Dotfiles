@@ -222,3 +222,19 @@ write_config() {
   [ "${ENVIRONMENT_GPU[0]}" = "nvidia" ]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
 }
+
+@test "gpu nvidia without [multilib] drops the lib32 package" {
+  # lib32-nvidia-utils lives in [multilib]; pacstrap failed after the disks
+  # were already partitioned when the repo was turned off.
+  write_config \
+    '{"environment": {"desktop": null, "gpu": "nvidia"}, "options": {"optional_repos": []}}'
+  environment_resolve
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-utils "* ]]
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" lib32-"* ]]
+}
+
+@test "gpu nvidia with [multilib] keeps the lib32 package" {
+  write_config '{"environment": {"desktop": null, "gpu": "nvidia"}}'
+  environment_resolve
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-nvidia-utils "* ]]
+}

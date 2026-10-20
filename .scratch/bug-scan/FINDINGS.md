@@ -34,14 +34,14 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
   install_state persist ← profile_loader_load(hostname) fails → {} (desktop's
   persist dirs dropped); secrets_load host/user lookup by hostname misses.
 - B13 low lib/chroot.sh:205 — 90-paccache.hook written only when esp_count>1 (inside esp-mirror fn after early return); single-ESP installs never get cache cleanup
-- B14 low lib/config/post-install.sh post_install_validate — jq inside() is substring-based: firewall "fire"/"uf"/"" pass validation → silently no firewall
-- B15 med lib/config/manual-partition.sh manual_partition_target_disk (guided cfdisk, fzf-entry.sh:105) — always first by-id disk; ADR 0073 says operator picks target disk
+- ✔B14 low lib/config/post-install.sh post_install_validate — jq inside() is substring-based: firewall "fire"/"uf"/"" pass validation → silently no firewall
+- ✔B15 med lib/config/manual-partition.sh manual_partition_target_disk (guided cfdisk, fzf-entry.sh:105) — always first by-id disk; ADR 0073 says operator picks target disk
   (B12 also: _validation_preflight_programs silently skips for desktop/laptop)
 - B16 trivial lib/config/lifecycle.sh _lifecycle_print_extras — awk join alternates "," and " " (a,b c,d)
 - B17 med lib/config/environment.sh _environment_gpu_detect_vendors — greps all lspci lines (not VGA/3D/Display class): Intel chipset/NIC/QEMU bridge → "intel"; intel refine uses first Intel device of any kind
 - B18 low lib/packages/package-list.sh _package_list_clean_target_cache — CleanMethod sed on target pacman.conf is overwritten later by chroot_configure_system cp /etc/pacman.conf
 - ✔B19 med lib/packages/archzfs-kernel.sh archzfs_kernel_lts_pin_prepare — chosen="$(build_repository)" under set -e: build failure aborts install; documented "proceeding unpinned" fallback unreachable
-- B20 low lib/packages/gpu.sh — nvidia set includes lib32-nvidia-utils; with optional_repos lacking multilib pacstrap fails after disks are partitioned (no guard)
+- ✔B20 low lib/packages/gpu.sh — nvidia set includes lib32-nvidia-utils; with optional_repos lacking multilib pacstrap fails after disks are partitioned (no guard)
 - B21 trivial lib/packages/package-resolver.sh _package_resolver_user_shells — no users/vm/<name> fallback
 - B22 low lib/chroot/identity.sh — X11 XkbLayout written from console keymap names (de-latin1, uk, fr-latin9 ≠ xkb de, gb, fr) → invalid layout
 - ✔B23 CRITICAL lib/boot/esp-kernel-sync.sh esp_kernel_sync_planned_files — plans only from loader/entries/*.conf (systemd-boot); grub/limine/refind/efistub ESPs never receive upgraded vmlinuz/initramfs → stale kernel w/o modules → unbootable after first kernel upgrade
@@ -66,5 +66,5 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - B42 med programs/security/rkhunter/scripts/rkhunter_scan.sh — greps whole appended /var/log/rkhunter.log for "Warning:" → after any warning ever, every run alerts
 - B43 high programs/security/rkhunter/scripts/rkhunter_scan.sh — runs `rkhunter --propupd` right before `--check` each scan → re-baselines file properties, file-change detection never fires
 - B44 med programs/security/clamav/scripts/clamav_daily_scan.sh — send_user_notification args shifted (icon="Check latest log…", timeout="ClamAV Daily Scan") → notify-send -t parse error, infection alert never shown
-- B45 med lib/guided/controller-enter-values.sh _controller_accept_new_user_name + shell-users.sh _guided_shell_create_user — no username format validation (spaces, uppercase, root, quotes, ../) → fails late at useradd / breaks jq path after disks wiped
-- B46 med install.sh run_numbered_phases — 02-wipe zeroes target disks before 03's validation_check_install_context; config errors (guided/CLI configs) surface after data is destroyed
+- ✔B45 med lib/guided/controller-enter-values.sh _controller_accept_new_user_name + shell-users.sh _guided_shell_create_user — no username format validation (spaces, uppercase, root, quotes, ../) → fails late at useradd / breaks jq path after disks wiped
+- ✔B46 med install.sh run_numbered_phases — 02-wipe zeroes target disks before 03's validation_check_install_context; config errors (guided/CLI configs) surface after data is destroyed
