@@ -201,9 +201,12 @@ When = PostTransaction
 Exec = /usr/local/sbin/esp-mirror
 HOOK
   info "ESP mirror pacman hook installed."
+}
 
-  # Install paccache cleanup hook: after every transaction, keep only the 2 most
-  # recent versions per package so /var/cache/pacman/pkg doesn't grow unbounded.
+# chroot_write_paccache_hook — after every transaction, keep only the 2 most
+# recent versions per package so /var/cache/pacman/pkg doesn't grow unbounded.
+# Every install gets it (it once sat behind the mirror hook's multi-ESP gate).
+chroot_write_paccache_hook() {
   mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
   cat >"${MOUNT_ROOT}/etc/pacman.d/hooks/90-paccache.hook" <<'HOOK'
 [Trigger]
@@ -306,6 +309,11 @@ chroot_configure_system() {
   # Pacman Options, ADR 0074; archzfs on ZFS); the target inherits it on
   # every layout, or a non-ZFS install loses e.g. [multilib].
   cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
+  # Keep only the installed version in the cache going forward. Set here, after
+  # the copy: written earlier (pacstrap step) the copy overwrote it.
+  grep -q '^CleanMethod' "${MOUNT_ROOT}/etc/pacman.conf" \
+    || sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' \
+      "${MOUNT_ROOT}/etc/pacman.conf"
 
   _chroot_seed_zfs_state
   _chroot_copy_extras
@@ -313,6 +321,7 @@ chroot_configure_system() {
   chroot_write_fstab
   chroot_write_crypttab
   chroot_write_esp_mirror_hook "${#LAYOUT_ESP_PARTS[@]}"
+  chroot_write_paccache_hook
 
   # ── Collect passwords interactively HERE, before entering the chroot ─────
   # arch-chroot redirects stdin to the heredoc, so 'read' inside the chroot

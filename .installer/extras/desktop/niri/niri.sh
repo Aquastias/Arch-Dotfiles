@@ -86,6 +86,12 @@ section "niri curated session"
 install -d "${ROOT}${WAYLAND_SESSIONS_DIR}"
 ln -sf /usr/share/wayland-sessions/niri.desktop \
   "${ROOT}${WAYLAND_SESSIONS_DIR}/niri.desktop"
+# On a KDE co-install, curate Plasma too (as the Hyprland adapter does): a
+# greeter pointed at this dir alone (tuigreet) would otherwise hide it.
+if [[ " ${ENVIRONMENT_DESKTOP:-} " == *" kde "* ]]; then
+  ln -sf /usr/share/wayland-sessions/plasma.desktop \
+    "${ROOT}${WAYLAND_SESSIONS_DIR}/plasma.desktop"
+fi
 
 # =============================================================================
 # NOCTALIA WORK PRESET (ADR 0090/0097) — wayland_shell=noctalia only

@@ -136,6 +136,20 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ "$(readlink "$session_file")" = "/usr/share/wayland-sessions/niri.desktop" ]
 }
 
+@test "KDE co-installed: the curated dir also offers Plasma" {
+  # Only the Hyprland adapter linked plasma.desktop, so KDE+niri with
+  # tuigreet (pointed at the curated dir alone) hid Plasma.
+  run env ENVIRONMENT_DESKTOP="kde niri" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local plasma="$ROOT/usr/local/share/wayland-sessions/plasma.desktop"
+  [ "$(readlink "$plasma")" = "/usr/share/wayland-sessions/plasma.desktop" ]
+}
+
+@test "niri alone: no Plasma session in the curated dir" {
+  run_niri
+  [ ! -e "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
+}
+
 @test "installs no greeter and enables no display manager (ADR 0069)" {
   run_niri
   [ "$status" -eq 0 ]

@@ -61,7 +61,8 @@ _layout_publish_boot() {
   [[ "$(install_config_impermanence_enabled)" == "true" ]] &&
     tail="zfs zfs-rollback filesystems"
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_HOOKS="base udev autodetect modconf block keyboard ${tail}"
+  LAYOUT_HOOKS="base udev autodetect modconf keyboard keymap consolefont block"
+  LAYOUT_HOOKS+=" ${tail}"
   # ZFS datasets mount via zfs-mount-generator, not fstab; just a note.
   # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="# ZFS datasets are auto-mounted by zfs-mount-generator"

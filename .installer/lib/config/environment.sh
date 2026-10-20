@@ -79,6 +79,13 @@ declare -F audio_packages >/dev/null 2>&1 \
 # Wraps lspci -nn. Override in tests to control hardware detection.
 _environment_gpu_lspci_output() { lspci -nn 2>/dev/null; }
 
+# _environment_gpu_display_lines — the lspci lines of display controllers only
+# (class 0300 VGA, 0302 3D, 0380 display): an Intel CPU's chipset, USB and
+# NIC (and QEMU's emulated 440FX bridge) carry 8086: too.
+_environment_gpu_display_lines() {
+  _environment_gpu_lspci_output | grep -E '\[03(00|02|80)\]' || true
+}
+
 # _environment_gpu_intel_refine — the intel pre-Broadwell downgrade, applied
 # install-side only (the pure map returns the intel-media-driver default).
 # Broadwell+ (device id ≥ 0x1600) keeps intel-media-driver; older gets
@@ -86,7 +93,7 @@ _environment_gpu_lspci_output() { lspci -nn 2>/dev/null; }
 # so it lives here, not in the pure map.
 _environment_gpu_intel_refine() {
   local device_id decimal_id
-  device_id="$(_environment_gpu_lspci_output | awk '
+  device_id="$(_environment_gpu_display_lines | awk '
     tolower($0) ~ /intel/ && match($0, /8086:[0-9a-fA-F]+/) {
       print substr($0, RSTART + 5, RLENGTH - 5); exit
     }')"
@@ -103,7 +110,7 @@ _environment_gpu_intel_refine() {
 # Returns "vm" for recognised VM GPUs; nothing for unknown.
 _environment_gpu_detect_vendors() {
   local lspci_output
-  lspci_output="$(_environment_gpu_lspci_output)"
+  lspci_output="$(_environment_gpu_display_lines)"
   local found=false
 
   if echo "$lspci_output" \

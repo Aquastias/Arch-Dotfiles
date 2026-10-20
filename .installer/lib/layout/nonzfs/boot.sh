@@ -29,10 +29,13 @@ layout_nonzfs_root_cmdline() {
 # mkinitcpio HOOKS for a non-ZFS root. `block` exposes device nodes before
 # `filesystems` mounts the root; no `zfs` hook (no pool to import). With
 # `encrypted`, the `encrypt` hook is inserted between them so the LUKS
-# container is opened before the root is mounted.
+# container is opened before the root is mounted. `keymap` + `consolefont`
+# (from /etc/vconsole.conf) precede it so the passphrase prompt uses the
+# configured layout, not US (Arch Wiki dm-crypt hook order).
 layout_nonzfs_hooks() {
-  local encrypted="${1:-}" crypt=""
+  local encrypted="${1:-}" crypt="" hooks
   [[ "$encrypted" == "encrypted" ]] && crypt="encrypt "
-  printf '%s\n' \
-    "base udev autodetect microcode modconf kms block keyboard ${crypt}filesystems fsck"
+  hooks="base udev autodetect microcode modconf kms keyboard keymap"
+  hooks+=" consolefont block ${crypt}filesystems fsck"
+  printf '%s\n' "$hooks"
 }

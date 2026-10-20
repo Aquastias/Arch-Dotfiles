@@ -71,3 +71,12 @@ _extract_function() {
   plan="$(awk '/plan_and_confirm/ { print NR; exit }' <<<"$body")"
   [ -n "$check" ] && [ -n "$plan" ] && (( check < plan ))
 }
+
+@test "CleanMethod is set on the target after pacman.conf is copied over it" {
+  local body copy clean
+  body="$(_extract_function "$R/lib/chroot.sh" chroot_configure_system)"
+  copy="$(awk '/cp \/etc\/pacman.conf/ { print NR; exit }' <<<"$body")"
+  clean="$(awk '/CleanMethod = KeepCurrent/ { print NR; exit }' <<<"$body")"
+  [ -n "$copy" ] && [ -n "$clean" ] && (( copy < clean ))
+  ! grep -q 'CleanMethod' "$R/lib/packages/package-list.sh"
+}

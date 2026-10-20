@@ -328,12 +328,6 @@ _package_list_clean_target_cache() {
             | awk '{ print $1 }') remaining)."
   fi
 
-  # Configure pacman to keep only 1 cached version going forward
-  # (prevents cache from growing unbounded after updates)
-  if ! grep -q '^CleanMethod' "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null; then
-    sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' \
-      "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null || true
-  fi
 }
 
 # pacstrap -K initialises the keyring but gpg-agent state can be stale by the

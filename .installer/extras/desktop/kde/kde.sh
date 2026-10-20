@@ -399,7 +399,7 @@ section "Cleaning Package Cache"
 # under `set -e`). Skipped under the test-only INSTALL_PKG_CACHE_KEEP: the
 # Feature Audit harvests the cache (Audit Cache, ADR 0152).
 if [[ -z "${INSTALL_PKG_CACHE_KEEP:-}" ]] \
-   && ! paccache -rk0 --noconfirm 2>/dev/null; then
+   && ! paccache -rk0 2>/dev/null; then
   rm -f /var/cache/pacman/pkg/*.pkg.tar.zst \
     /var/cache/pacman/pkg/*.pkg.tar.xz 2>/dev/null || true
 fi

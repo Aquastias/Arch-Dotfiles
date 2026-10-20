@@ -44,3 +44,15 @@ locale_parts_compose() {
     printf '%s.%s\n' "$language" "$encoding"
   fi
 }
+
+# locale_parts_xkb <console-keymap> [map-file] — "<x11-layout> <x11-variant>"
+# for a console keymap, from systemd's console→X11 table (the one localectl
+# uses); the variant is empty when none. Console names are not XKB layouts
+# (uk → gb, de-latin1 → de), so an unmapped name passes through as the layout.
+locale_parts_xkb() {
+  local keymap="$1" map_file="${2:-/usr/share/systemd/kbd-model-map}" mapped
+  mapped="$(awk -v k="$keymap" '$1 == k {
+      variant = ($4 == "-") ? "" : $4; print $2 " " variant; exit
+    }' "$map_file" 2>/dev/null)"
+  printf '%s\n' "${mapped:-$keymap }"
+}

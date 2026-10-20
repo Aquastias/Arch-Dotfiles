@@ -210,3 +210,9 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   [ "$status" -ne 0 ]
   [[ "$output" == *"Single disk not found"* ]]
 }
+
+@test "layout_plan: zfs hooks load keymap + consolefont before the zfs prompt" {
+  # The native-encryption passphrase prompt in the zfs hook uses this keymap.
+  layout_plan
+  [[ " $LAYOUT_HOOKS " == *" keyboard keymap consolefont block zfs "* ]]
+}

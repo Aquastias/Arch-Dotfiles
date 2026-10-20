@@ -238,3 +238,28 @@ write_config() {
   environment_resolve
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-nvidia-utils "* ]]
 }
+
+@test "gpu auto: only display controllers count, not Intel chipset devices" {
+  # An Intel CPU's host bridge / USB / NIC carry 8086: too; they made an
+  # NVIDIA-only box resolve to nvidia + intel.
+  write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
+  _environment_gpu_lspci_output() {
+    printf '%s\n' \
+      "00:00.0 Host bridge [0600]: Intel Corporation Device [8086:a700]" \
+      "00:14.0 USB controller [0c03]: Intel Corporation Device [8086:7ae0]" \
+      "01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD102 [10de:2684]"
+  }
+  environment_resolve
+  [ "${ENVIRONMENT_GPU[*]}" = "nvidia" ]
+}
+
+@test "gpu auto: a QEMU VM with emulated Intel chipset is not intel" {
+  write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
+  _environment_gpu_lspci_output() {
+    printf '%s\n' \
+      "00:00.0 Host bridge [0600]: Intel Corporation 440FX [8086:1237]" \
+      "00:02.0 VGA compatible controller [0300]: Device [1234:1111]"
+  }
+  environment_resolve
+  [ "${ENVIRONMENT_GPU[*]}" = "vm" ]
+}

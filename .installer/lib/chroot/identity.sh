@@ -69,17 +69,29 @@ echo "LANG=${LOCALE}"   > /etc/locale.conf
 # When a desktop is selected, write the shared X11 keyboard config from the
 # full keymap[] list (covers Xorg + XWayland; KDE reads it).
 # ENVIRONMENT_DESKTOP is the space-separated DE list passed into the chroot.
+# Console keymap names are not XKB layouts (uk → gb), so each is mapped through
+# systemd's console→X11 table (locale_parts_xkb); variants ride alongside.
 if [[ -n "${ENVIRONMENT_DESKTOP:-}" ]]; then
-    _xkb_layout="$(IFS=,; printf '%s' "${KEYMAPS[*]}")"
+    _layouts=() _variants=()
+    for _keymap in "${KEYMAPS[@]}"; do
+        read -r _layout _variant <<<"$(locale_parts_xkb "$_keymap")"
+        _layouts+=("$_layout"); _variants+=("${_variant:-}")
+    done
+    _xkb_layout="$(IFS=,; printf '%s' "${_layouts[*]}")"
+    _xkb_variant="$(IFS=,; printf '%s' "${_variants[*]}")"
     mkdir -p /etc/X11/xorg.conf.d
-    cat > /etc/X11/xorg.conf.d/00-keyboard.conf <<EOF
-Section "InputClass"
-    Identifier "system-keyboard"
-    MatchIsKeyboard "on"
-    Option "XkbLayout" "${_xkb_layout}"
-EndSection
-EOF
-    echo "X11 keyboard layout set: ${_xkb_layout}"
+    {
+        echo 'Section "InputClass"'
+        echo '    Identifier "system-keyboard"'
+        echo '    MatchIsKeyboard "on"'
+        echo "    Option \"XkbLayout\" \"${_xkb_layout}\""
+        if [[ -n "${_xkb_variant//,/}" ]]; then
+            echo "    Option \"XkbVariant\" \"${_xkb_variant}\""
+        fi
+        echo 'EndSection'
+    } > /etc/X11/xorg.conf.d/00-keyboard.conf
+    echo "X11 keyboard layout set: ${_xkb_layout}" \
+        "(variants: ${_xkb_variant:-none})"
 fi
 
 # ── Hostname & /etc/hosts ─────────────────────────────────────────────────────

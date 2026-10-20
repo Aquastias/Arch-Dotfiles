@@ -59,3 +59,10 @@ setup() {
   # encrypt must open the container after block exposes it, before the mount.
   [[ "$output" =~ ^(.*)block(.*)encrypt(.*)filesystems(.*)$ ]]
 }
+
+@test "layout_nonzfs_hooks: keymap + consolefont load before the encrypt prompt" {
+  # Without keymap the boot passphrase prompt is always US layout, whatever
+  # system.keymap says (Arch Wiki dm-crypt hook order).
+  run layout_nonzfs_hooks encrypted
+  [[ " $output " == *" keyboard keymap consolefont block encrypt "* ]]
+}
