@@ -2,8 +2,8 @@
 // profile (ADR 0036). Merged under hosts/core then the Fleet Layer
 // (hosts/fleet/profile.jsonc, ADR 0157).
 //
-// Encrypted, impermanent, SSH-enabled ZFS. Persists /home + /var/lib/docker
-// + /var/lib/libvirt over the impermanence base set.
+// Encrypted, impermanent, SSH-enabled ZFS. No persist list: /home and /var
+// (docker, libvirt) are their own persistent datasets.
 //
 // One file carries the hostname, core machine defaults, users, and the full
 // pool skeleton — devices excluded, picked at install:
@@ -70,9 +70,5 @@
       "disk_count": 3
     }
   ],
-  "data_pools": [],
-
-  "persist": {
-    "directories": ["/home", "/var/lib/docker", "/var/lib/libvirt"]
-  }
+  "data_pools": []
 }

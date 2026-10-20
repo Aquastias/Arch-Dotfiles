@@ -28,14 +28,6 @@ flags_on() {  # <profile-name>
     and .options.ssh.enabled == true'
 }
 
-persists() {  # <profile-name>
-  profile_loader_load "$1" | jq -e '
-    (.persist.directories // []) as $d
-    | ($d | index("/home")) != null
-      and ($d | index("/var/lib/docker")) != null
-      and ($d | index("/var/lib/libvirt")) != null'
-}
-
 @test "desktop: encrypted, impermanent, ssh-enabled zfs" {
   flags_on desktop
 }
@@ -56,8 +48,9 @@ persists() {  # <profile-name>
     and .options.ssh.enabled == true'
 }
 
-@test "desktop: persists /home + docker + libvirt" {
-  persists desktop
+# /home and /var (docker, libvirt) are persistent ZFS datasets already.
+@test "desktop: has no persist block (its paths are on persistent datasets)" {
+  profile_loader_load desktop | jq -e '(.persist // null) == null'
 }
 
 @test "laptop: has no impermanence persist block (persistent root)" {

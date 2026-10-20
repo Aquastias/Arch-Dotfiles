@@ -54,13 +54,7 @@ kernels=lts
     "pool_name": "rpool",
     "topology": "mirror"
   },
-  "persist": {
-    "directories": [
-      "/home",
-      "/var/lib/docker",
-      "/var/lib/libvirt"
-    ]
-  },
+  "persist": null,
   "post_install": {
     "backup": {
       "borg": true,
