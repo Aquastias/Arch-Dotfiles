@@ -215,8 +215,9 @@ resolves the disks interactively (§3), assembles the effective
 config in tmpfs (never committed — [ADR 0036]), then runs the three
 numbered scripts in order — bootstrap, wipe, install — confirming
 destructive steps as it goes. The config is validated (`03-install.sh
---check`) before the wipe, so a config error never costs data. `-y` / `--unattended` bypasses every
-confirmation prompt (the hostname must already be set in the
+--check`) before the wipe, so a config error never costs data. `-y` /
+`--unattended` bypasses every confirmation prompt (the hostname must
+already be set in the
 profile). The positional `<config-file>` form is the unattended seam
 the VM seed injects. Each numbered script remains individually
 runnable for debugging.
