@@ -35,9 +35,10 @@ if command -v npx >/dev/null 2>&1; then
   # installs nothing
   npx --yes skills@latest add mattpocock/skills -g -s '*' -a claude-code -y \
     </dev/null \
-    || print_status warn "skill-store bootstrap failed; run it manually later."
+    || print_status warning "skill-store bootstrap failed;" \
+      "run it manually later."
 else
-  print_status warn "npx unavailable; skipping skill-store bootstrap."
+  print_status warning "npx unavailable; skipping skill-store bootstrap."
 fi
 
 print_status success "Claude Code installed." \

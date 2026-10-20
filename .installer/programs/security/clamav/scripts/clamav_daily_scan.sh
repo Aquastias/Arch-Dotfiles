@@ -86,12 +86,16 @@ else
     | grep "Infected files:" | awk '{print $3}')
 
   if [[ "$INFECTED_COUNT" -gt 0 ]]; then
+    alert_message="Scan completed: $INFECTED_COUNT infected file(s) found."
+    alert_message+=" Check latest log: $LOG_FILE"
+    # Arguments: title, message, icon, app name, timeout (ms), desktop entry.
     send_user_notification \
       "[WARNING] ClamAV Alert" \
-      "Scan completed: $INFECTED_COUNT infected file(s) found." \
-      "Check latest log: $LOG_FILE" \
+      "$alert_message" \
       "clamav" \
-      "ClamAV Daily Scan" || true
+      "ClamAV Daily Scan" \
+      15000 \
+      "clamav" || true
   else
     echo -e "\n[INFO] No infections found." >>"$LOG_FILE"
   fi

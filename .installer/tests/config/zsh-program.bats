@@ -216,3 +216,9 @@ setup() {
   # programs is a multi-line array; assert zsh is listed (not same-line match).
   grep -q '"zsh"' "$OPERATOR_USER"
 }
+
+@test "the warmed zinit cache is copied by contents, never nested on re-run" {
+  # `cp -a ~/.zinit /etc/skel/.zinit` nests into .zinit/.zinit when it exists.
+  ! grep -qE 'cp -a "\$\{HOME\}/\.zinit" ' "$INSTALL"
+  grep -q 'cp -a "${HOME}/.zinit/." /etc/skel/.zinit/' "$INSTALL"
+}

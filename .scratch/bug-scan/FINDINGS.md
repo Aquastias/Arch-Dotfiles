@@ -21,7 +21,7 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - ✔B3 med tools/impermanence.sh:254 — status zfs-only; false ERROR on btrfs
 - ✔B4 low lib/wipe/execute.sh:40,52 — substring disk match (sda~sdab)
 - ✔B5 low lib/layout/core.sh:77-101 — leading-zero size parsed as octal
-- B6 low programs/system/zsh/install.sh:87 — cp -a nests on rerun
+- ✔B6 low programs/system/zsh/install.sh:87 — cp -a nests on rerun
 - ✔B7 low lib/common.sh:148 — part_name lacks p for names ending in digit
 - ✔B8 med 01-bootstrap-zfs.sh:133-152 — reachability loop waits 2.5s (half-s ticks) and never rechecks flag after wait → false 'no internet'
 - ✔B9 high install.sh:~366 — `guided_build >f; status=$?` under set -e: Save/
@@ -59,13 +59,13 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - ✔B35 low lib/layout/btrfs/multi.sh layout_mount_esp — secondary ESPs formatted but never mounted; install-time mirror rsync lands on root fs, no UEFI entries for mirrors
 - B36 med README.md:283 vs lib/profiles/runner.sh — README says default user password 12345 is "changed on first login"; nothing expires it (no chage -d 0); profile installs silently get 12345
 - ✔B37 low extras/desktop/niri/niri.sh + dm/greetd — KDE+niri (no hyprland) with explicit greetd: curated dir has only niri.desktop (only hyprland.sh links plasma.desktop) → tuigreet hides Plasma
-- B38 low programs/virtualization/virt-manager/install.sh — /etc/polkit-1/rules.d/50-libvirt.rules (kvm group) shadows libvirt pkg rule of same name (libvirt group) → users in libvirt but not kvm lose passwordless access
-- B39 low programs/backup/zfs-auto-snapshot/install.sh — tag service hardcodes rpool; custom os pool name → nothing snapshotted
-- B40 trivial programs/dev/claude/install.sh — print_status "warn" (not a type; should be "warning") → no prefix/colour
-- B41 low programs/virtualization/podman/install.sh — every user gets the same subuid/subgid range 100000-165535 → overlapping ranges for 2+ podman users
-- B42 med programs/security/rkhunter/scripts/rkhunter_scan.sh — greps whole appended /var/log/rkhunter.log for "Warning:" → after any warning ever, every run alerts
-- B43 high programs/security/rkhunter/scripts/rkhunter_scan.sh — runs `rkhunter --propupd` right before `--check` each scan → re-baselines file properties, file-change detection never fires
-- B44 med programs/security/clamav/scripts/clamav_daily_scan.sh — send_user_notification args shifted (icon="Check latest log…", timeout="ClamAV Daily Scan") → notify-send -t parse error, infection alert never shown
+- ✔B38 low programs/virtualization/virt-manager/install.sh — /etc/polkit-1/rules.d/50-libvirt.rules (kvm group) shadows libvirt pkg rule of same name (libvirt group) → users in libvirt but not kvm lose passwordless access
+- ✔B39 low programs/backup/zfs-auto-snapshot/install.sh — tag service hardcodes rpool; custom os pool name → nothing snapshotted
+- ✔B40 trivial programs/dev/claude/install.sh — print_status "warn" (not a type; should be "warning") → no prefix/colour
+- ✔B41 low programs/virtualization/podman/install.sh — every user gets the same subuid/subgid range 100000-165535 → overlapping ranges for 2+ podman users
+- ✗B42 RETRACTED — rkhunter.conf APPEND_LOG=0: each rkhunter run rewrites the log, so the grep sees only the current check
+- ✔B43 high programs/security/rkhunter/scripts/rkhunter_scan.sh — runs `rkhunter --propupd` right before `--check` each scan → re-baselines file properties, file-change detection never fires
+- ✔B44 med programs/security/clamav/scripts/clamav_daily_scan.sh — send_user_notification args shifted (icon="Check latest log…", timeout="ClamAV Daily Scan") → notify-send -t parse error, infection alert never shown
 - ✔B45 med lib/guided/controller-enter-values.sh _controller_accept_new_user_name + shell-users.sh _guided_shell_create_user — no username format validation (spaces, uppercase, root, quotes, ../) → fails late at useradd / breaks jq path after disks wiped
 - ✔B46 med install.sh run_numbered_phases — 02-wipe zeroes target disks before 03's validation_check_install_context; config errors (guided/CLI configs) surface after data is destroyed
 - ✔B47 trivial extras/desktop/kde/kde.sh — `paccache -rk0 --noconfirm` (invalid option) always fails → always falls back to rm

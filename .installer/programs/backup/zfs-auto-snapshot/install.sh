@@ -38,9 +38,12 @@ Wants=zfs-mount.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c '\
-    zfs set com.sun:auto-snapshot=true rpool/ROOT/arch 2>/dev/null || true; \
-    zfs set com.sun:auto-snapshot=true rpool/home 2>/dev/null || true'
+# The OS pool is configurable (os_pool_name / os_pool.pool_name), so tag the
+# OS datasets on whichever pool holds them; $$ escapes systemd's own $.
+ExecStart=/bin/bash -c 'for pool in $$(zpool list -H -o name); do \
+    zfs set com.sun:auto-snapshot=true "$$pool/ROOT/arch" 2>/dev/null; \
+    zfs set com.sun:auto-snapshot=true "$$pool/home" 2>/dev/null; \
+  done; true'
 
 [Install]
 WantedBy=multi-user.target

@@ -30,6 +30,25 @@ sudo rkhunter --update || true
 print_status info "Building file properties baseline..."
 sudo rkhunter --propupd
 
+# Refresh the baseline after every package transaction (later installs in this
+# run included), never right before a check: legitimate upgrades stay quiet
+# and only out-of-band file changes are reported.
+print_status info "Installing the baseline-refresh pacman hook..."
+sudo install -d -o root -g root -m 755 /etc/pacman.d/hooks
+sudo tee /etc/pacman.d/hooks/rkhunter-propupd.hook >/dev/null <<'HOOK'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Refreshing the rkhunter file properties baseline...
+When = PostTransaction
+Exec = /usr/bin/rkhunter --propupd -q
+HOOK
+
 print_status info "Copying configurations..."
 sudo install -o root -g root -m 644 \
   "$RKHUNTER_INSTALL/rkhunter.conf" /etc/rkhunter.conf

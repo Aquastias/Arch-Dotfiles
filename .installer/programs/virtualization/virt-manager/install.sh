@@ -20,7 +20,9 @@ trap 'echo "[virt-manager] error on line $LINENO" >&2' ERR
 LIBVIRT_GROUP="libvirt"
 LIBVIRTD_CONF="/etc/libvirt/libvirtd.conf"
 QEMU_CONF="/etc/libvirt/qemu.conf"
-POLKIT_RULE="/etc/polkit-1/rules.d/50-libvirt.rules"
+# Not 50-libvirt.rules: that name would shadow the libvirt package's own rule
+# (which grants the libvirt group) — same-named /etc rules win in polkit.
+POLKIT_RULE="/etc/polkit-1/rules.d/51-libvirt-kvm.rules"
 
 print_status info "Installing virt-manager and required tools..."
 ${AUR_HELPER} -S --noconfirm --needed \

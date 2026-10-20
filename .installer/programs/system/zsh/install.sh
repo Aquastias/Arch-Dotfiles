@@ -84,7 +84,9 @@ rm -rf "${_zdot}"
 
 if [[ -f "${HOME}/.zinit/bin/zinit.zsh" ]]; then
   print_status info "zinit cache warmed; seeding it into /etc/skel."
-  sudo cp -a "${HOME}/.zinit" /etc/skel/.zinit
+  # Copy contents (`/.`): `cp -a dir dest` nests into an existing dest.
+  sudo mkdir -p /etc/skel/.zinit
+  sudo cp -a "${HOME}/.zinit/." /etc/skel/.zinit/
 else
   print_status warning "zinit pre-warm did not populate ~/.zinit;" \
     "first login will clone plugins."
@@ -100,7 +102,10 @@ print_status info "Seeding zsh theme + cache for root (/root) + root shell..."
 sudo mkdir -p /root/.zsh/themes
 sudo cp "${SELF}/themes/noctalia.zsh"    /root/.zsh/themes/noctalia.zsh
 sudo cp "${SELF}/themes/p10k-accent.zsh" /root/.zsh/themes/p10k-accent.zsh
-[[ -d "${HOME}/.zinit" ]] && sudo cp -a "${HOME}/.zinit" /root/.zinit
+if [[ -d "${HOME}/.zinit" ]]; then
+  sudo mkdir -p /root/.zinit
+  sudo cp -a "${HOME}/.zinit/." /root/.zinit/
+fi
 sudo chown -R root:root /root/.zsh /root/.zinit 2>/dev/null || true
 sudo chsh -s /usr/bin/zsh root
 

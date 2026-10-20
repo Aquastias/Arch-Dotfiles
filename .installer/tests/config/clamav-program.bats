@@ -44,3 +44,25 @@ _line() { PATTERN="$1" awk '$0 ~ ENVIRON["PATTERN"] { print NR; exit }' "$INSTAL
   _joined \
     | grep -qE 'install .*-o clamav .*-m 600 .*/var/log/clamav/freshclam.log'
 }
+
+@test "daily scan alert passes send_user_notification arguments in order" {
+  # The log hint landed in the icon slot and the app name in the timeout slot,
+  # so `notify-send -t "ClamAV Daily Scan"` failed and the alert never showed.
+  local work="$BATS_TEST_TMPDIR" scan
+  scan="$BATS_TEST_DIRNAME/../../programs/security/clamav/scripts"
+  scan+="/clamav_daily_scan.sh"
+  cat >"$work/stdlib.sh" <<'STUB'
+send_user_notification() { printf '%s\n' "$@" >"$NOTIFY_ARGS"; }
+clamscan() { printf 'Infected files: 2\n'; }
+loginctl() { :; }
+STUB
+  local scan_text stdlib=/usr/local/lib/shell-stdlib.sh
+  scan_text="$(<"$scan")"
+  printf '%s\n' "${scan_text//"$stdlib"/"$work/stdlib.sh"}" >"$work/scan.sh"
+  NOTIFY_ARGS="$work/args" run bash "$work/scan.sh"
+  mapfile -t args <"$work/args"
+  [ "${args[2]}" = "clamav" ]             # icon
+  [ "${args[3]}" = "ClamAV Daily Scan" ]  # app name
+  [[ "${args[4]}" =~ ^[0-9]+$ ]]          # timeout (ms)
+  [[ "${args[1]}" == *"2 infected"*"/tmp/clamav-scan-"* ]]
+}

@@ -33,7 +33,9 @@ elif (( rc > 2 )); then
   echo "rkhunter --update failed (exit $rc)." | tee -a "$SYSTEM_LOG"
   exit "$rc"
 fi
-rkhunter --propupd -q >>"$SYSTEM_LOG" 2>&1
+# No baseline refresh here: re-baselining right before the check accepts any
+# changed binary. The baseline is refreshed by a pacman hook after package
+# transactions (install.sh), so only out-of-band changes are reported.
 
 # Run the scan
 { rkhunter --check --sk --nocolors --quiet 2>&1 \
