@@ -443,7 +443,10 @@ _package_resolver_user_shells() {
   core_shell="$(_package_resolver_profile_shell users/core)"
   while IFS= read -r user; do
     [[ -n "$user" ]] || continue
+    # VM users live under users/vm/<name> (as every profile loader falls back).
     shell="$(_package_resolver_profile_shell "users/${user}")"
+    [[ -n "$shell" ]] \
+      || shell="$(_package_resolver_profile_shell "users/vm/${user}")"
     printf '%s\n' "${shell:-${core_shell:-/bin/bash}}"
   done < <(_package_resolver_jq "$config" '(.users // [])[]') | sort -u
 }

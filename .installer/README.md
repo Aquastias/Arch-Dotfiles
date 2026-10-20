@@ -282,8 +282,9 @@ To preview the resolved config without installing:
 
 Secrets are optional. Without any `secrets.json` files the
 installer works exactly as before — user passwords default to
-`12345` (changed on first login) and no SSH identity is
-deployed.
+`12345` and no SSH identity is deployed. Nothing forces a change:
+run `passwd` after the first login (the Guided Installer and User
+Secrets can set real passwords up front).
 
 ### 4.1 Prerequisites (operator machine)
 

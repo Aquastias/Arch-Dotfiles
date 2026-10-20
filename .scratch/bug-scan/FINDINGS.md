@@ -37,12 +37,12 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - ✔B14 low lib/config/post-install.sh post_install_validate — jq inside() is substring-based: firewall "fire"/"uf"/"" pass validation → silently no firewall
 - ✔B15 med lib/config/manual-partition.sh manual_partition_target_disk (guided cfdisk, fzf-entry.sh:105) — always first by-id disk; ADR 0073 says operator picks target disk
   (B12 also: _validation_preflight_programs silently skips for desktop/laptop)
-- B16 trivial lib/config/lifecycle.sh _lifecycle_print_extras — awk join alternates "," and " " (a,b c,d)
+- ✔B16 trivial lib/config/lifecycle.sh _lifecycle_print_extras — awk join alternates "," and " " (a,b c,d)
 - ✔B17 med lib/config/environment.sh _environment_gpu_detect_vendors — greps all lspci lines (not VGA/3D/Display class): Intel chipset/NIC/QEMU bridge → "intel"; intel refine uses first Intel device of any kind
 - ✔B18 low lib/packages/package-list.sh _package_list_clean_target_cache — CleanMethod sed on target pacman.conf is overwritten later by chroot_configure_system cp /etc/pacman.conf
 - ✔B19 med lib/packages/archzfs-kernel.sh archzfs_kernel_lts_pin_prepare — chosen="$(build_repository)" under set -e: build failure aborts install; documented "proceeding unpinned" fallback unreachable
 - ✔B20 low lib/packages/gpu.sh — nvidia set includes lib32-nvidia-utils; with optional_repos lacking multilib pacstrap fails after disks are partitioned (no guard)
-- B21 trivial lib/packages/package-resolver.sh _package_resolver_user_shells — no users/vm/<name> fallback
+- ✔B21 trivial lib/packages/package-resolver.sh _package_resolver_user_shells — no users/vm/<name> fallback
 - ✔B22 low lib/chroot/identity.sh — X11 XkbLayout written from console keymap names (de-latin1, uk, fr-latin9 ≠ xkb de, gb, fr) → invalid layout
 - ✔B23 CRITICAL lib/boot/esp-kernel-sync.sh esp_kernel_sync_planned_files — plans only from loader/entries/*.conf (systemd-boot); grub/limine/refind/efistub ESPs never receive upgraded vmlinuz/initramfs → stale kernel w/o modules → unbootable after first kernel upgrade
 - ✔B24 low lib/impermanence-common.sh persist_unapply — awk uses target path as regex ("." etc.) → may drop other tmpfiles entries
@@ -57,7 +57,7 @@ Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
 - ✔B33 med lib/layout/nonzfs/boot.sh + zfs/plan.sh _layout_publish_boot — HOOKS lack `keymap` (consolefont): boot-time LUKS/ZFS passphrase prompt is always US layout regardless of system.keymap
 - ✔B34 med lib/layout/btrfs/multi.sh — never resolves/partitions/creates data_pools (other adapters do) → data pools silently ignored
 - ✔B35 low lib/layout/btrfs/multi.sh layout_mount_esp — secondary ESPs formatted but never mounted; install-time mirror rsync lands on root fs, no UEFI entries for mirrors
-- B36 med README.md:283 vs lib/profiles/runner.sh — README says default user password 12345 is "changed on first login"; nothing expires it (no chage -d 0); profile installs silently get 12345
+- ✔B36 med README.md:283 vs lib/profiles/runner.sh — README says default user password 12345 is "changed on first login"; nothing expires it (no chage -d 0); profile installs silently get 12345
 - ✔B37 low extras/desktop/niri/niri.sh + dm/greetd — KDE+niri (no hyprland) with explicit greetd: curated dir has only niri.desktop (only hyprland.sh links plasma.desktop) → tuigreet hides Plasma
 - ✔B38 low programs/virtualization/virt-manager/install.sh — /etc/polkit-1/rules.d/50-libvirt.rules (kvm group) shadows libvirt pkg rule of same name (libvirt group) → users in libvirt but not kvm lose passwordless access
 - ✔B39 low programs/backup/zfs-auto-snapshot/install.sh — tag service hardcodes rpool; custom os pool name → nothing snapshotted

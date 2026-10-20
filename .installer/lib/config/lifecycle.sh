@@ -275,11 +275,10 @@ _lifecycle_print_extras() {
   local post_install_json extras
   post_install_json="$(jsonc_strip "$CONFIG_FILE" \
     | jq -c '.post_install // {}')"
-  # Joined the way `paste -sd ', '` always did: the separators alternate
-  # "," then " " (bug filed separately — the intent was ", ").
+  # Comma-joined ("a, b, c").
   extras="$(post_install_programs "$post_install_json" \
       "$(install_config_any_zfs)" \
-    | awk '{ printf "%s%s", (NR == 1 ? "" : (NR % 2 == 0 ? "," : " ")), $0 }
+    | awk '{ printf "%s%s", (NR == 1 ? "" : ", "), $0 }
            END { if (NR) print "" }')"
   echo ""
   echo -e "  ${BOLD}Security & Backup Extras:${NC}"
