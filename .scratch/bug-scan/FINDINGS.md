@@ -1,6 +1,8 @@
 # Bug scan findings
 
 Status per area: [x] scanned. Findings: `ID sev file:line — summary`.
+✔ = fixed (regression test where a seam exists); ✗ = retracted after review.
+All fixed 2026-10-20; VM-verified on desktop/niri (HOOKS, ESP sync, paccache hook).
 
 ## Areas
 - [x] lib/wipe, tools/impermanence.sh, lib/impermanence-common.sh (partial)
