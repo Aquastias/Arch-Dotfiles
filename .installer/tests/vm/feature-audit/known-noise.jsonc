@@ -323,5 +323,12 @@
   // ── approved 2026-10-08 (2) ──
   { "regex": "^\\[FAILED\\] Failed to start Network Time Synchronization\\.$",
     "phase": "boot1",
-    "reason": "a first-boot timesyncd start its restart recovered at once" }
+    "reason": "a first-boot timesyncd start its restart recovered at once" },
+  // ── approved 2026-10-20 (2) ──
+  { "regex": "GPU auto-detection: no recognised vendor in lspci output",
+    "source": "installer", "variants": ["guided"],
+    "reason": "virtio-gpu has no vendor match; the mesa fallback is right" },
+  { "regex": "^Warning: The kernel is still using the old partition table\\.",
+    "source": "installer",
+    "reason": "sgdisk while zapping a disk; layout partprobes + settles" }
 ]
