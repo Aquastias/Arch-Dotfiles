@@ -34,6 +34,14 @@ pacman -S --noconfirm --needed greetd noctalia-greeter
 
 greetd_config_write /usr/bin/noctalia-greeter-session
 
+# niri/Hyprland enable seatd (ADR 0068): libseat tries /run/seatd.sock first,
+# which only the `seat` group may open, and logind's fallback cannot grant DRM
+# master on some GPUs. The DE adapters ran first, so the group exists iff seatd.
+if getent group seat >/dev/null; then
+  usermod -aG seat greeter
+  info "greeter added to the seat group (seatd)."
+fi
+
 # Create greeter.toml + sync.toml in /var/lib/noctalia-greeter, owned by the
 # greeter user (the packaged tmpfiles rule only makes the directory).
 GREETER_USER=greeter noctalia-greeter-apply-appearance --setup-system

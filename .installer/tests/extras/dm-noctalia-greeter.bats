@@ -3,9 +3,9 @@
 # noctalia-greeter Display Manager Adapter (ADR 0158).
 #
 # Strategy: run the adapter as a subprocess with pacman, systemctl and
-# noctalia-greeter-apply-appearance stubbed as executables in a temp bin dir
+# noctalia-greeter-apply-appearance, getent and usermod stubbed as executables in a temp bin dir
 # prepended to PATH; config writes redirected to a temp ROOT. Injectable seams:
-# GREETD_CONF_DIR, ROOT.
+# GREETD_CONF_DIR, ROOT; SEAT_GROUP=1 makes the `seat` group exist.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -20,7 +20,7 @@ setup() {
   export COMMAND_LOG GREETD_CONF_DIR ROOT
 
   local name
-  for name in pacman systemctl; do
+  for name in pacman systemctl usermod; do
     printf '#!/usr/bin/env bash\necho "%s $*" >> "$COMMAND_LOG"\n' "$name" \
       > "$STUB_BIN/$name"
   done
@@ -32,6 +32,12 @@ config=missing
 [[ -f "$ROOT$GREETD_CONF_DIR/config.toml" ]] && config=present
 echo "apply-appearance GREETER_USER=$GREETER_USER $* config=$config" \
   >> "$COMMAND_LOG"
+STUB
+  # getent: the `seat` group exists only where a DE adapter installed seatd.
+  cat > "$STUB_BIN/getent" <<'STUB'
+#!/usr/bin/env bash
+[[ "$1 $2" == "group seat" && -n "${SEAT_GROUP:-}" ]] || exit 2
+echo "seat:x:975:"
 STUB
   chmod +x "$STUB_BIN"/*
 
@@ -71,4 +77,19 @@ teardown() { rm -rf "$TEST_DIR"; }
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
   grep -qx "systemctl enable greetd" "$COMMAND_LOG"
+}
+
+# niri/Hyprland enable seatd (ADR 0068): libseat tries /run/seatd.sock first,
+# which only the `seat` group may open, and logind's fallback can't grant DRM
+# master on the AMD laptop — so the greeter compositor needs the group.
+@test "adds the greeter user to the seat group when seatd is installed" {
+  SEAT_GROUP=1 run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -qx "usermod -aG seat greeter" "$COMMAND_LOG"
+}
+
+@test "leaves the greeter's groups alone on a host without seatd" {
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -q "^usermod" "$COMMAND_LOG"
 }
