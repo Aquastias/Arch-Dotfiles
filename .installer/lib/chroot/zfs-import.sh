@@ -110,21 +110,18 @@ name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid,nbmand,encr
     "$pool" 2>/dev/null > "${directory}/${pool}" || true
 }
 
-# zfs_import_write_mount_restart_dropin [root] — retry zfs-mount.service on
-# failure: `zfs mount -a` aborted once in libzfs's parallel mount (no-shell
-# 20261007, fnvlist_lookup_string), leaving datasets unmounted for the whole
-# boot. A oneshot allows Restart=on-failure (systemd.service(5)); bounded to 3
-# starts.
-zfs_import_write_mount_restart_dropin() {
+# zfs_import_write_mount_retry_dropin [root] — retry a crashed `zfs mount -a`
+# inside zfs-mount.service's start job: it aborts now and then in libzfs's
+# parallel mount (no-shell 20261007, noctalia-greeter 20261021). Restart= is
+# no use: systemd releases every After= unit when the first start fails, so
+# the /persist bind mounts ran (and failed) before the restart. Three tries,
+# 2 s apart; a mounted dataset is skipped on retry. `$$` is systemd's `$`.
+zfs_import_write_mount_retry_dropin() {
   local directory="${1:-}/etc/systemd/system/zfs-mount.service.d"
   mkdir -p "$directory"
-  cat > "$directory/10-restart.conf" <<'UNIT'
-[Unit]
-StartLimitIntervalSec=60
-StartLimitBurst=3
-
+  cat > "$directory/10-retry.conf" <<'UNIT'
 [Service]
-Restart=on-failure
-RestartSec=2
+ExecStart=
+ExecStart=/bin/sh -c 'n=1; until zfs mount -a; do [ "$$n" -lt 3 ] || exit 1; n=$$((n + 1)); sleep 2; done'
 UNIT
 }

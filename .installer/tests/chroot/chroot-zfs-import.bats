@@ -158,21 +158,54 @@ CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid
   [ -f "$cache_directory/rpool" ]
 }
 
-# no-shell 20261007: `zfs mount -a` aborted once in libzfs (a parallel-mount
-# race); a retry mounts what the crash left unmounted
-@test "mount_restart_dropin: zfs-mount retries on failure, bounded" {
+# no-shell 20261007 / noctalia-greeter 20261021: `zfs mount -a` aborts now and
+# then in libzfs (a parallel-mount race). Restart= retried only after the
+# failed start job had released every After= unit — the /persist bind mounts
+# then failed on a missing source. The retry lives inside the start job.
+
+_mount_retry_dropin() {
   local root_directory="$BATS_TEST_TMPDIR/root"
-  zfs_import_write_mount_restart_dropin "$root_directory"
-  local dropin_file="$root_directory/etc/systemd/system/zfs-mount.service.d/10-restart.conf"
-  grep -qx 'Restart=on-failure' "$dropin_file"
-  grep -qx 'RestartSec=2' "$dropin_file"
-  grep -qx 'StartLimitBurst=3' "$dropin_file"
-  awk '/^\[Unit\]/ { inside = 1; print; next }
-       inside { print; if (/^\[/) inside = 0 }' "$dropin_file" \
-    | grep -q '^StartLimitBurst='
+  zfs_import_write_mount_retry_dropin "$root_directory"
+  printf '%s\n' \
+    "$root_directory/etc/systemd/system/zfs-mount.service.d/10-retry.conf"
 }
 
-@test "configure enables the zfs-mount restart drop-in" {
-  grep -q 'zfs_import_write_mount_restart_dropin ""' \
+# Run the drop-in's ExecStart as systemd would ($$ → $) with a `zfs` stub that
+# fails its first <fails> calls; sleep is stubbed out.
+_mount_retry_run() {
+  local fails="$1" dropin_file bin="$BATS_TEST_TMPDIR/bin" script
+  dropin_file="$(_mount_retry_dropin)"
+  mkdir -p "$bin"
+  printf '#!/bin/sh\necho "$*" >> "%s/calls"\n[ "$(grep -c . "%s/calls")" -gt %s ]\n' \
+    "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR" "$fails" > "$bin/zfs"
+  printf '#!/bin/sh\n' > "$bin/sleep"
+  chmod +x "$bin/zfs" "$bin/sleep"
+  script="$(awk -F"'" '/^ExecStart=\/bin\/sh -c / { print $2 }' \
+    "$dropin_file")"
+  script="${script//\$\$/\$}"
+  PATH="$bin:$PATH" run /bin/sh -c "$script"
+}
+
+@test "mount_retry_dropin: replaces ExecStart, no Restart=" {
+  local dropin_file
+  dropin_file="$(_mount_retry_dropin)"
+  grep -qx 'ExecStart=' "$dropin_file"
+  ! grep -q '^Restart' "$dropin_file"
+}
+
+@test "mount_retry_dropin: a crashed zfs mount -a is retried in the job" {
+  _mount_retry_run 2
+  [ "$status" -eq 0 ]
+  [ "$(grep -cx 'mount -a' "$BATS_TEST_TMPDIR/calls")" -eq 3 ]
+}
+
+@test "mount_retry_dropin: gives up after 3 attempts" {
+  _mount_retry_run 9
+  [ "$status" -ne 0 ]
+  [ "$(grep -c . "$BATS_TEST_TMPDIR/calls")" -eq 3 ]
+}
+
+@test "configure writes the zfs-mount retry drop-in" {
+  grep -q 'zfs_import_write_mount_retry_dropin ""' \
     "$BATS_TEST_DIRNAME/../../lib/chroot/configure.sh"
 }
