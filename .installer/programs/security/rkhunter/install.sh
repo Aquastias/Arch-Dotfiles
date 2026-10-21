@@ -46,7 +46,7 @@ Target = *
 [Action]
 Description = Refreshing the rkhunter file properties baseline...
 When = PostTransaction
-Exec = /usr/bin/rkhunter --propupd -q
+Exec = /usr/local/lib/rkhunter/rkhunter_propupd.sh
 HOOK
 
 print_status info "Copying configurations..."
@@ -75,6 +75,9 @@ stage_shell_stdlib /usr/local/lib
 sudo install -o root -g root -m 755 \
   "$RKHUNTER_SCRIPTS/rkhunter_scan.sh" \
   /usr/local/lib/rkhunter/rkhunter_scan.sh
+sudo install -o root -g root -m 755 \
+  "$RKHUNTER_SCRIPTS/rkhunter_propupd.sh" \
+  /usr/local/lib/rkhunter/rkhunter_propupd.sh
 
 print_status info "Enabling rkhunter-scan.timer (fires on first boot)..."
 sudo systemctl enable rkhunter-scan.timer
