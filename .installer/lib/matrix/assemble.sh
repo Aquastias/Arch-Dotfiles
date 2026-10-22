@@ -95,6 +95,28 @@ matrix_cell_state() {
                 elif . == "none" then []
                 else [.] end' <<<"$desktop")")"
   fi
+  state="$(_assemble_scalar_axes "$cell" "$state")"
+  printf '%s\n' "$state"
+}
+
+# _assemble_scalar_axes <cell> <state> — lay the Tier-2 scalar axes a cell
+# carries over the state (a Tier-1 cell has none, so defaults stand). Missing
+# these once made every cell install lts + systemd-boot + gpu auto (20261022).
+_assemble_scalar_axes() {
+  local cell="$1" state="$2" axis path value
+  while IFS='|' read -r axis path; do
+    value="$(jq -c --arg a "$axis" \
+      'if (.axes | has($a)) then .axes[$a] else empty end' <<<"$cell")"
+    [[ -n "$value" ]] || continue
+    # the kernel axis is one kernel; the config holds a list
+    [[ "$axis" == kernel ]] && value="[$value]"
+    state="$(config_state_set "$state" "$path" "$value")"
+  done <<'AXES'
+kernel|options.kernel
+bootloader|options.bootloader
+gpu|environment.gpu
+swap|options.swap
+AXES
   printf '%s\n' "$state"
 }
 

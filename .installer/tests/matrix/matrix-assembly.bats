@@ -109,3 +109,19 @@ _matrix_validate_cell() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"Encrypted multi-disk btrfs root is unsupported"* ]]
 }
+
+# 20261022: only the desktop axis was laid over, so every Tier-2 cell installed
+# lts + systemd-boot + gpu auto + swap whatever its id claimed — no other
+# kernel, bootloader or gpu was ever installed by the matrix.
+@test "assemble: a Tier-2 cell's kernel, bootloader, gpu and swap axes apply" {
+  local cell config
+  cell="$(jq -c -n '{id:"t2-x", tier:2, axes:{filesystem:"btrfs",
+    topology:"single", mode:"single", disk_count:1, encryption:false,
+    impermanence:false, data_pool:null, kernel:"zen", bootloader:"refind",
+    desktop:"none", gpu:"amd", swap:false}}')"
+  config="$(matrix_cell_assemble "$cell" | jsonc_strip /dev/stdin)"
+  jq -e '.options.kernel == ["zen"]' <<<"$config"
+  jq -e '.options.bootloader == "refind"' <<<"$config"
+  jq -e '.environment.gpu == "amd"' <<<"$config"
+  jq -e '.options.swap == false' <<<"$config"
+}
