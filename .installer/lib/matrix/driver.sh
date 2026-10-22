@@ -189,6 +189,16 @@ _driver_run_cell() {
   fi
 }
 
+# _driver_cleanup_cell <id> — delete a passed cell's VM and its disks: every
+# cell holds 80 GB+, and keeping them all filled the host mid-run (20261022).
+# Best effort; a failed cell is never cleaned, so it stays to debug.
+_driver_cleanup_cell() {
+  local domain="matrix-$1"
+  virsh -c qemu:///system destroy "$domain" >/dev/null 2>&1 || true
+  virsh -c qemu:///system undefine "$domain" --nvram --remove-all-storage \
+    >/dev/null 2>&1 || true
+}
+
 # _driver_run_one <cell> — run one cell and emit its result record JSON
 # ({id,axes,oracle,status}) on stdout. Classifies the VM exit per the oracle.
 # ONLY the JSON record may reach stdout (the orchestrator captures it as the
@@ -204,6 +214,7 @@ _driver_run_one() {
   # this subshell before the record is written, dropping the cell (20261022).
   rc=0; _driver_run_cell "$cell" >&2 || rc=$?
   status="$(matrix_run_classify "$boot_verify" "$encryption" "$rc")"
+  [[ "$status" == FAIL ]] || _driver_cleanup_cell "$id" >&2
   if [[ "$boot_verify" == true ]]; then
     [[ "$impermanence" == true ]] && oracle=rollback || oracle=firstboot
   else

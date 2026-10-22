@@ -13,6 +13,8 @@ setup() {
   export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/driver.sh
   source "$INSTALLER_DIR/lib/matrix/driver.sh"
+  # never touch the host's libvirt from a test
+  _driver_cleanup_cell() { :; }
 }
 
 # ── selection: exactly the curated cells, drawn from the real generator ───────

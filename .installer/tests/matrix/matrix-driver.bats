@@ -10,6 +10,8 @@ setup() {
   export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/driver.sh
   source "$INSTALLER_DIR/lib/matrix/driver.sh"
+  # never touch the host's libvirt from a test
+  _driver_cleanup_cell() { :; }
 }
 
 # ── AC4: --smoke runs only the pinned seeds ──────────────────────────────────
@@ -176,6 +178,7 @@ _rec() {
     _driver_preflight() { return 0; }
     _driver_guard_gate() { return 0; }
     _driver_run_cell() { [[ "$(jq -r .id <<<"$1")" != c2 ]]; }
+    _driver_cleanup_cell() { :; }
     matrix_run_all --smoke' _ "$INSTALLER_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" == *FAIL*c2* ]]
@@ -193,4 +196,24 @@ _rec() {
   run matrix_run_all --smoke
   [ "$status" -ne 0 ]
   [[ "$output" == *FAIL*c9* ]]
+}
+
+# 20261022: every cell kept its 80 GB+ disks, so a full run filled the host
+# and the later cells could not be created. A passing cell's VM is deleted; a
+# failing one is kept to debug.
+@test "run_all: a passing cell's VM is cleaned up, a failing one kept" {
+  local test_directory="$BATS_TEST_TMPDIR"
+  matrix_run_select() {
+    local id
+    for id in ok1 bad1; do
+      jq -c -n --arg id "$id" '{id:$id, axes:{filesystem:"zfs",
+        topology:"single", encryption:false, impermanence:false}}'
+    done
+  }
+  _driver_preflight() { return 0; }
+  _driver_guard_gate() { return 0; }
+  _driver_run_cell() { [[ "$(jq -r .id <<<"$1")" == ok1 ]]; }
+  _driver_cleanup_cell() { echo "$1" >>"$test_directory/cleaned"; }
+  run matrix_run_all --smoke
+  [ "$(cat "$test_directory/cleaned")" = ok1 ]
 }
