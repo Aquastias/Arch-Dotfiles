@@ -15,6 +15,11 @@
 # layout_disk_exists is the shared disk-existence seam from lib/layout/core.sh
 # (sourced via zfs/common.sh); multi's existence checks call it directly.
 
+# _picker_group_min: the per-topology disk minimums the menu enforces.
+# shellcheck source=../../picker.sh
+declare -F _picker_group_min >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../../picker.sh"
+
 _zfs_multi_validate_declared_users() {
   # Seam: declared usernames (space-separated, Primary User first) used to
   # validate `owners` lists. Reads the resolved host config; overridable in
@@ -79,18 +84,23 @@ layout_validate() {
 }
 
 _zfs_multi_validate_os_pool() {
-  local topology disk_count disk
+  local topology disk_count disk message
   topology="$(config_optional '.os_pool.topology')"
   if [[ -n "$topology" ]]; then
     case "$topology" in
-    mirror | stripe | none) ;;
-    *) error "os_pool.topology must be mirror|stripe|none," \
+    mirror | stripe | none | raidz1 | raidz2) ;;
+    *) error "os_pool.topology must be mirror|stripe|none|raidz1|raidz2," \
              "got: '${topology}'" ;;
     esac
   fi
 
   disk_count="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
   ((disk_count >= 1)) || error "os_pool.disks must list at least 1 disk."
+  # raidz needs its parity disks (the menu's minimums)
+  if [[ "$topology" == raidz* ]] \
+     && ! message="$(_picker_group_min "$topology" "$disk_count" 2>&1)"; then
+    error "os_pool: ${message}"
+  fi
 
   while IFS= read -r disk; do
     layout_disk_exists "$disk" || error "OS disk not found: $disk"

@@ -172,7 +172,34 @@ load layout-multi-helpers
   }'
   run layout_validate
   [ "$status" -ne 0 ]
-  [[ "$output" == *"os_pool.topology must be mirror|stripe|none"* ]]
+  [[ "$output" == *"os_pool.topology must be mirror|stripe|none|raidz1|raidz2"* ]]
+}
+
+# 20261022: the menu and validation offer raidz1/raidz2 for the zfs root, but
+# this check refused them, so every raidz root install aborted.
+@test "layout_validate: accepts a raidz1 OS pool of 3 disks" {
+  _LAYOUT_PHASE=0
+  layout_disk_exists() { return 0; }
+  write_multi_config '{
+    "os_pool":{"topology":"raidz1","pool_name":"rpool",
+               "disks":["/dev/sdx","/dev/sdy","/dev/sdz"]},
+    "storage_groups":[]
+  }'
+  run _zfs_multi_validate_os_pool
+  [ "$status" -eq 0 ]
+}
+
+@test "layout_validate: a raidz2 OS pool needs at least 4 disks" {
+  _LAYOUT_PHASE=0
+  layout_disk_exists() { return 0; }
+  write_multi_config '{
+    "os_pool":{"topology":"raidz2","pool_name":"rpool",
+               "disks":["/dev/sdx","/dev/sdy","/dev/sdz"]},
+    "storage_groups":[]
+  }'
+  run _zfs_multi_validate_os_pool
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"raidz2 requires at least 4 disk(s) (got 3)"* ]]
 }
 
 @test "layout_validate: errors when os_pool.disks is empty" {
