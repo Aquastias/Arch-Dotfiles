@@ -200,7 +200,9 @@ _driver_run_one() {
   boot_verify="$(matrix_cell_boot_verify "$cell")"
   encryption="$(jq -r '.axes.encryption // false' <<<"$cell")"
   impermanence="$(jq -r '.axes.impermanence // false' <<<"$cell")"
-  _driver_run_cell "$cell" >&2; rc=$?
+  # `|| rc=$?`: under the caller's `set -e` a bare failing call would kill
+  # this subshell before the record is written, dropping the cell (20261022).
+  rc=0; _driver_run_cell "$cell" >&2 || rc=$?
   status="$(matrix_run_classify "$boot_verify" "$encryption" "$rc")"
   if [[ "$boot_verify" == true ]]; then
     [[ "$impermanence" == true ]] && oracle=rollback || oracle=firstboot
@@ -211,6 +213,16 @@ _driver_run_one() {
     + (if .encryption then "enc" else "plain" end)' <<<"$cell")"
   jq -c -n --arg id "$id" --arg axes "$axes" --arg oracle "$oracle" \
     --arg status "$status" '{id:$id,axes:$axes,oracle:$oracle,status:$status}'
+}
+
+# _driver_record_cell <cell> <out> — run one cell into <out>; a cell that left
+# no record (its subshell died) is written as a FAIL, so no cell can vanish
+# from the summary and turn the run green.
+_driver_record_cell() {
+  local cell="$1" out="$2"
+  _driver_run_one "$cell" >"$out" || true
+  [[ -s "$out" ]] && return 0
+  jq -c '{id, axes:"?", oracle:"?", status:"FAIL"}' <<<"$cell" >"$out"
 }
 
 # _driver_orchestrate — read JSON cells on stdin, preflight the host, then
@@ -226,7 +238,7 @@ _driver_orchestrate() {
   while IFS= read -r cell; do
     [[ -n "$cell" ]] || continue
     _driver_guard_gate
-    ( _driver_run_one "$cell" >"$work/$(printf '%06d' "$launched").json" ) &
+    _driver_record_cell "$cell" "$work/$(printf '%06d' "$launched").json" &
     _DRIVER_CELL_PIDS+=("$!"); cell_pids+=("$!")
     launched=$((launched+1))
   done

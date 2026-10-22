@@ -158,3 +158,39 @@ _rec() {
   [ "$status" -eq 0 ]
   (( SECONDS - started < 10 ))
 }
+
+# 20261022: matrix.sh runs under `set -e`, so a failing cell killed its
+# subshell before the record was written — the cell vanished from the summary
+# and the run exited 0 with 38 of 55 cells unrun.
+@test "run_all under set -e: a failing cell is a FAIL row, never dropped" {
+  run bash -c '
+    set -euo pipefail
+    INSTALLER_DIR="$1"; source "$INSTALLER_DIR/lib/matrix/driver.sh"
+    matrix_run_select() {
+      local id
+      for id in c1 c2; do
+        jq -c -n --arg id "$id" "{id:\$id, axes:{filesystem:\"zfs\",
+          topology:\"single\", encryption:false, impermanence:false}}"
+      done
+    }
+    _driver_preflight() { return 0; }
+    _driver_guard_gate() { return 0; }
+    _driver_run_cell() { [[ "$(jq -r .id <<<"$1")" != c2 ]]; }
+    matrix_run_all --smoke' _ "$INSTALLER_DIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *FAIL*c2* ]]
+  [[ "$output" == *"FAIL=1"* ]]
+}
+
+@test "run_all: a cell that left no record is a FAIL row" {
+  matrix_run_select() {
+    jq -c -n '{id:"c9", axes:{filesystem:"zfs", topology:"single",
+      encryption:false, impermanence:false}}'
+  }
+  _driver_preflight() { return 0; }
+  _driver_guard_gate() { return 0; }
+  _driver_run_one() { return 1; }
+  run matrix_run_all --smoke
+  [ "$status" -ne 0 ]
+  [[ "$output" == *FAIL*c9* ]]
+}
