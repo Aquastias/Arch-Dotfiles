@@ -128,3 +128,33 @@ _rec() {
   [[ "$output" == *"matrix.sh run c2"* ]]        # re-run hint for the fail
   [ "$(sort -u "$test_directory/attempts" | awk 'END { print NR }')" -eq 3 ]      # every cell was attempted
 }
+
+# 20261021: `run --local` backgrounds the repo server in this shell; counting
+# every job made it fill the one default slot (ADR 0155), so the gate waited
+# on the server forever and no cell ever launched.
+@test "guard_gate: a non-cell background job never takes a cell's slot" {
+  MATRIX_MAX_PARALLEL=1
+  _driver_memory_available_kib() { echo $((64 * 1024 * 1024)); }
+  sleep 5 &
+  local stray=$! started=$SECONDS
+  _driver_guard_gate
+  kill "$stray" 2>/dev/null || true
+  (( SECONDS - started < 3 ))
+}
+
+@test "run_all: finishes while a non-cell background job keeps running" {
+  MATRIX_MAX_PARALLEL=1
+  _driver_memory_available_kib() { echo $((64 * 1024 * 1024)); }
+  _driver_preflight() { return 0; }
+  matrix_run_select() {
+    jq -c -n '{id:"c1", axes:{filesystem:"zfs", topology:"single",
+      encryption:false, impermanence:false}}'
+  }
+  _driver_run_cell() { return 0; }
+  sleep 30 &
+  local stray=$! started=$SECONDS
+  run matrix_run_all --smoke
+  kill "$stray" 2>/dev/null || true
+  [ "$status" -eq 0 ]
+  (( SECONDS - started < 10 ))
+}

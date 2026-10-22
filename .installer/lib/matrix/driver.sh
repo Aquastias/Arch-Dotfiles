@@ -145,15 +145,34 @@ _driver_preflight() {
   }
 }
 
+# PIDs of the launched cells: the gate counts these, never `jobs` — the shell
+# may hold other background jobs (run --local's repo server), and counting
+# them filled the one default slot forever.
+_DRIVER_CELL_PIDS=()
+
+# _driver_live_cells — prune _DRIVER_CELL_PIDS to the cells still running.
+_driver_live_cells() {
+  local pid live=()
+  for pid in "${_DRIVER_CELL_PIDS[@]}"; do
+    kill -0 "$pid" 2>/dev/null && live+=("$pid")
+  done
+  _DRIVER_CELL_PIDS=("${live[@]}")
+}
+
 # _driver_guard_gate — block until a spawn slot is free: fewer than the cap
-# running AND one VM's RAM available after the reserve.
+# cells running AND one VM's RAM available after the reserve.
 _driver_guard_gate() {
   while :; do
-    (( $(jobs -rp | grep -c .) < MATRIX_MAX_PARALLEL )) \
+    _driver_live_cells
+    (( ${#_DRIVER_CELL_PIDS[@]} < MATRIX_MAX_PARALLEL )) \
       && matrix_guard_can_launch "$(_driver_memory_available_kib)" \
            "$((MATRIX_HOST_RESERVE_MB*1024))" "$((MATRIX_VM_RAM_MB*1024))" \
       && return 0
-    wait -n 2>/dev/null || sleep 2
+    if (( ${#_DRIVER_CELL_PIDS[@]} )); then
+      wait -n "${_DRIVER_CELL_PIDS[@]}" 2>/dev/null || sleep 2
+    else
+      sleep 2
+    fi
   done
 }
 
@@ -202,15 +221,17 @@ _driver_run_one() {
 _driver_orchestrate() {
   _driver_preflight || return $?
 
-  local work launched=0 cell
+  local work launched=0 cell pid cell_pids=()
   work="$(mktemp -d)"
   while IFS= read -r cell; do
     [[ -n "$cell" ]] || continue
     _driver_guard_gate
     ( _driver_run_one "$cell" >"$work/$(printf '%06d' "$launched").json" ) &
+    _DRIVER_CELL_PIDS+=("$!"); cell_pids+=("$!")
     launched=$((launched+1))
   done
-  wait
+  # only the cells: a bare `wait` would block on run --local's server too
+  for pid in "${cell_pids[@]}"; do wait "$pid" 2>/dev/null || true; done
 
   local records; records="$(cat "$work"/*.json 2>/dev/null)"
   rm -rf "$work"
