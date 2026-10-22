@@ -137,6 +137,10 @@ _generator_tier1_topology_cells() {
   local filesystem="$1" mode="$2" topology="$3" encryption impermanence pool
   local axes id
   for encryption in false true; do
+    # the menu locks encryption off on some roots (btrfs raid): never emitted
+    [[ "$encryption" == true ]] && menu_state_encryption_locked \
+      "$(jq -c -n --arg fs "$filesystem" --arg mode "$mode" \
+        '{filesystem:$fs, mode:$mode}')" && continue
     for impermanence in $(_generator_impermanence_values "$filesystem"); do
       while IFS= read -r pool; do
         axes="$(jq -c -n \
@@ -186,7 +190,9 @@ _generator_tier2_axes() {
 # _generator_tier2_constraints — the exclusion set, derived from the menu
 # functions: a (filesystem, topology) pair is forbidden unless the topology is
 # that filesystem's single-disk mode or one of its menu multi topologies;
-# ext4/xfs forbid impermanence (no native snapshots).
+# ext4/xfs forbid impermanence (no native snapshots); a multi topology whose
+# root the menu locks encryption off on (menu_state_encryption_locked) forbids
+# encryption.
 _generator_tier2_constraints() {
   local filesystem topology allowed cons=()
   for filesystem in $(_generator_root_filesystems); do
@@ -196,6 +202,14 @@ _generator_tier2_constraints() {
       [[ "$allowed" == *" $topology "* ]] && continue
       cons+=("$(jq -c -n --arg fs "$filesystem" --arg t "$topology" \
         '{filesystem:$fs, topology:$t}')")
+    done
+    for topology in "${_MATRIX_TIER2_TOPOLOGIES[@]}"; do
+      [[ "$allowed" == *" $topology "* && "$topology" != single ]] || continue
+      menu_state_encryption_locked \
+        "$(jq -c -n --arg fs "$filesystem" '{filesystem:$fs, mode:"multi"}')" \
+        || continue
+      cons+=("$(jq -c -n --arg fs "$filesystem" --arg t "$topology" \
+        '{filesystem:$fs, topology:$t, encryption:true}')")
     done
     case "$filesystem" in
     ext4 | xfs)
@@ -250,10 +264,6 @@ _generator_tier2_seeds() {
     encryption:false, impermanence:false,
     data_pool:{filesystem:"zfs", encryption:false, topology:"none",
                disk_count:1}}}'
-  # btrfs raid1 encrypted multi-disk (per-device LUKS under btrfs raid).
-  jq -c -n '{id:"seed-btrfs-raid1-enc-multi", tier:2, axes:{
-    filesystem:"btrfs", mode:"multi", topology:"raid1", disk_count:2,
-    encryption:true, impermanence:false, data_pool:null}}'
   # xfs root (the modprobe-before-root-mount case).
   jq -c -n '{id:"seed-xfs-root", tier:2, axes:{
     filesystem:"xfs", mode:"single", topology:"single", disk_count:1,

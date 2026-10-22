@@ -23,7 +23,7 @@ setup() {
   run bash -c "printf '%s\n' \"$ids\" | grep -cv '^seed-'"
   [ "$output" -eq 0 ]
   # …and the known regression seeds are present.
-  printf '%s\n' "$ids" | grep -qx 'seed-btrfs-raid1-enc-multi'
+  printf '%s\n' "$ids" | grep -qx 'seed-zfs-keyfile-root-enc-pool'
   printf '%s\n' "$ids" | grep -qx 'seed-xfs-root'
 }
 

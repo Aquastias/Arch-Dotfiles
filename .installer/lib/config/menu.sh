@@ -161,6 +161,17 @@ menu_state_any_zfs() {
   [[ "$(install_config_from_json "${1:-{\}}" any_zfs)" == true ]]
 }
 
+# Encryption lock: an encrypted multi-disk btrfs root is unsupported — the
+# classic mkinitcpio `encrypt` hook opens one device, so the btrfs multi
+# layout refuses it. Guided locks encryption off there and the Combination
+# Matrix excludes the combination, both through this one predicate.
+# menu_state_encryption_locked <merged_state> → 0 when encryption is locked.
+menu_state_encryption_locked() {
+  jq -e '.filesystem == "btrfs"
+    and ((.mode // "") == "multi" or (.os_pool.disks // null) != null)' \
+    <<<"${1:-{\}}" >/dev/null
+}
+
 # _menu_state_facts <override> <baseline> — what menu_rows needs from the merged
 # state (filesystem, disk kind, any-ZFS), read through the bound reader.
 _menu_state_facts() {

@@ -471,5 +471,13 @@ _controller_proceed_directive() {
       return
     }
   fi
+  # Encryption set before the root became btrfs raid: the install refuses it.
+  local effective; effective="$(_controller_live_effective)"
+  if menu_state_encryption_locked "$effective" \
+     && [[ "$(config_state_get "$effective" options.encryption)" == true ]]
+  then
+    echo "notice No encryption on a btrfs raid root — turn Encryption ▸ off"
+    return
+  fi
   echo "terminal proceed"
 }

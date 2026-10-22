@@ -96,3 +96,16 @@ _matrix_validate_cell() {
   run _matrix_validate_cell "$(_matrix_tier1_cell zfs-mirror-plain)"
   [ "$status" -eq 0 ]
 }
+
+# The former seed-btrfs-raid1-enc-multi: the menu locks the combination out
+# (menu_state_encryption_locked), and a hand-written profile carrying it is
+# refused by validation, before 02-wipe touches a disk.
+@test "tier-1: an encrypted multi-disk btrfs root is refused by validation" {
+  local cell
+  cell="$(jq -c -n '{id:"btrfs-raid1-enc", tier:1, axes:{filesystem:"btrfs",
+    mode:"multi", topology:"raid1", disk_count:2, encryption:true,
+    impermanence:false, data_pool:null}}')"
+  run _matrix_validate_cell "$cell"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Encrypted multi-disk btrfs root is unsupported"* ]]
+}

@@ -13,6 +13,9 @@ swap: false true
 topology: mirror raid0 raid1 raid10 raidz1 raidz2 single stripe
 
 [exclusions]
+encryption=true filesystem=btrfs topology=raid0
+encryption=true filesystem=btrfs topology=raid1
+encryption=true filesystem=btrfs topology=raid10
 filesystem=btrfs topology=mirror
 filesystem=btrfs topology=raidz1
 filesystem=btrfs topology=raidz2
@@ -38,7 +41,7 @@ filesystem=zfs topology=raid1
 filesystem=zfs topology=raid10
 
 [counts]
-tier1: 360
+tier1: 306
 tier2-pairwise: 48
-tier2-seeds: 7
-tier2-total: 55
+tier2-seeds: 6
+tier2-total: 54

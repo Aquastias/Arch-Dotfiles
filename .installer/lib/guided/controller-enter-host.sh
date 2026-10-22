@@ -308,6 +308,9 @@ _controller_enter_category_row() {
   "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
     manual_partition_kind_active "$(_controller_state)" \
       && { echo render; return 0; }
+    # a btrfs raid root locks it off: the row shows why, Enter does nothing
+    _controller_encryption_locked_off "$(_controller_live_effective)" \
+      && { echo render; return 0; }
     target="$(navigation_to_encryption "$category")" ;;
   "Impermanence ▸"*)   # the collapsed Disks impermanence row (ADR 0066)
     manual_partition_kind_active "$(_controller_state)" \

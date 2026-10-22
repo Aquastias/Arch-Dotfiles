@@ -233,10 +233,23 @@ _controller_list_encryption_row() {
     printf 'Encryption ▸ off (manual)\n'
     return 0
   fi
+  local effective; effective="$(_controller_effective "$state" "$base")"
+  if _controller_encryption_locked_off "$effective"; then
+    printf 'Encryption ▸ off (btrfs raid)\n'
+    return 0
+  fi
   printf 'Encryption ▸ %s%s\n' \
-    "$(_controller_encryption_label \
-      "$(_controller_effective "$state" "$base")" \
+    "$(_controller_encryption_label "$effective" \
       "$(_controller_secret_tag enc)")" "$mark"
+}
+
+# _controller_encryption_locked_off <effective> → 0 when a btrfs raid root
+# locks encryption off (menu_state_encryption_locked) and it is not already on;
+# an encryption set earlier stays visible so it can be turned off, and Proceed
+# blocks until it is.
+_controller_encryption_locked_off() {
+  menu_state_encryption_locked "$1" \
+    && [[ "$(config_state_get "$1" options.encryption)" != true ]]
 }
 
 # Impermanence collapses to ONE drill-down row (ADR 0066): the toggle +

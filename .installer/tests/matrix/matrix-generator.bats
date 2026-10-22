@@ -89,12 +89,16 @@ setup() {
 
   # recompute the expected size from the menu-derived factors (independently of
   # the nested generator loop).
-  local filesystem roots=0 pools expected=0 multis imps
+  local filesystem roots=0 pools expected=0 multis imps multi_encs
   pools="$(_generator_data_pool_specs | awk 'END { print NR }')"
   for filesystem in $(_generator_root_filesystems); do
-    multis=$(( 1 + $(_generator_multi_topologies "$filesystem" | awk 'END { print NR }') ))  # single + multi
+    multis=$(_generator_multi_topologies "$filesystem" | awk 'END { print NR }')
     imps=$(_generator_impermanence_values "$filesystem" | awk 'END { print NR }')
-    roots=$(( roots + multis * 2 * imps ))                       # × enc(2)
+    # a multi-disk root offers encryption unless the menu locks it (btrfs)
+    multi_encs=2
+    menu_state_encryption_locked \
+      "{\"filesystem\":\"$filesystem\",\"mode\":\"multi\"}" && multi_encs=1
+    roots=$(( roots + (2 + multis * multi_encs) * imps ))   # single × enc(2)
   done
   expected=$(( roots * pools ))
 
@@ -112,7 +116,7 @@ setup() {
   local cells; cells="$(matrix_tier2_cells 0)"
   local id
   for id in seed-zfs-root-btrfs-pool seed-ext4-root-zfs-pool \
-            seed-btrfs-raid1-enc-multi seed-xfs-root \
+            seed-xfs-root \
             seed-zfs-keyfile-root-enc-pool; do
     echo "$cells" | jq -e --arg id "$id" 'select(.id == $id)' >/dev/null
   done
@@ -153,4 +157,13 @@ setup() {
     allowed=" single $(_generator_multi_topologies "$filesystem" | awk '{ printf "%s ", $0 }') "
     [[ "$allowed" == *" $topology "* ]] || { echo "bad: $filesystem/$topology"; false; }
   done < <(jq -r '"\(.axes.filesystem)\t\(.axes.topology)"' <<<"$cells" | sort -u)
+}
+
+# 20261022: the menu locks encryption off on a multi-disk btrfs root (the
+# layout refuses it), so no cell may carry the combination.
+@test "no cell pairs encryption with a multi-disk btrfs root" {
+  local cells
+  cells="$(matrix_tier1_cells; matrix_tier2_cells 0)"
+  ! jq -e 'select(.axes.filesystem == "btrfs" and .axes.mode == "multi"
+    and .axes.encryption)' <<<"$cells" | grep -q .
 }
