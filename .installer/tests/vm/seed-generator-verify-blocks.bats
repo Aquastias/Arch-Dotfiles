@@ -252,3 +252,20 @@ load seed-generator-helpers
   run _seed_generator_env_exports chain
   [ -z "$output" ]
 }
+
+# 20261022: an encrypted impermanent root never reached the rollback marker —
+# the seed step mounted the 'root' partlabel (a LUKS container) or imported
+# rpool without its key, so the unit landed nowhere. Unlock it like the plain
+# first-boot block does.
+@test "rollback block: btrfs opens a LUKS root before mounting subvol @" {
+  run _seed_generator_rollback_firstboot_block /opt false btrfs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cryptsetup open /dev/disk/by-partlabel/root cryptroot"* ]]
+  [[ "$output" == *"mount -o subvol=@ /dev/mapper/cryptroot /mnt"* ]]
+}
+
+@test "rollback block: zfs loads the root key before mounting" {
+  run _seed_generator_rollback_firstboot_block /opt false zfs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"zfs load-key -a"* ]]
+}

@@ -296,8 +296,8 @@ BLOCK
 # btrfs the container is a subvolume, so the break deletes the top-level
 # @etc@blank subvol (mounted subvolid=5 at /mnt) instead of `zfs destroy`. The
 # seed step that drops the sentinel unit also goes FS-conditional: zfs imports
-# rpool, btrfs mounts subvol=@ from the GPT partlabel 'root' (plaintext rollback
-# VMs only). Paths carry no spaces (no quoting needed in the single-quoted
+# rpool, btrfs mounts subvol=@ from the GPT partlabel 'root' (an encrypted root
+# unlocked first). Paths carry no spaces (no quoting needed in the single-quoted
 # ExecStart printf arg).
 _seed_generator_rollback_firstboot_block() {
   local probe_directory="${1:-/opt}" break_blank="${2:-false}" \
@@ -327,19 +327,8 @@ _seed_generator_rollback_firstboot_block() {
   # The seed step mounts the installed root to drop the sentinel unit under
   # /usr/lib (the never-rolled-back root subvol/dataset, survives both boots).
   local mount_step unmount_step
-  if [[ "$filesystem" == "btrfs" ]]; then
-    # Scan first so a multi-device raid root assembles before the subvol=@ mount
-    # (no-op on a single disk). The partlabel resolves to any one member; btrfs
-    # mounts the whole assembled fs from it.
-    mount_step="btrfs device scan || true
-      mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true"
-    unmount_step="umount -R /mnt || true"
-  else
-    mount_step="zpool import -f -N -R /mnt rpool || true
-      zfs mount rpool/ROOT/arch || true"
-    unmount_step="zfs umount -a || true
-      zpool export rpool || zpool export -f rpool || true"
-  fi
+  mount_step="$(_seed_generator_rollback_mount_step "$filesystem")"
+  unmount_step="$(_seed_generator_rollback_unmount_step "$filesystem")"
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       ${mount_step}
@@ -350,4 +339,42 @@ $(_seed_generator_esp_serial_lines)
       ${unmount_step}
     fi
 BLOCK
+}
+
+# _seed_generator_rollback_mount_step <zfs|btrfs> — the seed-time shell that
+# mounts the installed root at /mnt. btrfs scans first so a multi-device raid
+# root assembles before the subvol=@ mount (the partlabel resolves to any one
+# member). An encrypted root is a LUKS container at that partlabel, or an rpool
+# whose key a bare import leaves unloaded: unlock it with the test passphrase,
+# as the plain first-boot block does, or the unit lands nowhere (20261022).
+_seed_generator_rollback_mount_step() {
+  if [[ "$1" == "btrfs" ]]; then
+    cat <<'STEP'
+btrfs device scan || true
+      _rt="$(blkid -o value -s TYPE /dev/disk/by-partlabel/root)"
+      if [ "$_rt" = crypto_LUKS ]; then
+        printf '%s' "$INSTALL_ENC_PASSPHRASE" \
+          | cryptsetup open /dev/disk/by-partlabel/root cryptroot || true
+        mount -o subvol=@ /dev/mapper/cryptroot /mnt || true
+      else
+        mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true
+      fi
+STEP
+  else
+    cat <<'STEP'
+zpool import -f -N -R /mnt rpool || true
+      printf '%s' "$INSTALL_ENC_PASSPHRASE" | zfs load-key -a || true
+      zfs mount rpool/ROOT/arch || true
+STEP
+  fi
+}
+
+# _seed_generator_rollback_unmount_step <zfs|btrfs> — undo the mount step.
+_seed_generator_rollback_unmount_step() {
+  if [[ "$1" == "btrfs" ]]; then
+    printf '%s\n' "umount -R /mnt || true"
+  else
+    printf '%s\n' "zfs umount -a || true
+      zpool export rpool || zpool export -f rpool || true"
+  fi
 }
