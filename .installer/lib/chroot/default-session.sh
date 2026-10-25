@@ -7,10 +7,11 @@
 # default), so the operator's next pick at the greeter wins. Greeters match on
 # the session's desktop entry, so this maps the desktop to that entry.
 #
-# Caller contract: ENVIRONMENT_DESKTOP (space-separated) and ROOT (write
-# prefix) set, as the Environment Runner passes them.
+# Caller contract: ENVIRONMENT_DESKTOP (space-separated), ROOT (write
+# prefix) set, as the Environment Runner passes them; info() defined.
 #
-# Used by: extras/dm/{greetd,noctalia-greeter,sddm}/*.sh.
+# Used by: extras/dm/{greetd,noctalia-greeter,sddm}/*.sh, and host-side by
+# lib/feature-audit/live-phases.sh (default_session_id only).
 # =============================================================================
 
 [[ -n "${_DEFAULT_SESSION_SH_SOURCED:-}" ]] && return 0
@@ -40,4 +41,12 @@ default_session_path() {
       && { echo "$entry"; return 0; }
   done
   return 1
+}
+
+# default_session_write <path> <content> — write a greeter's remembered-session
+# state (ROOT-prefixed), creating its directory.
+default_session_write() {
+  mkdir -p "${ROOT}${1%/*}"
+  printf '%s' "$2" > "${ROOT}$1"
+  info "Default Session seeded into $1."
 }

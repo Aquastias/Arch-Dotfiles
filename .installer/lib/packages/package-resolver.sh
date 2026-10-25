@@ -119,6 +119,8 @@ _PACKAGE_RESOLVER_SOURCES=(
   "kde-plugins|Environment"
   "kde-aur|Environment"
   "niri-shell|Environment"
+  "umbriel-shell|Environment"
+  "umbriel-aur|Environment"
   "noctalia|Environment"
   "security|Security"
   "backup|Backup"

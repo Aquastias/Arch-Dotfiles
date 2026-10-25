@@ -2421,9 +2421,9 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
   ECM is dropped entirely since paru resolves makedepends at build time.
 - DE packages in host configs — resolved: every package derivable from
   `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
-  Host Profile ([ADR 0021]). KDE, Hyprland, and niri are the adapters (Hyprland
-  re-added [ADR 0062] superseding the [ADR 0050] removal; niri added
-  [ADR 0090]).
+  Host Profile ([ADR 0021]). KDE, Hyprland, niri and Umbriel are the adapters
+  (Hyprland re-added [ADR 0062] superseding the [ADR 0050] removal; niri added
+  [ADR 0090]; Umbriel added [ADR 0159]).
 - `host_profile` now lives at one layer only ([ADR 0036]): it is a **VM
   Profile** key naming a real host directory, which the unified Profile Loader
   resolves to that machine's **Host Profile** (the picker assembles the

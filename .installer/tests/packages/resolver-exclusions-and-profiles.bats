@@ -58,7 +58,8 @@ load resolver-helpers
   local declared emitted
   declared="$(package_resolver_sources | sort)"
   emitted="$(package_resolver_resolve '{"users":["a"],"environment":
-    {"desktop":["kde"],"gpu":["amd"]},"options":{"bootloader":"grub"},
+    {"desktop":["kde","niri","hyprland","umbriel"],"gpu":["amd"]},
+     "options":{"bootloader":"grub"},
      "filesystem":"btrfs","packages":{"repo":{"c":["htop"]},
      "aur":{"m":["x"]}},"post_install":{"security":{"firewall":"ufw"},
      "backup":{"borg":true}}}' | awk -F'\t' '{ print $1 }' | sort -u)"

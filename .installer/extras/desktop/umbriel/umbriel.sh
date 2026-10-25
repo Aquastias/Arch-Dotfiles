@@ -16,7 +16,7 @@
 #
 # Injectable seams (tests):
 #   UMBRIEL_SEED_ROOT    — prefix for /etc/skel seeds (default: / — the chroot)
-#   UMBRIEL_BAT_GLOB     — battery-presence glob for laptop detection
+#   UMBRIEL_BATTERY_GLOB — battery-presence glob for laptop detection
 #                          (default: /sys/class/power_supply/BAT*)
 #   UMBRIEL_JSON         — install-noctalia.jsonc override (component bools)
 #   UMBRIEL_CURATED_DIR  — staged curated dotfiles source
@@ -93,7 +93,7 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
   export NOCTALIA_JSON="$UMBRIEL_JSON"
   export NOCTALIA_SEED_ROOT="$SEED_ROOT"
   export NOCTALIA_CURATED_DIR="$UMBRIEL_CURATED_DIR"
-  export NOCTALIA_BATTERY_GLOB="${UMBRIEL_BAT_GLOB:-$_BATTERY_GLOB_DEFAULT}"
+  export NOCTALIA_BATTERY_GLOB="${UMBRIEL_BATTERY_GLOB:-$_BATTERY_GLOB_DEFAULT}"
   export NOCTALIA_SLICE_FUNCTION=noctalia_umbriel_plugins
   noctalia_preset_install ".config/umbriel/config.toml" \
     ".config/umbriel/config.toml"

@@ -56,11 +56,9 @@ greetd_config_write \
 # path in the --sessions dir it last recorded. The cache dir is the greeter's
 # (tmpfiles), so the seed must be too, or tuigreet can never update it.
 if _default_session="$(default_session_id)"; then
-  mkdir -p "${ROOT}${TUIGREET_CACHE_DIR}"
-  printf '%s' "${_sessions_dir}/${_default_session}.desktop" \
-    > "${ROOT}${TUIGREET_CACHE_DIR}/lastsession-path"
+  default_session_write "${TUIGREET_CACHE_DIR}/lastsession-path" \
+    "${_sessions_dir}/${_default_session}.desktop"
   chown -R greeter:greeter "${ROOT}${TUIGREET_CACHE_DIR}"
-  info "Default Session: ${_default_session}."
 fi
 
 systemctl enable greetd

@@ -80,10 +80,8 @@ fi
 # above. Written as the daemon writes it after a login, so the next pick wins.
 if _default_session="$(default_session_path "$WAYLAND_SESSIONS_DIR" \
     /usr/share/wayland-sessions)"; then
-  mkdir -p "${ROOT}${SDDM_STATE_DIR}"
-  printf '[Last]\nSession=%s\n' "$_default_session" \
-    > "${ROOT}${SDDM_STATE_DIR}/state.conf"
-  info "Default Session: ${_default_session}."
+  default_session_write "${SDDM_STATE_DIR}/state.conf" \
+    $'[Last]\n'"Session=${_default_session}"$'\n'
 fi
 
 systemctl enable sddm

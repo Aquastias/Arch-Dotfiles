@@ -52,10 +52,8 @@ fi
 # `[session].default` would override every later pick. Seeded first: the setup
 # step keeps an existing sync.toml and only fixes its owner and mode.
 if _default_session="$(default_session_id)"; then
-  mkdir -p "${ROOT}${GREETER_STATE_DIR}"
-  printf '[session]\nlast = "%s"\n' "$_default_session" \
-    > "${ROOT}${GREETER_STATE_DIR}/sync.toml"
-  info "Default Session: ${_default_session}."
+  default_session_write "${GREETER_STATE_DIR}/sync.toml" \
+    $'[session]\n'"last = \"${_default_session}\""$'\n'
 fi
 
 # Create greeter.toml + sync.toml in /var/lib/noctalia-greeter, owned by the

@@ -24,7 +24,7 @@ setup() {
   AUR_LIST+="/install-umbriel.jsonc"
   export PACMAN_LOG SYSTEMCTL_LOG WAYLAND_SESSIONS_DIR ROOT
   export UMBRIEL_SEED_ROOT="$SEED"
-  export UMBRIEL_BAT_GLOB="$TEST_DIR/nobat/BAT*"
+  export UMBRIEL_BATTERY_GLOB="$TEST_DIR/nobat/BAT*"
 
   # pacman: `-Qq` reports nothing installed; every other call is logged.
   cat > "$STUB_BIN/pacman" <<'PAC'

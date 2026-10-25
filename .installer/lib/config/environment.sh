@@ -34,14 +34,14 @@ ENVIRONMENT_DISPLAY_MANAGER=""
 
 # The Noctalia work-shell preset selector (ADR 0090/0097): noctalia | none. Set
 # by _environment_validate (default noctalia); meaningful for any wlroots
-# compositor in the desktop set (niri and Hyprland). Crosses into the chroot as
-# an env var (chroot.sh) and is read by the niri/Hyprland adapters — no
+# compositor in the desktop set (niri, Hyprland, Umbriel). Crosses into the
+# chroot as an env var (chroot.sh) and is read by the wlroots adapters — no
 # install-state field, like ENVIRONMENT_DESKTOP.
 # shellcheck disable=SC2034
 ENVIRONMENT_WAYLAND_SHELL=""
 
 # Stock (pure) selector (ADR 0112): install every selected desktop as upstream
-# stock — KDE = plasma-meta shell only (no apps/seed), niri/Hyprland = bare
+# stock — KDE = plasma-meta shell only (no apps/seed), the wlroots ones = bare
 # compositor. Set by _environment_validate (default false); when true it forces
 # ENVIRONMENT_WAYLAND_SHELL=none so the compositor adapters seed nothing with no
 # adapter change. Crosses into the chroot (chroot.sh) and is read by the KDE
@@ -214,7 +214,7 @@ _environment_validate() {
 
   # Wayland shell: the Noctalia work-shell preset selector (ADR 0090/0097);
   # defaults to noctalia. Meaningful for any wlroots compositor in the desktop
-  # set (niri and Hyprland) — harmless otherwise (the niri/Hyprland adapters
+  # set (niri, Hyprland, Umbriel) — harmless otherwise (the wlroots adapters
   # are the readers).
   ENVIRONMENT_WAYLAND_SHELL="$(install_config_wayland_shell)"
   _environment_is_one_of "$ENVIRONMENT_WAYLAND_SHELL" \
@@ -227,7 +227,7 @@ _environment_validate() {
 
 # Stock (pure): bool selector for an upstream-stock install (ADR 0112). When
 # true it is authoritative for every selected desktop and forces
-# wayland_shell=none, so the niri/Hyprland adapters seed nothing (their
+# wayland_shell=none, so the wlroots adapters seed nothing (their
 # existing `none` path) with no adapter change; the KDE adapter reads
 # ENVIRONMENT_STOCK directly.
 _environment_validate_stock() {

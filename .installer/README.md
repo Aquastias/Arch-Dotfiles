@@ -460,7 +460,7 @@ every boot without the USB.
 │   ├── desktop/            # eterniox
 │   ├── laptop/
 │   ├── minimal/            # Desktop-less base install
-│   ├── {kde,hyprland,niri}-pure/  # Stock single-desktop (ADR 0112)
+│   ├── {kde,hyprland,niri,umbriel}-pure/  # Stock single-desktop (ADR 0112)
 │   └── vm/                 # VM fixtures (arch-combined, arch-kde,
 │                           #   arch-niri, arch-secure, …)
 │
@@ -491,7 +491,7 @@ every boot without the USB.
 │                           #   indicators, allowlist (ADR 0143/0149)
 │
 ├── extras/                 # In-chroot extras (DE + DM adapters)
-│   ├── desktop/            # kde/, hyprland/, niri/  (<de>/<de>.sh)
+│   ├── desktop/            # kde/, hyprland/, niri/, umbriel/ (<de>/<de>.sh)
 │   └── dm/                 # greetd/, noctalia-greeter/, sddm/
 │
 ├── tools/                  # Operator utilities (runtime)
@@ -580,7 +580,7 @@ Set under `environment` in the host profile:
 
 ```json
 "environment": {
-  "desktop":         "kde",   // "kde"/"hyprland"/"niri", array, or null
+  "desktop":         "kde",   // "kde"/"hyprland"/"niri"/"umbriel", array
   "gpu":             "auto",  // or "amd"/"nvidia"/"intel"/array
   "display_manager": "auto"   // "auto"/"greetd"/"noctalia-greeter"/"sddm"
 }
