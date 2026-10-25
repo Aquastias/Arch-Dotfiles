@@ -333,3 +333,15 @@ JSON
   run guided_controller_enter "Proceed ▸ review & install"
   [ "$output" = "terminal proceed" ]
 }
+
+@test "preview(profiles): marks the profile's Default Session (ADR 0159)" {
+  local installer_directory; installer_directory="$TEST_DIR/os6"
+  mkdir -p "$installer_directory/hosts"/{core,box}
+  printf '{}\n' > "$installer_directory/hosts/core/profile.jsonc"
+  printf '{"environment":{"desktop":["niri","kde"]}}\n' \
+    > "$installer_directory/hosts/box/profile.jsonc"
+  export INSTALLER_DIR="$installer_directory"
+  set_navigation '{"screen":"profiles"}'
+  run guided_controller_preview box
+  echo "$output" | grep -q "desktop: niri (default), kde$"
+}

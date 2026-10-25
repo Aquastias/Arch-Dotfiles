@@ -23,7 +23,9 @@ setup() {
     > "$STUB_BIN/pacman"
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
-  chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl"
+  printf '#!/usr/bin/env bash\necho "chown $*" >> "$PACMAN_LOG"\n' \
+    > "$STUB_BIN/chown"
+  chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/chown"
 
   export PATH="$STUB_BIN:$PATH"
   CONF="$ROOT$GREETD_CONF_DIR/config.toml"
@@ -75,4 +77,36 @@ teardown() { rm -rf "$TEST_DIR"; }
   local dropin_file="$ROOT/etc/systemd/system/greetd.service.d/10-vt2.conf"
   grep -qx 'Conflicts=getty@tty2.service' "$dropin_file"
   grep -qx 'After=getty@tty2.service' "$dropin_file"
+}
+
+# Default Session (ADR 0159): tuigreet --remember-session preselects the
+# session whose full path (as found in its --sessions dir) it last recorded.
+LAST_SESSION=/var/cache/tuigreet/lastsession-path
+
+@test "seeds desktop[0] as tuigreet's last session, by curated path" {
+  mkdir -p "$ROOT$WAYLAND_SESSIONS_DIR"
+  touch "$ROOT$WAYLAND_SESSIONS_DIR"/{niri,hyprland}.desktop
+  ENVIRONMENT_DESKTOP="niri hyprland" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ROOT$LAST_SESSION")" == \
+    "/usr/local/share/wayland-sessions/niri.desktop" ]
+}
+
+@test "KDE-only fallback: the Default Session is the packaged plasma path" {
+  ENVIRONMENT_DESKTOP="kde" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ROOT$LAST_SESSION")" == \
+    "/usr/share/wayland-sessions/plasma.desktop" ]
+}
+
+@test "the seeded last session stays writable by the greeter user" {
+  ENVIRONMENT_DESKTOP="kde" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -qx "chown -R greeter:greeter $ROOT/var/cache/tuigreet" "$PACMAN_LOG"
+}
+
+@test "no desktop: no Default Session seeded" {
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -e "$ROOT$LAST_SESSION" ]
 }

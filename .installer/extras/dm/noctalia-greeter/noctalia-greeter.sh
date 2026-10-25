@@ -11,8 +11,10 @@
 # greetd-config.sh. Installed from the official repos only, never the AUR.
 #
 # Injectable seams (tests):
-#   GREETD_CONF_DIR — greetd config dir (default: /etc/greetd)
-#   ROOT            — prefix for the config writes (default: empty)
+#   GREETD_CONF_DIR   — greetd config dir (default: /etc/greetd)
+#   GREETER_STATE_DIR — the greeter's sync.toml dir
+#                       (default: /var/lib/noctalia-greeter)
+#   ROOT              — prefix for the config writes (default: empty)
 # =============================================================================
 set -Eeuo pipefail
 
@@ -20,6 +22,7 @@ script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 GREETD_CONF_DIR="${GREETD_CONF_DIR:-/etc/greetd}"
+GREETER_STATE_DIR="${GREETER_STATE_DIR:-/var/lib/noctalia-greeter}"
 ROOT="${ROOT:-}"
 
 # shellcheck disable=SC2034  # read by extras-common.sh after sourcing
@@ -28,6 +31,8 @@ DE_TAG=noctalia-greeter
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/greetd-config.sh"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../../../lib/chroot/default-session.sh"
 
 section "Display Manager: greetd + noctalia-greeter"
 pacman -S --noconfirm --needed greetd noctalia-greeter
@@ -40,6 +45,17 @@ greetd_config_write /usr/bin/noctalia-greeter-session
 if getent group seat >/dev/null; then
   usermod -aG seat greeter
   info "greeter added to the seat group (seatd)."
+fi
+
+# Default Session (ADR 0159): the greeter remembers its last session in
+# sync.toml `[session].last` by desktop entry, which a fresh login preselects;
+# `[session].default` would override every later pick. Seeded first: the setup
+# step keeps an existing sync.toml and only fixes its owner and mode.
+if _default_session="$(default_session_id)"; then
+  mkdir -p "${ROOT}${GREETER_STATE_DIR}"
+  printf '[session]\nlast = "%s"\n' "$_default_session" \
+    > "${ROOT}${GREETER_STATE_DIR}/sync.toml"
+  info "Default Session: ${_default_session}."
 fi
 
 # Create greeter.toml + sync.toml in /var/lib/noctalia-greeter, owned by the

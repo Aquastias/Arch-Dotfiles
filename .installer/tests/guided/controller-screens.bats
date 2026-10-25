@@ -398,3 +398,30 @@ load controller-helpers
   guided_controller_enter "[ ] NVIDIA" >/dev/null    # adds the second vendor
   [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd","nvidia"]' ]
 }
+
+# Default Session (ADR 0159): desktop[0] is where a fresh login lands, so the
+# Desktop row marks it once a second desktop makes the order matter.
+@test "list(category): the Desktop row marks desktop[0] as the default" {
+  config_state_set "$(<"$GUIDED_STATE_FILE")" environment.desktop \
+    '["niri","kde"]' > "$GUIDED_STATE_FILE"
+  set_navigation "$(navigation_to_category Environment)"
+  run guided_controller_list
+  echo "$output" | grep -qx "Desktop: niri (default), KDE  ●"
+}
+
+@test "list(category): a lone desktop carries no default marker" {
+  config_state_set "$(<"$GUIDED_STATE_FILE")" environment.desktop \
+    '["kde"]' > "$GUIDED_STATE_FILE"
+  set_navigation "$(navigation_to_category Environment)"
+  run guided_controller_list
+  echo "$output" | grep -qx "Desktop: KDE  ●"
+}
+
+@test "enter(category): the marked Desktop row still drills to its values" {
+  config_state_set "$(<"$GUIDED_STATE_FILE")" environment.desktop \
+    '["niri","kde"]' > "$GUIDED_STATE_FILE"
+  set_navigation "$(navigation_to_category Environment)"
+  run guided_controller_enter "Desktop: niri (default), KDE  ●"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.field' "$GUIDED_NAV_FILE")" = "environment.desktop" ]
+}

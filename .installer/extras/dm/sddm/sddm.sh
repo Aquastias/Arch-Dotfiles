@@ -15,6 +15,8 @@
 #                          (default: /usr/local/share/wayland-sessions)
 #   XORG_CONF_DIR        — xorg.conf.d dir for the VM cursor drop-in
 #                          (default: /etc/X11/xorg.conf.d)
+#   SDDM_STATE_DIR       — the sddm user's home, holding state.conf
+#                          (default: /var/lib/sddm)
 #   ROOT                 — prefix for the config writes (default: empty)
 # =============================================================================
 set -Eeuo pipefail
@@ -24,6 +26,7 @@ script_path="${BASH_SOURCE[0]}"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 SDDM_CONF_DIR="${SDDM_CONF_DIR:-/etc/sddm.conf.d}"
 XORG_CONF_DIR="${XORG_CONF_DIR:-/etc/X11/xorg.conf.d}"
+SDDM_STATE_DIR="${SDDM_STATE_DIR:-/var/lib/sddm}"
 _WS_DIR_DEFAULT=/usr/local/share/wayland-sessions
 WAYLAND_SESSIONS_DIR="${WAYLAND_SESSIONS_DIR:-$_WS_DIR_DEFAULT}"
 ROOT="${ROOT:-}"
@@ -32,6 +35,8 @@ ROOT="${ROOT:-}"
 DE_TAG=sddm
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../../../lib/chroot/default-session.sh"
 
 section "Display Manager: SDDM"
 pacman -S --noconfirm --needed sddm
@@ -68,6 +73,17 @@ Section "Device"
 EndSection
 CONF
   info "VM detected — forced Xorg software cursor (SDDM greeter ghost-X fix)."
+fi
+
+# Default Session (ADR 0159): SDDM preselects the session whose absolute path
+# state.conf `[Last] Session=` records, scanning SessionDir in the order pinned
+# above. Written as the daemon writes it after a login, so the next pick wins.
+if _default_session="$(default_session_path "$WAYLAND_SESSIONS_DIR" \
+    /usr/share/wayland-sessions)"; then
+  mkdir -p "${ROOT}${SDDM_STATE_DIR}"
+  printf '[Last]\nSession=%s\n' "$_default_session" \
+    > "${ROOT}${SDDM_STATE_DIR}/state.conf"
+  info "Default Session: ${_default_session}."
 fi
 
 systemctl enable sddm

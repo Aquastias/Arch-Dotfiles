@@ -1670,7 +1670,10 @@ then `/usr/share` itself, deduped by session name ([ADR 0158]);
 sddm installs and enables sddm (so SDDM on a Hyprland-only host now has an
 owner — the KDE adapter no longer installs it) and writes a `Wayland.SessionDir`
 (+ X `SessionDir`) sddm.conf.d drop-in pinning that same curated dir ahead of
-`/usr/share`, so both DMs show one deduped session list. Adding a future DM is a new
+`/usr/share`, so both DMs show one deduped session list. Each also seeds the
+[[Default Session]] as its remembered last session ([ADR 0159]): tuigreet's
+`lastsession-path`, noctalia-greeter's `sync.toml` `[session].last`, SDDM's
+`state.conf` `[Last] Session=`. Adding a future DM is a new
 `extras/dm/<name>/` directory — no runner change. Runs after every DE adapter,
 so the session files and seatd it relies on already exist.
 

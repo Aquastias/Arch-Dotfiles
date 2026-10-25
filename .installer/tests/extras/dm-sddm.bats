@@ -93,3 +93,30 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [ ! -e "$XORG_CURSOR" ]
 }
+
+# Default Session (ADR 0159): SDDM preselects the session whose absolute file
+# path its state.conf `[Last] Session=` records.
+STATE="/var/lib/sddm/state.conf"
+
+@test "seeds desktop[0] as SDDM's last session, curated dir first" {
+  mkdir -p "$ROOT$WAYLAND_SESSIONS_DIR"
+  touch "$ROOT$WAYLAND_SESSIONS_DIR/hyprland.desktop"
+  ENVIRONMENT_DESKTOP="hyprland kde" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ROOT$STATE")" == "$(printf '%s\n' '[Last]' \
+    'Session=/usr/local/share/wayland-sessions/hyprland.desktop')" ]
+}
+
+@test "falls back to the packaged session when the curated dir lacks it" {
+  mkdir -p "$ROOT/usr/share/wayland-sessions"
+  touch "$ROOT/usr/share/wayland-sessions/plasma.desktop"
+  ENVIRONMENT_DESKTOP="kde" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -qx 'Session=/usr/share/wayland-sessions/plasma.desktop' "$ROOT$STATE"
+}
+
+@test "no desktop: no Default Session seeded" {
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -e "$ROOT$STATE" ]
+}

@@ -85,6 +85,8 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   "lib/chroot/chroot-common.sh|chroot/chroot-common.sh"
   # Both greetd Display Manager Adapters source this shared base (ADR 0158).
   "lib/chroot/greetd-config.sh|chroot/greetd-config.sh"
+  # Every Display Manager Adapter seeds the Default Session (ADR 0159).
+  "lib/chroot/default-session.sh|chroot/default-session.sh"
 )
 
 # _chroot_stage <dst-root> <entry...>   entry = "src-rel|dst-rel"

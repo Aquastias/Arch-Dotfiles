@@ -281,7 +281,8 @@ _controller_profile_tree() {
     "  ▸ environment",
     "      └─ desktop: \((.environment.desktop // [])
        | if type == "array"
-         then (if length == 0 then "(none)" else join(", ") end)
+         then (if length == 0 then "(none)" elif length == 1 then .[0]
+               else ([.[0] + " (default)"] + .[1:] | join(", ")) end)
          else . end)",
     "      └─ gpu: \(.environment.gpu // $defaults.environment.gpu
        | if type == "array" then join(", ") else . end)",

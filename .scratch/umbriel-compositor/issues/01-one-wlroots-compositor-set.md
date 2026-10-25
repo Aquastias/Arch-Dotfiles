@@ -9,11 +9,11 @@ change to the set. Reuse a Commons helper if one fits (Installer Stdlib).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One owner for the wlroots compositor set; no other niri/Hyprland
+- [x] One owner for the wlroots compositor set; no other niri/Hyprland
       literal list decides wlroots-ness
-- [ ] Full suite green, golden fixtures unchanged
-- [ ] No behaviour change on any committed profile
+- [x] Full suite green, golden fixtures unchanged
+- [x] No behaviour change on any committed profile
 
 Spec: ../PRD.md · ADR 0159

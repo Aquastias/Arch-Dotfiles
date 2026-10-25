@@ -204,10 +204,14 @@ _controller_display_value_string() {
   local field="$1" value="$2"
   { _controller_display_values "$field" && [[ -n "$value" ]]; } \
     || { printf '%s' "$value"; return; }
-  local out="" part
+  local out="" part marker=""
+  # Default Session (ADR 0159): desktop[0] is where a fresh login lands, marked
+  # once a second desktop makes the order matter.
+  [[ "$field" == environment.desktop ]] && marker=" (default)"
   while [[ "$value" == *", "* ]]; do
     part="${value%%, *}"; value="${value#*, }"
-    out+="${out:+, }$(display_label "$part")"
+    out+="${out:+, }$(display_label "$part")${marker}"
+    marker=""
   done
   printf '%s' "${out:+$out, }$(display_label "$value")"
 }

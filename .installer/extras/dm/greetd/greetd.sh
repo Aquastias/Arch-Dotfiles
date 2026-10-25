@@ -13,6 +13,8 @@
 #   GREETD_CONF_DIR      — greetd config dir (default: /etc/greetd)
 #   WAYLAND_SESSIONS_DIR — curated session dir the Hyprland adapter populates
 #                          (default: /usr/local/share/wayland-sessions)
+#   TUIGREET_CACHE_DIR   — tuigreet's remember cache
+#                          (default: /var/cache/tuigreet)
 #   ROOT                 — prefix for the config writes (default: empty)
 # =============================================================================
 set -Eeuo pipefail
@@ -23,6 +25,7 @@ SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 GREETD_CONF_DIR="${GREETD_CONF_DIR:-/etc/greetd}"
 _WS_DIR_DEFAULT=/usr/local/share/wayland-sessions
 WAYLAND_SESSIONS_DIR="${WAYLAND_SESSIONS_DIR:-$_WS_DIR_DEFAULT}"
+TUIGREET_CACHE_DIR="${TUIGREET_CACHE_DIR:-/var/cache/tuigreet}"
 ROOT="${ROOT:-}"
 
 # shellcheck disable=SC2034  # read by extras-common.sh after sourcing
@@ -31,6 +34,8 @@ DE_TAG=greetd
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/greetd-config.sh"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../../../lib/chroot/default-session.sh"
 
 section "Display Manager: greetd + tuigreet"
 pacman -S --noconfirm --needed greetd greetd-tuigreet
@@ -46,6 +51,17 @@ _sessions_dir="$WAYLAND_SESSIONS_DIR"
 
 greetd_config_write \
   "tuigreet --remember --remember-session --sessions ${_sessions_dir}"
+
+# Default Session (ADR 0159): --remember-session preselects the session whose
+# path in the --sessions dir it last recorded. The cache dir is the greeter's
+# (tmpfiles), so the seed must be too, or tuigreet can never update it.
+if _default_session="$(default_session_id)"; then
+  mkdir -p "${ROOT}${TUIGREET_CACHE_DIR}"
+  printf '%s' "${_sessions_dir}/${_default_session}.desktop" \
+    > "${ROOT}${TUIGREET_CACHE_DIR}/lastsession-path"
+  chown -R greeter:greeter "${ROOT}${TUIGREET_CACHE_DIR}"
+  info "Default Session: ${_default_session}."
+fi
 
 systemctl enable greetd
 info "greetd + tuigreet enabled (sessions: ${_sessions_dir})."

@@ -30,6 +30,9 @@ setup() {
 #!/usr/bin/env bash
 config=missing
 [[ -f "$ROOT$GREETD_CONF_DIR/config.toml" ]] && config=present
+sync=missing
+[[ -f "$ROOT/var/lib/noctalia-greeter/sync.toml" ]] && sync=present
+echo "sync-before-setup=$sync" >> "$COMMAND_LOG"
 echo "apply-appearance GREETER_USER=$GREETER_USER $* config=$config" \
   >> "$COMMAND_LOG"
 STUB
@@ -92,4 +95,37 @@ teardown() { rm -rf "$TEST_DIR"; }
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
   ! grep -q "^usermod" "$COMMAND_LOG"
+}
+
+# Default Session (ADR 0159): desktop[0] is seeded as the remembered last
+# session, never `[session].default`, so the operator's next pick wins.
+@test "seeds desktop[0] as the greeter's remembered last session" {
+  ENVIRONMENT_DESKTOP="niri kde hyprland" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  SYNC="$ROOT/var/lib/noctalia-greeter/sync.toml"
+  [ "$(cat "$SYNC")" == "$(printf '[session]\nlast = "niri"')" ]
+}
+
+@test "the Default Session names KDE by its plasma session entry" {
+  ENVIRONMENT_DESKTOP="kde niri" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -qx 'last = "plasma"' "$ROOT/var/lib/noctalia-greeter/sync.toml"
+}
+
+@test "seeds the Default Session before the setup step chowns sync.toml" {
+  ENVIRONMENT_DESKTOP="niri" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -qx 'sync-before-setup=present' "$COMMAND_LOG"
+}
+
+@test "never forces the greeter's default session" {
+  ENVIRONMENT_DESKTOP="niri kde" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -rq '^default' "$ROOT/var/lib/noctalia-greeter"
+}
+
+@test "no desktop: no Default Session seeded" {
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -e "$ROOT/var/lib/noctalia-greeter/sync.toml" ]
 }

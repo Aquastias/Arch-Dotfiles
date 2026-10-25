@@ -16,14 +16,21 @@ Independent of Umbriel: provable with KDE/niri/Hyprland.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] DM adapter bats (seed-root seam) per DM: multi-desktop seeds
+- [x] DM adapter bats (seed-root seam) per DM: multi-desktop seeds
       `desktop[0]`, single-desktop no regression, empty set seeds nothing
-- [ ] Impermanence: seeded state survives rollback on all three DMs
-- [ ] Guided replay shows the `(default)` marker on the first pick and in
+- [x] Impermanence: seeded state survives rollback on all three DMs
+- [x] Guided replay shows the `(default)` marker on the first pick and in
       the profile preview
 - [ ] VM: a host with `niri` first lands on niri at first login; picking
       another session is remembered on next login
 
 Spec: ../PRD.md · ADR 0091, 0158, 0159 · glossary: Default Session
+
+## Comments
+
+- Impermanence: all three state paths live under `/var` (not a Rollback
+  Dataset), so they survive rollback with no persist entry.
+- VM first-login check deferred to ticket 07's Audit Run (desktop/laptop land
+  on Umbriel), per the one-VM-at-a-time rule.
