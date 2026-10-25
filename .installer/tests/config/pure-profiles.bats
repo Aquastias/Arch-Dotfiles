@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for the committed stock (pure) Host Profiles hosts/{kde,hyprland,niri}
+# Tests for the committed stock (pure) Host Profiles
+# hosts/{kde,hyprland,niri,umbriel}
 # -pure (ADR 0112): each is a single-desktop, stock, bare-userland machine that
 # loads and validates clean against the closed schema. Behaviour under test: the
 # effective config the loader produces + profile_loader_validate's verdict — never the
@@ -52,5 +53,14 @@ stock_single() {
 
 @test "niri-pure: profile_loader_validate passes" {
   run profile_loader_validate niri-pure
+  [ "$status" -eq 0 ]
+}
+
+@test "umbriel-pure: single stock umbriel desktop, no inherited packages" {
+  stock_single umbriel-pure umbriel
+}
+
+@test "umbriel-pure: profile_loader_validate passes" {
+  run profile_loader_validate umbriel-pure
   [ "$status" -eq 0 ]
 }

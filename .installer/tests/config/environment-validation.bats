@@ -64,6 +64,13 @@ write_config() {
   [ "${ENVIRONMENT_DESKTOP[0]}" = "niri" ]
 }
 
+@test "desktop 'umbriel' passes validation and sets ENVIRONMENT_DESKTOP" {
+  write_config '{"environment": {"desktop": "umbriel", "gpu": "auto"}}'
+  _environment_validate
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "umbriel" ]
+}
+
 @test "desktop array ['kde','hyprland','niri'] passes and sets three elements" {
   write_config \
     '{"environment": {"desktop": ["kde","hyprland","niri"], "gpu": "auto"}}'

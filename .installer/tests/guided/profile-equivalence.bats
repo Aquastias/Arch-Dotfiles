@@ -71,6 +71,7 @@ assert_equivalent() {
 @test "Guided pick ≡ --profile: minimal"       { assert_equivalent minimal; }
 @test "Guided pick ≡ --profile: kde-pure"      { assert_equivalent kde-pure; }
 @test "Guided pick ≡ --profile: niri-pure"     { assert_equivalent niri-pure; }
+@test "Guided pick ≡ --profile: umbriel-pure"  { assert_equivalent umbriel-pure; }
 @test "Guided pick ≡ --profile: hyprland-pure" {
   assert_equivalent hyprland-pure
 }

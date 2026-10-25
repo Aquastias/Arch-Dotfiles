@@ -96,10 +96,11 @@ write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   [[ "$output" == *stock* ]]
 }
 
-@test "feature_audit_bind_gate: no shell skips niri/Hyprland, not KDE" {
+@test "feature_audit_bind_gate: no shell skips the wlroots desktops, not KDE" {
   local config='{"environment":{"wayland_shell":"none","stock":false}}'
   run feature_audit_bind_gate niri "$config";     [ "$status" -eq 0 ]
   run feature_audit_bind_gate hyprland "$config"; [ "$status" -eq 0 ]
+  run feature_audit_bind_gate umbriel "$config";  [ "$status" -eq 0 ]
   run feature_audit_bind_gate kde "$config";      [ "$status" -ne 0 ]; [ -z "$output" ]
 }
 

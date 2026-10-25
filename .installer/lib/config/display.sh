@@ -28,6 +28,7 @@ _display_curated() {
   kde)          echo KDE ;;
   hyprland)     echo Hyprland ;;
   niri)         echo niri ;;
+  umbriel)      echo Umbriel ;;
   noctalia)     echo Noctalia ;;
   sddm)         echo SDDM ;;
   greetd)       echo "greetd (tuigreet)" ;;

@@ -122,7 +122,7 @@ menu_enum_options() {
   options.kernel)                 printf '%s\n' lts default hardened zen ;;
   options.bootloader)
     printf '%s\n' systemd-boot grub efistub limine refind ;;
-  environment.desktop)            printf '%s\n' kde hyprland niri ;;
+  environment.desktop)            printf '%s\n' kde hyprland niri umbriel ;;
   environment.display_manager)
     printf '%s\n' auto greetd noctalia-greeter sddm ;;
   environment.wayland_shell)      printf '%s\n' noctalia none ;;

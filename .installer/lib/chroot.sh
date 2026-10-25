@@ -75,6 +75,8 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   # niri.sh (ADR 0090) sources this pure package map so its core/preset install
   # matches exactly what the Package Resolver reports — one source of truth.
   "lib/packages/niri.sh|packages/niri.sh"
+  # umbriel.sh (ADR 0159) sources its pure repo package map the same way.
+  "lib/packages/umbriel.sh|packages/umbriel.sh"
   # noctalia-preset.sh sources this pure Noctalia preset + plugin map.
   "lib/packages/noctalia.sh|packages/noctalia.sh"
   # The shared Noctalia work-shell preset (ADR 0097), sourced by BOTH the niri

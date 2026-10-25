@@ -61,7 +61,7 @@ installed_names() {
 
 @test "no non-fleet committed profile installs Fleet Layer software" {
   local profile leaked
-  for profile in minimal kde-pure niri-pure hyprland-pure; do
+  for profile in minimal kde-pure niri-pure hyprland-pure umbriel-pure; do
     leaked="$(leaked_names "$profile")"
     [ -z "$leaked" ] || { echo "$profile leaks: $leaked"; return 1; }
   done
@@ -116,7 +116,7 @@ installed_names() {
 
 @test "the pure profiles carry no User Program" {
   local profile programs
-  for profile in kde-pure niri-pure hyprland-pure; do
+  for profile in kde-pure niri-pure hyprland-pure umbriel-pure; do
     programs="$(package_resolver_resolve "$(profile_loader_load "$profile")" \
       | awk -F '\t' '$1 == "user-programs" { print $3 }')"
     [ -z "$programs" ] || { echo "$profile: $programs"; return 1; }
@@ -125,7 +125,7 @@ installed_names() {
 
 @test "the pure profiles still declare a login user" {
   local profile
-  for profile in kde-pure niri-pure hyprland-pure; do
+  for profile in kde-pure niri-pure hyprland-pure umbriel-pure; do
     profile_loader_load "$profile" | jq -e '(.users | length) == 1' >/dev/null \
       || { echo "$profile"; return 1; }
   done

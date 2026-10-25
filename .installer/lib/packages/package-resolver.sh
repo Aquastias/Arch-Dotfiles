@@ -85,6 +85,9 @@ declare -F filesystem_userland_packages >/dev/null 2>&1 \
 # shellcheck source=./niri.sh
 declare -F niri_core_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/niri.sh"
+# shellcheck source=./umbriel.sh
+declare -F umbriel_core_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/umbriel.sh"
 # shellcheck source=./noctalia.sh
 declare -F noctalia_preset_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/noctalia.sh"

@@ -58,7 +58,7 @@ GPU_PARU_PACKAGES=()
 AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
-_VALID_DESKTOP=(kde hyprland niri)
+_VALID_DESKTOP=(kde hyprland niri umbriel)
 _VALID_GPU=(amd nvidia intel auto)
 _VALID_DISPLAY_MANAGER=(auto greetd noctalia-greeter sddm)
 _VALID_WAYLAND_SHELL=(noctalia none)

@@ -1,0 +1,41 @@
+// Host Profile for `umbriel-pure` — a stock (pure) Umbriel install (ADR 0112,
+// ADR 0159).
+// Merged under hosts/core/profile.jsonc (ADR 0036).
+//
+// Stock environment: `environment.stock: true` installs the bare Umbriel
+// compositor + session only — no Noctalia work shell, no seeded configs or
+// keybinds (stock forces wayland_shell=none), so Umbriel runs its packaged
+// starting config. Modelled on `minimal`: bare
+// userland (`packages.inherit: false`, no host_programs), one operator-picked
+// disk, no encryption. The operator's own dotfiles own the shell.
+//
+// The login user is the neutral `stock` user (no programs, bash — ADR
+// 0157), so the userland is stock too, not the operator's.
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto"
+  },
+
+  "environment": {
+    "desktop": ["umbriel"],
+    "gpu":     "auto",
+    "stock":   true
+  },
+
+  "packages": { "inherit": false },
+  "users": ["stock"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 12
+}

@@ -14,3 +14,4 @@ vscodium	toplevel-code	reviewed 2026-09-26
 vscodium-bin	suid	reviewed 2026-09-29 (chrome-sandbox 4755, Electron)
 vscodium-bin	trust-adopted	reviewed 2026-10-15 (Icelk maintainer since 2021; d04471d pkgver+sums only)
 octopi	trust-adopted	reviewed 2026-10-20 (xiota sole committer since 0.16.2; 6f09983 conflicts only)
+umbriel-git	meta-epoch	reviewed 2026-10-25 (Noctalia team; 75944d3 pkgver scheme only)

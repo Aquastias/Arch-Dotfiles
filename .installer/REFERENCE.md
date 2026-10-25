@@ -510,10 +510,12 @@ See CONTEXT.md § Host Package List for the full model.
 
 The Environment Runner (`lib/chroot/extras.sh`) dispatches to
 `extras/desktop/<de>/<de>.sh` for each entry in
-`environment.desktop`. Three adapters ship today: KDE, Hyprland,
-and niri. The display manager is not an adapter's concern — it is
-a separate Display Manager Adapter (`extras/dm/<dm>/<dm>.sh`)
-selected by `environment.display_manager` ([ADR 0069]).
+`environment.desktop`. Four adapters ship today: KDE, Hyprland,
+niri and Umbriel. Element 0 is the Default Session, the desktop a
+fresh login preselects ([ADR 0159]). The display manager is not an
+adapter's concern — it is a separate Display Manager Adapter
+(`extras/dm/<dm>/<dm>.sh`) selected by `environment.display_manager`
+([ADR 0069]).
 
 **KDE Plasma 6 — `extras/desktop/kde/kde.sh`**
 
@@ -549,6 +551,15 @@ config, and the curated plugin set ([ADR 0093]/[0094]). Toggles live
 in `extras/desktop/install-noctalia.jsonc`. Under
 `environment.stock` ([ADR 0112]) — or `wayland_shell: none` — the
 box is bare: core only, nothing seeded.
+
+**Umbriel — `extras/desktop/umbriel/umbriel.sh`**
+
+Core-only ([ADR 0159]), the Noctalia project's own wlroots
+compositor. AUR-only: `umbriel-git` + `xdg-desktop-portal-umbriel-git`
+come from the adapter's `install-umbriel.jsonc` `aur` list via the
+vetted paru pass; the adapter installs the repo core (`seatd`, the
+GTK fallback portal, `wl-clipboard`), enables seatd and curates the
+packaged session. Stock: `umbriel-pure`, Umbriel's packaged config.
 
 ### Backup — `programs/backup/`
 
@@ -995,3 +1006,4 @@ journalctl -b | grep -i "plasma\|kwin\|sddm"
 [ADR 0111]: ../docs/adr/0111-kde-adapter-seeds-captured-plasma-settings.md
 [ADR 0112]: ../docs/adr/0112-stock-environment-variants.md
 [ADR 0113]: ../docs/adr/0113-close-window-on-meta-x.md
+[ADR 0159]: ../docs/adr/0159-umbriel-adapter-and-default-session.md

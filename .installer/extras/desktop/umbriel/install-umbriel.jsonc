@@ -1,0 +1,21 @@
+// Umbriel adapter AUR list (ADR 0159). Read by the Profiles Runner's paru pass
+// (unioned per selected desktop) — NOT the shared Noctalia preset toggles,
+// which live in ../install-noctalia.jsonc. Only adapter AUR packages here.
+{
+  "aur": {
+    "compositor": {
+      // AUR-only, and -git only: the non-git `umbriel` /
+      // `xdg-desktop-portal-umbriel` are 0.0.0 placeholders until upstream
+      // tags a release (ADR 0159). The portal backs Screencast/Screenshot.
+      "umbriel-git": true,
+      "xdg-desktop-portal-umbriel-git": true
+    },
+    "theming": {
+      // Default cursor, shared with KDE/niri/Hyprland (ADR 0098).
+      "bibata-cursor-git": true,
+      // Qt platform theme for the App Theming Bridge (ADR 0102). Fleet dep
+      // like the cursor — declared on every DE adapter.
+      "qt6ct-kde": true
+    }
+  }
+}
