@@ -177,6 +177,12 @@ load seed-generator-helpers
   [ "$(_seed_generator_session_marker niri)" = "===NIRI-SESSION-OK===" ]
 }
 
+@test "session file/tag: umbriel logs into umbriel.desktop (ADR 0159)" {
+  [ "$(_seed_generator_session_tag umbriel)" = "UMBRIEL" ]
+  [ "$(_seed_generator_session_file umbriel)" = "umbriel.desktop" ]
+  [ "$(_seed_generator_session_marker umbriel)" = "===UMBRIEL-SESSION-OK===" ]
+}
+
 @test "desktop check: kde+hyprland emit both OK/FAIL checks, no single quotes" {
   run _seed_generator_desktop_check kde hyprland
   [ "$status" -eq 0 ]

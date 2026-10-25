@@ -17,7 +17,7 @@ age_key_url=
 hostname=chronos
 fullname=Alex
 console_font=default8x16
-desktop=kde,niri,hyprland
+desktop=umbriel,kde,niri,hyprland
 display_manager=auto
 wayland_shell=noctalia
 dotfiles_repo=
@@ -392,6 +392,13 @@ security	apparmor
 security	clamav
 security	firewalld
 security	rkhunter
+umbriel-aur	bibata-cursor-git
+umbriel-aur	qt6ct-kde
+umbriel-aur	umbriel-git
+umbriel-aur	xdg-desktop-portal-umbriel-git
+umbriel-shell	seatd
+umbriel-shell	wl-clipboard
+umbriel-shell	xdg-desktop-portal-gtk
 user-programs	claude
 user-programs	docker
 user-programs	kitty

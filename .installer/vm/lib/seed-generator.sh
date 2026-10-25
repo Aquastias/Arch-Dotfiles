@@ -95,6 +95,7 @@ _seed_generator_session_tag() {
   kde)      printf 'KDE' ;;
   hyprland) printf 'HYPR' ;;
   niri)     printf 'NIRI' ;;
+  umbriel)  printf 'UMBRIEL' ;;
   esac
 }
 
@@ -107,6 +108,7 @@ _seed_generator_session_file() {
   kde)      printf 'plasma.desktop' ;;
   hyprland) printf 'hyprland.desktop' ;;
   niri)     printf 'niri.desktop' ;;
+  umbriel)  printf 'umbriel.desktop' ;;
   esac
 }
 

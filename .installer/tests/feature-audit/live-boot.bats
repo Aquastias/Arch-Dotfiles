@@ -290,3 +290,38 @@ reset run probes-online collect probes-online" ]
   grep -q 'collector failed to run in the guest: boom here' \
     "$T/boot1/fatal.lines"
 }
+
+# Default Session (ADR 0159): on the first boot, before any login rewrites it,
+# the resolved greeter remembers desktop[0] as its last session.
+_default_session_run() {  # <display-manager> → probe lines
+  _live_default_session_script umbriel "$1" | FA_ROOT="$T/root" bash
+}
+
+@test "default-session: noctalia-greeter remembering desktop[0] passes" {
+  mkdir -p "$T/root/var/lib/noctalia-greeter"
+  printf '[session]\nlast = "umbriel"\n' \
+    > "$T/root/var/lib/noctalia-greeter/sync.toml"
+  run _default_session_run noctalia-greeter
+  [[ "$output" == "PASS default-session "* ]]
+}
+
+@test "default-session: SDDM remembering another session fails" {
+  mkdir -p "$T/root/var/lib/sddm"
+  printf '[Last]\nSession=/usr/share/wayland-sessions/plasma.desktop\n' \
+    > "$T/root/var/lib/sddm/state.conf"
+  run _default_session_run sddm
+  [[ "$output" == "FAIL default-session "* ]]
+}
+
+@test "default-session: tuigreet remembering desktop[0] passes" {
+  mkdir -p "$T/root/var/cache/tuigreet"
+  printf '/usr/local/share/wayland-sessions/umbriel.desktop' \
+    > "$T/root/var/cache/tuigreet/lastsession-path"
+  run _default_session_run greetd
+  [[ "$output" == "PASS default-session "* ]]
+}
+
+@test "default-session: no display manager is a SKIP" {
+  run _default_session_run none
+  [[ "$output" == "SKIP default-session "* ]]
+}

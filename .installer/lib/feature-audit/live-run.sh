@@ -192,6 +192,8 @@ _live_bring_up_variant() {
 # rc 1 when a reboot phase loses the VM.
 _live_run_phases() {
   local directory="$1" config="$2"
+  # first, while the greeter still holds its install-time state (ADR 0159)
+  feature_audit_phase_default_session "$directory" "$config"
   feature_audit_phase_wanted "$directory" sessions \
     && feature_audit_phase_sessions "$directory" "$config"
   feature_audit_phase_wanted "$directory" probes \

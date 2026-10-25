@@ -114,6 +114,48 @@ feature_audit_phase_boot2() {
   feature_audit_collect "$directory"
 }
 
+# _live_default_session_script <session-id> <display-manager|detect> — the
+# Default Session proof (ADR 0159): the greeter remembers desktop[0]'s session
+# entry as its last one. `detect` reads the enabled greeter on the guest.
+# FA_ROOT prefixes the guest paths (tests).
+_live_default_session_script() {
+  cat "$INSTALLER_DIR/lib/feature-audit/probe-lib.sh"
+  printf 'ID=%q DM=%q\n' "$1" "$2"
+  cat <<'SH'
+R="${FA_ROOT:-}"
+if [ "$DM" = detect ]; then
+  DM="$(readlink "$R/etc/systemd/system/display-manager.service")"
+  DM="${DM##*/}"; DM="${DM%.service}"
+  [ "$DM" = greetd ] && grep -q noctalia-greeter "$R/etc/greetd/config.toml" \
+    && DM=noctalia-greeter
+fi
+case "$DM" in
+  noctalia-greeter)
+    grep -qx "last = \"$ID\"" "$R/var/lib/noctalia-greeter/sync.toml" ;;
+  greetd) grep -q "/$ID\.desktop\$" "$R/var/cache/tuigreet/lastsession-path" ;;
+  sddm) grep -qx "Session=.*/$ID\.desktop" "$R/var/lib/sddm/state.conf" ;;
+  *) feature_audit_skip default-session "no display manager"; exit 0 ;;
+esac 2>/dev/null \
+  && feature_audit_pass default-session "the $DM greeter preselects $ID" \
+  || feature_audit_fail default-session "the $DM greeter does not remember $ID"
+SH
+}
+
+# feature_audit_phase_default_session <variant-dir> <cfg> — on the first boot,
+# before the sessions phase logs in (SDDM rewrites its last session on every
+# login), prove the greeter preselects the Default Session.
+feature_audit_phase_default_session() {
+  local directory="$1/boot1" session
+  # the same desktop → session-entry map the Display Manager Adapters seed
+  # shellcheck source=../chroot/default-session.sh
+  source "$INSTALLER_DIR/lib/chroot/default-session.sh"
+  session="$(ENVIRONMENT_DESKTOP="$(feature_audit_desktops "$2")" \
+    default_session_id)" || return 0
+  _live_default_session_script "$session" detect \
+    | feature_audit_agent sudo \
+    > "$directory/probe-default-session@root.probe" 2>&1 || true
+}
+
 # feature_audit_phase_power <variant-dir> — ACPI suspend-to-RAM and wake (the VM
 # is created with S3/S4, VM_PM): the guest suspends itself, the host waits for
 # `pmsuspended`, wakes it and proves it came back. Hibernation needs a resume

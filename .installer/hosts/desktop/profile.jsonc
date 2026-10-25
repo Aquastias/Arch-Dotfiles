@@ -37,7 +37,8 @@
   },
 
   "environment": {
-    "desktop": ["kde", "niri", "hyprland"],
+    // Element 0 is the Default Session a fresh login lands on (ADR 0159).
+    "desktop": ["umbriel", "kde", "niri", "hyprland"],
     "gpu":     "auto"
   },
 

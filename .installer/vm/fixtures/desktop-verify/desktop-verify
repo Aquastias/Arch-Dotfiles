@@ -55,6 +55,7 @@ case "$session" in
   plasma*)   proc=kwin_wayland ;;
   hyprland*) proc=Hyprland ;;
   niri*)     proc=niri ;;
+  umbriel*)  proc=umbriel ;;
   *)         proc="" ;;
 esac
 
