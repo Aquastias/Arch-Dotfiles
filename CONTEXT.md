@@ -1145,10 +1145,11 @@ Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
 niri and Hyprland share `install-noctalia.jsonc` for the [[Wayland Shell
 Companion]] toggles — [ADR 0097]). Invoked
 dynamically by the Environment Runner based on `environment.desktop`. KDE,
-Hyprland, and niri are the three adapters ([ADR 0090]). Each adapter owns every
-DE-tied package (apps, Qt plugins, AUR theming bridges) **and every DE-tied
-config default**: it installs its repo packages via pacman, writes its session
-files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
+Hyprland, niri and Umbriel are the four adapters ([ADR 0090]). Each adapter
+owns every DE-tied package (apps, Qt plugins, AUR theming bridges) **and
+every DE-tied config default**: it installs its repo packages via pacman,
+writes its session files (and, for Hyprland and Umbriel, enables seatd),
+enables its services, and — for KDE —
 seeds the DE's look and per-app state into `/etc/skel` so a fresh login is
 ready, not first-run ([ADR 0088]). Since [ADR 0111] the KDE look/state seed is
 the operator's **captured Plasma settings** — a curated, konsave-style set of
@@ -1184,23 +1185,25 @@ directory — no runner code changes.
 
 The **niri adapter** is core-only like Hyprland but leaner: the `niri` package
 ships its own session file + `niri-session` and pulls `seatd`, so it authors no
-launcher shim and no aquamarine DRM pin ([ADR 0090]). Both the niri and Hyprland
-adapters layer the same [[Wayland Shell Companion]], selected via
+launcher shim and no aquamarine DRM pin ([ADR 0090]). The **Umbriel adapter**
+is the Noctalia project's own compositor, AUR-only (`umbriel-git`). The niri,
+Hyprland and Umbriel adapters layer the same [[Wayland Shell Companion]],
+selected via
 `environment.wayland_shell` — the shared preset logic lives in
-`lib/chroot/noctalia-preset.sh`, sourced by both ([ADR 0097]).
+`lib/chroot/noctalia-preset.sh`, sourced by all three ([ADR 0097]).
 
 ### Wayland Shell Companion
-The Noctalia desktop shell as the shared, menu-visible layer on **both** the
-niri and Hyprland installs — one environment, only the compositor differing (ADR
-0097). Selected via `environment.wayland_shell` (`noctalia` | `none`, default
-`noctalia`; meaningful for any wlroots compositor in the desktop set — renamed
-from `niri_shell` by [ADR 0097]). `none` = truly bare compositor, seeding
-nothing — symmetric for both (the operator's dotfiles own it). `noctalia` = the
-**prepared work preset**: the `noctalia` package (v5, `extra` repo — one package
-for bar, launcher, notifications, clipboard history, control center, lock,
-wallpaper, OSD) plus the session-completing gaps `kitty` + `brightnessctl`.
-Since [ADR 0093] the preset is **enriched by default** with a curated,
-overlap-free plugin set — `keymap`, `sharednd`, `screen-toolkit`,
+The Noctalia desktop shell as the shared, menu-visible layer on **every**
+wlroots compositor install (niri, Hyprland, Umbriel) — one environment, only
+the compositor differing ([ADR 0097]). Selected via `environment.wayland_shell`
+(`noctalia` | `none`, default `noctalia`; meaningful for any wlroots compositor
+in the desktop set — renamed from `niri_shell` by [ADR 0097]). `none` = truly
+bare compositor, seeding nothing — symmetric for all (the operator's dotfiles
+own it). `noctalia` = the **prepared work preset**: the `noctalia` package (v5,
+`extra` repo — one package for bar, launcher, notifications, clipboard history,
+control center, lock, wallpaper, OSD) plus the session-completing gaps `kitty` +
+`brightnessctl`. Since [ADR 0093] the preset is **enriched by default** with a
+curated, overlap-free plugin set — `keymap`, `sharednd`, `screen-toolkit`,
 `wl-screen-mirror`, `arch-updater`, `procmon`, `audio-switcher`, `file-search`,
 `shell-command`, `ssh-launcher`, `custom-shortcut`, `udiskie`, `todo`,
 `drive-health`, `eyecare`, `gamer-mode`, `cat`, `wallpaper-switcher`, plus
@@ -1645,6 +1648,13 @@ Plasma work. Under impermanence the same display-manager login is used — no tt
 autologin — with the enablement mirrored onto the never-rolled-back `/usr/lib`
 tree via the DM-agnostic `display-manager.service` alias so it survives the
 rolled-back root ([ADR 0061]).
+
+### Default Session
+The desktop a fresh login lands on: element 0 of `environment.desktop`, the
+same element-0-is-default convention as `locale`/`keymap` ([ADR 0159]). A
+first-boot preselect, never a lock — every [[Display Manager Adapter]] seeds
+it as the remembered last session, so the operator's next pick wins. The
+Guided desktop row marks it. _Avoid_: default desktop, primary DE.
 
 ### Display Manager Adapter
 Script at `extras/dm/<name>/<name>.sh`, invoked by the Environment Runner after
@@ -2550,5 +2560,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0156]: docs/adr/0156-agent-session-guardrails.md
 [ADR 0157]: docs/adr/0157-neutral-core-personal-software-in-fleet-layer.md
 [ADR 0158]: docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
+[ADR 0159]: docs/adr/0159-umbriel-adapter-and-default-session.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
