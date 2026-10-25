@@ -66,7 +66,7 @@ feature_audit_bind_gate() {
   if [[ "$(install_config_from_json "$config" stock)" == true ]]; then
     echo "stock install: our binds are not deployed (ADR 0112)"; return 0
   fi
-  if [[ "$desktop" == niri || "$desktop" == hyprland ]] \
+  if install_config_is_wlroots_desktop "$desktop" \
      && [[ "$(install_config_from_json "$config" wayland_shell)" == none ]]
   then
     echo "no Wayland shell: bare $desktop, no seeded config"; return 0

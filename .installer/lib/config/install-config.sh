@@ -361,5 +361,18 @@ install_config_kernel() {
   install_config_kernels | awk 'NR == 1 { print; exit }'
 }
 
+# The wlroots compositors: the desktops the Wayland Shell Companion layers on
+# (ADR 0097). The one owner of the set; every "is it wlroots?" asks here.
+_INSTALL_CONFIG_WLROOTS_DESKTOPS=(hyprland niri)
+
+# install_config_is_wlroots_desktop <desktop> — rc 0 for a wlroots compositor.
+install_config_is_wlroots_desktop() {
+  local desktop
+  for desktop in "${_INSTALL_CONFIG_WLROOTS_DESKTOPS[@]}"; do
+    [[ "$1" == "$desktop" ]] && return 0
+  done
+  return 1
+}
+
 # shellcheck source=./install-config-groups.sh
 source "${BASH_SOURCE[0]%/*}/install-config-groups.sh"
