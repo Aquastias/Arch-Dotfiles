@@ -4,11 +4,11 @@
 # =============================================================================
 # The Desktop Environment Adapters' own derived sets for the Package Resolver:
 # KDE from its install-kde.jsonc (ADR 0021); niri and Hyprland share the pure
-# Noctalia preset keyed on environment.wayland_shell (ADR 0090/0097); Umbriel
-# its repo core + AUR compositor (ADR 0159). Read from the same lists + bools
-# the adapters install from, so query and install cannot drift. Also the
-# display-manager set, derived from the desktop set and the effective shell
-# (ADR 0069/0158).
+# Noctalia preset keyed on environment.wayland_shell (ADR 0090/0097), as does
+# Umbriel, plus its repo core + AUR compositor (ADR 0159). Read from the same
+# lists + bools the adapters install from, so query and install cannot drift.
+# Also the display-manager set, derived from the desktop set and the effective
+# shell (ADR 0069/0158).
 #
 # Used by: lib/packages/package-resolver.sh (sources it; uses its
 # _package_resolver_emit / _package_resolver_jq).
@@ -31,7 +31,7 @@ _package_resolver_desktop_packages() {
     return 0
   fi
   if [[ "$desktop" == umbriel ]]; then
-    _package_resolver_umbriel_packages
+    _package_resolver_umbriel_packages "$config"
     return 0
   fi
   local adapter_file
@@ -174,11 +174,13 @@ _package_resolver_niri_packages() {
   _package_resolver_noctalia_preset "$1" noctalia_niri_plugins
 }
 
-# _package_resolver_umbriel_packages — Umbriel's derived sets (ADR 0159): the
-# pure repo core map (shared with the adapter) and the adapter's `aur` list,
-# which carries the compositor itself.
+# _package_resolver_umbriel_packages <config> — Umbriel's derived sets (ADR
+# 0159): the pure repo core map (shared with the adapter), the shared Noctalia
+# preset with the (empty) Umbriel slice, and the adapter's `aur` list, which
+# carries the compositor itself.
 _package_resolver_umbriel_packages() {
   _package_resolver_emit_from umbriel-shell umbriel_core_packages
+  _package_resolver_noctalia_preset "$1" noctalia_umbriel_plugins
   local adapter_file="${INSTALLER_DIR:-}/extras/desktop/umbriel"
   adapter_file+="/install-umbriel.jsonc"
   [[ -f "$adapter_file" ]] || return 0

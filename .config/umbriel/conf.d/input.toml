@@ -1,0 +1,26 @@
+# Input devices (ADR 0100). Mirrors niri/conf.d/input.kdl: tap-to-click,
+# natural scroll and disable-while-typing on touchpads; a standard US board.
+# No [output.*] tables on purpose — display scale/mode is host-specific and
+# kept out of the portable curated config (ADR 0094).
+[input.keyboard]
+layout = "us"
+repeat_delay = 600
+repeat_rate = 25
+
+[input.touchpad]
+tap = true
+natural_scroll = true
+disable_while_typing = true
+click_method = "clickfinger"
+accel_profile = "adaptive"
+
+# Default cursor: Bibata Modern Ice, the fleet default (ADR 0098). Umbriel
+# also announces it to X11 apps through XSETTINGS.
+[input.cursor]
+theme = "Bibata-Modern-Ice"
+size = 24
+
+# Click-to-focus (ADR 0147): focus stays put until a click, so menus survive
+# the pointer crossing another window. Umbriel's default, pinned explicitly.
+[input.focus]
+follows_mouse = false

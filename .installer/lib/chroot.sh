@@ -380,11 +380,12 @@ _chroot_copy_extras() {
   # Stage the curated niri/Noctalia dotfiles (single source: the repo's
   # .config/.local) into the niri adapter so it seeds /etc/skel (ADR 0095) —
   # the extras tree is all the chroot adapter can reach. Same single-source
-  # staging for Hyprland (ADR 0097): it seeds the SAME Noctalia payload, so a
-  # Hyprland+Noctalia box gets a config.toml byte-identical to the niri one.
-  # Harmless when a compositor isn't chosen.
+  # staging for Hyprland (ADR 0097) and Umbriel (ADR 0159): each seeds the SAME
+  # Noctalia payload, so every Noctalia box gets a config.toml byte-identical
+  # to the niri one. Harmless when a compositor isn't chosen.
   _chroot_stage_curated_compositor niri niri/config.kdl
   _chroot_stage_curated_compositor hyprland hypr/hyprland.lua
+  _chroot_stage_curated_compositor umbriel umbriel/config.toml
   info "Copied extras/ → /root/extras/"
 }
 

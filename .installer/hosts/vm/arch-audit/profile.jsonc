@@ -46,7 +46,7 @@
   },
 
   "environment": {
-    "desktop":       ["kde", "niri", "hyprland"],
+    "desktop":       ["kde", "niri", "hyprland", "umbriel"],
     "wayland_shell": "noctalia",
     "gpu":           "auto",
     "stock":         false

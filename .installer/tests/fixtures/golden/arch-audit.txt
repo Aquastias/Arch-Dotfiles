@@ -17,7 +17,7 @@ age_key_url=http://192.168.122.1:9876/key.age
 hostname=
 fullname=Alex
 console_font=default8x16
-desktop=kde,niri,hyprland
+desktop=kde,niri,hyprland,umbriel
 display_manager=auto
 wayland_shell=noctalia
 dotfiles_repo=
@@ -406,6 +406,13 @@ security	apparmor
 security	clamav
 security	firewalld
 security	rkhunter
+umbriel-aur	bibata-cursor-git
+umbriel-aur	qt6ct-kde
+umbriel-aur	umbriel-git
+umbriel-aur	xdg-desktop-portal-umbriel-git
+umbriel-shell	seatd
+umbriel-shell	wl-clipboard
+umbriel-shell	xdg-desktop-portal-gtk
 user-programs	claude
 user-programs	docker
 user-programs	kitty

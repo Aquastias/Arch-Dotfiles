@@ -1212,7 +1212,8 @@ curated, overlap-free plugin set — `keymap`, `sharednd`, `screen-toolkit`,
 Compositor-specific plugins ship as a **per-compositor slice** ([ADR 0097]): the
 `niri-*` set (`niri-active-workspace`, `niri-animations`, `niri-displays`) on
 niri, the `hypr-*` set (`hypr-layout-switcher`, `hypr-submap`,
-`hypr-screen-mirror`) on Hyprland — same features, compositor-native backend.
+`hypr-screen-mirror`) on Hyprland — same features, compositor-native backend;
+Umbriel's slice is empty (Noctalia drives it natively — [ADR 0159]).
 Since [ADR 0094] the curated config is **single-source stow payload** at the
 repo root — the niri `config.kdl` glue (autostart `noctalia --daemon`; split
 into `conf.d/` part-files since [ADR 0107]), the `config.toml` look (Catppuccin

@@ -1,0 +1,22 @@
+# Look + feel (ADR 0100). Mirrors niri/conf.d/appearance.kdl. Colors stay
+# Noctalia's to own via its `umbriel` theme template (noctalia.toml), so no
+# border colors are hardcoded here.
+
+# No keybind cheatsheet on first login, like niri's skipped hotkey overlay.
+[general]
+show_cheatsheet = false
+
+# Minimal layout: niri's scrolling columns, gaps and width cycle (Mod+R walks
+# the presets).
+[layout]
+mode = "scrolling"
+gap = 16
+extent_presets = [0.333, 0.5, 0.667]
+
+[layout.scrolling]
+default_extent_fraction = 0.5
+center_focused = "never"
+
+# Rounded corners on every window, the same radius niri and Hyprland use.
+[appearance]
+corner_radius = 10

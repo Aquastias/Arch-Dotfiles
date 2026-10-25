@@ -356,10 +356,11 @@ EOF
 # the curated dir) and chroot.sh must STAGE it into that dir, on both adapters.
 @test "preset seeds qt6ct.conf so a fresh box themes Qt apps (ADR 0108)" {
   grep -q '\.config/qt6ct/qt6ct.conf' "$PRESET" "$SKEL"
-  # staged into BOTH adapters' curated dirs (niri + hyprland) by the shared
+  # staged into every wlroots adapter's curated dir by the shared
   # curated-payload helper.
   grep -q '_chroot_stage_curated_compositor niri ' "$CHROOT"
   grep -q '_chroot_stage_curated_compositor hyprland ' "$CHROOT"
+  grep -q '_chroot_stage_curated_compositor umbriel ' "$CHROOT"
   grep -q 'qt6ct/qt6ct.conf' "$CHROOT"
 }
 

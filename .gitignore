@@ -26,6 +26,8 @@
 .zsh/themes/
 # Kitty theme file is Noctalia-generated/seed-only — never stowed (ADR 0130/0104)
 .config/kitty/themes/
+# Umbriel palette include is Noctalia-generated — never stowed (ADR 0159)
+.config/umbriel/noctalia.toml
 # Nvim theme file is Noctalia-generated/seed-only — never stowed (ADR 0136)
 .installer/programs/dev/nvim/home/.config/nvim/themes/
 .installer/.audit-runs/

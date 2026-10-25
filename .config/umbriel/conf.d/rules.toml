@@ -1,0 +1,14 @@
+# Layer rules (ADR 0100): blur behind Noctalia's bar, panels, OSD and
+# notifications, as Noctalia's Umbriel guide recommends (its one pattern split
+# in two). Window rounding is appearance.corner_radius, not a rule as on niri.
+[[layer_rule]]
+match.namespace = "^noctalia-bar-"
+blur = true
+blur_ignore_alpha = 0.6
+blur_optimized = false
+
+[[layer_rule]]
+match.namespace = "^noctalia-(notification|dock|panel|attached-panel|osd)$"
+blur = true
+blur_ignore_alpha = 0.6
+blur_optimized = false

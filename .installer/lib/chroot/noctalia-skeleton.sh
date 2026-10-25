@@ -52,7 +52,8 @@ _noctalia_skeleton_seed_compositor_config() {
   # TYPE — injected here, NOT shipped in the stow'd config — so real hardware
   # keeps the optimal hardware cursor. Appended to the conf.d/environment
   # part-file (branch on suffix) so the seeded manifest stays pure (ADR 0107):
-  # niri a debug{} block, Hyprland an hl.config cursor (Lua, ADR 0105).
+  # niri a debug{} block, Hyprland an hl.config cursor (Lua, ADR 0105), Umbriel
+  # an [input.cursor] table.
   # (Harmless if detect-virt is unavailable — no-ops, real-HW config stands.)
   if systemd-detect-virt --vm --quiet 2>/dev/null; then
     local _current_extension="${config_destination##*.}"
@@ -63,6 +64,10 @@ _noctalia_skeleton_seed_compositor_config() {
       printf '\ndebug {\n    disable-cursor-plane\n}\n' >> "$_current_target" ;;
     lua)
       printf '\nhl.config({ cursor = { no_hardware_cursors = true } })\n' \
+        >> "$_current_target" ;;
+    # Umbriel (ADR 0159): its own table, merged by key with input.toml's.
+    toml)
+      printf '\n[input.cursor]\nhardware_cursor = false\n' \
         >> "$_current_target" ;;
     esac
     info "VM detected — SW-cursor override seeded into ${_current_target##*/}."

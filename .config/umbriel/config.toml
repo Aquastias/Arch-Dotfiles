@@ -1,0 +1,22 @@
+# Umbriel glue for the Noctalia work shell — stow-owned dotfile (ADR 0094/0159),
+# skel-seeded by the installer (ADR 0095). Autostarts Noctalia and carries the
+# shared niri↔Hyprland↔Umbriel look and binds (ADR 0096), so switching
+# compositors feels like home. Noctalia owns its own look (its config.toml).
+#
+# This entry file is a pure manifest (ADR 0107): every setting lives in a
+# conf.d/ part-file, mirrored with ~/.config/niri/conf.d/. Includes apply in
+# list order, tables merge by key. Check edits with `umbriel config validate`.
+[include]
+files = [
+  "conf.d/environment.toml",
+  "conf.d/input.toml",
+  "conf.d/appearance.toml",
+  "conf.d/autostart.toml",
+  "conf.d/rules.toml",
+]
+
+# Noctalia's `umbriel` theme template renders the live palette here. Its
+# post-hook rewrites this file unless the line below already reads exactly so,
+# which would write through the stow link into the repo: keep it verbatim.
+[include.optional]
+files = ["noctalia.toml"]

@@ -76,6 +76,11 @@ noctalia_hyprland_plugins() {
   printf '%s\n' hypr-layout-switcher hypr-submap hypr-screen-mirror
 }
 
+# noctalia_umbriel_plugins — the Umbriel compositor slice (ADR 0159): empty.
+# Noctalia drives Umbriel natively (workspaces, keyboard, audio provider), and
+# no umbriel-* plugin exists at the pinned community ref.
+noctalia_umbriel_plugins() { :; }
+
 # noctalia_laptop_plugins — the laptop-gated battery plugins (ADR 0093), added
 # to the enriched set only on a machine with a battery. battery-power-management
 # already does charge-limit + profiles + draw, so battery-threshold is not

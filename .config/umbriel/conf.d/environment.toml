@@ -1,0 +1,10 @@
+# Session environment (ADR 0102). Mirrors niri/conf.d/environment.kdl. Umbriel
+# publishes [environment] to the systemd user manager too, so Noctalia (a
+# session service) and spawned apps both see it.
+[environment]
+# Route Qt apps through qt6ct so they follow Noctalia's palette — App Theming
+# Bridge (ADR 0102). Set per compositor, as niri and Hyprland do.
+QT_QPA_PLATFORMTHEME = "qt6ct"
+# Hide kitty's decorations on a tiling compositor; read by kitty's
+# `envinclude`. KDE never sets this (ADR 0130).
+KITTY_DECORATIONS = "hide_window_decorations yes"
