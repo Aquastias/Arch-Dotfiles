@@ -1,0 +1,153 @@
+# Keybinds (ADR 0096). Mirrors niri/conf.d/keybinds.kdl action-for-action on
+# the shared keys; hardware media keys live in media.toml. Declaring
+# [keybinds] replaces Umbriel's built-in set, so every bind is listed here.
+[keybinds]
+# ── Shared vocabulary (matches niri + Hyprland) ──
+# Apps: terminal, close, launcher, file manager, lock, quit. Close is Mod+X
+# across KDE, niri, Hyprland and Umbriel (ADR 0113); Mod+Q is freed.
+"Mod+Return" = "spawn:kitty"
+"Mod+X" = { action = "window-close", repeat = false }
+"Mod+D" = "spawn:noctalia msg panel-toggle launcher"
+"Mod+E" = "spawn:pcmanfm-qt"
+"Mod+Alt+L" = "spawn:noctalia msg session lock"
+"Mod+Shift+E" = "session-quit"
+"Ctrl+Alt+Delete" = "session-quit"
+"Mod+Shift+Slash" = "cheatsheet-toggle"
+
+# Window state.
+"Mod+F" = "window-toggle-fullscreen"
+"Mod+V" = "window-toggle-floating"
+"Mod+Shift+V" = "window-focus-switch-floating"
+
+# Focus: columns left/right, windows in a column up/down (as niri).
+"Mod+Left" = "window-focus-left"
+"Mod+Right" = "window-focus-right"
+"Mod+Up" = "window-focus-up"
+"Mod+Down" = "window-focus-down"
+"Mod+H" = "window-focus-left"
+"Mod+L" = "window-focus-right"
+"Mod+K" = "window-focus-up"
+"Mod+J" = "window-focus-down"
+
+# Move the focused column / window (Mod+Ctrl).
+"Mod+Ctrl+Left" = "column-move-left"
+"Mod+Ctrl+Right" = "column-move-right"
+"Mod+Ctrl+Up" = "window-move-up"
+"Mod+Ctrl+Down" = "window-move-down"
+"Mod+Ctrl+H" = "column-move-left"
+"Mod+Ctrl+L" = "column-move-right"
+"Mod+Ctrl+K" = "window-move-up"
+"Mod+Ctrl+J" = "window-move-down"
+
+# Workspaces by number 1-9.
+"Mod+1" = "workspace-switch:1"
+"Mod+2" = "workspace-switch:2"
+"Mod+3" = "workspace-switch:3"
+"Mod+4" = "workspace-switch:4"
+"Mod+5" = "workspace-switch:5"
+"Mod+6" = "workspace-switch:6"
+"Mod+7" = "workspace-switch:7"
+"Mod+8" = "workspace-switch:8"
+"Mod+9" = "workspace-switch:9"
+
+# Move the column to a workspace: Mod+Shift (the Hyprland habit) and Mod+Ctrl
+# (niri's default), both kept so either reflex works.
+"Mod+Shift+1" = "column-move-to-workspace:1"
+"Mod+Shift+2" = "column-move-to-workspace:2"
+"Mod+Shift+3" = "column-move-to-workspace:3"
+"Mod+Shift+4" = "column-move-to-workspace:4"
+"Mod+Shift+5" = "column-move-to-workspace:5"
+"Mod+Shift+6" = "column-move-to-workspace:6"
+"Mod+Shift+7" = "column-move-to-workspace:7"
+"Mod+Shift+8" = "column-move-to-workspace:8"
+"Mod+Shift+9" = "column-move-to-workspace:9"
+"Mod+Ctrl+1" = "column-move-to-workspace:1"
+"Mod+Ctrl+2" = "column-move-to-workspace:2"
+"Mod+Ctrl+3" = "column-move-to-workspace:3"
+"Mod+Ctrl+4" = "column-move-to-workspace:4"
+"Mod+Ctrl+5" = "column-move-to-workspace:5"
+"Mod+Ctrl+6" = "column-move-to-workspace:6"
+"Mod+Ctrl+7" = "column-move-to-workspace:7"
+"Mod+Ctrl+8" = "column-move-to-workspace:8"
+"Mod+Ctrl+9" = "column-move-to-workspace:9"
+
+# Screenshots on niri's keys, through Noctalia's capture (Umbriel has none of
+# its own). Not Alt+Print: the kernel's magic-SysRq filter swallows it.
+"Print" = "spawn:noctalia msg screenshot-region"
+"Ctrl+Print" = "spawn:noctalia msg screenshot-fullscreen"
+"Shift+Print" = "spawn:noctalia msg screenshot-window"
+
+# ── Scrolling power features (niri's keys, ADR 0096) ──
+"Mod+O" = { action = "overview-toggle", repeat = false }
+"Mod+R" = "window-cycle-primary-extent"
+"Mod+Shift+R" = "window-cycle-primary-extent-back"
+"Mod+M" = "window-toggle-maximize-to-edges"
+"Mod+C" = "column-center"
+"Mod+Minus" = "window-modify-primary-extent:-0.1"
+"Mod+Equal" = "window-modify-primary-extent:0.1"
+"Mod+Shift+Minus" = "window-modify-secondary-extent:-0.1"
+"Mod+Shift+Equal" = "window-modify-secondary-extent:0.1"
+"Mod+W" = "column-toggle-tabbed"
+
+# Build and break columns.
+"Mod+BracketLeft" = "window-consume-or-expel-left"
+"Mod+BracketRight" = "window-consume-or-expel-right"
+"Mod+Comma" = "window-consume-from-right"
+"Mod+Period" = "window-consume-or-expel-right"
+
+# Workspace navigation along the vertical stack.
+"Mod+Page_Down" = "workspace-next"
+"Mod+Page_Up" = "workspace-previous"
+"Mod+U" = "workspace-next"
+"Mod+I" = "workspace-previous"
+"Mod+Ctrl+Page_Down" = "column-move-to-workspace-next"
+"Mod+Ctrl+Page_Up" = "column-move-to-workspace-previous"
+"Mod+Ctrl+U" = "column-move-to-workspace-next"
+"Mod+Ctrl+I" = "column-move-to-workspace-previous"
+"Mod+Shift+Page_Down" = "workspace-move-down"
+"Mod+Shift+Page_Up" = "workspace-move-up"
+"Mod+Shift+U" = "workspace-move-down"
+"Mod+Shift+I" = "workspace-move-up"
+
+# Multi-monitor: focus (Mod+Shift), move a column across (add Ctrl).
+"Mod+Shift+Left" = "output-focus-left"
+"Mod+Shift+Right" = "output-focus-right"
+"Mod+Shift+Up" = "output-focus-up"
+"Mod+Shift+Down" = "output-focus-down"
+"Mod+Shift+H" = "output-focus-left"
+"Mod+Shift+L" = "output-focus-right"
+"Mod+Shift+K" = "output-focus-up"
+"Mod+Shift+J" = "output-focus-down"
+"Mod+Shift+Ctrl+Left" = "column-move-to-output-left"
+"Mod+Shift+Ctrl+Right" = "column-move-to-output-right"
+"Mod+Shift+Ctrl+Up" = "column-move-to-output-up"
+"Mod+Shift+Ctrl+Down" = "column-move-to-output-down"
+"Mod+Shift+Ctrl+H" = "column-move-to-output-left"
+"Mod+Shift+Ctrl+L" = "column-move-to-output-right"
+"Mod+Shift+Ctrl+K" = "column-move-to-output-up"
+"Mod+Shift+Ctrl+J" = "column-move-to-output-down"
+
+# Blank the monitors; any input wakes them.
+"Mod+Shift+P" = "dpms-off"
+
+
+# ── Umbriel-only (keys the shared map leaves free, ADR 0159) ──
+# Scratchpad on Hyprland's special-workspace keys: Mod+S shows/hides it,
+# Mod+Shift+S moves the focused window in or out, Mod+Tab cycles its windows.
+"Mod+S" = "scratchpad-toggle"
+"Mod+Shift+S" = "window-toggle-scratchpad"
+"Mod+Tab" = "scratchpad-focus-next"
+# Tab groups (Mod+W makes one): walk the tabs of the focused column.
+"Mod+Alt+Right" = "column-focus-tab-next"
+"Mod+Alt+Left" = "column-focus-tab-previous"
+# Pin a window above every workspace of its output (Umbriel's default key).
+"Mod+P" = "window-toggle-pinned"
+# Cycle the workspace layout: scrolling, dwindle, master, floating.
+"Mod+T" = "workspace-set-layout:toggle"
+
+# Escape hatch: an app inhibiting shortcuts never holds the session hostage.
+# A sub-table (TOML inline tables cannot wrap), so it closes the file.
+[keybinds."Mod+Escape"]
+action = "shortcuts-inhibit-toggle"
+allow_when_inhibited = true
+repeat = false

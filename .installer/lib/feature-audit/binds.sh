@@ -46,6 +46,7 @@ _X=.installer/extras/desktop _P=.installer/programs
 declare -gA FA_BIND_SOURCES=(  # readability-ok: FA_ is the frozen env namespace
   [niri]="niri|.config/niri/conf.d/*.kdl|$_X/niri"
   [hyprland]="hyprland|.config/hypr/conf.d/*.lua|$_X/hyprland"
+  [umbriel]="umbriel|.config/umbriel/conf.d/*.toml|$_X/umbriel"
   [kde]="kde|$_X/kde/skel/.config/kglobalshortcutsrc|$_X/kde"
   [nvim]="-|find:$_P/dev/nvim/home/.config/nvim:*.lua|$_P/dev/nvim"
   [kitty]="*|$_P/system/kitty/home/.config/kitty/conf/*.conf|$_P/system/kitty"
@@ -110,6 +111,43 @@ _binds_parse_niri() {
   ' "$@"
 }
 
+# _binds_parse_umbriel <file…> — TOML `[keybinds]` (ADR 0159): a plain
+# `"chord" = "action"`, an inline `{ action = "…", … }`, or a
+# `[keybinds."chord"]` sub-table whose `action` key holds it.
+_binds_parse_umbriel() {
+  awk '
+    function unquote(text) { gsub(/^[[:space:]"]+|["[:space:]]+$/, "", text)
+      return text }
+    function action_of(text) {
+      if (text ~ /^[[:space:]]*\{/) {
+        sub(/^.*action[[:space:]]*=[[:space:]]*"/, "", text)
+        sub(/".*$/, "", text); return text
+      }
+      return unquote(text)
+    }
+    /^[[:space:]]*#/ { next }
+    { sub(/[[:space:]]+#[^"]*$/, "") }
+    /^[[:space:]]*\[/ {
+      table = $0; gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", table)
+      section = ""; chord = ""
+      if (table == "keybinds") section = "plain"
+      else if (table ~ /^keybinds\./) {
+        section = "sub"; chord = table; sub(/^keybinds\./, "", chord)
+        chord = unquote(chord)
+      }
+      next
+    }
+    section == "plain" && /^[[:space:]]*"/ {
+      key = $0; sub(/^[[:space:]]*"/, "", key); value = key
+      sub(/".*$/, "", key); sub(/^[^"]*"[[:space:]]*=[[:space:]]*/, "", value)
+      printf "umbriel\t%s\t%s\n", key, action_of(value)
+    }
+    section == "sub" && /^[[:space:]]*action[[:space:]]*=/ {
+      value = $0; sub(/^[^=]*=/, "", value)
+      printf "umbriel\t%s\t%s\n", chord, unquote(value)
+    }
+  ' "$@"
+}
 
 # _binds_parse_hyprland <file…> — Lua `hl.bind(<key expr>, hl.dsp.<disp>(…))`:
 # string locals, `..` concatenation and `for i = a, b do … end` are evaluated
@@ -183,6 +221,7 @@ feature_audit_binds_parse() {
   case "$source_name" in
     niri) _binds_parse_niri "$@" ;;
     hyprland) _binds_parse_hyprland "$@" ;;
+    umbriel) _binds_parse_umbriel "$@" ;;
     kde) _binds_parse_kde "$@" ;;
     nvim) _binds_parse_nvim "$@" ;;
     kitty) _binds_parse_kitty "$@" ;;

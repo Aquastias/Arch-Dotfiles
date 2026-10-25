@@ -12,6 +12,8 @@ files = [
   "conf.d/input.toml",
   "conf.d/appearance.toml",
   "conf.d/autostart.toml",
+  "conf.d/keybinds.toml",
+  "conf.d/media.toml",
   "conf.d/rules.toml",
 ]
 

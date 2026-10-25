@@ -31,6 +31,26 @@ setup() {
   [ "$(awk 'END { print NR }' <<<"$output")" -gt 100 ]
 }
 
+# Umbriel (ADR 0159): TOML [keybinds] — plain, inline-table and sub-table forms.
+@test "umbriel parser: one row per bind across every TOML bind form" {
+  run feature_audit_binds_parse umbriel "$FIX/umbriel-binds.toml"
+  [ "$status" -eq 0 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 5 ]
+  grep -qxF $'umbriel\tMod+Return\tspawn:kitty' <<<"$output"
+  grep -qxF $'umbriel\tMod+X\twindow-close' <<<"$output"
+  grep -qxF $'umbriel\tMod+1\tworkspace-switch:1' <<<"$output"
+  grep -qxF $'umbriel\tMod+Escape\tshortcuts-inhibit-toggle' <<<"$output"
+  local mute='spawn:wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle'
+  grep -qxF "umbriel"$'\t'"XF86AudioMute"$'\t'"$mute" <<<"$output"
+}
+
+@test "umbriel parser: the shipped config parses to its binds" {
+  run feature_audit_binds_rows umbriel
+  [ "$status" -eq 0 ]
+  grep -qxF $'umbriel\tMod+X\twindow-close' <<<"$output"
+  [ "$(awk 'END { print NR }' <<<"$output")" -gt 100 ]
+}
+
 @test "plan: chord match wins over action glob; {arg} substitutes" {
   cat > "$BATS_TEST_TMPDIR/b.jsonc" <<'J'
 { "expect": [

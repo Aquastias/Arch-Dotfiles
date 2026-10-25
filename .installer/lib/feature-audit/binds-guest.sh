@@ -7,7 +7,7 @@
 # `feature_audit_binds_state` before/after pair, then
 # `feature_audit_binds_evaluate` judges the declared effect from the two
 # snapshots (ADR 0152). Compositor-aware: niri (`niri msg`), Hyprland
-# (`hyprctl`), KDE (KWin D-Bus + spectacle).
+# (`hyprctl`), Umbriel (`umbriel msg`, ADR 0159), KDE (KWin D-Bus + spectacle).
 #
 # Effects: window-opens <app-re> | window-closes | workspace <n> |
 #   workspace-changes | focus-changes | layout-changes | window-changes
@@ -22,7 +22,7 @@ FA_BIND_CLASS=fa-bind
 
 _binds_guest_compositor() {
   local compositor
-  for compositor in niri Hyprland kwin_wayland; do
+  for compositor in niri Hyprland umbriel kwin_wayland; do
     pgrep -x "$compositor" >/dev/null 2>&1 && { echo "$compositor"; return; }
   done
   echo none
@@ -40,6 +40,11 @@ _binds_guest_windows() {
             'map({id: .address, app: .class, ws: .workspace.id,
                   focused: (.address == $a),
                   geo: {at, size, floating, fullscreen}})' ;;
+    # `active` is seat focus; Umbriel's `focused` is per-workspace memory
+    umbriel) umbriel windows --json 2>/dev/null | jq -c 'map({id,
+            app: .app_id, ws: .workspace, focused: .active,
+            geo: {x, y, w, h, floating, fullscreen, maximized_to_edges,
+                  pinned, column, row, tabbed, scratchpad, visible}})' ;;
     kwin_wayland) _binds_guest_kwin_windows ;;
     *) echo '[]' ;;
   esac
@@ -93,6 +98,10 @@ _binds_guest_workspace() {
     # Hyprland creates a numbered workspace on demand: no clamp
     Hyprland) hyprctl -j activeworkspace 2>/dev/null \
             | jq -c '{idx: .id, id: .id, count: 99}' ;;
+    umbriel) umbriel workspaces --json 2>/dev/null | jq -c '
+            (map(select(.focused))[0]) as $f
+            | {idx: $f.index, id: $f.id,
+               count: (map(select(.output == $f.output)) | length)}' ;;
     kwin_wayland)
       local compositor number
       compositor="$(qdbus6 org.kde.KWin /KWin org.kde.KWin.currentDesktop \
@@ -164,6 +173,7 @@ feature_audit_binds_setup() {
   if [[ "$effect" == workspace && "$argument" == 1 ]]; then
     case "$compositor" in
       niri) _binds_guest_niri focus-workspace-down ;;
+      umbriel) _binds_guest_umbriel workspace-next ;;
       Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = 10 })" ;;
       kwin_wayland) qdbus6 org.kde.KWin /KWin \
         org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
@@ -175,10 +185,15 @@ feature_audit_binds_setup() {
 # _binds_guest_niri <action…> — a niri `msg action`.
 _binds_guest_niri() { niri msg action "$@" >/dev/null 2>&1; }
 
+# _binds_guest_umbriel <action> — an Umbriel `msg` action (one argument after
+# a colon, ADR 0159).
+_binds_guest_umbriel() { umbriel msg "$1" >/dev/null 2>&1; }
+
 # _binds_guest_go_to_workspace <compositor> <n> — focus workspace / desktop n.
 _binds_guest_go_to_workspace() {
   case "$1" in
     niri) _binds_guest_niri focus-workspace "$2" ;;
+    umbriel) _binds_guest_umbriel "workspace-switch:$2" ;;
     Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = $2 })" ;;
     kwin_wayland) qdbus6 org.kde.KWin /KWin \
       org.kde.KWin.setCurrentDesktop "$2" >/dev/null 2>&1 ;;
@@ -202,12 +217,17 @@ _binds_guest_open_test_windows() {
 # stacked, floating, a test window on workspace 2, or starting on workspace 2.
 _binds_guest_arrange() {
   local compositor="$1" needs="$2"
-  [[ "$needs" == *stack* && "$compositor" == niri ]] \
-    && _binds_guest_niri consume-or-expel-window-left \
-      # focused joins the left column
+  # the focused window joins the left column
+  if [[ "$needs" == *stack* ]]; then
+    case "$compositor" in
+      niri) _binds_guest_niri consume-or-expel-window-left ;;
+      umbriel) _binds_guest_umbriel window-consume-or-expel-left ;;
+    esac
+  fi
   if [[ "$needs" == *floating* ]]; then
     case "$compositor" in
       niri) _binds_guest_niri toggle-window-floating ;;
+      umbriel) _binds_guest_umbriel window-toggle-floating ;;
       Hyprland) _binds_guest_hyprland \
         'hl.dsp.window.float({ action = "toggle" })' ;;
     esac
@@ -217,6 +237,8 @@ _binds_guest_arrange() {
     case "$compositor" in
       niri) _binds_guest_niri move-column-to-workspace 2
             _binds_guest_niri focus-workspace 1 ;;
+      umbriel) _binds_guest_umbriel column-move-to-workspace:2
+               _binds_guest_umbriel workspace-switch:1 ;;
       Hyprland)
         _binds_guest_hyprland \
           "hl.dsp.window.move({ workspace = 2, silent = true })"
@@ -257,6 +279,14 @@ _binds_guest_focus_for_directory() {
         left)  _binds_guest_niri focus-column-last ;;
         up)    _binds_guest_niri focus-window-bottom ;;
         down)  _binds_guest_niri focus-window-top ;;
+      esac ;;
+    # a stack is two rows: one step reaches the row with a neighbour
+    umbriel)
+      case "$direction" in
+        right) _binds_guest_umbriel column-focus-first ;;
+        left)  _binds_guest_umbriel column-focus-last ;;
+        up)    _binds_guest_umbriel window-focus-down ;;
+        down)  _binds_guest_umbriel window-focus-up ;;
       esac ;;
     Hyprland)
       # dwindle with 3 windows: A left half, B top-right, C bottom-right
@@ -330,6 +360,7 @@ feature_audit_binds_teardown() {
     [[ -n "$id" ]] || continue
     case "$compositor" in
       niri) niri msg action close-window --id "$id" >/dev/null 2>&1 ;;
+      umbriel) _binds_guest_umbriel "window-close:$id" ;;
       Hyprland) _binds_guest_hyprland \
         "hl.dsp.window.close({ window = \"address:$id\" })" ;;
       kwin_wayland) _binds_guest_kwin_run "workspace.windowList().forEach(

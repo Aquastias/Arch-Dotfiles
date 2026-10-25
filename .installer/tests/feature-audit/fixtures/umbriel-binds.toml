@@ -1,0 +1,19 @@
+# a comment
+[general]
+show_cheatsheet = false
+
+[keybinds]
+"Mod+Return" = "spawn:kitty"
+"Mod+X" = { action = "window-close", repeat = false }  # trailing comment
+"Mod+1" = "workspace-switch:1"
+
+[input.keyboard]
+layout = "us"
+
+[keybinds."Mod+Escape"]
+action = "shortcuts-inhibit-toggle"
+repeat = false
+
+[keybinds.XF86AudioMute]
+action = "spawn:wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+allow_when_locked = true

@@ -49,3 +49,18 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 @test "umbriel skips its cheatsheet so no welcome on first login" {
   grep -qx 'show_cheatsheet = false' "$UMB/conf.d/appearance.toml"
 }
+
+# Close window on Meta+X across every desktop (ADR 0113); Mod+Q is freed.
+@test "umbriel closes the focused window on Mod+X, not Mod+Q (ADR 0113)" {
+  grep -q '^"Mod+X" = .*window-close' "$UMB/conf.d/keybinds.toml"
+  run grep -rq '"Mod+Q"' "$UMB"
+  [ "$status" -ne 0 ]
+}
+
+# Declaring [keybinds] replaces Umbriel's built-in set, so the curated one
+# must carry the launcher and terminal itself.
+@test "umbriel binds the terminal and the Noctalia launcher" {
+  grep -qx '"Mod+Return" = "spawn:kitty"' "$UMB/conf.d/keybinds.toml"
+  grep -qx '"Mod+D" = "spawn:noctalia msg panel-toggle launcher"' \
+    "$UMB/conf.d/keybinds.toml"
+}
