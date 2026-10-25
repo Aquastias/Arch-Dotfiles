@@ -27,7 +27,7 @@ feature_audit_guest_execute() {
 
 _live_compositor_process() {
   case "$1" in niri) echo niri ;; hyprland) echo Hyprland ;;
-    kde) echo kwin_wayland ;; esac
+    umbriel) echo umbriel ;; kde) echo kwin_wayland ;; esac
 }
 
 # _live_send <chord | click:x,y> — one step of a bind's `pre`/`then` list.

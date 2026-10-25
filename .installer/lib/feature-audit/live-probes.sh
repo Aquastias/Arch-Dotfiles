@@ -62,7 +62,7 @@ set -u
 P=/tmp/fa-probes; O=/tmp/fa-probe-out
 rm -rf "$O"; mkdir -p "$O"
 sess=none
-for c in niri Hyprland kwin_wayland; do
+for c in niri Hyprland umbriel kwin_wayland; do
   pgrep -x "$c" >/dev/null 2>&1 && { sess="$c"; break; }
 done
 for d in "$P"/*/; do

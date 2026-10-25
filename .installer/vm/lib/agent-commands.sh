@@ -41,23 +41,26 @@ agent_resolve_name() {
     || die "profile has no .name: $file"
 }
 
-# agent_session_desktop <niri|hyprland|kde> — the DM Session= .desktop id.
+# agent_session_desktop <niri|hyprland|kde|umbriel> — DM Session= .desktop id.
 agent_session_desktop() {
   case "$1" in
     niri)     printf 'niri.desktop\n' ;;
     hyprland) printf 'hyprland.desktop\n' ;;
     kde)      printf 'plasma.desktop\n' ;;
+    umbriel)  printf 'umbriel.desktop\n' ;;
     *)        return 1 ;;
   esac
 }
 
-# agent_session_command <niri|hyprland|kde> — the greetd initial_session command
-# (its session launcher; hyprland via start-hyprland, ADR 0070).
+# agent_session_command <niri|hyprland|kde|umbriel> — the greetd
+# initial_session command (its session launcher; hyprland via start-hyprland,
+# ADR 0070).
 agent_session_command() {
   case "$1" in
     niri)     printf 'niri-session\n' ;;
     hyprland) printf 'start-hyprland\n' ;;
     kde)      printf 'startplasma-wayland\n' ;;
+    umbriel)  printf 'start-umbriel\n' ;;
     *)        return 1 ;;
   esac
 }
@@ -90,7 +93,7 @@ agent_bake_blank_command() {
 agent_shot_tool() {
   case "$1" in
     kwin_wayland) printf 'spectacle\n' ;;
-    niri|Hyprland) printf 'grim\n' ;;
+    niri|Hyprland|umbriel) printf 'grim\n' ;;
     *) return 1 ;;
   esac
 }
@@ -208,7 +211,7 @@ _agent_remote_environment_function() {
 _agent_load_env() {
   local c comp="" cpid="" client clpid="" src kv sock
   # Identify the running compositor (for tool selection + Qt theme).
-  for c in niri Hyprland kwin_wayland; do
+  for c in niri Hyprland umbriel kwin_wayland; do
     cpid="$(pgrep -x "$c" 2>/dev/null | head -1)"
     if [ -n "$cpid" ]; then comp="$c"; break; fi
   done

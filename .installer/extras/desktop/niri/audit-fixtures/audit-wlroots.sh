@@ -1,7 +1,7 @@
 # shellcheck shell=bash
-# Feature Audit shared wlroots-session checks (niri + Hyprland; ADR 0152):
-# the Noctalia shell, Qt theming through its templates, xdg user dirs (ADR
-# 0131), the clipboard keep-alive (ADR 0147) and the portals.
+# Feature Audit shared wlroots-session checks (niri, Hyprland, Umbriel; ADR
+# 0152): the Noctalia shell, Qt theming through its templates, xdg user dirs
+# (ADR 0131), the clipboard keep-alive (ADR 0147) and the portals.
 _probe_qt_env() {
   local pid; pid="$(pgrep -x noctalia | awk 'NR == 1 { print; exit }')"
   grep -qxz QT_QPA_PLATFORMTHEME=qt6ct "/proc/$pid/environ"

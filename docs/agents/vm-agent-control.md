@@ -37,7 +37,7 @@ local commits. To control a VM built from local HEAD, create it with
 | `exec <cmd…>` | run a command in the guest with the live session env sourced |
 | `launch <app…>` | launch a GUI app detached (returns immediately) |
 | `ssh [cmd…]` | interactive guest shell (or a one-off command) |
-| `session <niri\|hyprland\|kde>` | switch autologin session + reboot + wait |
+| `session <niri\|hyprland\|kde\|umbriel>` | switch autologin session + reboot + wait |
 | `greeter` | remove the CLI autologin → boot to the DM greeter (for greeter-bug testing); inverse of `session`. No wait-ready (no session to await) |
 | `logout` | terminate the graphical session (fresh re-autologin) |
 | `reboot` | reboot + wait-ready |

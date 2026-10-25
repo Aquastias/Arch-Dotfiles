@@ -69,6 +69,7 @@ _call() { run bash -c "source '$AGENT'; $1"; }
   _call "agent_session_desktop niri";     [ "$output" = "niri.desktop" ]
   _call "agent_session_desktop hyprland"; [ "$output" = "hyprland.desktop" ]
   _call "agent_session_desktop kde";      [ "$output" = "plasma.desktop" ]
+  _call "agent_session_desktop umbriel";  [ "$output" = "umbriel.desktop" ]
 }
 
 @test "sddm autologin config is a correct [Autologin] drop-in" {
@@ -91,10 +92,21 @@ _call() { run bash -c "source '$AGENT'; $1"; }
   [[ "$output" == *'command = "start-hyprland"'* ]]
 }
 
+@test "greetd umbriel uses its start-umbriel launcher (ADR 0159)" {
+  _call "agent_autologin_config greetd umbriel aquastias"
+  [[ "$output" == *'command = "start-umbriel"'* ]]
+}
+
+@test "the session env finds a running Umbriel" {
+  _call '_agent_remote_environment_function'
+  [[ "$output" == *"umbriel"* ]]
+}
+
 @test "shot tool is selected by the running compositor" {
   _call "agent_shot_tool kwin_wayland"; [ "$output" = "spectacle" ]
   _call "agent_shot_tool niri";         [ "$output" = "grim" ]
   _call "agent_shot_tool Hyprland";     [ "$output" = "grim" ]
+  _call "agent_shot_tool umbriel";      [ "$output" = "grim" ]
 }
 
 # Impermanence guests roll /etc back to @blank on boot, so the autologin

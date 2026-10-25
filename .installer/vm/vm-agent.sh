@@ -17,7 +17,8 @@
 #   launch <app…>            launch a GUI app detached (never holds the channel)
 #   ssh [cmd…]               interactive guest shell (or one-off command)
 #   ready [timeout]          block until the session's compositor is up
-#   session <niri|hyprland|kde>   switch autologin session + reboot + wait-ready
+#   session <niri|hyprland|kde|umbriel>
+#                            switch autologin session + reboot + wait-ready
 #   greeter                  remove the CLI autologin → boot to the DM greeter
 #   logout                   loginctl terminate-session (fresh re-autologin)
 #   reboot                   reboot + wait-ready
@@ -144,8 +145,8 @@ _guest_display_manager() {
 # predate its VT takeover; input sent then lands on the text console, where
 # Ctrl+Alt+Del reboots the box. The user filter skips an SDDM greeter's kwin.
 agent_ready_check() {
-  printf '%s' "pgrep -u $1 -x 'niri|Hyprland|kwin_wayland' >/dev/null 2>&1 \
-&& ls /run/user/\$(id -u $1)/wayland-[0-9] >/dev/null 2>&1"
+  printf '%s' "pgrep -u $1 -x 'niri|Hyprland|umbriel|kwin_wayland' \
+>/dev/null 2>&1 && ls /run/user/\$(id -u $1)/wayland-[0-9] >/dev/null 2>&1"
 }
 
 verb_ready() {
@@ -217,7 +218,7 @@ verb_logout() {
 verb_session() {
   local target="${1:-}"
   agent_session_desktop "$target" >/dev/null \
-    || die "session must be niri|hyprland|kde"
+    || die "session must be niri|hyprland|kde|umbriel"
   local display_manager; display_manager="$(_guest_display_manager)"
   [[ -n "$display_manager" ]] \
     || die "could not detect the guest display manager"
@@ -420,7 +421,7 @@ verb_shot() {
   _in_session "
     (command -v noctalia >/dev/null && noctalia msg dpms-on) 2>/dev/null || true
     tool=\$(case \"\$AGENT_COMPOSITOR\" in
-      kwin_wayland) echo spectacle;; niri|Hyprland) echo grim;; esac)
+      kwin_wayland) echo spectacle;; niri|Hyprland|umbriel) echo grim;; esac)
     case \"\$tool\" in
       grim)      timeout 12 grim '$guest_png' ;;
       spectacle) timeout 15 spectacle -bnf -o '$guest_png' ;;
