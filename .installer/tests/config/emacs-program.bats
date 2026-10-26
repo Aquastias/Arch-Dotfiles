@@ -449,3 +449,27 @@ bound() {
   git -C "$REPO" check-ignore -q \
     .installer/programs/dev/emacs/home/.config/doom/themes/noctalia-theme.el
 }
+
+# ── org and REST (ADR 0160) ──────────────────────────────────────────────────
+
+ORGMODE_REL=.installer/programs/dev/nvim/home/.config/nvim/lua/plugins
+ORGMODE_REL=$ORGMODE_REL/orgmode.lua
+
+@test "org shares nvim's org files: directory, agenda tree, refile file" {
+  module_enabled 'org'
+  # nvim's orgmode paths, read from its config (the source of truth).
+  grep -qF 'org_agenda_files = "~/orgfiles/**/*"' "$REPO/$ORGMODE_REL"
+  grep -qF 'org_default_notes_file = "~/orgfiles/refile.org"' \
+    "$REPO/$ORGMODE_REL"
+  elisp "$DOOMDIR/config.el" | grep -qF '(setq org-directory "~/orgfiles/")'
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '(setq org-default-notes-file "~/orgfiles/refile.org")'
+  # `**/*` is recursive; org-agenda-files directories are not.
+  elisp "$DOOMDIR/config.el" | grep -qF 'directory-files-recursively'
+}
+
+@test "REST: restclient sends and copies as curl on SPC R s / SPC R c" {
+  module_enabled 'rest'
+  bound 'R s' restclient-http-send-current
+  bound 'R c' restclient-copy-curl-command
+}

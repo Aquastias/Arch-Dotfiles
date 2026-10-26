@@ -53,6 +53,7 @@
        markdown
        (nix +lsp)
        (php +lsp)
+       org
        (python +lsp)
        rest
        (rust +lsp)

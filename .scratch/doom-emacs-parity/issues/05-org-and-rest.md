@@ -10,11 +10,16 @@ identical with, rest.nvim's `.http`.
 
 **Status:** ready-for-agent
 
-- [ ] `init.el` enables org; `config.el` sets nvim's org paths
-- [ ] `packages.el` adds restclient; `SPC R s`/`SPC R c` bound
-- [ ] Static bats: org paths match nvim's orgmode config; REST binds present
+- [x] `init.el` enables org; `config.el` sets nvim's org paths
+- [x] `packages.el` adds restclient; `SPC R s`/`SPC R c` bound
+- [x] Static bats: org paths match nvim's orgmode config; REST binds present
 - [ ] VM: agenda lists a note from the shared org dir; a request in a
       sample file sends; noted in Comments
 - [ ] `.http` format differences found are recorded for the ADR
 
 ## Comments
+
+- restclient comes from Doom's `:lang rest` module (pinned there), not
+  `packages.el`; that module maps `.http` files to restclient-mode.
+- nvim's agenda glob `~/orgfiles/**/*` is recursive; Emacs agenda dirs are
+  not, so an `org-agenda` advice refreshes the recursive file list first.

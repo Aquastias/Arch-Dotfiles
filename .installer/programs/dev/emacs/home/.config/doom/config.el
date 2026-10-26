@@ -174,6 +174,20 @@
               (flymake-biome-load))))
 
 
+;; ── Org: nvim's orgmode files ─────────────────────────────────────────────
+;; Both editors work on the same notes. Set before org loads (Doom defaults
+;; org-directory to ~/org otherwise).
+(setq org-directory "~/orgfiles/")
+(setq org-default-notes-file "~/orgfiles/refile.org")
+
+;; nvim's agenda glob `~/orgfiles/**/*' is recursive; a directory in
+;; org-agenda-files is not, so refresh the file list before each agenda.
+(defun +parity--org-agenda-files-a (&rest _)
+  (when (file-directory-p org-directory)
+    (setq org-agenda-files
+          (directory-files-recursively org-directory "\\.org\\'"))))
+(advice-add #'org-agenda :before #'+parity--org-agenda-files-a)
+
 ;; ── Keys: the nvim map wins (ADR 0160) ────────────────────────────────────
 ;; Where Doom binds a key differently the nvim binding replaces it; Doom keeps
 ;; every key nvim leaves free. Mirrors nvim's keymaps.lua and plugin keys.
@@ -322,6 +336,8 @@
       :desc "Extract to file" "r f" #'eglot-code-actions
       :desc "Inline variable" "r i" #'eglot-code-action-inline
       :desc "Inline function" "r I" #'eglot-code-action-inline
+      :desc "REST: send request" "R s" #'restclient-http-send-current
+      :desc "REST: copy as curl" "R c" #'restclient-copy-curl-command
       :desc "Inlay hints" "u h" #'eglot-inlay-hints-mode
       :desc "Pick palette" "u C" #'+parity/pick-palette
       :desc "Follow Noctalia" "u N" #'+parity/toggle-follow-noctalia)
