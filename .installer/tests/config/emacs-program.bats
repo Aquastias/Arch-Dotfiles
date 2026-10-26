@@ -207,6 +207,8 @@ nix-mode nixfmt
 php-mode phpcbf
 js-mode biome
 typescript-mode biome
+typescript-tsx-mode biome
+js-jsx-mode biome
 json-mode biome
 jsonc-mode biome
 css-mode biome
@@ -248,4 +250,22 @@ EOF_
   elisp "$DOOMDIR/config.el" | grep -qE '"\]d".*flymake-goto-next-error'
   elisp "$DOOMDIR/config.el" | grep -qE '"\[d".*flymake-goto-prev-error'
   elisp "$DOOMDIR/config.el" | grep -qE '"c o".*organize-imports'
+}
+
+@test ".tsx/.jsx get modes eglot names typescriptreact/javascriptreact" {
+  # Doom maps them only with +tree-sitter, and Arch packages no TypeScript
+  # grammar: a typescript-mode child carries nvim's typescriptreact.
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '(define-derived-mode typescript-tsx-mode typescript-mode'
+  elisp "$DOOMDIR/config.el" | grep -qF '("\\.tsx\\'"'"'" . typescript-tsx-mode)'
+  elisp "$DOOMDIR/config.el" | grep -qF '("\\.jsx\\'"'"'" . js-jsx-mode)'
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '(typescript-tsx-mode :language-id "typescriptreact")'
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '(js-jsx-mode :language-id "javascriptreact")'
+}
+
+@test "nerd-icons draws from the seeded FiraCode Nerd Font, no download" {
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '(setq nerd-icons-font-family "FiraCode Nerd Font")'
 }

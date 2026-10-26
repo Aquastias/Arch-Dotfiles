@@ -2,8 +2,9 @@
 # 0152, 0160). Prints `emacs<TAB><chord><TAB><states> <command>`: a state
 # keyword (`:n`, `:m`, `:v`, `:nv`…) sets the evil states of the pairs after
 # it, `:leader` makes them `SPC`-prefixed leader binds. `"key" nil` unbinds
-# (no row); `:desc "…"` labels are skipped. Comments and strings outside a
-# `map!` form are ignored.
+# (no row); `:desc "…"` labels are skipped; `:map <keymap>` scopes the rest of
+# the form to a mode's own keymap, which a scratch buffer cannot judge (no
+# rows). Comments and strings outside a `map!` form are ignored.
 # Used by: lib/feature-audit/binds.sh (_binds_parse_emacs).
 
 # strip_comment <line> — the line before any `;` outside a string.
@@ -21,7 +22,7 @@ function strip_comment(line,    i, c, in_string) {
 # its states, `:leader` and `:desc`, and prints a row per `"key" #'command`.
 function take_token(token) {
   if (token == "(map!") {
-    in_map = 1; depth = 1; leader = 0; states = ""; pending = 0
+    in_map = 1; depth = 1; leader = 0; states = ""; pending = 0; local_map = 0
     skip_string = 0
     return
   }
@@ -29,6 +30,7 @@ function take_token(token) {
   if (token == "(") { depth++; return }
   if (token == ")") { if (--depth == 0) in_map = 0; return }
   if (token == ":leader") { leader = 1; states = ""; return }
+  if (token == ":map") { local_map = 1; return }
   if (token == ":desc") { skip_string = 1; return }
   if (token ~ /^:[nvmioer]+$/) { states = substr(token, 2); return }
   if (token ~ /^"/) {
@@ -37,6 +39,7 @@ function take_token(token) {
     return
   }
   if (token == "nil") { pending = 0; return }
+  if (token ~ /^#'/ && pending && local_map) { pending = 0; return }
   if (token ~ /^#'/ && pending) {
     printf "emacs\t%s\t%s %s\n", (leader ? "SPC " key : key),
       (leader ? "leader" : states), substr(token, 3)

@@ -49,6 +49,7 @@ load emacs-program-helpers
 }
 
 @test "find/search keys match nvim's snacks + grug-far maps" {
+  bound 'f f' +default/find-file-under-here
   bound 'f g' +default/search-project
   bound 'f b' consult-buffer
   bound 'f r' consult-recent-file
@@ -100,8 +101,10 @@ load emacs-program-helpers
   bound C-e harpoon-toggle-quick-menu
   local i
   for i in 1 2 3 4 5 6 7 8 9; do bound "$i" "harpoon-go-to-$i"; done
-  bound U vundo
+  bound U undo-tree-visualize   # +tree installs undo-tree, not vundo
   bound C-/ +vterm/toggle
+  # nvim maps it in terminal mode too: vterm sits in insert state
+  elisp "$DOOMDIR/config.el" | grep -qE ":map vterm-mode-map :i \"C-/\""
   elisp "$DOOMDIR/config.el" | grep -qF '(setq vterm-always-compile-module t)'
 }
 

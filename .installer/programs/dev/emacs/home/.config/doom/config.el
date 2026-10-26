@@ -6,6 +6,7 @@
 ;; The font every seeded editor uses (kitty, nvim, VSCodium); a float size is
 ;; points, matching their 12.
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 12.0))
+(setq nerd-icons-font-family "FiraCode Nerd Font")   ; Nerd glyphs, no download
 
 ;; Like nvim's theme.lua: a static palette, persisted across sessions
 ;; (Catppuccin Mocha by default); `SPC u N' switches to following Noctalia.
@@ -107,6 +108,17 @@
 (set-eglot-client! '(zig-mode zig-ts-mode) '("zls"))
 (set-eglot-client! '(c-mode c++-mode c-ts-mode c++-ts-mode) '("clangd"))
 
+;; Doom maps .tsx/.jsx only with +tree-sitter, and Arch packages no TypeScript
+;; grammar: a typescript-mode child (and Emacs' js-jsx-mode) carry nvim's
+;; typescriptreact/javascriptreact to the server.
+(define-derived-mode typescript-tsx-mode typescript-mode "TypeScript[TSX]"
+  "`typescript-mode' for .tsx files, so eglot sends typescriptreact.")
+(add-to-list 'auto-mode-alist '("\\.tsx\\'" . typescript-tsx-mode))
+(add-to-list 'auto-mode-alist '("\\.jsx\\'" . js-jsx-mode))
+(set-eglot-client! '((typescript-tsx-mode :language-id "typescriptreact")
+                     (js-jsx-mode :language-id "javascriptreact"))
+                   '("typescript-language-server" "--stdio"))
+
 ;; Doom serves html, .svelte and .vue all in web-mode: pick the server nvim
 ;; attaches for the file's extension.
 (defun +parity-web-server (&rest _)
@@ -134,6 +146,8 @@
                   (php-mode . phpcbf)
                   (js-mode . biome)
                   (typescript-mode . biome)
+                  (typescript-tsx-mode . biome)
+                  (js-jsx-mode . biome)
                   (rjsx-mode . biome)
                   (json-mode . biome)
                   (jsonc-mode . biome)
@@ -318,6 +332,9 @@
       :n "gsd" #'evil-surround-delete
       :n "gsr" #'evil-surround-change)
 
+;; nvim maps C-/ in terminal mode too; vterm sits in insert state.
+(map! :map vterm-mode-map :i "C-/" #'+vterm/toggle)
+
 ;; Doom binds SPC u (universal-argument) and SPC x (scratch) as commands; nvim
 ;; uses both as prefixes, so they are cleared first.
 (map! :leader
@@ -326,7 +343,7 @@
       :desc "Write buffer" "w" #'save-buffer
       :desc "Quit window" "q" #'evil-quit
       :desc "Explorer" "e" #'+treemacs/toggle
-      :desc "Undo tree" "U" #'vundo
+      :desc "Undo tree" "U" #'undo-tree-visualize
       :desc "Source buffer" "RET" #'eval-buffer
       :desc "Harpoon add" "a" #'harpoon-add-file
       "1" #'harpoon-go-to-1
@@ -342,6 +359,7 @@
       :desc "Copy file path" "y p" #'+parity/copy-file-path
       :desc "Organize imports" "c o" #'eglot-code-action-organize-imports
       :desc "Make executable" "c x" #'+parity/make-executable
+      :desc "Find files" "f f" #'+default/find-file-under-here
       :desc "Grep" "f g" #'+default/search-project
       :desc "Buffers" "f b" #'consult-buffer
       :desc "Recent files" "f r" #'consult-recent-file

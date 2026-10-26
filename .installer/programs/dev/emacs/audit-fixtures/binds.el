@@ -40,7 +40,8 @@ normal sees motion binds and the SPC leader too)."
                             (fa-emacs--resolve states chord)
                           (error (format "error: %s"
                                          (error-message-string err))))))
-        (insert (if (equal got want)
+        ;; key-binding names an unbound symbol too: it must be a command.
+        (insert (if (and (equal got want) (commandp (intern-soft want)))
                     (format "PASS %s %s runs %s\n" id chord want)
-                  (format "FAIL %s %s runs %s, want %s\n"
+                  (format "FAIL %s %s runs %s, want command %s\n"
                           id chord got want)))))))

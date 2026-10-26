@@ -11,3 +11,5 @@
       :desc "Write buffer" "w" #'save-buffer
       "1" #'harpoon-go-to-1
       :desc "Lazygit" "g g" #'+parity/lazygit)
+
+(map! :map vterm-mode-map :i "C-/" #'+vterm/toggle)
