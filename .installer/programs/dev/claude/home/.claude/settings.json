@@ -122,6 +122,35 @@
     "mode": "hold"
   },
   "autoMemoryEnabled": false,
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: Not queryable via gh (nonessential traffic disabled or policy-restricted); remote is github.com:Aquastias/Arch-Dotfiles.git — assume private unless shown otherwise",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: Repo contains dedicated secrets-handling code and docs (.installer/lib/guided/secrets*.sh, docs/adr on sops/age) — treat .installer/lib/secrets.sh, .installer/lib/guided/secrets*.sh and related test/doc paths as sensitive-data-adjacent code, not as credential material itself",
+      "**Default / protected branches**: main (default branch per repo facts); branch protection not queryable via gh in this session",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine with open internet; VM testing work runs against a local libvirt VM (192.168.122.1 contacted 22×) via .installer/vm/vm-agent.sh",
+      "**Source control**: The trusted repo (github.com:Aquastias/Arch-Dotfiles.git, origin) only — no additional orgs configured",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: Files under .installer/lib/guided/secrets-file.sh, .installer/lib/guided/secrets.sh, .installer/lib/secrets.sh, and associated tests/docs/ADRs (sops/age-based secrets management, in-menu credentials) — share only with audiences cleared at the [named+specifics] bar; the .gitignore also excludes .claude/.credentials.json and other redacted sensitive-named patterns",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries prod or production as a whole word or name segment",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries prod or production as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (Arch Linux dotfiles and a config-driven Arch Linux installer with ZFS, including VM-based testing)",
+      "**Trusted repo**: /home/aquastias/.dotfiles (github.com:Aquastias/Arch-Dotfiles.git, origin/main)",
+      "**Org-specific CLIs**: None configured — project-specific tools observed: virsh (VM testing via vm-agent.sh), pacman/paru (Arch package management), bats (test runner), shellcheck",
+      "routine under .installer/vm/ prefix: VM verification commands (vm-agent.sh status/screenshot/session) are routine project workflow per CLAUDE.md"
+    ]
+  },
   "voiceEnabled": true,
   "tui": "fullscreen"
 }
