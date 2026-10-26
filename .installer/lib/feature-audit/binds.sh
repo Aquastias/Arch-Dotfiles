@@ -115,38 +115,7 @@ _binds_parse_niri() {
 # `"chord" = "action"`, an inline `{ action = "…", … }`, or a
 # `[keybinds."chord"]` sub-table whose `action` key holds it.
 _binds_parse_umbriel() {
-  awk '
-    function unquote(text) { gsub(/^[[:space:]"]+|["[:space:]]+$/, "", text)
-      return text }
-    function action_of(text) {
-      if (text ~ /^[[:space:]]*\{/) {
-        sub(/^.*action[[:space:]]*=[[:space:]]*"/, "", text)
-        sub(/".*$/, "", text); return text
-      }
-      return unquote(text)
-    }
-    /^[[:space:]]*#/ { next }
-    { sub(/[[:space:]]+#[^"]*$/, "") }
-    /^[[:space:]]*\[/ {
-      table = $0; gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", table)
-      section = ""; chord = ""
-      if (table == "keybinds") section = "plain"
-      else if (table ~ /^keybinds\./) {
-        section = "sub"; chord = table; sub(/^keybinds\./, "", chord)
-        chord = unquote(chord)
-      }
-      next
-    }
-    section == "plain" && /^[[:space:]]*"/ {
-      key = $0; sub(/^[[:space:]]*"/, "", key); value = key
-      sub(/".*$/, "", key); sub(/^[^"]*"[[:space:]]*=[[:space:]]*/, "", value)
-      printf "umbriel\t%s\t%s\n", key, action_of(value)
-    }
-    section == "sub" && /^[[:space:]]*action[[:space:]]*=/ {
-      value = $0; sub(/^[^=]*=/, "", value)
-      printf "umbriel\t%s\t%s\n", chord, unquote(value)
-    }
-  ' "$@"
+  awk -f "$INSTALLER_DIR/lib/feature-audit/binds-umbriel.awk" "$@"
 }
 
 # _binds_parse_hyprland <file…> — Lua `hl.bind(<key expr>, hl.dsp.<disp>(…))`:

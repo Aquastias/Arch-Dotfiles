@@ -17,11 +17,13 @@ _UMBRIEL_SH_SOURCED=1
 # umbriel_core_packages — the repo half of a working session, one per line.
 # seatd for DRM master (ADR 0068); the GTK portal is the fallback the packaged
 # umbriel-portals.conf names after Umbriel's own (`default=umbriel;gtk`);
-# wl-clipboard for the clipboard keep-alive (ADR 0147). Xwayland comes with
+# grim for the Shift+Print window capture (Noctalia 5.3 has none); wl-clipboard
+# for the clipboard keep-alive (ADR 0147). Xwayland comes with
 # the compositor package (upstream PACKAGING.md).
 umbriel_core_packages() {
   printf '%s\n' \
     seatd \
     xdg-desktop-portal-gtk \
+    grim \
     wl-clipboard
 }

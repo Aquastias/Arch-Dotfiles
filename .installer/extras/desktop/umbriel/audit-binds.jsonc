@@ -61,8 +61,7 @@
       "effect": "screen-changes", "recovery": "escape" },
     { "action": "spawn:noctalia msg screenshot-fullscreen",
       "effect": "file-created", "arg": "Pictures" },
-    { "action": "spawn:noctalia msg screenshot-window",
-      "effect": "file-created", "arg": "Pictures" },
+    { "action": "spawn:grim *", "effect": "file-created", "arg": "Pictures" },
 
     { "action": "overview-toggle", "effect": "screen-changes",
       "recovery": "toggle" },

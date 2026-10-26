@@ -17,3 +17,7 @@ repeat = false
 [keybinds.XF86AudioMute]
 action = "spawn:wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
 allow_when_locked = true
+
+[keybinds."Shift+Print"]
+action = '''spawn:grim -g "$(umbriel windows --json | jq -r \
+  '.[] | select(.active)')" out.png'''

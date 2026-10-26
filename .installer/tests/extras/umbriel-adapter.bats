@@ -82,7 +82,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "installs exactly the repo session core" {
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  grep -qx "pacman -S --noconfirm --needed seatd xdg-desktop-portal-gtk \
+  grep -qx "pacman -S --noconfirm --needed seatd xdg-desktop-portal-gtk grim \
 wl-clipboard" "$PACMAN_LOG"
   [ "$(grep -c '^pacman ' "$PACMAN_LOG")" -eq 1 ]
 }

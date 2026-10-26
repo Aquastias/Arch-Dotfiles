@@ -75,7 +75,6 @@
 # its own). Not Alt+Print: the kernel's magic-SysRq filter swallows it.
 "Print" = "spawn:noctalia msg screenshot-region"
 "Ctrl+Print" = "spawn:noctalia msg screenshot-fullscreen"
-"Shift+Print" = "spawn:noctalia msg screenshot-window"
 
 # ── Scrolling power features (niri's keys, ADR 0096) ──
 "Mod+O" = { action = "overview-toggle", repeat = false }
@@ -151,3 +150,10 @@
 action = "shortcuts-inhibit-toggle"
 allow_when_inhibited = true
 repeat = false
+
+# Shift+Print: the active window. Noctalia 5.3 has no window capture yet, so
+# grim takes the window's rectangle from Umbriel's IPC (layout coordinates).
+[keybinds."Shift+Print"]
+action = '''spawn:grim -g "$(umbriel windows --json | jq -r \
+  '.[] | select(.active) | "\(.x),\(.y) \(.w)x\(.h)"')" \
+  "$(xdg-user-dir PICTURES)/screenshot_$(date +%Y%m%d_%H%M%S).png"'''

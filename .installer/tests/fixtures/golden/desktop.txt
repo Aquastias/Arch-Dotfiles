@@ -409,6 +409,7 @@ umbriel-aur	bibata-cursor-git
 umbriel-aur	qt6ct-kde
 umbriel-aur	umbriel-git
 umbriel-aur	xdg-desktop-portal-umbriel-git
+umbriel-shell	grim
 umbriel-shell	seatd
 umbriel-shell	wl-clipboard
 umbriel-shell	xdg-desktop-portal-gtk

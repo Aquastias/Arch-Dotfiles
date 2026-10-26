@@ -94,7 +94,7 @@ _live_mouse_chord() {
 # PASS/FAIL/SKIP line.
 _live_bind_one() {
   local row="$1" desktop="$2" chord effect argument needs recovery settle id
-  local before after rc screenshot_directory
+  local before after rc screenshot_directory pid=""
   chord="$(jq -r .chord <<<"$row")"; effect="$(jq -r .effect <<<"$row")"
   argument="$(jq -r '.arg // ""' <<<"$row")"
   needs="$(jq -r '.needs // ""' <<<"$row")"
@@ -112,6 +112,7 @@ _live_bind_one() {
   _live_send_steps "$row" pre send-then-wait
   before="$(feature_audit_guest_execute feature_audit_binds_state \
     "$screenshot_directory")"
+  [[ "$effect" == session-ends ]] && pid="$(_live_compositor_pid "$desktop")"
   if [[ "$chord" == *mouse* ]]; then
     _live_mouse_chord "$chord" \
       || { echo "SKIP $id mouse chord not injectable"; return; }
@@ -121,7 +122,8 @@ _live_bind_one() {
   fi
   _live_send_steps "$row" "then" wait-then-send
   if [[ "$effect" == session-ends ]]; then
-    _live_bind_session_end "$row" "$id" "$chord" "$desktop" "$recovery"
+    _live_bind_session_end "$row" "$id" "$chord" "$desktop" "$recovery" \
+      "$pid"
     return
   fi
   sleep "$settle"
@@ -155,17 +157,23 @@ _live_send_steps() {
   done < <(jq -r ".${field}[]?" <<<"$row")
 }
 
-# _live_bind_session_end <row> <id> <chord> <desktop> <recovery> — a
-# session-ends bind passes when the compositor process is gone within 10s;
-# then recover the session.
+# _live_compositor_pid <desktop> — the running compositor's PID (the oldest, so
+# not a CLI client of the same name).
+_live_compositor_pid() {
+  feature_audit_agent sudo "pgrep -ox $(_live_compositor_process "$1")" \
+    2>/dev/null
+}
+
+# _live_bind_session_end <row> <id> <chord> <desktop> <recovery> <pid> — a
+# session-ends bind passes when the compositor <pid> it was sent to is gone
+# within 10s (a DM relogin may already run a new one); then recover.
 _live_bind_session_end() {
-  local row="$1" id="$2" chord="$3" desktop="$4" recovery="$5" process
-  process="$(_live_compositor_process "$desktop")"
+  local row="$1" id="$2" chord="$3" desktop="$4" recovery="$5" pid="$6"
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    feature_audit_agent sudo "pgrep -x $process" >/dev/null 2>&1 || break
+    feature_audit_agent sudo "test -d /proc/$pid" >/dev/null 2>&1 || break
     sleep 1
   done
-  if feature_audit_agent sudo "pgrep -x $process" >/dev/null 2>&1; then
+  if feature_audit_agent sudo "test -d /proc/$pid" >/dev/null 2>&1; then
     echo "FAIL $id ($(jq -r .action <<<"$row")) did not end the session"
   else echo "PASS $id session ended"; fi
   _live_bind_recover "${recovery:-session}" "$chord" "$desktop"
