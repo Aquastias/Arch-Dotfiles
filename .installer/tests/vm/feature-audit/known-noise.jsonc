@@ -358,5 +358,8 @@
     "reason": "virtio-gpu buffer pressure; a sleep inhibitor already held" },
   { "regex": ["^systemd\\[[0-9]+\\]: dbus-:[0-9.]+-org\\.kde\\.KSplash@",
               "[0-9]+\\.service: Failed with result 'exit-code'\\."],
-    "reason": "the login splash exits non-zero once Plasma is up (upstream)" }
+    "reason": "the login splash exits non-zero once Plasma is up (upstream)" },
+  { "regex": ["^noctalia\\[[0-9]+\\]: g_object_unref: assertion ",
+              "'G_IS_OBJECT \\(object\\)' failed"],
+    "reason": "Noctalia 5.3 startup GLib assert under Umbriel only (ADR 0159)" }
 ]
