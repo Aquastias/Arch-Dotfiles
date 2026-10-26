@@ -63,6 +63,23 @@ _runner_programs_install_user_program() {
     "$helper"
 }
 
+# runner_run_post_config <user> <user-json> — the Post-Config Hook (ADR 0160,
+# amends ADR 0134): each of the user's programs that ships a post-config.sh
+# runs it as the user, after the Config Apply pass placed its home/. For setup
+# that needs the final config on disk. No sudo grant (revoked by now) and no
+# retry: a hook warns on its own failures.
+runner_run_post_config() {
+  local user="$1" user_json="$2" program relative_path hook
+  while IFS= read -r program; do
+    relative_path="$(program_registry_resolve "$program")" || continue
+    hook="${_RUNNER_RUNTIME_DIR}/programs/${relative_path}/post-config.sh"
+    [[ -f "${MOUNT_ROOT}${hook}" ]] || continue
+    info "Post-config hook: ${program}  (user=${user})"
+    _runner_programs_user_program_chroot \
+      "$user" "${_RUNNER_RUNTIME_DIR}" "$hook" ""
+  done < <(jq -r '.programs[]?' <<<"$user_json")
+}
+
 # Reads runner_run_profiles' system_programs (dynamic scope).
 # shellcheck disable=SC2154
 runner_install_host_programs() {

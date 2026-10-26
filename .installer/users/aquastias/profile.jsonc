@@ -15,7 +15,8 @@
 // `searxng` and its `podman` backend (podman precedes searxng — a required
 // program must resolve earlier in the same user's list, ADR 0065), `pi`
 // (ADR 0127), `claude` (ADR 0133), `nvim` (ADR 0135), then `docker`,
-// `teamspeak3` and the opt-in `vscodium` (ADR 0148).
+// `teamspeak3`, the opt-in `vscodium` (ADR 0148) and the opt-in `emacs` (ADR
+// 0160).
 {
   "shell": "/bin/zsh",
   "sudo": true,
@@ -28,7 +29,8 @@
     "pi", "claude", "nvim",
     "docker",
     "teamspeak3",
-    "vscodium"
+    "vscodium",
+    "emacs"
   ],
   "ssh_authorized_keys": [],
   "git": {

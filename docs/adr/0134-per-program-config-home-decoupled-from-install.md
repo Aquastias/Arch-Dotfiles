@@ -14,6 +14,9 @@ all four home/ configs and seeded `/etc/skel` + `/root`.
 Supersedes [ADR 0012] (per-program config tree with variants). Amends [ADR 0095]
 (single source moves from the repo-root stow tree into each program's `home/`;
 the installer still seeds a working default and still never stows).
+Amended by [ADR 0160]: a user program may ship a `post-config.sh` (the
+Post-Config Hook), run as its user after this pass places its `home/`, for
+setup that bakes the placed config's path (Doom's sync).
 
 Design was explored with two throwaway logic prototypes kept as primary
 sources under `.scratch/program-config-architecture/` (`prototype.html`,
@@ -143,4 +146,5 @@ A Program ships config iff it has a `home/` dir. No registry, no
 [ADR 0012]: 0012-per-program-config-tree-with-variants.md
 [ADR 0056]: 0056-host-core-carries-packages.md
 [ADR 0095]: 0095-curated-niri-config-served-via-skel.md
+[ADR 0160]: 0160-doom-emacs-opt-in-parity-twin-of-neovim-config.md
 [ADR-0012]: 0012-per-program-config-tree-with-variants.md

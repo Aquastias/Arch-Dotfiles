@@ -1,0 +1,14 @@
+// Program metadata for emacs.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru (repo packages only), with temp NOPASSWD sudo for pacman. The
+// opt-in Doom Emacs parity twin of the Neovim Config (ADR 0160): install.sh
+// adds the package + the pinned Doom clone, Config Apply places home/ (ADR
+// 0134), and the post-config.sh hook runs Doom's install against it.
+
+{
+  "name": "emacs",
+  "kind": "user",
+  "description": "Emacs (Wayland) with a pinned Doom Emacs mirroring the Neovim Config.",
+  "stow_opt_in": true
+}

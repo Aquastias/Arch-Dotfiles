@@ -450,6 +450,7 @@ _runner_config_apply_pass() {
     runner_apply_user_groups "$user" "${USER_JSONS[$user]}"
     runner_apply_user_config "$user" "${USER_JSONS[$user]}" "$ships_home" \
       "$system_programs_json"
+    runner_run_post_config "$user" "${USER_JSONS[$user]}"
     runner_clone_dotfiles "$user" "$dotfiles_repo"
     # A per-user paru.conf replaces /etc/paru.conf, so it must carry the hook
     # too (ADR 0143).

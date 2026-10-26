@@ -24,12 +24,19 @@ writes `themes/noctalia-theme.el` into the first existing dir of
   lands on desktop, laptop and the VM fixtures carrying that user. nvim stays
   the one default editor; `stow-configs.sh` stows emacs only when named.
 - **Packages.** `emacs-wayland` (pgtk) from `extra` — the fleet desktops are
-  all Wayland. Doom is a git clone into `~/.config/emacs`, **pinned** to the
-  commit in the program's `doom-ref` data file; moving it is a deliberate
-  one-line commit. `install.sh` runs `doom sync` at install time as the owning
-  user; a failed sync warns rather than fails (an upstream blip is a gap, not
-  a broken install). The user config (`~/.config/doom`) is in the program's
-  `home/` (Config Apply).
+  all Wayland. Doom core (`doomemacs/core`) is a git clone into
+  `~/.config/emacs`, **pinned** to the commit in the program's `doom-ref` data
+  file — which also pins its modules (`doomemacs/modules`, a submodule
+  gitlink); moving it is a deliberate one-line commit. Extra packages carry
+  `:pin`s like Doom's own. The user config (`~/.config/doom`) is in the
+  program's `home/` (Config Apply).
+- **Sync runs in a Post-Config Hook**, at install time but after Config
+  Apply: Doom bakes its config dir's absolute path into the profile it
+  generates, and the Runner places config only after every `install.sh`. A
+  program may now ship `post-config.sh`, run as its user once its `home/` is
+  placed (amends [ADR 0134]); `dev/emacs`'s runs `doom install` (unattended,
+  no env file). A failed sync warns rather than fails (an upstream blip is a
+  gap, not a broken install).
 - **Doom is acceptable here**, not for nvim, because the twin is opt-in and
   never the served default: distro opacity costs only its opt-in users.
 - **Parity = [ADR 0148]'s contract.** Feature + key parity, gaps listed not

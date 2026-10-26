@@ -119,7 +119,8 @@ kernels=lts
     "nvim",
     "docker",
     "teamspeak3",
-    "vscodium"
+    "vscodium",
+    "emacs"
   ],
   "shell": "/bin/zsh",
   "ssh_authorized_keys": [],
@@ -416,6 +417,7 @@ umbriel-shell	wl-clipboard
 umbriel-shell	xdg-desktop-portal-gtk
 user-programs	claude
 user-programs	docker
+user-programs	emacs
 user-programs	kitty
 user-programs	lazygit
 user-programs	nvim

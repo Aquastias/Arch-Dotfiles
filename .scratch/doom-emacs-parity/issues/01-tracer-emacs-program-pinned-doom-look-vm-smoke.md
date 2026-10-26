@@ -14,18 +14,29 @@ metadata. Ground every package on the Arch Wiki.
 
 **Status:** ready-for-agent
 
-- [ ] Program metadata (`kind: user`, `stow_opt_in`) + install.sh with the
+- [x] Program metadata (`kind: user`, `stow_opt_in`) + install.sh with the
       mandated shape; not in User Core or Host Core; install.sh does not seed
       `home/`
-- [ ] Pin data file holds one 40-hex commit; install.sh checks it out; a
+- [x] Pin data file holds one 40-hex commit; install.sh checks it out; a
       re-run fetches and re-pins an existing clone, never deletes it
-- [ ] `emacs` appended to the operator's `programs` after `vscodium`;
+- [x] `emacs` appended to the operator's `programs` after `vscodium`;
       desktop, laptop and VM fixture goldens updated
-- [ ] New static bats (prior art: vscodium program test): program shape, pin
+- [x] New static bats (prior art: vscodium program test): program shape, pin
       format, minimal `init.el`/`packages.el`/`config.el` look values
-- [ ] `./stow-configs.sh` (no args) skips emacs; named, it stows
+- [x] `./stow-configs.sh` (no args) skips emacs; named, it stows
 - [ ] VM (vm-agent, `arch-combined`): install with emacs selected; Emacs
       launches with Doom loaded and themed; screenshot noted in Comments
-- [ ] Lints (readability, no-python) pass
+- [x] Lints (readability, no-python) pass
 
 ## Comments
+
+- Doom bakes its config dir's absolute path into its generated profile, and
+  Config Apply runs after every install.sh, so the sync cannot run in
+  install.sh. Operator chose a generic **Post-Config Hook**: a user program
+  may ship `post-config.sh`, run as its user after Config Apply (runner +
+  bats + PROGRAM_SPEC; ADR 0134 amended, ADR 0160 updated).
+- Doom's canonical repo is `doomemacs/core`; its modules are a submodule
+  (`doomemacs/modules`) pinned by the core commit's gitlink.
+- Pinned clone verified locally against GitHub (fresh clone + re-run re-pin).
+- VM smoke deferred to one batched VM pass after tickets 02–07 (each
+  ticket's VM criterion recorded there).
