@@ -792,7 +792,8 @@ Effective Config in tmpfs; the user-facing path), `install.sh <config-file>`
 (the unattended seam consuming a pre-assembled Effective Config; the VM seed's
 path), and the **Guided Installer** (a from-scratch menu that builds an
 Effective Config interactively when no profile exists yet). Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system
-config → Host Programs → user programs + Config Apply Pass → pool owners →
+config → Host Programs → user programs + Config Apply Pass (then each
+Post-Config Hook) → pool owners →
 impermanence → cleanup and pool export.
 
 A global **`--debug`** modifier turns any front-end into inspect/author-only: it
@@ -1010,6 +1011,14 @@ readable, install.sh readable) and exits 99 with a clear message on mismatch.
 Sources Shell Stdlib once and sources the install.sh in the same shell, so
 install.sh files inherit `set -Eeuo pipefail` and the stdlib helpers without a
 per-script source line.
+
+### Post-Config Hook
+A user program's optional `post-config.sh`, run by the Runner as the owning
+user once the Config Apply Pass has placed that program's `home/` ([ADR 0160],
+amending [ADR 0134]). For install-time setup that must see the placed config
+— Doom's sync bakes its config dir's path. Same contract as an install.sh
+minus sudo and retry; it warns rather than fails. _Avoid_: "post-install"
+(the Security & Backup Extras selection).
 
 ### Chroot Configuration Module
 `.installer/lib/chroot/`. Set of shell scripts copied into

@@ -22,11 +22,8 @@ LANGS_REL=.installer/programs/dev/nvim/home/.config/nvim/lua/config
 LANGS_REL=$LANGS_REL/languages.lua   # the Language Registry
 FLEET_REL=.installer/hosts/fleet/profile.jsonc
 
-# data_rows FILE → the rows of a data file, `#` comments and blanks dropped.
+# data_rows FILE → the file's lines, `#` comments and blanks dropped.
 data_rows() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
-
-# code_lines FILE → the file's lines with comments and blanks dropped.
-code_lines() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
 
 # elisp FILE → the file with `;` comments stripped (no string has a `;`).
 elisp() { awk '{ sub(/;.*/, ""); if ($0 ~ /[^[:space:]]/) print }' "$1"; }

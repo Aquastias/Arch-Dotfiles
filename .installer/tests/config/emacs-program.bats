@@ -32,7 +32,7 @@ load emacs-program-helpers
 
 @test "install.sh installs emacs-wayland from the repos, does NOT seed home/" {
   grep -qE -- '--needed emacs-wayland( |$)' "$INSTALL"
-  run bash -c "$(declare -f code_lines); code_lines '$INSTALL' \
+  run bash -c "$(declare -f data_rows); data_rows '$INSTALL' \
     | grep -E 'home/|\.config/doom|etc/skel|/root'"
   [ -z "$output" ]
 }
@@ -50,7 +50,7 @@ load emacs-program-helpers
   grep -q 'doom-ref' "$INSTALL"
   grep -q 'github.com/doomemacs/core' "$INSTALL"
   grep -qE 'checkout .*(FETCH_HEAD|\$\{?pin)' "$INSTALL"
-  run bash -c "$(declare -f code_lines); code_lines '$INSTALL' \
+  run bash -c "$(declare -f data_rows); data_rows '$INSTALL' \
     | grep -E 'rm -r|rm -fr|rm -rf'"
   [ -z "$output" ]
 }
@@ -62,7 +62,7 @@ load emacs-program-helpers
   run bash -c "grep -vE '^[[:space:]]*(#|\$)' '$HOOK' | head -2"
   [[ "${lines[0]}" == "set -Eeuo pipefail" ]]
   [[ "${lines[1]}" == trap* ]]
-  ! code_lines "$HOOK" | grep -qE 'systemctl|sudo'   # runs with no sudo
+  ! data_rows "$HOOK" | grep -qE 'systemctl|sudo'   # runs with no sudo
 }
 
 @test "post-config.sh runs Doom's install unattended, without an env file" {

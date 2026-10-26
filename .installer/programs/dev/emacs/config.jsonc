@@ -9,6 +9,6 @@
 {
   "name": "emacs",
   "kind": "user",
-  "description": "Emacs (Wayland) with a pinned Doom Emacs mirroring the Neovim Config.",
+  "description": "Emacs with a pinned Doom mirroring the Neovim Config.",
   "stow_opt_in": true
 }

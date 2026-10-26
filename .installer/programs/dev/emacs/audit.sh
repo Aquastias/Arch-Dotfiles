@@ -7,7 +7,7 @@
 # Doom's defaults (audit-binds.jsonc; judged in one throwaway daemon).
 feature_audit_require_package emacs emacs-wayland || return 0
 feature_audit_as_user || return 0
-fx="$FA_DIR/audit-fixtures"
+fixtures="$FA_DIR/audit-fixtures"
 doom_core="$FA_HOME/.config/emacs"
 
 feature_audit_check emacs-runs "emacs --version" emacs --version
@@ -16,7 +16,7 @@ feature_audit_check emacs-config "seeded Doom config present" \
 
 _probe_emacs_pin() {
   local want have
-  want="$(grep -vE '^[[:space:]]*(#|$)' "$fx/doom-ref")"
+  want="$(grep -vE '^[[:space:]]*(#|$)' "$fixtures/doom-ref")"
   have="$(git -C "$doom_core" rev-parse HEAD 2>/dev/null)"
   [[ "$have" == "$want" ]] \
     || { echo "at ${have:-no clone}, not $want"; return 1; }
@@ -41,7 +41,7 @@ feature_audit_check emacs-doom-doctor "doom doctor reports no errors" \
 if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
   feature_audit_skip emacs-binds "no plan staged"; return 0
 fi
-plan="$(mktemp)" out="$(mktemp)" socket="fa-emacs-probe-$$"
+plan="$(mktemp)" out="$(mktemp)" log="$(mktemp)" socket="fa-emacs-probe-$$"
 # A bind with no expectation is a Finding; the rest go to the judge as
 # states, chord, wanted command, check id (ids carry the states: gsa is
 # bound in normal and visual).
@@ -55,14 +55,14 @@ while IFS=$'\x1f' read -r chord states effect arg; do
 done < <(jq -r '[.chord, (.action | split(" ")[0]), (.effect // "none"),
                  (.arg // "")] | join("\u001f")' "$FA_DIR/binds-plan.jsonl")
 
-if timeout 600 emacs --daemon="$socket" >/tmp/fa-emacs.log 2>&1; then
+if timeout 600 emacs --daemon="$socket" >"$log" 2>&1; then
   timeout 300 emacsclient -s "$socket" -e "(progn
-    (load \"$fx/binds.el\" nil t)
+    (load \"$fixtures/binds.el\" nil t)
     (fa-emacs-binds \"$plan\" \"$out\"))" >/dev/null 2>&1
   cat "$out"
   emacsclient -s "$socket" -e '(kill-emacs)' >/dev/null 2>&1
 else
   feature_audit_fail emacs-daemon \
-    "Doom did not start: $(awk 'NR == 1 { print; exit }' /tmp/fa-emacs.log)"
+    "Doom did not start: $(awk 'NR == 1 { print; exit }' "$log")"
 fi
-rm -f "$plan" "$out"
+rm -f "$plan" "$out" "$log"

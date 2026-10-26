@@ -3,7 +3,8 @@
 # lib/profiles/runner-programs.sh — the Runner's program installs
 # =============================================================================
 # Used by: lib/profiles/runner.sh (sources it). Runs each Host Program's
-# install.sh as root and each User Program's as its user, inside the chroot.
+# install.sh as root and each User Program's as its user, inside the chroot,
+# plus each user program's Post-Config Hook after Config Apply.
 # =============================================================================
 
 _runner_programs_install_host_program() {
@@ -19,11 +20,12 @@ _runner_programs_install_host_program() {
     "${_RUNNER_RUNTIME_DIR}/programs/${relative_path}/install.sh"
 }
 
-# One chroot run of a user program's install.sh. Factored out of
-# _runner_programs_install_user_program so _retry can re-invoke it: the heredoc
-# feeding `bash -s` is consumed as stdin per call, so it must live in a function
-# the retry loop re-enters (a heredoc on the _retry line would EOF after try
-# one). Args: <user> <runtime-dir> <install-sh-path> <helper>.
+# One chroot run of a user program's script (install.sh, or its post-config.sh
+# hook). Factored out of _runner_programs_install_user_program so _retry can
+# re-invoke it: the heredoc feeding `bash -s` is consumed as stdin per call,
+# so it must live in a function the retry loop re-enters (a heredoc on the
+# _retry line would EOF after try one). Args: <user> <runtime-dir>
+# <script-path> <helper (empty for a hook)>.
 _runner_programs_user_program_chroot() {
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
     "$1" "$2" "$3" "$4" <<'CHROOT_USERPROG'
@@ -65,9 +67,7 @@ _runner_programs_install_user_program() {
 
 # runner_run_post_config <user> <user-json> — the Post-Config Hook (ADR 0160,
 # amends ADR 0134): each of the user's programs that ships a post-config.sh
-# runs it as the user, after the Config Apply pass placed its home/. For setup
-# that needs the final config on disk. No sudo grant (revoked by now) and no
-# retry: a hook warns on its own failures.
+# runs it as the user, after the Config Apply pass placed its home/.
 runner_run_post_config() {
   local user="$1" user_json="$2" program relative_path hook
   while IFS= read -r program; do

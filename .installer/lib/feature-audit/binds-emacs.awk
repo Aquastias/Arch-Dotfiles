@@ -17,6 +17,8 @@ function strip_comment(line,    i, c, in_string) {
   return line
 }
 
+# take_token <token> — the map! state machine: opens/closes a form, tracks
+# its states, `:leader` and `:desc`, and prints a row per `"key" #'command`.
 function take_token(token) {
   if (token == "(map!") {
     in_map = 1; depth = 1; leader = 0; states = ""; pending = 0
