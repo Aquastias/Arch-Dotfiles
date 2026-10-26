@@ -64,3 +64,14 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
   grep -qx '"Mod+D" = "spawn:noctalia msg panel-toggle launcher"' \
     "$UMB/conf.d/keybinds.toml"
 }
+
+# Umbriel's session runs XDG autostart; KDE-only daemons are gated off there
+# and staged for the adapter to seed (ADR 0159).
+@test "umbriel gates KDE-only autostart daemons outside Plasma" {
+  local units="$UMB/../systemd/user" unit
+  for unit in org.kde.kdeconnect.daemon org.kde.kalendarac; do
+    grep -qx 'ExecCondition=/usr/bin/test "${XDG_CURRENT_DESKTOP}" != umbriel' \
+      "$units/app-${unit}@autostart.service.d/umbriel.conf"
+  done
+  grep -q '_chroot_stage_autostart_gates umbriel' "$CHROOT"
+}

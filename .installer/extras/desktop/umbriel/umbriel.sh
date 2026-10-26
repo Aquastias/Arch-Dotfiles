@@ -97,6 +97,16 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
   export NOCTALIA_SLICE_FUNCTION=noctalia_umbriel_plugins
   noctalia_preset_install ".config/umbriel/config.toml" \
     ".config/umbriel/config.toml"
+  # Umbriel's session target pulls xdg-desktop-autostart.target (niri's does
+  # not), so KDE-only autostart daemons would start here too: seed the user
+  # drop-ins that gate them off outside Plasma (ADR 0159).
+  for _gate in "$UMBRIEL_CURATED_DIR"/.config/systemd/user/*@autostart.service.d
+  do
+    [[ -d "$_gate" ]] || continue
+    install -d "${SEED_ROOT%/}/etc/skel/.config/systemd/user/${_gate##*/}"
+    install -m644 "$_gate"/* \
+      "${SEED_ROOT%/}/etc/skel/.config/systemd/user/${_gate##*/}/"
+  done
 fi
 
 section "Umbriel installation complete"

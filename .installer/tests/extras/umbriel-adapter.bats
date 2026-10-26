@@ -170,3 +170,15 @@ wl-clipboard" "$PACMAN_LOG"
     | grep -qx '\[input.cursor\]'
   ! grep -q hardware_cursor "$SKEL/.config/umbriel/config.toml"
 }
+
+# Umbriel's session target runs XDG autostart (niri's does not): KDE-only
+# daemons are gated off there by user-unit drop-ins (ADR 0159).
+@test "noctalia seeds the KDE autostart gates into /etc/skel" {
+  local gate=".config/systemd/user/app-org.kde.kdeconnect.daemon@autostart"
+  gate+=".service.d/umbriel.conf"
+  mkdir -p "$CURATED/${gate%/*}"
+  echo 'gate' > "$CURATED/$gate"
+  ENVIRONMENT_WAYLAND_SHELL=noctalia run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$SKEL/$gate")" == gate ]
+}
