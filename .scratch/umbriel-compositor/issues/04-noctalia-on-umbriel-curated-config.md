@@ -19,13 +19,13 @@ Binds are NOT this ticket (05). Keep upstream's bind section out or minimal.
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Adapter bats: curated config seeded under noctalia, nothing under
+- [x] Adapter bats: curated config seeded under noctalia, nothing under
       `none`/stock
-- [ ] Stow bats cover the Umbriel config
-- [ ] `umbriel config validate` accepts the shipped config
-- [ ] VM Audit Run of `arch-audit`: Umbriel session passes Noctalia, Qt
+- [x] Stow bats cover the Umbriel config
+- [x] `umbriel config validate` accepts the shipped config
+- [x] VM Audit Run of `arch-audit`: Umbriel session passes Noctalia, Qt
       theming, xdg dirs, clipboard and portal checks
 
 Spec: ../PRD.md · ADR 0094, 0095, 0097, 0107, 0159

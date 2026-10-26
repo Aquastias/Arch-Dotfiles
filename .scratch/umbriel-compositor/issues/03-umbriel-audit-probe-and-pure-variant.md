@@ -12,11 +12,11 @@ The Probe Gate SKIPs (never fails) curated/shell checks on stock. An
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Probe present; manifest coverage bats pass (no probe-less program)
-- [ ] `umbriel-pure` variant in the manifest
-- [ ] VM Audit Run of `umbriel-pure`: probe PASSes, gated checks listed as
+- [x] Probe present; manifest coverage bats pass (no probe-less program)
+- [x] `umbriel-pure` variant in the manifest
+- [x] VM Audit Run of `umbriel-pure`: probe PASSes, gated checks listed as
       SKIP with reasons, no unexplained Findings
 
 Spec: ../PRD.md · ADR 0152, 0159

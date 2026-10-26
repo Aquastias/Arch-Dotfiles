@@ -20,14 +20,14 @@ Grounding: upstream docs (no Arch Wiki page), per ADR 0159.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Unknown desktop values still rejected; `umbriel` accepted
-- [ ] Adapter bats (seed-root seam): seatd enabled, session listed once,
+- [x] Unknown desktop values still rejected; `umbriel` accepted
+- [x] Adapter bats (seed-root seam): seatd enabled, session listed once,
       nothing seeded under stock
-- [ ] Resolver reports the Umbriel packages from the shared map
-- [ ] pure-profiles + Guided profile-equivalence cover `umbriel-pure`
-- [ ] VM: `umbriel-pure` installs, greeter offers Umbriel, session starts
-- [ ] Installer README/REFERENCE desktop lists mention Umbriel
+- [x] Resolver reports the Umbriel packages from the shared map
+- [x] pure-profiles + Guided profile-equivalence cover `umbriel-pure`
+- [x] VM: `umbriel-pure` installs, greeter offers Umbriel, session starts
+- [x] Installer README/REFERENCE desktop lists mention Umbriel
 
 Spec: ../PRD.md · ADR 0159

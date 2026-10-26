@@ -1,7 +1,7 @@
 # ADR 0159: Umbriel adapter, `desktop[0]` is the Default Session
 
 ## Status
-Accepted — implemented.
+Accepted — implemented; verified by the umbriel-pure and desktop Audit Runs.
 
 ## Context
 Umbriel is the Noctalia project's own wlroots compositor (scrolling, dwindle,

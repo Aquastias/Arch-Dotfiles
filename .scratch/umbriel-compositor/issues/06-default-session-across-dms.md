@@ -23,7 +23,7 @@ Independent of Umbriel: provable with KDE/niri/Hyprland.
 - [x] Impermanence: seeded state survives rollback on all three DMs
 - [x] Guided replay shows the `(default)` marker on the first pick and in
       the profile preview
-- [ ] VM: a host with `niri` first lands on niri at first login; picking
+- [x] VM: a host with `niri` first lands on niri at first login; picking
       another session is remembered on next login
 
 Spec: ../PRD.md · ADR 0091, 0158, 0159 · glossary: Default Session
