@@ -1,0 +1,35 @@
+# Editor Coverage Map (ADR 0160): one row per Language Registry key (nvim
+# languages.lua, ADR 0141) → what covers it in the Emacs Config: a Doom module
+# (`:lang/<name>`, enabled in init.el), a package (`pkg:<name>`, declared in
+# packages.el), a built-in mode (`builtin:<mode>`), or `n/a <reason>`; a key
+# may span rows. emacs-program.bats fails when the key sets drift apart.
+lua         :lang/lua
+python      :lang/python pkg:flymake-ruff
+nix         :lang/nix
+php         :lang/php
+svelte      :lang/web
+vue         :lang/web
+typescript  :lang/javascript pkg:flymake-biome
+json        :lang/json
+css         :lang/web
+scss        :lang/web
+xml         :lang/data builtin:nxml-mode
+html        :lang/web
+yaml        :lang/yaml
+markdown    :lang/markdown
+bash        :lang/sh
+kdl         pkg:kdl-mode
+toml        builtin:conf-toml-mode
+http        :lang/rest
+go          :lang/go
+rust        :lang/rust
+zig         :lang/zig
+c           :lang/cc
+cpp         :lang/cc
+tailwind    n/a eglot runs one server per buffer; the web server owns it
+emmet       :lang/web
+eslint      n/a eglot runs one server per buffer; biome lints via flymake
+vimdoc      n/a nvim help parser, nothing to edit in Emacs
+regex       n/a built-in regex highlighting (re-builder)
+latex       n/a nvim parser only (render-markdown math)
+typst       n/a nvim parser only, no language server wired in nvim

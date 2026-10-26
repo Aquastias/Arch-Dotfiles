@@ -12,16 +12,29 @@ Coverage Map]] for Emacs keeps it in step with the Registry.
 
 **Status:** ready-for-agent
 
-- [ ] `init.el` enables `lsp +eglot`, `format +onsave`, flymake checkers and
+- [x] `init.el` enables `lsp +eglot`, `format +onsave`, flymake checkers and
       the Registry's `lang` modules; no lsp-mode
-- [ ] eglot server commands point at system binaries where Doom's defaults
+- [x] eglot server commands point at system binaries where Doom's defaults
       differ; formatter map mirrors conform
-- [ ] Emacs coverage map: one row per Registry key → module/package or
+- [x] Emacs coverage map: one row per Registry key → module/package or
       `n/a <reason>`
-- [ ] Static bats: coverage keys equal Registry keys (awk, no Lua/Emacs
+- [x] Static bats: coverage keys equal Registry keys (awk, no Lua/Emacs
       runtime); module flags present; lsp-mode absent
 - [ ] VM: format on save in a TS and a Rust file uses the system formatters;
       eglot attaches the `/usr/bin` servers; noted in Comments
 - [ ] Mismatches with nvim recorded for ADR 0160 Behaviour differences
 
 ## Comments
+
+- Every Registry server is set explicitly via `set-eglot-client!` (system
+  binary, checked against the Fleet Layer in bats). web-mode serves html,
+  .svelte and .vue, so its contact picks the server by file extension.
+- Doom's lua module passes Doom-local args to lua-language-server; the
+  override runs `after! lua-mode` so it lands later.
+- `format +onsave` without `+lsp` (that flag hands formatting to the server).
+  phpcbf (PSR-12) and kdlfmt are custom apheleia formatters.
+- Linters: flymake-ruff (python), flymake-biome only under biome.json/.jsonc.
+- Gaps for ADR: tailwind and eslint servers (eglot runs one server per
+  buffer). Vue's server v3 expects tsserver forwarding that eglot lacks —
+  confirm in VM; likely a loose match.
+- VM check batched (see ticket 01 note).

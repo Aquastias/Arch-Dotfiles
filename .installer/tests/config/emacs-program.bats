@@ -143,3 +143,148 @@ module_enabled() {
     '[]' '[]' "$(config_apply_stow_opted_in_programs "$root")" \
     | jq -e 'index("emacs") == null'
 }
+
+# ── languages on the system toolchain (ADR 0160) ─────────────────────────────
+
+COVERAGE_REL=.installer/programs/dev/emacs/coverage.txt
+LANGS_REL=.installer/programs/dev/nvim/home/.config/nvim/lua/config
+LANGS_REL=$LANGS_REL/languages.lua   # the Language Registry
+FLEET_REL=.installer/hosts/fleet/profile.jsonc
+
+# registry_keys → the Language Registry's language keys (ADR 0141), read from
+# nvim's languages.lua with awk — no Lua runtime.
+registry_keys() {
+  awk '/^local registry = \{/ { on = 1; next }
+       on && /^}/ { exit }
+       on && match($0, /^  [a-z_]+ = /) {
+         k = substr($0, 3); sub(/ = .*/, "", k); print k }' \
+    "$REPO/$LANGS_REL"
+}
+
+@test "LSP via eglot, flymake checking, format on save without LSP format" {
+  module_enabled '(lsp +eglot)'
+  module_enabled '(syntax +flymake)'
+  module_enabled '(format +onsave)'
+  # +lsp would hand formatting to the server, overriding conform's choice.
+  ! elisp "$DOOMDIR/init.el" | grep -qE '\(format [^)]*\+lsp'
+  ! elisp "$DOOMDIR/init.el" | grep -qE '(^|[[:space:]])debugger'
+}
+
+@test "Emacs Coverage Map keys == Language Registry keys (ADR 0160)" {
+  diff <(registry_keys | sort) \
+    <(data_rows "$REPO/$COVERAGE_REL" | awk '{ print $1 }' | sort -u)
+}
+
+@test "every Coverage Map module is enabled and every package declared" {
+  local token
+  while read -r token; do
+    case "$token" in
+    :lang/*) elisp "$DOOMDIR/init.el" \
+        | grep -qE "(^|[[:space:](])${token#:lang/}([[:space:])]|$)" \
+        || { echo "module off: $token"; false; } ;;
+    pkg:*) elisp "$DOOMDIR/packages.el" \
+        | grep -qF "(package! ${token#pkg:} " \
+        || { echo "package missing: $token"; false; } ;;
+    builtin:*) ;;
+    *) echo "unknown token: $token"; false ;;
+    esac
+  done < <(data_rows "$REPO/$COVERAGE_REL" \
+    | awk '$2 != "n/a" { for (i = 2; i <= NF; i++) print $i }')
+}
+
+@test "an n/a Coverage Map row states a reason" {
+  run bash -c "$(declare -f data_rows); data_rows '$REPO/$COVERAGE_REL' \
+    | awk '\$2 == \"n/a\" && NF < 3'"
+  [ -z "$output" ]
+}
+
+# Each Registry server → the system binary eglot must launch and the Fleet
+# Layer package providing it. phpactor rides dev/nvim's install.
+@test "eglot launches every Registry server from the system toolchain" {
+  local binary package
+  while read -r binary package; do
+    elisp "$DOOMDIR/config.el" | grep -qF "\"$binary\"" \
+      || { echo "no eglot client for $binary"; false; }
+    if [[ "$package" == @nvim:* ]]; then
+      grep -q "needed ${package#@nvim:}" \
+        "$REPO/.installer/programs/dev/nvim/install.sh"
+    else
+      grep -q "\"$package\"" "$REPO/$FLEET_REL" \
+        || { echo "$package not in the Fleet Layer"; false; }
+    fi
+  done <<'EOF_'
+lua-language-server lua-language-server
+basedpyright-langserver basedpyright
+nixd nixd
+phpactor @nvim:phpactor
+svelteserver svelte-language-server
+vue-language-server vue-language-server
+typescript-language-server typescript-language-server
+vscode-json-language-server vscode-langservers-extracted
+vscode-css-language-server vscode-langservers-extracted
+vscode-html-language-server vscode-langservers-extracted
+yaml-language-server yaml-language-server
+bash-language-server bash-language-server
+gopls gopls
+rust-analyzer rust-analyzer
+zls zls
+clangd clang
+EOF_
+}
+
+# nvim filetype's Emacs major mode → the apheleia formatter conform's choice
+# maps to. Independent of config.el: this is the parity contract.
+@test "each Registry formatter is the apheleia formatter for its mode" {
+  local mode formatter
+  while read -r mode formatter; do
+    elisp "$DOOMDIR/config.el" | grep -qF "($mode . $formatter)" \
+      || { echo "$mode: want $formatter"; false; }
+  done <<'EOF_'
+lua-mode stylua
+python-mode ruff
+nix-mode nixfmt
+php-mode phpcbf
+js-mode biome
+typescript-mode biome
+json-mode biome
+jsonc-mode biome
+css-mode biome
+scss-mode prettier-scss
+less-css-mode prettier-css
+nxml-mode xmllint
+web-mode prettier
+yaml-mode prettier-yaml
+markdown-mode prettier-markdown
+sh-mode shfmt
+kdl-mode kdlfmt
+conf-toml-mode taplo
+go-mode gofmt
+rustic-mode rustfmt
+zig-mode zig-fmt
+c-mode clang-format
+c++-mode clang-format
+EOF_
+}
+
+@test "manual-only formatters (shfmt, kdlfmt, taplo) skip format on save" {
+  local mode
+  for mode in sh-mode kdl-mode conf-toml-mode; do
+    elisp "$DOOMDIR/config.el" \
+      | awk '/\+format-on-save-disabled-modes/,/\)\)/' | grep -qw "$mode" \
+      || { echo "$mode formats on save"; false; }
+  done
+  [ "$(grep -c "format_on_save = false" "$REPO/$LANGS_REL")" -eq 3 ]
+}
+
+@test "linters: ruff for python, biome only where biome.json exists" {
+  elisp "$DOOMDIR/packages.el" | grep -qF '(package! flymake-ruff '
+  elisp "$DOOMDIR/packages.el" | grep -qF '(package! flymake-biome '
+  elisp "$DOOMDIR/config.el" | grep -qF '"biome.json"'
+  elisp "$DOOMDIR/config.el" | grep -qF '"biome.jsonc"'
+}
+
+@test "]d/[d jump diagnostics, SPC c o organizes imports" {
+  elisp "$DOOMDIR/config.el" | grep -qE '"\]d".*flymake-goto-next-error'
+  elisp "$DOOMDIR/config.el" | grep -qE '"\[d".*flymake-goto-prev-error'
+  elisp "$DOOMDIR/config.el" | grep -qE '"c o".*organize-imports'
+}
