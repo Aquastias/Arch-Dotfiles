@@ -7,12 +7,31 @@
 ;; points, matching their 12.
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 12.0))
 
-;; Static Catppuccin Mocha with nvim's sapphire accent on the same faces nvim
-;; overlays (cursor, paren match, search, the completion selection,
-;; directories).
+;; Like nvim's theme.lua: a static palette, persisted across sessions
+;; (Catppuccin Mocha by default); `SPC u N' switches to following Noctalia.
+;; rose-pine, nvim's fifth palette, has no maintained Emacs theme.
+(defconst +parity-palettes
+  '(catppuccin doom-tokyo-night doom-gruvbox doom-nord))
+(defvar +parity-follow-noctalia nil
+  "Non-nil: load the theme Noctalia renders instead of the static palette.")
+(defvar +parity-palette-file (expand-file-name "palette" doom-state-dir))
+
+(defun +parity--saved-palette ()
+  "The persisted static palette, or Catppuccin when none (or unknown)."
+  (let ((name (and (file-readable-p +parity-palette-file)
+                   (intern (string-trim
+                            (with-temp-buffer
+                              (insert-file-contents +parity-palette-file)
+                              (buffer-string)))))))
+    (if (memq name +parity-palettes) name 'catppuccin)))
+
 (setq catppuccin-flavor 'mocha)
-(setq doom-theme 'catppuccin)
-(custom-set-faces!
+(setq doom-theme (+parity--saved-palette))
+
+;; nvim's sapphire accent on the faces nvim overlays (cursor, paren match,
+;; search, the completion selection, directories) — Catppuccin only, so a
+;; followed Noctalia palette keeps its own accent.
+(custom-theme-set-faces! 'catppuccin
   '(cursor :background "#74c7ec")
   '(show-paren-match :foreground "#74c7ec" :weight bold)
   '(isearch :background "#74c7ec" :foreground "#1e1e2e")
@@ -22,6 +41,49 @@
   '(dired-directory :foreground "#74c7ec"))
 
 (setq display-line-numbers-type 'relative)
+
+;; Noctalia's built-in `emacs' template renders `noctalia' into the first
+;; existing config dir — Doom's — and its apply hook runs
+;; `emacsclient -e (load-theme 'noctalia t)' on every palette change.
+(defvar +parity-noctalia-theme-file
+  (expand-file-name "themes/noctalia-theme.el" doom-user-dir))
+(add-to-list 'custom-theme-load-path
+             (file-name-directory +parity-noctalia-theme-file))
+
+;; That hook must not force Noctalia's theme while follow is off.
+(advice-add #'load-theme :before-while
+            (defun +parity--noctalia-gate-a (theme &rest _)
+              (or (not (eq theme 'noctalia)) +parity-follow-noctalia)))
+
+(defun +parity--apply-theme ()
+  "Load Noctalia's theme when following and rendered, else the static one."
+  (mapc #'disable-theme custom-enabled-themes)
+  (if (and +parity-follow-noctalia
+           (file-readable-p +parity-noctalia-theme-file))
+      (load-theme 'noctalia t)
+    (load-theme (+parity--saved-palette) t)))
+
+(defun +parity/pick-palette ()
+  "Pick a static palette and persist it (nvim's SPC u C)."
+  (interactive)
+  (let ((name (intern (completing-read "Palette: " +parity-palettes nil t))))
+    (with-temp-file +parity-palette-file
+      (insert (symbol-name name) "\n"))
+    (setq +parity-follow-noctalia nil)
+    (+parity--apply-theme)))
+
+(defun +parity/toggle-follow-noctalia ()
+  "Flip Noctalia follow and re-apply (nvim's SPC u N)."
+  (interactive)
+  (setq +parity-follow-noctalia (not +parity-follow-noctalia))
+  (+parity--apply-theme)
+  (message "follow-noctalia = %s" +parity-follow-noctalia))
+
+;; The Arch Wiki's guarded server start: Noctalia's emacsclient reaches the
+;; open Emacs, and no login daemon runs.
+(require 'server)
+(unless (server-running-p)
+  (server-start))
 
 ;; ── Languages (the Language Registry, via coverage.txt) ───────────────────
 ;; Every server is the system binary nvim uses (the Fleet Layer); eglot never
@@ -260,4 +322,6 @@
       :desc "Extract to file" "r f" #'eglot-code-actions
       :desc "Inline variable" "r i" #'eglot-code-action-inline
       :desc "Inline function" "r I" #'eglot-code-action-inline
-      :desc "Inlay hints" "u h" #'eglot-inlay-hints-mode)
+      :desc "Inlay hints" "u h" #'eglot-inlay-hints-mode
+      :desc "Pick palette" "u C" #'+parity/pick-palette
+      :desc "Follow Noctalia" "u N" #'+parity/toggle-follow-noctalia)

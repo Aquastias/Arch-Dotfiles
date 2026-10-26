@@ -123,7 +123,9 @@ module_enabled() {
 @test "static look: Catppuccin Mocha from catppuccin-theme" {
   elisp "$DOOMDIR/packages.el" | grep -qF '(package! catppuccin-theme'
   elisp "$DOOMDIR/config.el" | grep -qF "(setq catppuccin-flavor 'mocha)"
-  elisp "$DOOMDIR/config.el" | grep -qF "(setq doom-theme 'catppuccin)"
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '(setq doom-theme (+parity--saved-palette))'
+  elisp "$DOOMDIR/config.el" | grep -qF "'catppuccin)))"   # the fallback
 }
 
 @test "sapphire accent overlays the faces nvim overlays" {
@@ -403,4 +405,47 @@ bound() {
     "$INSTALL")"
   grep -qE -- '--needed .*cmake' <<<"$installs"
   grep -qE -- '--needed .*libvterm' <<<"$installs"
+}
+
+# ── theme: static by default, Noctalia follow on SPC u N (ADR 0160) ──────────
+
+@test "the static palettes are nvim's that Emacs has; catppuccin default" {
+  # rose-pine has no maintained Emacs theme (ADR 0160 gap).
+  elisp "$DOOMDIR/config.el" | grep -qF \
+    "'(catppuccin doom-tokyo-night doom-gruvbox doom-nord))"
+  elisp "$DOOMDIR/config.el" | grep -qF '(defvar +parity-follow-noctalia nil'
+}
+
+@test "SPC u C picks a palette, SPC u N toggles Noctalia follow" {
+  bound 'u C' +parity/pick-palette
+  bound 'u N' +parity/toggle-follow-noctalia
+}
+
+@test "the chosen palette persists in Doom's state dir" {
+  elisp "$DOOMDIR/config.el" | grep -qF 'doom-state-dir'
+}
+
+@test "follow loads Noctalia's emacs template output from the Doom dir" {
+  elisp "$DOOMDIR/config.el" | grep -qF '"themes/noctalia-theme.el"'
+  grep -qE '^[[:space:]]*"emacs",' "$REPO/.config/noctalia/config.toml"
+}
+
+@test "Noctalia's apply hook cannot force its theme while follow is off" {
+  elisp "$DOOMDIR/config.el" | grep -qE "advice-add #'load-theme :before-while"
+}
+
+@test "a server runs so Noctalia's emacsclient hook reaches open Emacs" {
+  # The Arch Wiki's guarded server start; no emacs.service daemon.
+  elisp "$DOOMDIR/config.el" | grep -qF '(unless (server-running-p)'
+  elisp "$DOOMDIR/config.el" | grep -qF '(server-start)'
+  ! grep -rq 'emacs.service' "$PROG"
+}
+
+@test "sapphire overlays Catppuccin only, never Noctalia's own accent" {
+  elisp "$DOOMDIR/config.el" | grep -qF "(custom-theme-set-faces! 'catppuccin"
+}
+
+@test "Noctalia's rendered theme is git-ignored (seed-only, ADR 0104)" {
+  git -C "$REPO" check-ignore -q \
+    .installer/programs/dev/emacs/home/.config/doom/themes/noctalia-theme.el
 }

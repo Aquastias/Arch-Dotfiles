@@ -28,6 +28,8 @@
 .config/kitty/themes/
 # Umbriel palette include is Noctalia-generated — never stowed (ADR 0159)
 .config/umbriel/noctalia.toml
-# Nvim theme file is Noctalia-generated/seed-only — never stowed (ADR 0136)
+# Nvim/Doom theme files are Noctalia-generated/seed-only — never stowed (ADR
+# 0136, 0160)
 .installer/programs/dev/nvim/home/.config/nvim/themes/
+.installer/programs/dev/emacs/home/.config/doom/themes/
 .installer/.audit-runs/

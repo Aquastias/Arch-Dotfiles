@@ -13,13 +13,24 @@ stowed.
 
 **Status:** ready-for-agent
 
-- [ ] Follow on → Noctalia theme if its file exists, else Catppuccin; follow
+- [x] Follow on → Noctalia theme if its file exists, else Catppuccin; follow
       off → picked static palette
-- [ ] `SPC u C` / `SPC u N` bound; the five palettes installed
-- [ ] `server-start` guarded on no running server; no `emacs.service`
-- [ ] Rendered theme file git-ignored and excluded from stow
-- [ ] Static bats: palettes, follow logic, server guard present
+- [x] `SPC u C` / `SPC u N` bound; the five palettes installed
+- [x] `server-start` guarded on no running server; no `emacs.service`
+- [x] Rendered theme file git-ignored and excluded from stow
+- [x] Static bats: palettes, follow logic, server guard present
 - [ ] VM: Emacs opens Noctalia-themed; a palette change reaches the open
       Emacs; KDE-like no-template fallback shows Catppuccin; in Comments
 
 ## Comments
+
+- nvim's follow defaults **off** (`options.lua`); operator chose to match:
+  Emacs starts on the persisted static palette (Catppuccin default) and
+  `SPC u N` turns follow on. ADR 0160's "follows Noctalia" wording needs
+  this correction at close-out.
+- Noctalia's apply hook runs `(load-theme 'noctalia t)` on every palette
+  change; a `load-theme` advice ignores it while follow is off.
+- rose-pine has no maintained Emacs theme (not on MELPA or in doom-themes):
+  four of nvim's five palettes — a gap for the ADR.
+- Sapphire overlays Catppuccin only (`custom-theme-set-faces!`), so a
+  followed Noctalia palette keeps its own accent, as in nvim.
