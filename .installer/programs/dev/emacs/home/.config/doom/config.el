@@ -111,7 +111,153 @@
                                                    "biome.jsonc")))
               (flymake-biome-load))))
 
-(map! :n "]d" #'flymake-goto-next-error
-      :n "[d" #'flymake-goto-prev-error
-      :leader
-      :desc "Organize imports" "c o" #'eglot-code-action-organize-imports)
+
+;; ── Keys: the nvim map wins (ADR 0160) ────────────────────────────────────
+;; Where Doom binds a key differently the nvim binding replaces it; Doom keeps
+;; every key nvim leaves free. Mirrors nvim's keymaps.lua and plugin keys.
+
+(setq evil-kill-on-visual-paste nil)    ; nvim's SPC p: paste keeps register
+(setq treemacs-position 'right)
+(setq vterm-always-compile-module t)    ; build vterm's module, no prompt
+
+(defun +parity/copy-file-path ()
+  "Copy the file's ~-abbreviated path (nvim's SPC y p)."
+  (interactive)
+  (let ((path (abbreviate-file-name (or buffer-file-name default-directory))))
+    (kill-new path)
+    (message "Copied: %s" path)))
+
+(defun +parity--move-lines (address)
+  "Move the visual lines to ADDRESS, reindent, keep them selected."
+  (evil-ex-execute (concat "'<,'>m " address))
+  (evil-visual-restore)
+  (evil-indent (region-beginning) (region-end))
+  (evil-visual-restore))
+
+(defun +parity/move-lines-down ()
+  (interactive)
+  (+parity--move-lines "'>+1"))
+
+(defun +parity/move-lines-up ()
+  (interactive)
+  (+parity--move-lines "'<-2"))
+
+(defun +parity/replace-word ()
+  "Prompt a buffer-wide substitution of the word at point (nvim's SPC r w)."
+  (interactive)
+  (let ((word (thing-at-point 'word t)))
+    (evil-ex (format "%%s/\\<%s\\>/%s/gI" word word))))
+
+(defun +parity/scroll-down-centered ()
+  (interactive)
+  (evil-scroll-down 0)
+  (recenter))
+
+(defun +parity/scroll-up-centered ()
+  (interactive)
+  (evil-scroll-up 0)
+  (recenter))
+
+(defun +parity/make-executable ()
+  "chmod +x the visited file (nvim's SPC c x)."
+  (interactive)
+  (set-file-modes buffer-file-name
+                  (logior (file-modes buffer-file-name) #o111))
+  (message "Executable: %s" buffer-file-name))
+
+(defun +parity--vterm-run (command)
+  "Run COMMAND full-buffer in vterm; the buffer dies with it."
+  (let ((vterm-shell command))
+    (vterm (format "*%s*" command))))
+
+(defun +parity/lazygit ()
+  (interactive)
+  (+parity--vterm-run "lazygit"))
+
+(defun +parity/lazygit-log ()
+  (interactive)
+  (+parity--vterm-run "lazygit log"))
+
+(map! :m "]d" #'flymake-goto-next-error
+      :m "[d" #'flymake-goto-prev-error
+      :m "]h" #'+vc-gutter/next-hunk
+      :m "[h" #'+vc-gutter/previous-hunk
+      :m "]t" #'hl-todo-next
+      :m "[t" #'hl-todo-previous
+      :n "s" #'avy-goto-char-timer
+      :n "-" #'dired-jump
+      :n "<tab>" #'next-buffer
+      :n "<backtab>" #'previous-buffer
+      :n "C-h" #'evil-window-left
+      :n "C-j" #'evil-window-down
+      :n "C-k" #'evil-window-up
+      :n "C-l" #'evil-window-right
+      :n "C-d" #'+parity/scroll-down-centered
+      :n "C-u" #'+parity/scroll-up-centered
+      :n "C-e" #'harpoon-toggle-quick-menu
+      :n "C-/" #'+vterm/toggle
+      :nv "C-SPC" #'er/expand-region
+      :v "<backspace>" #'er/contract-region
+      :v "J" #'+parity/move-lines-down
+      :v "K" #'+parity/move-lines-up
+      ;; mini.surround's gs* over evil-surround (shadows Doom's gs easymotion)
+      :n "gsa" #'evil-surround-region
+      :v "gsa" #'evil-surround-region
+      :n "gsd" #'evil-surround-delete
+      :n "gsr" #'evil-surround-change)
+
+;; Doom binds SPC u (universal-argument) and SPC x (scratch) as commands; nvim
+;; uses both as prefixes, so they are cleared first.
+(map! :leader
+      "u" nil
+      "x" nil
+      :desc "Write buffer" "w" #'save-buffer
+      :desc "Quit window" "q" #'evil-quit
+      :desc "Explorer" "e" #'+treemacs/toggle
+      :desc "Undo tree" "U" #'vundo
+      :desc "Source buffer" "RET" #'eval-buffer
+      :desc "Harpoon add" "a" #'harpoon-add-file
+      "1" #'harpoon-go-to-1
+      "2" #'harpoon-go-to-2
+      "3" #'harpoon-go-to-3
+      "4" #'harpoon-go-to-4
+      "5" #'harpoon-go-to-5
+      "6" #'harpoon-go-to-6
+      "7" #'harpoon-go-to-7
+      "8" #'harpoon-go-to-8
+      "9" #'harpoon-go-to-9
+      :desc "Delete buffer" "b d" #'kill-current-buffer
+      :desc "Copy file path" "y p" #'+parity/copy-file-path
+      :desc "Organize imports" "c o" #'eglot-code-action-organize-imports
+      :desc "Make executable" "c x" #'+parity/make-executable
+      :desc "Grep" "f g" #'+default/search-project
+      :desc "Buffers" "f b" #'consult-buffer
+      :desc "Recent files" "f r" #'consult-recent-file
+      :desc "Help pages" "f h" #'consult-info
+      :desc "Symbols (document)" "s s" #'consult-imenu
+      :desc "Symbols (workspace)" "s S" #'xref-find-apropos
+      :desc "Commands" "s c" #'execute-extended-command
+      :desc "Keymaps" "s k" #'embark-bindings
+      :desc "Search & replace" "s r" #'project-query-replace-regexp
+      :desc "Lazygit" "g g" #'+parity/lazygit
+      :desc "Lazygit log" "g l" #'+parity/lazygit-log
+      :desc "Magit" "g m" #'magit-status
+      :desc "Git status" "g s" #'magit-status
+      :desc "Diff" "g d" #'magit-diff-unstaged
+      :desc "File history" "g h" #'magit-log-buffer-file
+      :desc "Repo history" "g H" #'magit-log-current
+      :desc "Git branches" "g b" #'magit-branch-checkout
+      :desc "Git log" "g L" #'magit-log-all
+      :desc "Git browse" "g B" #'+vc/git-link
+      :desc "Blame" "g t" #'magit-blame-addition
+      :desc "Diagnostics" "x x" #'flymake-show-project-diagnostics
+      :desc "Buffer diagnostics" "x X" #'flymake-show-buffer-diagnostics
+      :desc "Todo list" "x t" #'hl-todo-occur
+      :desc "Symbols" "x s" #'consult-imenu
+      :desc "Replace word" "r w" #'+parity/replace-word
+      :desc "Extract function" "r e" #'eglot-code-action-extract
+      :desc "Extract variable" "r v" #'eglot-code-action-extract
+      :desc "Extract to file" "r f" #'eglot-code-actions
+      :desc "Inline variable" "r i" #'eglot-code-action-inline
+      :desc "Inline function" "r I" #'eglot-code-action-inline
+      :desc "Inlay hints" "u h" #'eglot-inlay-hints-mode)

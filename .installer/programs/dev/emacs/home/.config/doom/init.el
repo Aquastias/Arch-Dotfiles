@@ -13,6 +13,7 @@
        ligatures
        modeline
        ophints
+       treemacs
        (popup +defaults)
        (vc-gutter +pretty)
        vi-tilde-fringe
@@ -27,8 +28,11 @@
        :emacs
        dired
        electric
-       undo
+       (undo +tree)
        vc
+
+       :term
+       vterm
 
        :checkers
        (syntax +flymake)
@@ -36,6 +40,7 @@
        :tools
        lookup
        (lsp +eglot)            ; servers from PATH only, never downloaded
+       magit
 
        :lang
        (cc +lsp)

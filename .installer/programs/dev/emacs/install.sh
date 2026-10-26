@@ -7,7 +7,8 @@
 # AUR_HELPER pre-exported.
 #
 # Installs emacs-wayland (the Arch Wiki's PGTK build) plus what Doom needs
-# (git, ripgrep, fd — the Fleet Layer places them, a non-fleet host would not),
+# (git, ripgrep, fd — the Fleet Layer places them, a non-fleet host would not;
+# cmake + libvterm build vterm's module, per Doom's vterm README),
 # then clones Doom core at the commit in doom-ref (ADR 0160). A re-run fetches
 # and re-pins the clone, never deletes it. The Doom config (home/) is applied
 # by the Runner's Config Apply pass (ADR 0134), and post-config.sh runs Doom's
@@ -22,7 +23,8 @@ DOOM_CORE="${HOME}/.config/emacs"
 DOOM_URL="https://github.com/doomemacs/core"
 
 print_status info "Installing Emacs (emacs-wayland) and Doom's tools..."
-${AUR_HELPER} -S --noconfirm --needed emacs-wayland git ripgrep fd
+${AUR_HELPER} -S --noconfirm --needed emacs-wayland git ripgrep fd \
+  cmake libvterm
 
 # _install_pin_doom <pin> — create the clone if missing, then fetch the pinned
 # commit alone and check it out detached.
