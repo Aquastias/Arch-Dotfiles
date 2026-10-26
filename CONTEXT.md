@@ -1507,12 +1507,25 @@ Look is static Catppuccin Mocha + sapphire (no Noctalia follow yet). Kept in
 step with the [[Language Registry]] by the [[Editor Coverage Map]].
 _Avoid_: "VS Code" (the MS build), marketplace, synced/host-captured settings.
 
+### Emacs Config
+The opt-in Emacs twin of [[Neovim Config]] ([ADR 0160]), held to the same
+**parity** contract as the [[VSCodium Config]]: the `dev/emacs`
+[[User Program]] serving Emacs (Wayland build) with the **Doom Emacs**
+distro, pinned to a known commit. Key parity rides Doom's evil `SPC` leader; where Doom's own map
+collides with the nvim map, **nvim wins** and Doom keeps every free key. Drives
+the same system-package toolchain (LSP via eglot, never auto-downloaded
+servers). Unlike VSCodium it **follows Noctalia** like nvim, falling back to
+static Catppuccin. Shares nvim's org files. A distro is acceptable here (and
+was not for nvim) because the twin is opt-in, never the served default.
+_Avoid_: "Doom" alone (the distro, not the config), Spacemacs.
+
 ### Editor Coverage Map
-The [[VSCodium Config]]'s answer to "what covers language X": one entry per
-[[Language Registry]] row naming the extension(s) that provide it, or an
-explicit *n/a*. A test fails when its keys differ from the Registry's, so a
-language added to nvim cannot silently go missing in VSCodium. _Avoid_: an
-extension list with no Registry link.
+An editor twin's answer to "what covers language X" (one per twin:
+[[VSCodium Config]], [[Emacs Config]]): one entry per [[Language Registry]]
+row naming what provides it (extension, module or package), or an explicit
+*n/a*. A test fails when its keys differ from the Registry's, so a language
+added to nvim cannot silently go missing in a twin. _Avoid_: a package list
+with no Registry link.
 
 ### ANSI-16 Following
 The cohesion mechanism for shipped terminal CLIs/TUIs that are **not** Noctalia
@@ -2565,5 +2578,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0157]: docs/adr/0157-neutral-core-personal-software-in-fleet-layer.md
 [ADR 0158]: docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR 0159]: docs/adr/0159-umbriel-adapter-and-default-session.md
+[ADR 0160]: docs/adr/0160-doom-emacs-opt-in-parity-twin-of-neovim-config.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
