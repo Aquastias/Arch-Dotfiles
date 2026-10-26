@@ -188,6 +188,42 @@
           (directory-files-recursively org-directory "\\.org\\'"))))
 (advice-add #'org-agenda :before #'+parity--org-agenda-files-a)
 
+;; ── Debugging: dape on nvim-dap's adapters (ADR 0140) ─────────────────────
+;; dape's own python (debugpy) and go (dlv) configs already launch the system
+;; tools. codelldb and js-debug would run downloaded adapters, so these run
+;; the Fleet Layer binaries, as nvim-dap does.
+(after! dape
+  (add-to-list 'dape-configs
+               `(codelldb
+                 modes (c-mode c-ts-mode c++-mode c++-ts-mode
+                        rustic-mode rust-mode rust-ts-mode)
+                 command "codelldb"
+                 command-args ("--port" :autoport)
+                 port :autoport
+                 :type "lldb"
+                 :request "launch"
+                 :cwd dape-cwd
+                 :program ,(lambda ()
+                             (expand-file-name
+                              (read-file-name "Path to executable: ")))))
+  (add-to-list 'dape-configs
+               '(js-debug-dap
+                 modes (js-mode js-ts-mode typescript-mode typescript-ts-mode)
+                 command "js-debug-dap"
+                 command-args (:autoport)
+                 port :autoport
+                 :type "pwa-node"
+                 :request "launch"
+                 :cwd dape-cwd
+                 :program dape-buffer-default)))
+
+(defun +parity/debug-continue ()
+  "Continue the session, or start one (nvim-dap's SPC d c)."
+  (interactive)
+  (if (bound-and-true-p dape-active-mode)
+      (call-interactively #'dape-continue)
+    (call-interactively #'dape)))
+
 ;; ── Keys: the nvim map wins (ADR 0160) ────────────────────────────────────
 ;; Where Doom binds a key differently the nvim binding replaces it; Doom keeps
 ;; every key nvim leaves free. Mirrors nvim's keymaps.lua and plugin keys.
@@ -338,6 +374,16 @@
       :desc "Inline function" "r I" #'eglot-code-action-inline
       :desc "REST: send request" "R s" #'restclient-http-send-current
       :desc "REST: copy as curl" "R c" #'restclient-copy-curl-command
+      :desc "Debug: toggle breakpoint" "d b" #'dape-breakpoint-toggle
+      :desc "Debug: conditional breakpoint" "d B" #'dape-breakpoint-expression
+      :desc "Debug: continue/start" "d c" #'+parity/debug-continue
+      :desc "Debug: step into" "d i" #'dape-step-in
+      :desc "Debug: step over" "d o" #'dape-next
+      :desc "Debug: step out" "d O" #'dape-step-out
+      :desc "Debug: REPL" "d r" #'dape-repl
+      :desc "Debug: run last" "d l" #'dape-restart
+      :desc "Debug: terminate" "d t" #'dape-quit
+      :desc "Debug: UI" "d u" #'dape-info
       :desc "Inlay hints" "u h" #'eglot-inlay-hints-mode
       :desc "Pick palette" "u C" #'+parity/pick-palette
       :desc "Follow Noctalia" "u N" #'+parity/toggle-follow-noctalia)

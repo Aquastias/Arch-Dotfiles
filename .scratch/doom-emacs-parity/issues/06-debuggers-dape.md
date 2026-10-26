@@ -10,11 +10,22 @@ step into/over/out, REPL, run last, terminate, UI.
 
 **Status:** ready-for-agent
 
-- [ ] `packages.el` adds dape; `:tools debugger` absent
-- [ ] dape configs use the same adapter binaries nvim-dap uses
-- [ ] `SPC d*` binds match nvim's
-- [ ] Static bats: dape declared, debugger module absent, `SPC d` binds
+- [x] `packages.el` adds dape; `:tools debugger` absent
+- [x] dape configs use the same adapter binaries nvim-dap uses
+- [x] `SPC d*` binds match nvim's
+- [x] Static bats: dape declared, debugger module absent, `SPC d` binds
 - [ ] VM: a Python breakpoint hits and steps; noted in Comments
 - [ ] Start/continue semantics vs nvim recorded for the ADR
 
 ## Comments
+
+- dape at this pin has no codelldb config (only lldb-dap/gdb) and its
+  js-debug configs run `node` on a downloaded adapter: both get explicit
+  configs on the Fleet Layer binaries (`codelldb --port`, `js-debug-dap
+  <port>`), as nvim-dap does. dape's debugpy (`python -m debugpy.adapter`)
+  and dlv configs already use system tools.
+- `SPC d c` starts a session when none is live, else continues (nvim-dap).
+  `SPC d l` maps to `dape-restart` — a loose match for nvim-dap's run_last.
+- The emacs bats split at 500 lines: emacs-program.bats (program, pin, hook,
+  look, toolchain), emacs-program-parity.bats (keys, theme, org, REST,
+  debug), shared emacs-program-helpers.bash.

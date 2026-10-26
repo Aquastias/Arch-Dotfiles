@@ -4,26 +4,9 @@
 # COMMITTED program, its pin and its single-source home/ Doom config — no
 # install run, no Emacs runtime. Config Apply places home/ (ADR 0134); the
 # Post-Config Hook runs Doom's install against it.
+# Helpers: emacs-program-helpers.bash.
 
-setup() {
-  REPO="$BATS_TEST_DIRNAME/../../.."   # .installer/tests/config → repo root
-  PROG="$REPO/.installer/programs/dev/emacs"
-  CFG="$PROG/config.jsonc"
-  INSTALL="$PROG/install.sh"
-  HOOK="$PROG/post-config.sh"
-  PIN="$PROG/doom-ref"
-  DOOMDIR="$PROG/home/.config/doom"
-  UCORE="$REPO/.installer/users/core/profile.jsonc"
-  OPERATOR="$REPO/.installer/users/aquastias/profile.jsonc"
-  # shellcheck source=../../lib/jsonc.sh
-  source "$REPO/.installer/lib/jsonc.sh"
-}
-
-# data_rows FILE → the rows of a data file, `#` comments and blanks dropped.
-data_rows() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
-
-# code_lines FILE → the file's lines with comments and blanks dropped.
-code_lines() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
+load emacs-program-helpers
 
 # ── program definition ───────────────────────────────────────────────────────
 
@@ -93,15 +76,6 @@ code_lines() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
 
 # ── the Doom config: modules and look (ADR 0160) ─────────────────────────────
 
-# elisp FILE → the file with `;` comments stripped (no string has a `;`).
-elisp() { awk '{ sub(/;.*/, ""); if ($0 ~ /[^[:space:]]/) print }' "$1"; }
-
-# module_enabled <module-form> → status 0 when init.el's doom! block enables it
-# (e.g. `(evil +everywhere)` or `vertico`) on an uncommented line.
-module_enabled() {
-  elisp "$DOOMDIR/init.el" | grep -qF -- "$1"
-}
-
 @test "the Doom config is three files: init.el, config.el, packages.el" {
   [ -f "$DOOMDIR/init.el" ] && [ -f "$DOOMDIR/config.el" ]
   [ -f "$DOOMDIR/packages.el" ]
@@ -147,21 +121,6 @@ module_enabled() {
 }
 
 # ── languages on the system toolchain (ADR 0160) ─────────────────────────────
-
-COVERAGE_REL=.installer/programs/dev/emacs/coverage.txt
-LANGS_REL=.installer/programs/dev/nvim/home/.config/nvim/lua/config
-LANGS_REL=$LANGS_REL/languages.lua   # the Language Registry
-FLEET_REL=.installer/hosts/fleet/profile.jsonc
-
-# registry_keys → the Language Registry's language keys (ADR 0141), read from
-# nvim's languages.lua with awk — no Lua runtime.
-registry_keys() {
-  awk '/^local registry = \{/ { on = 1; next }
-       on && /^}/ { exit }
-       on && match($0, /^  [a-z_]+ = /) {
-         k = substr($0, 3); sub(/ = .*/, "", k); print k }' \
-    "$REPO/$LANGS_REL"
-}
 
 @test "LSP via eglot, flymake checking, format on save without LSP format" {
   module_enabled '(lsp +eglot)'
@@ -289,187 +248,4 @@ EOF_
   elisp "$DOOMDIR/config.el" | grep -qE '"\]d".*flymake-goto-next-error'
   elisp "$DOOMDIR/config.el" | grep -qE '"\[d".*flymake-goto-prev-error'
   elisp "$DOOMDIR/config.el" | grep -qE '"c o".*organize-imports'
-}
-
-# ── key parity with the Neovim Config: nvim wins (ADR 0160) ──────────────────
-
-# bound <key> <command> → status 0 when config.el binds the key (a map! key
-# string; leader keys space-separated) straight to the named command.
-bound() {
-  elisp "$DOOMDIR/config.el" | grep -qF "\"$1\" #'$2" \
-    || { echo "unbound: $1 → $2"; return 1; }
-}
-
-@test "motions: s is avy with evil-snipe off; gs* is surround" {
-  elisp "$DOOMDIR/packages.el" | grep -qF '(package! evil-snipe :disable t)'
-  bound s avy-goto-char-timer
-  bound gsa evil-surround-region
-  bound gsd evil-surround-delete
-  bound gsr evil-surround-change
-}
-
-@test "files: - is dired-jump, SPC e toggles treemacs on the right" {
-  module_enabled 'treemacs'
-  bound - dired-jump
-  bound e +treemacs/toggle
-  elisp "$DOOMDIR/config.el" | grep -qF "(setq treemacs-position 'right)"
-}
-
-@test "core keys match nvim's keymaps.lua" {
-  bound w save-buffer
-  bound q evil-quit
-  bound '<tab>' next-buffer
-  bound '<backtab>' previous-buffer
-  bound C-h evil-window-left
-  bound C-j evil-window-down
-  bound C-k evil-window-up
-  bound C-l evil-window-right
-  bound 'b d' kill-current-buffer
-  bound 'y p' +parity/copy-file-path
-  bound J +parity/move-lines-down
-  bound K +parity/move-lines-up
-  # nvim's SPC p dodges Vim's register-clobbering visual paste; evil can
-  # simply not clobber, which leaves Doom's SPC p project prefix intact.
-  elisp "$DOOMDIR/config.el" \
-    | grep -qF '(setq evil-kill-on-visual-paste nil)'
-  bound 'r w' +parity/replace-word
-  bound C-SPC er/expand-region
-  bound '<backspace>' er/contract-region
-  bound C-d +parity/scroll-down-centered
-  bound C-u +parity/scroll-up-centered
-  bound 'c x' +parity/make-executable
-  bound RET eval-buffer
-}
-
-@test "find/search keys match nvim's snacks + grug-far maps" {
-  bound 'f g' +default/search-project
-  bound 'f b' consult-buffer
-  bound 'f r' consult-recent-file
-  bound 'f h' consult-info
-  bound 's s' consult-imenu
-  bound 's S' xref-find-apropos
-  bound 's c' execute-extended-command
-  bound 's k' embark-bindings
-  bound 's r' project-query-replace-regexp
-}
-
-@test "git keys: lazygit on SPC g g, magit one key away, hunks, history" {
-  module_enabled 'magit'
-  bound 'g g' +parity/lazygit
-  bound 'g l' +parity/lazygit-log
-  bound 'g m' magit-status
-  bound 'g s' magit-status
-  bound 'g d' magit-diff-unstaged
-  bound 'g h' magit-log-buffer-file
-  bound 'g H' magit-log-current
-  bound 'g b' magit-branch-checkout
-  bound 'g L' magit-log-all
-  bound 'g B' +vc/git-link
-  bound 'g t' magit-blame-addition
-  bound ']h' +vc-gutter/next-hunk
-  bound '[h' +vc-gutter/previous-hunk
-}
-
-@test "diagnostics, todo and refactor keys where eglot backs them" {
-  bound 'x x' flymake-show-project-diagnostics
-  bound 'x X' flymake-show-buffer-diagnostics
-  bound 'x t' hl-todo-occur
-  bound 'x s' consult-imenu
-  bound ']t' hl-todo-next
-  bound '[t' hl-todo-previous
-  bound 'r e' eglot-code-action-extract
-  bound 'r v' eglot-code-action-extract
-  bound 'r f' eglot-code-actions
-  bound 'r i' eglot-code-action-inline
-  bound 'r I' eglot-code-action-inline
-  bound 'u h' eglot-inlay-hints-mode
-}
-
-@test "harpoon, undo tree and the terminal toggle" {
-  elisp "$DOOMDIR/packages.el" | grep -qF '(package! harpoon '
-  module_enabled '(undo +tree)'
-  module_enabled 'vterm'
-  bound a harpoon-add-file
-  bound C-e harpoon-toggle-quick-menu
-  local i
-  for i in 1 2 3 4 5 6 7 8 9; do bound "$i" "harpoon-go-to-$i"; done
-  bound U vundo
-  bound C-/ +vterm/toggle
-  elisp "$DOOMDIR/config.el" | grep -qF '(setq vterm-always-compile-module t)'
-}
-
-@test "install.sh adds vterm's build deps (Doom's vterm README)" {
-  # join backslash-continued lines, so a package on line two still counts
-  local installs
-  installs="$(awk '/\\$/ { sub(/\\$/, ""); printf "%s", $0; next } 1' \
-    "$INSTALL")"
-  grep -qE -- '--needed .*cmake' <<<"$installs"
-  grep -qE -- '--needed .*libvterm' <<<"$installs"
-}
-
-# ── theme: static by default, Noctalia follow on SPC u N (ADR 0160) ──────────
-
-@test "the static palettes are nvim's that Emacs has; catppuccin default" {
-  # rose-pine has no maintained Emacs theme (ADR 0160 gap).
-  elisp "$DOOMDIR/config.el" | grep -qF \
-    "'(catppuccin doom-tokyo-night doom-gruvbox doom-nord))"
-  elisp "$DOOMDIR/config.el" | grep -qF '(defvar +parity-follow-noctalia nil'
-}
-
-@test "SPC u C picks a palette, SPC u N toggles Noctalia follow" {
-  bound 'u C' +parity/pick-palette
-  bound 'u N' +parity/toggle-follow-noctalia
-}
-
-@test "the chosen palette persists in Doom's state dir" {
-  elisp "$DOOMDIR/config.el" | grep -qF 'doom-state-dir'
-}
-
-@test "follow loads Noctalia's emacs template output from the Doom dir" {
-  elisp "$DOOMDIR/config.el" | grep -qF '"themes/noctalia-theme.el"'
-  grep -qE '^[[:space:]]*"emacs",' "$REPO/.config/noctalia/config.toml"
-}
-
-@test "Noctalia's apply hook cannot force its theme while follow is off" {
-  elisp "$DOOMDIR/config.el" | grep -qE "advice-add #'load-theme :before-while"
-}
-
-@test "a server runs so Noctalia's emacsclient hook reaches open Emacs" {
-  # The Arch Wiki's guarded server start; no emacs.service daemon.
-  elisp "$DOOMDIR/config.el" | grep -qF '(unless (server-running-p)'
-  elisp "$DOOMDIR/config.el" | grep -qF '(server-start)'
-  ! grep -rq 'emacs.service' "$PROG"
-}
-
-@test "sapphire overlays Catppuccin only, never Noctalia's own accent" {
-  elisp "$DOOMDIR/config.el" | grep -qF "(custom-theme-set-faces! 'catppuccin"
-}
-
-@test "Noctalia's rendered theme is git-ignored (seed-only, ADR 0104)" {
-  git -C "$REPO" check-ignore -q \
-    .installer/programs/dev/emacs/home/.config/doom/themes/noctalia-theme.el
-}
-
-# ── org and REST (ADR 0160) ──────────────────────────────────────────────────
-
-ORGMODE_REL=.installer/programs/dev/nvim/home/.config/nvim/lua/plugins
-ORGMODE_REL=$ORGMODE_REL/orgmode.lua
-
-@test "org shares nvim's org files: directory, agenda tree, refile file" {
-  module_enabled 'org'
-  # nvim's orgmode paths, read from its config (the source of truth).
-  grep -qF 'org_agenda_files = "~/orgfiles/**/*"' "$REPO/$ORGMODE_REL"
-  grep -qF 'org_default_notes_file = "~/orgfiles/refile.org"' \
-    "$REPO/$ORGMODE_REL"
-  elisp "$DOOMDIR/config.el" | grep -qF '(setq org-directory "~/orgfiles/")'
-  elisp "$DOOMDIR/config.el" \
-    | grep -qF '(setq org-default-notes-file "~/orgfiles/refile.org")'
-  # `**/*` is recursive; org-agenda-files directories are not.
-  elisp "$DOOMDIR/config.el" | grep -qF 'directory-files-recursively'
-}
-
-@test "REST: restclient sends and copies as curl on SPC R s / SPC R c" {
-  module_enabled 'rest'
-  bound 'R s' restclient-http-send-current
-  bound 'R c' restclient-copy-curl-command
 }

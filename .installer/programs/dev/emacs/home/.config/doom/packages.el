@@ -15,3 +15,8 @@
 (package! evil-snipe :disable t)
 (package! harpoon :pin "631354f24c0bd56daaf8ab613d695c4f1d57949a")
 (package! expand-region :pin "351279272330cae6cecea941b0033a8dd8bcc4e8")
+
+;; Debugging (nvim-dap): dape speaks DAP over eglot-era Emacs; Doom's
+;; :tools debugger is dap-mode, which needs lsp-mode.
+(package! dape :recipe (:host github :repo "svaante/dape")
+  :pin "a5dcf2d086a91fbe6e600b6de482d8f680f4410c")
