@@ -11,11 +11,27 @@ command via `emacs --batch` with Doom loaded.
 
 **Status:** ready-for-agent
 
-- [ ] Probe follows the program-spec audit contract; skips cleanly when emacs
+- [x] Probe follows the program-spec audit contract; skips cleanly when emacs
       is not installed
-- [ ] Pin check reads the same pin data file install.sh uses
-- [ ] Binds file covers representative binds from tickets 03–06
+- [x] Pin check reads the same pin data file install.sh uses
+- [x] Binds file covers representative binds from tickets 03–06
 - [ ] Known-noise entries (if any) documented like other probes'
 - [ ] Audit Run on the VM: all emacs checks pass; output in Comments
 
 ## Comments
+
+- emacs is a registered program bind source: `binds-emacs.awk` parses
+  config.el's `map!` forms (state keywords, `:leader`, `nil` unbinds), so
+  every shipped bind (90) is planned — not a representative subset — and
+  `check` fails on one without an expectation.
+- One catch-all expectation, `resolves` = the chord's `key-binding` (in a
+  buffer in that evil state, unremapped) is the configured command. Judged
+  in one throwaway `emacs --daemon` running the user's real Doom
+  (`audit-fixtures/binds.el`).
+- `doom doctor` always exits 0, so the probe judges its summary
+  ("There is/are N error(s)!", "Attempt to load DOOM failed"); warnings pass.
+- The pin reaches the probe as `audit-fixtures/doom-ref`, a symlink to the
+  program's pin (staged with `cp -rL`, vscodium's pattern).
+- Probe dry-run with stubs (no Emacs on the host): plan → 90 TSV rows, ids
+  unique (`gsa` is bound in normal and visual). Known noise: none yet; the
+  VM Audit Run decides.

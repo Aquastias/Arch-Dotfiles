@@ -51,6 +51,7 @@ declare -gA FA_BIND_SOURCES=(  # readability-ok: FA_ is the frozen env namespace
   [nvim]="-|find:$_P/dev/nvim/home/.config/nvim:*.lua|$_P/dev/nvim"
   [kitty]="*|$_P/system/kitty/home/.config/kitty/conf/*.conf|$_P/system/kitty"
   [zsh]="-|find:$_P/system/zsh/home:.z*|$_P/system/zsh"
+  [emacs]="-|$_P/dev/emacs/home/.config/doom/config.el|$_P/dev/emacs"
 )
 unset _X _P
 
@@ -153,6 +154,11 @@ _binds_parse_nvim() {
   done
 }
 
+# _binds_parse_emacs <el…> — Doom map! forms; see binds-emacs.awk.
+_binds_parse_emacs() {
+  awk -f "$INSTALLER_DIR/lib/feature-audit/binds-emacs.awk" "$@"
+}
+
 # _binds_parse_kitty <conf…> — `map <keys> <action>`; kitty_mod is ctrl+shift
 # (kitty's default; the curated config does not rebind it).
 _binds_parse_kitty() {
@@ -193,6 +199,7 @@ feature_audit_binds_parse() {
     umbriel) _binds_parse_umbriel "$@" ;;
     kde) _binds_parse_kde "$@" ;;
     nvim) _binds_parse_nvim "$@" ;;
+    emacs) _binds_parse_emacs "$@" ;;
     kitty) _binds_parse_kitty "$@" ;;
     zsh) _binds_parse_zsh "$@" ;;
     *) echo "feature-audit: no bind parser for '$source_name'" >&2; return 1 ;;

@@ -189,3 +189,32 @@ J
   jq -e 'select(.action == "v Move selection up") | .effect == "text-changes"' \
     <<<"$output"
 }
+
+@test "emacs parser: Doom map! state and leader binds, unbinds skipped" {
+  run feature_audit_binds_parse emacs "$FIX/emacs-keys.el"
+  [ "$status" -eq 0 ]
+  [ "$(awk 'END { print NR }' <<<"$output")" -eq 7 ]
+  grep -qxF $'emacs\t]d\tm flymake-goto-next-error' <<<"$output"
+  grep -qxF $'emacs\ts\tn avy-goto-char-timer' <<<"$output"
+  grep -qxF $'emacs\tC-SPC\tnv er/expand-region' <<<"$output"
+  grep -qxF $'emacs\tJ\tv +parity/move-lines-down' <<<"$output"
+  grep -qxF $'emacs\tSPC w\tleader save-buffer' <<<"$output"
+  grep -qxF $'emacs\tSPC 1\tleader harpoon-go-to-1' <<<"$output"
+  grep -qxF $'emacs\tSPC g g\tleader +parity/lazygit' <<<"$output"
+}
+
+@test "program sources: emacs binds are driven by the emacs probe" {
+  run feature_audit_binds_program_sources emacs
+  [ "$output" = emacs ]
+  run feature_audit_binds_session emacs
+  [ "$output" = - ]
+}
+
+@test "emacs: every shipped bind has an expectation" {
+  run feature_audit_binds_rows emacs
+  [ "$status" -eq 0 ]
+  grep -qxF $'emacs\tSPC g g\tleader +parity/lazygit' <<<"$output"
+  run feature_audit_binds_untested emacs
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

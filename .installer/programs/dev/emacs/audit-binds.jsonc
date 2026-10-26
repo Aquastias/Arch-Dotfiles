@@ -1,0 +1,12 @@
+// Feature Audit keymap expectations for emacs (ADR 0152, 0160) — parsed from
+// the shipped config.el's map! forms by lib/feature-audit/binds-emacs.awk;
+// actions are "<states> <command>" (states: an evil state set, or `leader`
+// for SPC binds). The probe starts the user's Doom once as a throwaway
+// daemon and asks each chord's key-binding in a buffer in that evil state:
+// `resolves` passes when it is the command the config binds ({arg}). That
+// proves nvim's map won over Doom's defaults and nothing later clobbered it.
+{
+  "expect": [
+    { "action": "*", "effect": "resolves", "arg": "{arg}" }
+  ]
+}
