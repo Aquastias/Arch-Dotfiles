@@ -304,6 +304,21 @@
   (interactive)
   (+parity--vterm-run "lazygit log"))
 
+;; These packages do not autoload the commands bound below, so a key pressed
+;; before the package loads would hit a void function (nvim lazy-loads on the
+;; key). Autoload each on its bind.
+(dolist (package-commands
+         '(("dape" dape-breakpoint-toggle dape-breakpoint-expression
+            dape-step-in dape-next dape-step-out dape-repl dape-restart
+            dape-quit dape-info)
+           ("eglot" eglot-code-action-organize-imports
+            eglot-code-action-extract eglot-code-actions
+            eglot-code-action-inline eglot-inlay-hints-mode)
+           ("undo-tree" undo-tree-visualize)
+           ("restclient" restclient-copy-curl-command)))
+  (dolist (command (cdr package-commands))
+    (autoload command (car package-commands) nil t)))
+
 (map! :m "]d" #'flymake-goto-next-error
       :m "[d" #'flymake-goto-prev-error
       :m "]h" #'+vc-gutter/next-hunk

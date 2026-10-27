@@ -218,3 +218,21 @@ ORGMODE_REL=$ORGMODE_REL/orgmode.lua
   bound 'd t' dape-quit
   bound 'd u' dape-info
 }
+
+# A bind to a command its package does not autoload is void until that
+# package loads (VM probe: SPC d b before any session). nvim lazy-loads on
+# the key; these autoload on it.
+@test "binds into lazily loaded packages autoload their command" {
+  local block
+  block="$(elisp "$DOOMDIR/config.el" \
+    | awk '/^\(dolist \(package-commands/,/\(autoload command/')"
+  local command
+  for command in dape-breakpoint-toggle dape-breakpoint-expression \
+    dape-step-in dape-next dape-step-out dape-repl dape-restart dape-quit \
+    dape-info eglot-code-action-organize-imports eglot-code-action-extract \
+    eglot-code-actions eglot-code-action-inline eglot-inlay-hints-mode \
+    undo-tree-visualize restclient-copy-curl-command; do
+    grep -qw -- "$command" <<<"$block" \
+      || { echo "not autoloaded: $command"; false; }
+  done
+}

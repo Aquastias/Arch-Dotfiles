@@ -269,3 +269,8 @@ EOF_
   elisp "$DOOMDIR/config.el" \
     | grep -qF '(setq nerd-icons-font-family "FiraCode Nerd Font")'
 }
+
+@test "the snippets dir Doom's snippets module reads ships (no yas warning)" {
+  module_enabled 'snippets'
+  [ -d "$DOOMDIR/snippets" ]
+}
