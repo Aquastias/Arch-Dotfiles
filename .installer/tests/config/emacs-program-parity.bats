@@ -236,3 +236,10 @@ ORGMODE_REL=$ORGMODE_REL/orgmode.lua
       || { echo "not autoloaded: $command"; false; }
   done
 }
+
+# VM: binding vterm-shell before vterm loads made it lexical, so lazygit
+# never reached vterm ("Defining as dynamic an already lexical var").
+@test "the vterm runner loads vterm before binding vterm-shell" {
+  elisp "$DOOMDIR/config.el" \
+    | awk '/^\(defun \+parity--vterm-run/,/^$/' | grep -qF "(require 'vterm)"
+}

@@ -274,3 +274,9 @@ EOF_
   module_enabled 'snippets'
   [ -d "$DOOMDIR/snippets" ]
 }
+
+# VM: Doom's evil caches the cursor color at depth -100 of the theme hook,
+# before theme face customizations apply, so the cursor stayed rosewater.
+@test "evil re-reads the cursor color after the sapphire overlay" {
+  elisp "$DOOMDIR/config.el" | grep -qF '+evil-update-cursor-color-h'
+}

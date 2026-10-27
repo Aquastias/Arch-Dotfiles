@@ -41,6 +41,15 @@
   '(corfu-current :background "#74c7ec" :foreground "#1e1e2e")
   '(dired-directory :foreground "#74c7ec"))
 
+;; Doom's evil caches the cursor color early in the theme hook (depth -100),
+;; before the overlay above applies: re-read it once the faces are set.
+(add-hook 'doom-load-theme-hook
+          (defun +parity--evil-cursor-color-h ()
+            (when (fboundp '+evil-update-cursor-color-h)
+              (+evil-update-cursor-color-h)
+              (evil-refresh-cursor)))
+          100)
+
 (setq display-line-numbers-type 'relative)
 
 ;; Noctalia's built-in `emacs' template renders `noctalia' into the first
@@ -293,6 +302,7 @@
 
 (defun +parity--vterm-run (command)
   "Run COMMAND full-buffer in vterm; the buffer dies with it."
+  (require 'vterm)        ; vterm-shell must be special before the let
   (let ((vterm-shell command))
     (vterm (format "*%s*" command))))
 
