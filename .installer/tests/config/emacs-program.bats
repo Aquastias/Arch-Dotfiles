@@ -257,7 +257,8 @@ EOF_
   # grammar: a typescript-mode child carries nvim's typescriptreact.
   elisp "$DOOMDIR/config.el" \
     | grep -qF '(define-derived-mode typescript-tsx-mode typescript-mode'
-  elisp "$DOOMDIR/config.el" | grep -qF '("\\.tsx\\'"'"'" . typescript-tsx-mode)'
+  elisp "$DOOMDIR/config.el" \
+    | grep -qF '("\\.tsx\\'"'"'" . typescript-tsx-mode)'
   elisp "$DOOMDIR/config.el" | grep -qF '("\\.jsx\\'"'"'" . js-jsx-mode)'
   elisp "$DOOMDIR/config.el" \
     | grep -qF '(typescript-tsx-mode :language-id "typescriptreact")'
