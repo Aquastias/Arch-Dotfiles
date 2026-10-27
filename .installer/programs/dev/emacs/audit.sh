@@ -7,7 +7,8 @@
 # Doom's defaults (audit-binds.jsonc; judged in one throwaway daemon).
 feature_audit_require_package emacs emacs-wayland || return 0
 feature_audit_as_user || return 0
-fixtures="$FA_DIR/audit-fixtures"
+# The runner's FA_DIR ends in "/": Emacs' `load' reads "dir//file" as "/file".
+fixtures="${FA_DIR%/}/audit-fixtures"
 doom_core="$FA_HOME/.config/emacs"
 
 feature_audit_check emacs-runs "emacs --version" emacs --version
@@ -58,8 +59,12 @@ done < <(jq -r '[.chord, (.action | split(" ")[0]), (.effect // "none"),
 if timeout 600 emacs --daemon="$socket" >"$log" 2>&1; then
   timeout 300 emacsclient -s "$socket" -e "(progn
     (load \"$fixtures/binds.el\" nil t)
-    (fa-emacs-binds \"$plan\" \"$out\"))" >/dev/null 2>&1
-  cat "$out"
+    (fa-emacs-binds \"$plan\" \"$out\"))" >/dev/null 2>"$log"
+  if [[ -s "$out" ]]; then cat "$out"
+  else
+    feature_audit_fail emacs-binds \
+      "bind judge returned nothing: $(awk 'NR == 1 { print; exit }' "$log")"
+  fi
   emacsclient -s "$socket" -e '(kill-emacs)' >/dev/null 2>&1
 else
   feature_audit_fail emacs-daemon \

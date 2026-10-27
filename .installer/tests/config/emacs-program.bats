@@ -281,3 +281,10 @@ EOF_
 @test "evil re-reads the cursor color after the sapphire overlay" {
   elisp "$DOOMDIR/config.el" | grep -qF '+evil-update-cursor-color-h'
 }
+
+# Audit Run: the runner passes FA_DIR with a trailing slash; Emacs' `load'
+# reads "dir//file" as "/file", so the judge silently judged nothing.
+@test "audit.sh drops FA_DIR's trailing slash and fails an empty judge" {
+  grep -qF 'fixtures="${FA_DIR%/}/audit-fixtures"' "$PROG/audit.sh"
+  grep -qF 'feature_audit_fail emacs-binds' "$PROG/audit.sh"
+}
