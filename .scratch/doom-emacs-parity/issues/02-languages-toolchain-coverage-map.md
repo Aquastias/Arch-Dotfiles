@@ -10,7 +10,7 @@ Coverage Map]] for Emacs keeps it in step with the Registry.
 
 **Blocked by:** 01 (Tracer).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `init.el` enables `lsp +eglot`, `format +onsave`, flymake checkers and
       the Registry's `lang` modules; no lsp-mode
@@ -20,9 +20,9 @@ Coverage Map]] for Emacs keeps it in step with the Registry.
       `n/a <reason>`
 - [x] Static bats: coverage keys equal Registry keys (awk, no Lua/Emacs
       runtime); module flags present; lsp-mode absent
-- [ ] VM: format on save in a TS and a Rust file uses the system formatters;
+- [x] VM: format on save in a TS and a Rust file uses the system formatters;
       eglot attaches the `/usr/bin` servers; noted in Comments
-- [ ] Mismatches with nvim recorded for ADR 0160 Behaviour differences
+- [x] Mismatches with nvim recorded for ADR 0160 Behaviour differences
 
 ## Comments
 
@@ -38,3 +38,8 @@ Coverage Map]] for Emacs keeps it in step with the Registry.
   buffer). Vue's server v3 expects tsserver forwarding that eglot lacks —
   confirm in VM; likely a loose match.
 - VM check batched (see ticket 01 note).
+
+- VM (arch-niri): a.ts → biome `const x = { a: 1 };`, b.rs → rustfmt; eglot
+  runs /usr/bin typescript-language-server, rust-analyzer,
+  basedpyright-langserver; c.tsx → typescript-tsx-mode. doom doctor: 0
+  errors, 14 warnings (Doom-native extras outside nvim parity).

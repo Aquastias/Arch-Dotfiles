@@ -1,6 +1,6 @@
 # Spec: Doom Emacs as an opt-in parity twin of the Neovim Config
 
-Status: ready-for-agent
+Status: done (fleet Audit Run pending — see issues/08)
 
 Anchors: ADR 0160 (this decision), ADR 0148 (the parity contract, VSCodium
 precedent), ADR 0134 (program `home/` + Config Apply), ADR 0135/0140
@@ -260,3 +260,23 @@ it in step with the Registry; a Feature Audit probe proves it on the target.
 - Fork this into tickets with `/to-issues`; prior art for the slicing is the
   vscodium-parity ticket set (stow opt-in, tracer program + look + VM smoke,
   languages + coverage map, keymaps + palettes, debuggers, close-out).
+
+## Outcome (post-implementation)
+
+- **Post-Config Hook** (new, amends ADR 0134): Doom bakes its config dir's
+  path into its generated profile and the Runner places config after every
+  install.sh, so `doom install` runs from `post-config.sh`, a generic hook
+  the Runner runs as the user after Config Apply.
+- Noctalia follow defaults **off**, matching nvim (`SPC u N` turns it on);
+  four of nvim's five palettes (no maintained rose-pine Emacs theme).
+- `.tsx`/`.jsx` get modes of their own (Doom maps them only with
+  +tree-sitter; Arch packages no TypeScript grammar).
+- The audit judges every bind (90+), not a representative set: emacs is a
+  registered bind source; binds into packages that do not autoload their
+  command are autoloaded (the probe's `commandp` check found 18).
+- VM checks found and fixed: the evil cursor color, lazygit's vterm runner,
+  missing autoloads, the snippets dir. Gaps, loose matches and displaced
+  Doom keys are in ADR 0160.
+- The fleet `desktop` Audit Run is blocked by AUR vetting of nixfmt (a
+  maintainer change); verified on non-fleet arch-kde instead. Rerun after
+  the 14-day window.

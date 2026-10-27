@@ -8,14 +8,14 @@ identical with, rest.nvim's `.http`.
 
 **Blocked by:** 01 (Tracer).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `init.el` enables org; `config.el` sets nvim's org paths
 - [x] `packages.el` adds restclient; `SPC R s`/`SPC R c` bound
 - [x] Static bats: org paths match nvim's orgmode config; REST binds present
-- [ ] VM: agenda lists a note from the shared org dir; a request in a
+- [x] VM: agenda lists a note from the shared org dir; a request in a
       sample file sends; noted in Comments
-- [ ] `.http` format differences found are recorded for the ADR
+- [x] `.http` format differences found are recorded for the ADR
 
 ## Comments
 
@@ -23,3 +23,7 @@ identical with, rest.nvim's `.http`.
   `packages.el`; that module maps `.http` files to restclient-mode.
 - nvim's agenda glob `~/orgfiles/**/*` is recursive; Emacs agenda dirs are
   not, so an `org-agenda` advice refreshes the recursive file list first.
+
+- VM (arch-kde): agenda lists a TODO from ~/orgfiles/sub (recursive);
+  .http → restclient-mode, GET https://archlinux.org/ → HTTP/1.1 200. No
+  format differences hit in the sample; restclient stays a loose match.

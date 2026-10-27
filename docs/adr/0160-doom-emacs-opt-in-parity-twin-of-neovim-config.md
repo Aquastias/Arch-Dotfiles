@@ -1,8 +1,11 @@
 # ADR 0160: Doom Emacs as an opt-in parity twin of the Neovim Config
 
 ## Status
-Accepted — design only; not yet implemented. Adds the `dev/emacs`
-[[User Program]] ([[Emacs Config]]) and a second [[Editor Coverage Map]].
+Accepted — implemented; VM-verified (fresh `arch-kde` install from local HEAD:
+the Post-Config Hook synced Doom, the emacs probe passed 95/95; `arch-niri`:
+format on save, eglot servers, dape, vterm, lazygit, live Noctalia follow).
+Adds the `dev/emacs` [[User Program]] ([[Emacs Config]]) and a second
+[[Editor Coverage Map]].
 Holds Emacs to the parity contract of [ADR 0148] (VSCodium) and leans on
 [ADR 0134] (program `home/` + Config Apply), [ADR 0135]/[0140]
 (system-package toolchain) and [ADR 0141] ([[Language Registry]]).

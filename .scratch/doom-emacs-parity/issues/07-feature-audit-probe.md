@@ -9,14 +9,14 @@ command via `emacs --batch` with Doom loaded.
 
 **Blocked by:** 03 (Keymaps), 04 (Theme), 05 (Org and REST), 06 (Debuggers).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Probe follows the program-spec audit contract; skips cleanly when emacs
       is not installed
 - [x] Pin check reads the same pin data file install.sh uses
 - [x] Binds file covers representative binds from tickets 03–06
-- [ ] Known-noise entries (if any) documented like other probes'
-- [ ] Audit Run on the VM: all emacs checks pass; output in Comments
+- [x] Known-noise entries (if any) documented like other probes'
+- [x] Audit Run on the VM: all emacs checks pass; output in Comments
 
 ## Comments
 
@@ -35,3 +35,9 @@ command via `emacs --batch` with Doom loaded.
 - Probe dry-run with stubs (no Emacs on the host): plan → 90 TSV rows, ids
   unique (`gsa` is bound in normal and visual). Known noise: none yet; the
   VM Audit Run decides.
+
+- Known noise: none. Probe on the fresh arch-kde install: 95/95 PASS, no
+  stderr. The full `desktop` Audit Run did not reach emacs: AUR vetting
+  aborted fleet-wide on nixfmt (maintainer changed <14 days ago); operator
+  chose to wait the window out — rerun `feature-audit.sh run --variant
+  desktop` after it.

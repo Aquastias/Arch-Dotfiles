@@ -11,7 +11,7 @@ stowed.
 
 **Blocked by:** 01 (Tracer).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Follow on → Noctalia theme if its file exists, else Catppuccin; follow
       off → picked static palette
@@ -19,7 +19,7 @@ stowed.
 - [x] `server-start` guarded on no running server; no `emacs.service`
 - [x] Rendered theme file git-ignored and excluded from stow
 - [x] Static bats: palettes, follow logic, server guard present
-- [ ] VM: Emacs opens Noctalia-themed; a palette change reaches the open
+- [x] VM: Emacs opens Noctalia-themed; a palette change reaches the open
       Emacs; KDE-like no-template fallback shows Catppuccin; in Comments
 
 ## Comments
@@ -34,3 +34,9 @@ stowed.
   four of nvim's five palettes — a gap for the ADR.
 - Sapphire overlays Catppuccin only (`custom-theme-set-faces!`), so a
   followed Noctalia palette keeps its own accent, as in nvim.
+
+- VM (arch-niri, niri session): static Catppuccin with sapphire (fixed:
+  evil cached the cursor color before the overlay); SPC u N → noctalia;
+  `noctalia msg color-scheme-set builtin Nord` repainted the open Emacs live
+  (#2e3440); with follow off a palette change left Catppuccin; SPC u C pick
+  persisted across restart. Palette restored afterwards.

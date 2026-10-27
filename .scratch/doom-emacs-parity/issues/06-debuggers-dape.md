@@ -8,14 +8,14 @@ step into/over/out, REPL, run last, terminate, UI.
 
 **Blocked by:** 02 (Languages, toolchain, coverage map).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `packages.el` adds dape; `:tools debugger` absent
 - [x] dape configs use the same adapter binaries nvim-dap uses
 - [x] `SPC d*` binds match nvim's
 - [x] Static bats: dape declared, debugger module absent, `SPC d` binds
-- [ ] VM: a Python breakpoint hits and steps; noted in Comments
-- [ ] Start/continue semantics vs nvim recorded for the ADR
+- [x] VM: a Python breakpoint hits and steps; noted in Comments
+- [x] Start/continue semantics vs nvim recorded for the ADR
 
 ## Comments
 
@@ -29,3 +29,6 @@ step into/over/out, REPL, run last, terminate, UI.
 - The emacs bats split at 500 lines: emacs-program.bats (program, pin, hook,
   look, toolchain), emacs-program-parity.bats (keys, theme, org, REST,
   debug), shared emacs-program-helpers.bash.
+
+- VM (arch-niri): a breakpoint on line 2 of a Python file stopped dape
+  (debugpy from the system python).

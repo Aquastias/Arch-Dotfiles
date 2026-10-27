@@ -12,7 +12,7 @@ metadata. Ground every package on the Arch Wiki.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Program metadata (`kind: user`, `stow_opt_in`) + install.sh with the
       mandated shape; not in User Core or Host Core; install.sh does not seed
@@ -24,7 +24,7 @@ metadata. Ground every package on the Arch Wiki.
 - [x] New static bats (prior art: vscodium program test): program shape, pin
       format, minimal `init.el`/`packages.el`/`config.el` look values
 - [x] `./stow-configs.sh` (no args) skips emacs; named, it stows
-- [ ] VM (vm-agent, `arch-combined`): install with emacs selected; Emacs
+- [x] VM (vm-agent, `arch-combined`): install with emacs selected; Emacs
       launches with Doom loaded and themed; screenshot noted in Comments
 - [x] Lints (readability, no-python) pass
 
@@ -40,3 +40,9 @@ metadata. Ground every package on the Arch Wiki.
 - Pinned clone verified locally against GitHub (fresh clone + re-run re-pin).
 - VM smoke deferred to one batched VM pass after tickets 02–07 (each
   ticket's VM criterion recorded there).
+
+- VM (2026-10-27): fresh `arch-kde` install from local HEAD ca57273 —
+  emacs-wayland/cmake/libvterm installed, Doom at the pin, config placed,
+  Doom's profile generated after it (the Post-Config Hook ran). `arch-niri`
+  replay: `doom install` rc 0. Themed screenshots taken (Catppuccin +
+  sapphire). VM found two fixes: autoloads for bound commands, snippets dir.

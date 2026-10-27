@@ -13,14 +13,14 @@ inlay hints.
 
 **Blocked by:** 01 (Tracer).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `packages.el` adds harpoon and avy; `init.el` enables `undo +tree`,
       treemacs, vterm, magit
 - [x] Every nvim bind mirrored where an Emacs command honestly backs it;
       unbacked binds listed for the ADR gaps
 - [x] Static bats: the nvim-wins binds and snipe-off present in the config
-- [ ] VM: `SPC g g`, `SPC g m`, `s`, `-`, `gsa`/`gsd`/`gsr`, `SPC e`,
+- [x] VM: `SPC g g`, `SPC g m`, `s`, `-`, `gsa`/`gsd`/`gsr`, `SPC e`,
       harpoon behave as specified; noted in Comments
 
 ## Comments
@@ -41,3 +41,7 @@ inlay hints.
 - vterm builds its module on first use (`vterm-always-compile-module`)
   against the system libvterm; install.sh adds `cmake libvterm` per Doom's
   vterm README (base-devel is in pacstrap).
+
+- VM: all 91 binds resolve to their commands (probe). Behaviour: SPC g g
+  lazygit in vterm (fixed: vterm-shell bound lexically before vterm loaded),
+  harpoon add, dired-jump, copy path, visual J moves lines.
