@@ -57,20 +57,80 @@ writes `themes/noctalia-theme.el` into the first existing dir of
   evil-snipe off; `-` is `dired-jump` (wdired gives oil's buffer editing);
   `SPC e` toggles treemacs (right side).
 - **Gaps VSCodium had, closed here:** harpoon (`harpoon.el`: `SPC a`, `C-e`,
-  `SPC 1..N`), undotree (`:emacs undo +tree` on `SPC U`), which-key (Doom
-  built-in), orgmode (native org), inlay-hint toggle (`SPC u h`). REST uses
-  `restclient` on `SPC R s`/`SPC R c` — a **loose match**: its format is
-  close to, not identical with, rest.nvim's `.http`.
-- **Look follows Noctalia, like nvim.** Load `noctalia` from the template's
-  theme file when present, else static Catppuccin Mocha + sapphire
-  (`catppuccin-theme`); `SPC u C` picks among nvim's five palettes, `SPC u N`
-  toggles follow. `config.el` calls `server-start` when no server runs, so
-  Noctalia's `emacsclient` apply hook reaches the open Emacs — no login
-  daemon. `FiraCode Nerd Font` 12, nerd-icons.
+  `SPC 1..9`), undotree (`:emacs undo +tree`: `undo-tree-visualize` on
+  `SPC U`), which-key (Doom built-in), orgmode (native org), inlay-hint
+  toggle (`SPC u h`), oil's buffer-editing (dired + wdired), Noctalia
+  follow. REST uses `restclient` (Doom's `:lang rest`) on `SPC R s`/`SPC R c`
+  — a **loose match**: its format is close to, not identical with,
+  rest.nvim's `.http`.
+- **Look matches nvim's theme.lua:** a static palette by default — the
+  persisted pick, else Catppuccin Mocha + sapphire (`catppuccin-theme`;
+  sapphire overlays only Catppuccin, so a followed palette keeps its own
+  accent) — and `SPC u N` turns **Noctalia follow** on (nvim's
+  `follow_noctalia` defaults off too): load `noctalia` from the template's
+  theme file. A `load-theme` advice ignores Noctalia's apply hook while
+  follow is off. `SPC u C` picks among nvim's palettes that Emacs has
+  (catppuccin, doom-tokyo-night, doom-gruvbox, doom-nord). `config.el`
+  runs the Arch Wiki's guarded `server-start`, so Noctalia's `emacsclient`
+  hook reaches the open Emacs — no login daemon. `FiraCode Nerd Font` 12;
+  nerd-icons draws from it (no icon-font download).
 - **Org** shares nvim's files: `org-directory` `~/orgfiles`, agenda
   `~/orgfiles/**`, default notes `~/orgfiles/refile.org`.
-- **Audit.** `audit.sh` checks `doom doctor` is clean, the pinned commit is
-  checked out, and `emacs --batch` bind probes from `audit-binds.jsonc`.
+- **Audit.** `audit.sh` checks the seeded config, the pinned commit, `doom
+  doctor`'s summary (it always exits 0; warnings pass) and every bind:
+  emacs is a registered bind source (`binds-emacs.awk` parses `map!`
+  forms) and each chord's `key-binding`, in a buffer in that evil state of
+  a throwaway `emacs --daemon`, must be its configured *command*
+  (`commandp`) — catching both Doom clobbering a bind and a bind into a
+  package that does not autoload it (those are autoloaded on their key).
+
+### Implementation notes
+- Every Registry server is set with `set-eglot-client!` to the system binary.
+  web-mode serves html, `.svelte` and `.vue` alike, so its contact picks the
+  server by file extension; Doom's lua module passes Doom-local args to
+  lua-language-server, so that override runs `after! lua-mode`.
+- `format +onsave` without `+lsp` (which hands formatting to the server);
+  phpcbf (PSR-12) and kdlfmt are custom apheleia formatters; sh, kdl and toml
+  are manual-only (`SPC c f`), as in nvim ([ADR 0151]). Linters beside the
+  server: flymake-ruff, and flymake-biome only under `biome.json(c)`.
+- Doom maps `.tsx`/`.jsx` only with `+tree-sitter`, and Arch packages no
+  TypeScript grammar: a `typescript-tsx-mode` child (and Emacs' `js-jsx-mode`)
+  carry nvim's `typescriptreact`/`javascriptreact` to the server.
+- dape at the pin ships no codelldb config and runs js-debug from a
+  downloaded copy, so both get configs on the Fleet Layer binaries; its
+  debugpy and dlv configs already use system tools.
+- vterm builds its module on first use (`vterm-always-compile-module`)
+  against the system `libvterm`; `install.sh` adds `cmake libvterm` per
+  Doom's vterm README (the Arch Wiki's Emacs page is silent; `base-devel`
+  is in pacstrap).
+- Doom's evil caches the cursor color before theme customizations apply; a
+  late theme hook re-reads it so the cursor is sapphire too.
+
+### Behaviour differences
+- Doom keys nvim's map displaces: `SPC w` (window map; `C-w` remains),
+  `SPC q` (quit map), `SPC u` (universal-argument), `SPC x` (scratch),
+  `SPC a` (embark-act; `C-;` remains), `SPC RET` (bookmarks), `gs`
+  (easymotion), `]d`/`[d` (hunks, now `]h`/`[h`), evil-snipe (off).
+- `SPC d c` starts a session when none is live, else continues (nvim-dap);
+  `SPC d l` restarts the session (`dape-restart`).
+- Org agenda: nvim's glob `~/orgfiles/**/*` is recursive and agenda dirs are
+  not, so the file list is refreshed recursively before each agenda.
+
+### Loose matches
+nvim's `SPC p` (paste keeping the register) is `evil-kill-on-visual-paste`
+off — plain `p` keeps it, and Doom's `SPC p` project prefix stays; `SPC r e`
+and `r v` both open eglot's extract action, `SPC r f` the code-action menu;
+`SPC g d` diffs unstaged changes (not Diffview's whole repo); `SPC f h`
+searches Info manuals; `SPC RET` evaluates the buffer; `SPC f f` lists files
+under the current dir; REST via restclient (above).
+
+### Parity gaps (nvim-only)
+rose-pine (no maintained Emacs theme), the tailwind and eslint servers
+(eglot runs one server per buffer; biome lints via flymake), `cn`/`cN` (a
+`c`-prefixed normal bind breaks the `c` operator), flash's `S`/`r`/`R`/`C-s`,
+centred `n`/`N`, `J` keeping the cursor, `SPC g x`, `SPC x q`/`x l`, `SPC -`
+(oil float). Vue: `vue-language-server` is wired, but its v3 expects
+tsserver forwarding that eglot lacks — a loose match at best.
 
 ## Considered Options
 - **Hand-rolled `init.el`** (use-package + eglot, as [ADR 0135] did for nvim)
@@ -95,9 +155,6 @@ writes `themes/noctalia-theme.el` into the first existing dir of
 - Because `~/.config/doom` exists, Noctalia's template targets it, so the
   theme file lands inside the program's `home/` tree on disk; it must stay
   untracked/unstowed (seed-only, as with other Noctalia outputs, [ADR 0104]).
-- Doom's vterm module compiles a native module (needs `cmake`, `libvterm`);
-  the exact toolchain additions are grounded against the Arch Wiki at
-  implementation.
 
 <!-- ADR links: generated by readability.sh --fix-adr-links -->
 [0140]: 0140-neovim-debugging-nvim-dap-system-adapters.md
@@ -106,3 +163,4 @@ writes `themes/noctalia-theme.el` into the first existing dir of
 [ADR 0135]: 0135-hand-rolled-neovim-on-lazynvim-system-lsp.md
 [ADR 0141]: 0141-neovim-language-registry-drives-toolchain.md
 [ADR 0148]: 0148-vscodium-opt-in-parity-twin-of-neovim-config.md
+[ADR 0151]: 0151-a-formatter-for-every-language-manual-for-hand-formatted.md

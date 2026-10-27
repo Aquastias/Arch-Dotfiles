@@ -1523,8 +1523,8 @@ The opt-in Emacs twin of [[Neovim Config]] ([ADR 0160]), held to the same
 distro, pinned to a known commit. Key parity rides Doom's evil `SPC` leader; where Doom's own map
 collides with the nvim map, **nvim wins** and Doom keeps every free key. Drives
 the same system-package toolchain (LSP via eglot, never auto-downloaded
-servers). Unlike VSCodium it **follows Noctalia** like nvim, falling back to
-static Catppuccin. Shares nvim's org files. A distro is acceptable here (and
+servers). Like nvim (and unlike VSCodium) it can **follow Noctalia**: static
+Catppuccin by default, live follow on toggle. Shares nvim's org files. A distro is acceptable here (and
 was not for nvim) because the twin is opt-in, never the served default.
 _Avoid_: "Doom" alone (the distro, not the config), Spacemacs.
 
