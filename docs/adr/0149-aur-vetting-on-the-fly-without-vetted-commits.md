@@ -7,7 +7,11 @@ pin store, bump-only auto-accept, `repin`/`seed`/`export`, the
 maintainer-changed rule). Keeps [ADR 0143]'s seams (paru `PreBuildCommand`,
 bootstrap rung, yay refusal), text-only analysis, rules-as-data, Indicators,
 severity tiers, no-bypass and root-owned install. Research:
-`.scratch/aur-vetting-on-the-fly/research.md`.
+`.scratch/aur-vetting-on-the-fly/research.md`. Amended 2026-10-28: a reviewed
+fast path for `trust-adopted` — `tools/aur-trust.sh <pkgbase>` shows the
+takeover (RPC), the diff since the newest author and a sources/checksums
+verdict, and on an explicit "y" writes the repo `allow.tsv` row (first use:
+nixfmt). The 14-day window is unchanged.
 
 ## Context
 Vetted Commits made every non-bump change of every AUR package a manual
