@@ -1,6 +1,6 @@
 # Spec: Doom Emacs as an opt-in parity twin of the Neovim Config
 
-Status: done (fleet Audit Run pending — see issues/08)
+Status: done
 
 Anchors: ADR 0160 (this decision), ADR 0148 (the parity contract, VSCodium
 precedent), ADR 0134 (program `home/` + Config Apply), ADR 0135/0140
@@ -277,6 +277,6 @@ it in step with the Registry; a Feature Audit probe proves it on the target.
 - VM checks found and fixed: the evil cursor color, lazygit's vterm runner,
   missing autoloads, the snippets dir. Gaps, loose matches and displaced
   Doom keys are in ADR 0160.
-- The fleet `desktop` Audit Run is blocked by AUR vetting of nixfmt (a
-  maintainer change); verified on non-fleet arch-kde instead. Rerun after
-  the 14-day window.
+- The fleet `desktop` Audit Run passed for emacs (95/95 online + offline)
+  with nixfmt excluded for that run: AUR vetting blocks nixfmt (a
+  maintainer change) until ~2026-11-10; also verified on non-fleet arch-kde.

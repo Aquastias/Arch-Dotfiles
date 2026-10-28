@@ -8,9 +8,9 @@ and spec reflect what shipped.
 
 **Blocked by:** 02 (Languages), 07 (Feature Audit probe).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Fresh `arch-combined` install with emacs: launch, Noctalia follow,
+- [x] Fresh `arch-combined` install with emacs: launch, Noctalia follow,
       format on save (TS, Rust), eglot servers, dape breakpoint, key checks,
       Audit Run green; screenshot in Comments
 - [x] ADR 0160 status implemented; Behaviour differences / gaps / loose
@@ -29,3 +29,14 @@ and spec reflect what shipped.
 - Open: rerun `tools/feature-audit.sh run --variant desktop` once the
   nixfmt window passes; tick the first item then.
 - Full suite: 3934/3934 bats pass.
+
+- Audit Run (2026-10-28), `desktop` variant from committed HEAD, nixfmt
+  excluded for that run only (uncommitted, restored; operator's call — its
+  AUR maintainer changed <14 days ago). Fresh run: 2 findings, neither
+  emacs (nvim's nixfmt check, by the exclusion; a KDE input-method line).
+  It exposed a probe bug: FA_DIR's trailing slash made Emacs load
+  "dir//file" as "/file", so the bind judge returned nothing and the
+  probe stayed silent. Fixed (61ff2e8: strip the slash; an empty judge now
+  FAILs). `--reuse` re-audit: emacs probe 95/95 online and offline (no
+  runtime fetch); its other findings are re-audit artifacts of the held VM.
+- Open, fleet-wide: AUR nixfmt still trips aur-vet until ~2026-11-10.
