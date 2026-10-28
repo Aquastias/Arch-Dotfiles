@@ -39,4 +39,5 @@ and spec reflect what shipped.
   probe stayed silent. Fixed (61ff2e8: strip the slash; an empty judge now
   FAILs). `--reuse` re-audit: emacs probe 95/95 online and offline (no
   runtime fetch); its other findings are re-audit artifacts of the held VM.
-- Open, fleet-wide: AUR nixfmt still trips aur-vet until ~2026-11-10.
+- nixfmt resolved 2026-10-28: operator trusted the new maintainer after a
+  PKGBUILD review; allow.tsv row added (aur-vet now PASSes it unattended).

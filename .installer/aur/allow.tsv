@@ -16,3 +16,4 @@ vscodium-bin	trust-adopted	reviewed 2026-10-15 (Icelk maintainer since 2021; d04
 octopi	trust-adopted	reviewed 2026-10-20 (xiota sole committer since 0.16.2; 6f09983 conflicts only)
 umbriel-git	meta-epoch	reviewed 2026-10-25 (Noctalia team; 75944d3 pkgver scheme only)
 clamav-unofficial-sigs	trust-adopted	reviewed 2026-10-25 (Amish committer since 2020; c218217 pkgver+sums only)
+nixfmt	trust-adopted	reviewed 2026-10-28 (kaathe adopted from JamieMagee; 5f5086b restyle, same v1.5.0 source+b2sum)

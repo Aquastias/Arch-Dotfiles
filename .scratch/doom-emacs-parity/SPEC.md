@@ -279,4 +279,5 @@ it in step with the Registry; a Feature Audit probe proves it on the target.
   Doom keys are in ADR 0160.
 - The fleet `desktop` Audit Run passed for emacs (95/95 online + offline)
   with nixfmt excluded for that run: AUR vetting blocks nixfmt (a
-  maintainer change) until ~2026-11-10; also verified on non-fleet arch-kde.
+  maintainer change; since allowlisted after review); also verified on
+  non-fleet arch-kde.
