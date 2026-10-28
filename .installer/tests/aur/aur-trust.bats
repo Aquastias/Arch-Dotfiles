@@ -17,8 +17,8 @@ teardown() { aur_vet_teardown; }
 
 _days_ago() { echo $(($(date +%s) - $1 * 86400)); }
 
-# _commit_package <base> <source> <author> [line] — commit a PKGBUILD (+ an extra line)
-# and .SRCINFO to the fixture AUR repo for <base> as <author>.
+# _commit_package <base> <source> <author> [line] — commit a PKGBUILD (+ an
+# extra line) and .SRCINFO to the fixture AUR repo for <base> as <author>.
 _commit_package() {
   local repo="$T/remote/$1.git"
   [[ -d "$repo" ]] || git init -q "$repo"
