@@ -14,3 +14,8 @@ Parent: PRD (ADR 0161, ADR 0114).
 - [x] The parity test still fails on any other desktop/laptop difference
       (shown by a temporary local check, not a committed fixture).
 - [x] Fleet Golden suite green, fixtures untouched.
+
+## Comments
+
+- 2026-11-01: retargeted in ticket 05 from a Host Program name to the two
+  laptop-only AUR package names.

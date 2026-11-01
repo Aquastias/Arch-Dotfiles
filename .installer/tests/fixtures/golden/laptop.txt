@@ -130,6 +130,8 @@ aur	bridge-utils
 aur	codelldb-bin
 aur	emmet-language-server
 aur	grayjay-bin
+aur	lenovolegionlinux-dkms-git
+aur	lenovolegionlinux-git
 aur	lua-format
 aur	nixd
 aur	nixfmt

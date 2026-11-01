@@ -7,13 +7,22 @@ the sole power-profile owner. Desktop is untouched. Parent: PRD (ADR 0161).
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] New `system` Host Program per the program spec, AUR-sourced
+- [x] New `system` Host Program per the program spec, AUR-sourced
       (`lenovolegionlinux-dkms-git`, `lenovolegionlinux-git`).
-- [ ] Both PKGBUILDs pass AUR vetting (ADR 0149) before first install.
-- [ ] No service enabled; program bats assert `legiond` is not enabled.
-- [ ] Declared only in the laptop profile's `host_programs`.
-- [ ] Laptop Fleet Golden regenerated; parity holds via ticket 04.
-- [ ] Grounded on Arch Wiki Laptop/Lenovo + Fan speed control and the
+- [x] Both PKGBUILDs pass AUR vetting (ADR 0149) before first install.
+- [x] No service enabled; program bats assert `legiond` is not enabled.
+- [x] Declared only in the laptop profile's `host_programs`.
+- [x] Laptop Fleet Golden regenerated; parity holds via ticket 04.
+- [x] Grounded on Arch Wiki Laptop/Lenovo + Fan speed control and the
       upstream confirmed-model list (15ARH7H, JUCN55WW).
+
+## Comments
+
+- 2026-11-01: delivered as two laptop `packages.aur` entries, not a Host
+  Program — Host Programs run as root via pacman and cannot reach the AUR
+  (ADR 0041). Package-only: the module autoloads via ACPI/WMI ids, `legiond`
+  is never enabled. Both PKGBUILDs pass aur-vet (0 findings); no allowlist
+  row needed. ADR 0161 amended; ticket 04's exemption now filters these two
+  AUR names.

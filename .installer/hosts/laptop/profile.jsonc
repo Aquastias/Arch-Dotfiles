@@ -5,7 +5,7 @@
 // desktop, and a single-disk skeleton (one operator-picked disk → ESP + rpool
 // + dpool).
 //
-// **No packages block.** desktop and laptop run the same software, so every
+// **No software packages.** desktop and laptop run the same software, so every
 // app lives in the Fleet Layer (ADR 0114, ADR 0157). To drop something it
 // declares, add `packages.exclude`; to add something, declare the category
 // here and it concatenates.
@@ -55,6 +55,18 @@
     "aquastias"
   ],
   "host_programs": [],
+  // Legion 5 15ARH7H hardware support (ADR 0161): LenovoLegionLinux — fan
+  // curves, CPU temperature, Legion power modes (Arch Wiki: Laptop/Lenovo).
+  // Package-only: the module autoloads via its ACPI/WMI ids, and legiond stays
+  // off so power-profiles-daemon owns platform_profile.
+  "packages": {
+    "aur": {
+      "hardware": [
+        "lenovolegionlinux-dkms-git",
+        "lenovolegionlinux-git"
+      ]
+    }
+  },
   "mode": "single",
   "ashift": 12
 }

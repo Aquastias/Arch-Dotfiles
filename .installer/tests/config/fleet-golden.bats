@@ -20,7 +20,7 @@ GOLDEN_DIR="$BATS_TEST_DIRNAME/../fixtures/golden"
   diff <(fleet_golden_snapshot laptop) "$GOLDEN_DIR/laptop.txt"
 }
 
-# ADR 0114: one software image, two machines — hardware Host Programs aside
+# ADR 0114: one software image, two machines — hardware packages aside
 # (ADR 0161).
 @test "desktop and laptop install the same package set" {
   diff <(fleet_golden_shared_packages desktop) \
