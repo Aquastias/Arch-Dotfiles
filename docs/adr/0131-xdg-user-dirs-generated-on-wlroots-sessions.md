@@ -3,6 +3,7 @@
 ---
 Status: accepted. Extends the [[Wayland Shell Companion]] preset
 ([ADR 0090]/[0107]).
+Later decisions: amended by [ADR 0162] (niri does run XDG autostart).
 ---
 
 `~/Desktop`, `~/Downloads`, `~/Documents`, … appear under KDE but **not** under
@@ -72,3 +73,4 @@ sessions ([ADR 0107]).
 [ADR 0095]: 0095-curated-niri-config-served-via-skel.md
 [ADR 0107]: 0107-curated-configs-split-into-conf-d.md
 [ADR 0116]: 0116-live-theme-bridge-repaints-running-apps.md
+[ADR 0162]: 0162-niri-runs-xdg-autostart.md
