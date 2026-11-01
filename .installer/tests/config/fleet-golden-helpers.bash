@@ -42,3 +42,17 @@ fleet_golden_packages() {
   fleet_golden_snapshot "$1" \
     | awk '/^## packages$/ { on = 1; next } on { print $2 }' | sort -u
 }
+
+# Laptop-only hardware Host Programs: ADR 0114's one software image covers
+# software, not hardware support (ADR 0161).
+FLEET_LAPTOP_HARDWARE_PROGRAMS=(lenovolegionlinux)
+
+# fleet_golden_shared_packages <profile> — fleet_golden_packages minus the
+# laptop-only hardware Host Programs: what desktop and laptop must share.
+fleet_golden_shared_packages() {
+  local drop="${FLEET_LAPTOP_HARDWARE_PROGRAMS[*]}"
+  fleet_golden_snapshot "$1" | awk -v drop="$drop" '
+    BEGIN { n = split(drop, list, " "); for (i = 1; i <= n; i++) skip[list[i]] }
+    /^## packages$/ { on = 1; next }
+    on && !($1 == "host-programs" && $2 in skip) { print $2 }' | sort -u
+}

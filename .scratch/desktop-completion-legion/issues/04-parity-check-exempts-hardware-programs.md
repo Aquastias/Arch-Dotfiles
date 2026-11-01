@@ -7,10 +7,10 @@ Parent: PRD (ADR 0161, ADR 0114).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The exemption is one named list, empty or holding only
+- [x] The exemption is one named list, empty or holding only
       `lenovolegionlinux`, with an ADR 0161 anchor.
-- [ ] The parity test still fails on any other desktop/laptop difference
+- [x] The parity test still fails on any other desktop/laptop difference
       (shown by a temporary local check, not a committed fixture).
-- [ ] Fleet Golden suite green, fixtures untouched.
+- [x] Fleet Golden suite green, fixtures untouched.

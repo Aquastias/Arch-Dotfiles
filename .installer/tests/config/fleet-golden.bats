@@ -20,9 +20,11 @@ GOLDEN_DIR="$BATS_TEST_DIRNAME/../fixtures/golden"
   diff <(fleet_golden_snapshot laptop) "$GOLDEN_DIR/laptop.txt"
 }
 
-# ADR 0114: one software image, two machines.
+# ADR 0114: one software image, two machines — hardware Host Programs aside
+# (ADR 0161).
 @test "desktop and laptop install the same package set" {
-  diff <(fleet_golden_packages desktop) <(fleet_golden_packages laptop)
+  diff <(fleet_golden_shared_packages desktop) \
+    <(fleet_golden_shared_packages laptop)
 }
 
 # The VM fixtures modelling the operator's machines fold the Fleet Layer too
