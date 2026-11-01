@@ -28,12 +28,13 @@ Three more gaps across the wlroots sessions:
   `/etc/xdg/autostart` file, which the next upgrade reverts.
 
 ## Decision
-- **Suppress, per app, by systemd drop-in**: on a KDE co-install, the niri
-  adapter writes
+- **Suppress, per app, by systemd drop-in**: on a KDE co-install under the
+  Noctalia preset (a bare niri may want nm-applet's tray), the niri adapter
+  writes
   `/etc/systemd/user/app-<id>@autostart.service.d/` with
   `ConditionEnvironment=!XDG_CURRENT_DESKTOP=niri`. A **blocklist**:
-  kalendarac, the kdeconnect daemon, nm-applet, the Discover notifier
-  (final ids from the VM's `/etc/xdg/autostart`). Kept: `pam_kwallet_init`
+  kalendarac, the kdeconnect daemon, nm-applet. The Discover notifier is
+  already `OnlyShowIn=KDE`, so it needs none. Kept: `pam_kwallet_init`
   (wallet unlock), at-spi, `xdg-user-dirs`. [ADR 0131]'s seeded script
   stays — it still owns `~/Projects`.
 - **pcmanfm-qt daemon**: every compositor's curated autostart (niri,

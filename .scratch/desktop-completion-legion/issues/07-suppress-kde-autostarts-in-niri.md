@@ -8,12 +8,20 @@ Parent: PRD (ADR 0162).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The niri Desktop Environment Adapter writes one systemd user drop-in
+- [x] The niri Desktop Environment Adapter writes one systemd user drop-in
       per blocklisted autostart id, conditioned on the session not being
       niri; the blocklist is one list.
-- [ ] Exact ids confirmed from a desktop VM's autostart dir.
-- [ ] Adapter bats: drop-ins written iff `kde` is in the desktop set.
-- [ ] Feature Audit probe: none of the blocklisted processes run in the
+- [x] Exact ids confirmed from a desktop VM's autostart dir.
+- [x] Adapter bats: drop-ins written iff `kde` is in the desktop set.
+- [x] Feature Audit probe: none of the blocklisted processes run in the
       niri session; `pam_kwallet_init` still ran.
+
+## Comments
+
+- 2026-11-01: gated on KDE co-install under the Noctalia preset (a bare niri
+  may want nm-applet's tray). Discover notifier dropped from the blocklist —
+  it is already `OnlyShowIn=KDE`. Ids confirmed from the archlinux.org file
+  lists (kdeconnect, network-manager-applet) and akonadi-calendar's
+  kalendarac. The probe's VM proof is ticket 13.

@@ -393,3 +393,45 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ ! -d "$base" ] || [ -z "$(ls -A "$base")" ]
 }
+
+# ── KDE autostarts suppressed in niri (ADR 0162) ─────────────────────────────
+
+# niri.service pulls xdg-desktop-autostart.target, so KDE's background apps
+# start beside Noctalia. A drop-in per blocklisted generated unit skips it in
+# niri only; Plasma still runs them.
+_autostart_dropin() {
+  printf '%s/etc/systemd/user/app-%s@autostart.service.d/10-not-in-niri.conf' \
+    "$ROOT" "$1"
+}
+
+@test "KDE + Noctalia: kalendarac, kdeconnectd and nm-applet skip niri" {
+  run env ENVIRONMENT_DESKTOP="kde niri" ENVIRONMENT_WAYLAND_SHELL=noctalia \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local unit dropin
+  for unit in org.kde.kalendarac org.kde.kdeconnect.daemon 'nm\x2dapplet'; do
+    dropin="$(_autostart_dropin "$unit")"
+    [ -f "$dropin" ] || { echo "missing: $dropin"; return 1; }
+    grep -qx 'ConditionEnvironment=!XDG_CURRENT_DESKTOP=niri' "$dropin"
+  done
+}
+
+@test "KDE + Noctalia: the wallet unlock and xdg-user-dirs are kept" {
+  run env ENVIRONMENT_DESKTOP="kde niri" ENVIRONMENT_WAYLAND_SHELL=noctalia \
+    bash "$ADAPTER"
+  [ ! -e "$(_autostart_dropin pam_kwallet_init)" ]
+  [ ! -e "$(_autostart_dropin 'xdg\x2duser\x2ddirs')" ]
+}
+
+@test "niri without KDE writes no autostart drop-ins" {
+  run_niri ENVIRONMENT_WAYLAND_SHELL=noctalia
+  [ "$status" -eq 0 ]
+  [ ! -d "$ROOT/etc/systemd/user" ]
+}
+
+@test "bare niri (no Noctalia) on a KDE box writes no autostart drop-ins" {
+  run env ENVIRONMENT_DESKTOP="kde niri" ENVIRONMENT_WAYLAND_SHELL=none \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -d "$ROOT/etc/systemd/user" ]
+}
