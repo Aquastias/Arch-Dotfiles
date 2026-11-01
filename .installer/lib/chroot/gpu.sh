@@ -164,11 +164,19 @@ _gpu_apply_modules() {
   fi
 }
 
-# _gpu_enable_services — enable the NVIDIA suspend/resume/hibernate units so
-# VRAM is preserved across sleep. Real chroot only.
+# _gpu_services — the hybrid's units, one per line: suspend/resume/hibernate
+# preserve VRAM across sleep; nvidia-powerd is Dynamic Boost (Ampere+ laptops;
+# Arch Wiki: CPU frequency scaling#nvidia-powerd; ADR 0161).
+_gpu_services() {
+  printf '%s\n' nvidia-suspend.service nvidia-resume.service \
+    nvidia-hibernate.service nvidia-powerd.service
+}
+
+# _gpu_enable_services — enable _gpu_services. Real chroot only.
 _gpu_enable_services() {
-  systemctl enable nvidia-suspend.service nvidia-resume.service \
-    nvidia-hibernate.service
+  local -a services
+  mapfile -t services < <(_gpu_services)
+  systemctl enable "${services[@]}"
 }
 
 # _gpu_harden <root> <conf> <vendor>... — write every on-disk artifact when the

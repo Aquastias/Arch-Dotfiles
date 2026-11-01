@@ -6,11 +6,11 @@ GPU set enables it. Parent: PRD (ADR 0161).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] amd+nvidia: `nvidia-powerd.service` enabled beside the existing
+- [x] amd+nvidia: `nvidia-powerd.service` enabled beside the existing
       suspend/resume/hibernate services.
-- [ ] Single-vendor and VM: not enabled.
-- [ ] GPU Hardening gate tests cover both outcomes.
-- [ ] Arch Wiki (NVIDIA, Dynamic Boost) fetched and cited, including the
+- [x] Single-vendor and VM: not enabled.
+- [x] GPU Hardening gate tests cover both outcomes.
+- [x] Arch Wiki (NVIDIA, Dynamic Boost) fetched and cited, including the
       firmware / Performance mode caveat.

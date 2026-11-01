@@ -137,6 +137,20 @@ setup() {
   [[ "$output" == *"Target = linux-lts"* ]]
 }
 
+# ── services enabled on a hybrid ────────────────────────────────────────────
+
+@test "services: VRAM-preserving suspend/resume/hibernate units" {
+  run _gpu_services
+  [[ "$output" == *"nvidia-suspend.service"* ]]
+  [[ "$output" == *"nvidia-resume.service"* ]]
+  [[ "$output" == *"nvidia-hibernate.service"* ]]
+}
+
+@test "services: nvidia-powerd for Dynamic Boost (ADR 0161)" {
+  run _gpu_services
+  grep -qx "nvidia-powerd.service" <<<"$output"
+}
+
 # ── thin IO seams write to the expected paths ───────────────────────────────
 
 @test "io: _gpu_write_modprobe installs /etc/modprobe.d/nvidia.conf" {
