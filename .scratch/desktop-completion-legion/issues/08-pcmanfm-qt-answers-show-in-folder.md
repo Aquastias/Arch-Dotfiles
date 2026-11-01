@@ -6,9 +6,9 @@ pcmanfm-qt windows; Plasma keeps Dolphin. Parent: PRD (ADR 0162).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each compositor's curated autostart starts `pcmanfm-qt -d`.
-- [ ] Stow bats assert the entry in all three curated configs.
-- [ ] Feature Audit probe: the `org.freedesktop.FileManager1` owner is
+- [x] Each compositor's curated autostart starts `pcmanfm-qt -d`.
+- [x] Stow bats assert the entry in all three curated configs.
+- [x] Feature Audit probe: the `org.freedesktop.FileManager1` owner is
       pcmanfm-qt in each wlroots session.

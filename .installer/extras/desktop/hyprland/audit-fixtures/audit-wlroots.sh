@@ -69,3 +69,14 @@ if feature_audit_gate autostart-gates \
     test "$(systemctl --user show -P Result \
       app-pam_kwallet_init@autostart.service)" = success
 fi
+# ADR 0162: the pcmanfm-qt daemon, not an activated Dolphin, owns "Show in
+# folder" (busctl status reads the owner without activating)
+_probe_filemanager1_owner() {
+  busctl --user status org.freedesktop.FileManager1 2>/dev/null \
+    | grep -qx 'Comm=pcmanfm-qt'
+}
+if feature_audit_gate filemanager1 \
+  "no Wayland shell in this variant" feature_audit_has_shell; then
+  feature_audit_check filemanager1-pcmanfm-qt \
+    "pcmanfm-qt owns org.freedesktop.FileManager1" _probe_filemanager1_owner
+fi

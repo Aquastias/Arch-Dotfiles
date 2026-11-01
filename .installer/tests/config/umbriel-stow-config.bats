@@ -86,3 +86,7 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
   done
   grep -q '_chroot_stage_autostart_gates niri' "$CHROOT"
 }
+
+@test "umbriel autostarts the pcmanfm-qt daemon (ADR 0162)" {
+  grep -qx '  "pcmanfm-qt -d",' "$UMB/conf.d/autostart.toml"
+}

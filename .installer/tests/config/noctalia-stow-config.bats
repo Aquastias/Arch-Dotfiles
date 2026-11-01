@@ -451,3 +451,10 @@ EOF
   grep -q 'KITTY_DECORATIONS "hide_window_decorations yes"' "$NENV"
   grep -q 'KITTY_DECORATIONS", "hide_window_decorations yes"' "$HENV"
 }
+
+# ADR 0162: a running pcmanfm-qt daemon owns org.freedesktop.FileManager1, so
+# "Show in folder" opens it instead of D-Bus-activating Dolphin.
+@test "niri and Hyprland autostart the pcmanfm-qt daemon" {
+  grep -q '"pcmanfm-qt" "-d"' "$NAUTO"
+  grep -q 'pcmanfm-qt -d' "$HAUTO"
+}

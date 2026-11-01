@@ -7,6 +7,9 @@ spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-enable-plugins"
 // Live Theme Bridge (ADR 0116): repaint running Qt6/GTK3 apps on a Noctalia
 // theme change. Long-lived; dies with the session.
 spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-theme-bridge"
+// pcmanfm-qt daemon (ADR 0162): owns org.freedesktop.FileManager1, so "Show in
+// folder" opens it instead of D-Bus-activating Dolphin.
+spawn-at-startup "pcmanfm-qt" "-d"
 // XDG user dirs (ADR 0131): the standard dirs + ~/Projects, which
 // xdg-user-dirs-update alone never creates (ADR 0162). Idempotent.
 spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-xdg-user-dirs"

@@ -9,6 +9,8 @@ autostart = [
   # Live Theme Bridge (ADR 0116): repaint running Qt6/GTK3 apps on a theme
   # change.
   "$HOME/.local/bin/noctalia-theme-bridge",
+  # pcmanfm-qt daemon (ADR 0162): owns FileManager1 ("Show in folder").
+  "pcmanfm-qt -d",
   # XDG user dirs + ~/Projects (ADR 0131, ADR 0162).
   "$HOME/.local/bin/noctalia-xdg-user-dirs",
   # Reassert the shared gsettings cursor into Bibata (ADR 0123).
