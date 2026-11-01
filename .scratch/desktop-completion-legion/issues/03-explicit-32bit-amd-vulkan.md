@@ -7,10 +7,10 @@ laptop, where `lib32-nvidia-utils` used to satisfy Steam alone. Parent: PRD
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The AMD GPU Resolution set contains `lib32-vulkan-radeon`.
-- [ ] With multilib off it is dropped by the existing `lib32-*` filter.
-- [ ] amd+nvidia resolves both `lib32-vulkan-radeon` and
+- [x] The AMD GPU Resolution set contains `lib32-vulkan-radeon`.
+- [x] With multilib off it is dropped by the existing `lib32-*` filter.
+- [x] amd+nvidia resolves both `lib32-vulkan-radeon` and
       `lib32-nvidia-utils`.
-- [ ] GPU Resolution tests cover all three.
+- [x] GPU Resolution tests cover all three.

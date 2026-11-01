@@ -44,11 +44,20 @@ resolved_from_source() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$
 # ── unit: gpu ───────────────────────────────────────────────────────────────
 
 @test "gpu_vendor_packages: amd / nvidia / intel-default / vm" {
-  [ "$(gpu_vendor_packages amd)" = "vulkan-radeon xf86-video-amdgpu mesa" ]
+  [ "$(gpu_vendor_packages amd)" = \
+"vulkan-radeon xf86-video-amdgpu mesa lib32-mesa lib32-vulkan-radeon" ]
   [ "$(gpu_vendor_packages nvidia)" = \
 "nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver egl-wayland" ]
   [ "$(gpu_vendor_packages intel)" = "intel-media-driver" ]
   [ "$(gpu_vendor_packages vm)" = "mesa" ]
+}
+
+@test "gpu_hybrid_packages: nvidia-prime only for amd+nvidia" {
+  [ "$(gpu_hybrid_packages amd nvidia)" = "nvidia-prime" ]
+  [ "$(gpu_hybrid_packages nvidia amd)" = "nvidia-prime" ]
+  [ -z "$(gpu_hybrid_packages nvidia)" ]
+  [ -z "$(gpu_hybrid_packages amd)" ]
+  [ -z "$(gpu_hybrid_packages)" ]
 }
 
 @test "gpu_vendor_packages: auto and unknown emit nothing" {

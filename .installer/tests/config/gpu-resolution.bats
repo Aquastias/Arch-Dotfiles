@@ -37,6 +37,9 @@ teardown() {
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" xf86-video-amdgpu "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
+  # 32-bit apps (Steam, Wine) — Arch Wiki: AMDGPU (ADR 0161).
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-mesa "* ]]
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-vulkan-radeon "* ]]
   # libva-mesa-driver is no longer a standalone package — mesa provides it.
   [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" libva-mesa-driver "* ]]
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
@@ -148,4 +151,19 @@ teardown() {
   _environment_resolve_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
   [ "${#GPU_PACMAN_PACKAGES[@]}" -eq 1 ]
+}
+
+@test "multilib off drops the AMD lib32 packages" {
+  echo '{"options":{"optional_repos":[]}}' >"$CONFIG_FILE"
+  ENVIRONMENT_GPU=("amd")
+  _environment_resolve_gpu
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" lib32-"* ]]
+}
+
+@test "hybrid keeps both 32-bit Vulkan drivers (ADR 0161)" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _environment_resolve_gpu
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-vulkan-radeon "* ]]
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-nvidia-utils "* ]]
 }

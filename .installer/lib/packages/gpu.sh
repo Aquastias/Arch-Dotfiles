@@ -24,7 +24,8 @@ _GPU_SH_SOURCED=1
 # resolved to a concrete vendor before this is called.
 gpu_vendor_packages() {
   case "$1" in
-    amd)    echo "vulkan-radeon xf86-video-amdgpu mesa" ;;
+    amd)    echo "vulkan-radeon xf86-video-amdgpu mesa" \
+                 "lib32-mesa lib32-vulkan-radeon" ;;
     nvidia) echo "nvidia-open-dkms nvidia-utils lib32-nvidia-utils" \
                  "libva-nvidia-driver egl-wayland" ;;
     intel)  echo "intel-media-driver" ;;
