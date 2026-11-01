@@ -31,3 +31,16 @@ gpu_vendor_packages() {
     vm)     echo "mesa" ;;
   esac
 }
+
+# gpu_hybrid_packages <vendor>... → space-separated packages an amd+nvidia
+# hybrid adds on top of both vendor sets (empty otherwise): nvidia-prime ships
+# prime-run, the PRIME offload entry point (Arch Wiki: PRIME; ADR 0161).
+gpu_hybrid_packages() {
+  local vendor has_amd=false has_nvidia=false
+  for vendor in "$@"; do
+    [[ "$vendor" == amd ]] && has_amd=true
+    [[ "$vendor" == nvidia ]] && has_nvidia=true
+  done
+  [[ "$has_amd" == true && "$has_nvidia" == true ]] && echo "nvidia-prime"
+  return 0
+}

@@ -6,9 +6,9 @@ VM and intel installs are unchanged. Parent: PRD (ADR 0161).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] amd+nvidia: `nvidia-prime` is installed by GPU Hardening.
-- [ ] Single-vendor NVIDIA, AMD, intel and VM: `nvidia-prime` absent.
-- [ ] GPU Hardening gate tests cover both outcomes.
-- [ ] Arch Wiki (PRIME) fetched and cited in the comment.
+- [x] amd+nvidia: `nvidia-prime` is installed by GPU Hardening.
+- [x] Single-vendor NVIDIA, AMD, intel and VM: `nvidia-prime` absent.
+- [x] GPU Hardening gate tests cover both outcomes.
+- [x] Arch Wiki (PRIME) fetched and cited in the comment.

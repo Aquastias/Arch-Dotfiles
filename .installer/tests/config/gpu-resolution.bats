@@ -65,6 +65,19 @@ teardown() {
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
 }
 
+# ADR 0161: prime-run is the PRIME offload entry point, hybrid only.
+@test "gpu ['amd','nvidia'] adds nvidia-prime (prime-run)" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _environment_resolve_gpu
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-prime "* ]]
+}
+
+@test "single-vendor nvidia gets no nvidia-prime" {
+  ENVIRONMENT_GPU=("nvidia")
+  _environment_resolve_gpu
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" nvidia-prime "* ]]
+}
+
 # ── intel generation detection ─────────────────────────────────────────────
 
 @test "gpu 'intel' with Broadwell+ device ID uses intel-media-driver" {

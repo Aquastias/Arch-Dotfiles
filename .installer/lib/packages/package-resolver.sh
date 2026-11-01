@@ -334,16 +334,21 @@ _package_resolver_filesystem_sets() {
 # `auto` is no vendor, so the map returns nothing — emitting no fake name to
 # pollute a --flat listing; package_resolver_unresolved reports it.
 _package_resolver_gpu() {
-  local vendor package multilib
+  local vendor package multilib vendors=()
   multilib="$(install_config_from_json "$1" multilib)"
   while IFS= read -r vendor; do
-    [[ -n "$vendor" ]] || continue
-    for package in $(gpu_vendor_packages "$vendor"); do
-      # lib32-* need [multilib], as the installer's GPU set (environment.sh).
-      [[ "$package" == lib32-* && "$multilib" != true ]] && continue
-      _package_resolver_emit gpu derived "$package"
-    done
+    [[ -n "$vendor" ]] && vendors+=("$vendor")
   done < <(install_config_from_json "$1" gpu)
+  for package in $(
+    for vendor in "${vendors[@]+"${vendors[@]}"}"; do
+      gpu_vendor_packages "$vendor"
+    done
+    gpu_hybrid_packages "${vendors[@]+"${vendors[@]}"}"
+  ); do
+    # lib32-* need [multilib], as the installer's GPU set (environment.sh).
+    [[ "$package" == lib32-* && "$multilib" != true ]] && continue
+    _package_resolver_emit gpu derived "$package"
+  done
 }
 
 # _package_resolver_desktop_sets <config> <desktops> — audio, then each

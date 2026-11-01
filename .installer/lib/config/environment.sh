@@ -153,6 +153,8 @@ _environment_resolve_gpu() {
     # shellcheck disable=SC2206
     GPU_PACMAN_PACKAGES+=( $vendor_packages )
   done
+  # shellcheck disable=SC2207
+  GPU_PACMAN_PACKAGES+=( $(gpu_hybrid_packages "${ENVIRONMENT_GPU[@]}") )
   # lib32-* live in [multilib]; without it pacstrap would fail mid-install.
   if [[ "$(install_config_multilib)" != true ]]; then
     local -a kept=() package

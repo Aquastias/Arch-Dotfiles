@@ -78,6 +78,7 @@ load resolver-helpers
     "environment":{"gpu":["amd","nvidia"]}}' gpu)"
   grep -qx "vulkan-radeon"    <<<"$both"
   grep -qx "nvidia-open-dkms" <<<"$both"
+  grep -qx "nvidia-prime"     <<<"$both" # prime-run (ADR 0161)
 }
 
 @test "changing the desktop selection changes the audio and Plasma sets" {
