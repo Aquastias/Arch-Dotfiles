@@ -190,6 +190,7 @@ host-programs	gamemode
 host-programs	lact
 host-programs	nix
 host-programs	smartmontools
+host-programs	systemd-oomd
 kde-apps	ark
 kde-apps	calligra
 kde-apps	discover

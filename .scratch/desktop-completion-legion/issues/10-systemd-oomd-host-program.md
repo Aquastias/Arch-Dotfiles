@@ -6,15 +6,25 @@ pressure in user sessions. Non-fleet installs are unchanged. Parent: PRD.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] New `system` Host Program per the program spec: enables
+- [x] New `system` Host Program per the program spec: enables
       `systemd-oomd.service`; ships drop-ins `-.slice` →
       `ManagedOOMSwap=kill`, `user@.service` →
       `ManagedOOMMemoryPressure=kill` + `ManagedOOMMemoryPressureLimit=50%`.
-- [ ] Program spec cites `systemd-oomd(8)` / `systemd.resource-control(5)`
+- [x] Program spec cites `systemd-oomd(8)` / `systemd.resource-control(5)`
       and records that the Arch Wiki has no config section.
-- [ ] Declared in the Fleet Layer `host_programs`.
-- [ ] Program bats cover drop-in content and the service; both Fleet Golden
+- [x] Declared in the Fleet Layer `host_programs`.
+- [x] Program bats cover drop-in content and the service; both Fleet Golden
       fixtures regenerated.
-- [ ] Feature Audit probe: `oomctl` lists both monitored units.
+- [x] Feature Audit probe: `oomctl` lists both monitored units.
+
+## Comments
+
+- 2026-11-02: the PRD's values (swap-kill on `-.slice`, 50% on
+  `user@.service`) were stale memory. Fedora's current systemd-oomd-defaults
+  (src.fedoraproject.org rpms/systemd) ship
+  `oomd.conf.d/10-oomd-defaults.conf` (DefaultMemoryPressureDurationSec=20s)
+  and `10-oomd-per-slice-defaults.conf` (ManagedOOMMemoryPressure=kill,
+  Limit=80%) in `system.slice.d/` and the user `slice.d/`; mirrored at /etc
+  admin paths. The probe checks `/system.slice` is monitored.

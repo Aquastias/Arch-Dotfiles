@@ -1,0 +1,16 @@
+// Program metadata for systemd-oomd.
+//
+// kind=host → installed by the profile runner inside arch-chroot as root.
+// No package: systemd-oomd ships with systemd (Arch Wiki: Improving
+// performance, userspace OOM daemons). install.sh writes the ManagedOOM*
+// drop-ins under /etc/systemd, without which oomd monitors nothing — Arch
+// ships no defaults, so they mirror Fedora's systemd-oomd-defaults
+// (systemd-oomd(8), systemd.resource-control(5)). The runner enables the
+// service. Declared in the Fleet Layer's host_programs (ADR 0157).
+
+{
+  "name": "systemd-oomd",
+  "kind": "host",
+  "description": "systemd-oomd kills a cgroup under sustained memory pressure.",
+  "system_services": ["systemd-oomd.service"]
+}

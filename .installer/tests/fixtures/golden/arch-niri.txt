@@ -177,6 +177,7 @@ host-programs	gamemode
 host-programs	lact
 host-programs	nix
 host-programs	smartmontools
+host-programs	systemd-oomd
 kernel	linux-lts
 kernel	linux-lts-headers
 login-shell	zsh
