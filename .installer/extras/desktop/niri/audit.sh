@@ -12,7 +12,7 @@ feature_audit_check niri-ipc "niri IPC answers" niri msg -j version
 . "$FA_DIR/audit-fixtures/audit-wlroots.sh"
 # ADR 0162: on a KDE co-install the Secret portal routes to kwallet, and that
 # backend answers
-_probe_kde_box() {
+_probe_kde_installed() {
   [[ "$(feature_audit_config \
     '.environment.desktop | index("kde") != null')" == true ]]
 }
@@ -22,7 +22,7 @@ _probe_secret_portal_kwallet() {
     && busctl --user call org.freedesktop.impl.portal.desktop.kwallet \
       /org/freedesktop/portal/desktop org.freedesktop.DBus.Peer Ping
 }
-if feature_audit_gate niri-secret-portal "no KDE co-install" _probe_kde_box
+if feature_audit_gate niri-secret-portal "no KDE co-install" _probe_kde_installed
 then
   feature_audit_check niri-secret-portal-kwallet \
     "the Secret portal routes to kwallet, which answers" \

@@ -14,3 +14,8 @@ laptop, where `lib32-nvidia-utils` used to satisfy Steam alone. Parent: PRD
 - [x] amd+nvidia resolves both `lib32-vulkan-radeon` and
       `lib32-nvidia-utils`.
 - [x] GPU Resolution tests cover all three.
+
+## Comments
+
+- 2026-11-02 (review): `lib32-mesa` added beside `lib32-vulkan-radeon` — the
+  Arch Wiki AMDGPU page lists both for 32-bit apps. ADR 0161 amended.

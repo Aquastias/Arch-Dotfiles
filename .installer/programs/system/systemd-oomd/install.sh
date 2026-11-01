@@ -9,7 +9,8 @@
 # systemd-oomd-defaults: every system slice and every user-manager slice is
 # killed after 20 s above 80% memory pressure. The Arch Wiki only lists oomd
 # (Improving performance); the units are per systemd-oomd(8) and
-# systemd.resource-control(5). The runner enables systemd-oomd.service.
+# systemd.resource-control(5) (ADR 0163). The runner enables
+# systemd-oomd.service.
 # OOMD_ROOT prefixes every path (tests); empty in the chroot.
 # =============================================================================
 

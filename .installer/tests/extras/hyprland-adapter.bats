@@ -385,8 +385,8 @@ run_hypr() {
 # Noctalia's Bluetooth panel is the one Bluetooth UI on every compositor; the
 # blueman tray (ADR 0080) is gone (ADR 0162).
 @test "installs no blueman and writes no blueman autostart" {
-  run env ENVIRONMENT_DESKTOP="kde hyprland" ENVIRONMENT_WAYLAND_SHELL=noctalia \
-    bash "$ADAPTER"
+  run env ENVIRONMENT_DESKTOP="kde hyprland" \
+    ENVIRONMENT_WAYLAND_SHELL=noctalia bash "$ADAPTER"
   [ "$status" -eq 0 ]
   run grep -qw blueman "$PACMAN_LOG"
   [ "$status" -ne 0 ]

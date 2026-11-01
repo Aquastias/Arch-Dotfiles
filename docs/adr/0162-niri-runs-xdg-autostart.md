@@ -1,7 +1,8 @@
 # ADR 0162: niri runs XDG autostart; wlroots sessions completion
 
 ## Status
-Accepted — not yet implemented. Amends [ADR 0131] (its niri premise) and
+Accepted — implemented; VM proof pending the desktop Audit Run. Amends
+[ADR 0131] (its niri premise) and
 [ADR 0080] (blueman).
 
 ## Context

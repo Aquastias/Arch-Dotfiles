@@ -1,7 +1,8 @@
 # ADR 0161: Hybrid laptop completion (Legion 5 15ARH7H)
 
 ## Status
-Accepted — not yet implemented. Amends [ADR 0053].
+Accepted — implemented; on-Legion checklist pending (PRD). Amends
+[ADR 0053].
 
 ## Context
 The laptop (`chronos`) is a Lenovo Legion 5 15ARH7H: Ryzen 5 6600H (Radeon
@@ -28,14 +29,16 @@ box is still short of a finished gaming laptop:
   falls on the games.
 
 ## Decision
-- **Hybrid-gated additions** live in the existing GPU Hardening gate
-  (`lib/chroot/gpu.sh`, amd+nvidia), reported by the Package Resolver so
-  query and install cannot drift:
-  - install `nvidia-prime` (`prime-run`);
-  - enable `nvidia-powerd.service`.
+- **Hybrid-gated additions** (amd+nvidia only):
+  - `nvidia-prime` (`prime-run`) is a hybrid package set in GPU Resolution
+    (the shared pure GPU map), so it goes in through pacstrap and the
+    Package Resolver reports it — GPU Hardening writes config, not packages;
+  - `nvidia-powerd.service` is enabled by GPU Hardening (`lib/chroot/gpu.sh`)
+    beside the suspend/resume/hibernate units.
   Single-vendor NVIDIA hosts get neither: no offload, no laptop boost.
-- **`lib32-vulkan-radeon`** joins the AMD driver map for every AMD host;
-  the existing multilib filter drops it when multilib is off.
+- **`lib32-mesa` + `lib32-vulkan-radeon`** join the AMD driver map for every
+  AMD host (the Arch Wiki AMDGPU page lists both for 32-bit apps);
+  the existing multilib filter drops them when multilib is off.
 - **LenovoLegionLinux** is two laptop-only `packages.aur` entries
   (`lenovolegionlinux-dkms-git`, `lenovolegionlinux-git`) in the laptop
   profile, through the Primary User's vetted paru pass ([ADR 0041],

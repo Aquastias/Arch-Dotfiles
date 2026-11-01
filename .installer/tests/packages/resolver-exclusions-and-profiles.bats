@@ -97,8 +97,9 @@ load resolver-helpers
   local desktop_packages laptop_packages
   desktop_packages="$(package_resolver_resolve "$(profile_loader_load desktop)" | awk -F'\t' '{ print $3 }' | sort -u)"
   laptop_packages="$(package_resolver_resolve "$(profile_loader_load laptop)"  | awk -F'\t' '{ print $3 }' | sort -u)"
-  laptop_packages="$(grep -vxE 'lenovolegionlinux(-dkms)?-git' \
-    <<<"$laptop_packages")"
+  source "$BATS_TEST_DIRNAME/../config/fleet-golden-helpers.bash"
+  laptop_packages="$(grep -vxF -f <(printf '%s\n' \
+    "${FLEET_LAPTOP_HARDWARE_PACKAGES[@]}") <<<"$laptop_packages")"
   [ "$(only_in_second "$laptop_packages" "$desktop_packages")" -eq 0 ]
   [ "$(only_in_second "$desktop_packages" "$laptop_packages")" -eq 0 ]
 }
