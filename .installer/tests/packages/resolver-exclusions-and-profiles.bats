@@ -90,12 +90,15 @@ load resolver-helpers
 # toolchain moved to Host Core — both hosts are dev boxes.)
 # desktop and laptop run identical software — every app lives in the Fleet
 # Layer, so both profiles resolve to the same package set (ADR 0114, ADR 0157).
-# They differ only in hardware/hostname/impermanence.
+# They differ only in hardware/hostname/impermanence. The laptop-only
+# hardware packages (LenovoLegionLinux) sit outside the comparison (ADR 0161).
 @test "desktop and laptop resolve to the same package set (all apps in fleet)" {
   source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   local desktop_packages laptop_packages
   desktop_packages="$(package_resolver_resolve "$(profile_loader_load desktop)" | awk -F'\t' '{ print $3 }' | sort -u)"
   laptop_packages="$(package_resolver_resolve "$(profile_loader_load laptop)"  | awk -F'\t' '{ print $3 }' | sort -u)"
+  laptop_packages="$(grep -vxE 'lenovolegionlinux(-dkms)?-git' \
+    <<<"$laptop_packages")"
   [ "$(only_in_second "$laptop_packages" "$desktop_packages")" -eq 0 ]
   [ "$(only_in_second "$desktop_packages" "$laptop_packages")" -eq 0 ]
 }
