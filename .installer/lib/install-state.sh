@@ -36,6 +36,7 @@ _INSTALL_STATE_SCHEMA=(
   "ZSWAP_ENABLED|.zswap.enabled|bool"
   "ZSWAP_COMPRESSOR|.zswap.compressor|scalar"
   "ZSWAP_MAX_POOL_PERCENT|.zswap.max_pool_percent|number"
+  "ZFS_ARC_MAX|.zfs.arc_max|scalar"
   "ESP_COUNT|.esp_count|number"
   "IMPERMANENCE_ENABLED|.impermanence.enabled|bool"
   "IMPERMANENCE_DATASET|.impermanence.dataset|scalar"
@@ -87,6 +88,7 @@ _INSTALL_STATE_TEMPLATE='{
   swap:$swap,
   zswap: { enabled:$zswap_enabled, compressor:$zswap_compressor,
     max_pool_percent:$zswap_max_pool_percent },
+  zfs:   { arc_max:$zfs_arc_max },
   apparmor:$apparmor,
   esp_count:$esp_count,
   impermanence: { enabled:$impermanence_enabled,
@@ -148,6 +150,7 @@ install_state_write() {
     --arg zswap_compressor "$(install_config_zswap_compressor)"       \
     --argjson zswap_max_pool_percent \
       "$(install_config_zswap_max_pool_percent)"                      \
+    --arg zfs_arc_max "$(install_config_zfs_arc_max)"               \
     --argjson esp_count    "${#LAYOUT_ESP_PARTS[@]}"                  \
     --argjson apparmor     "$(install_config_apparmor_enabled)"        \
     --argjson impermanence_enabled \

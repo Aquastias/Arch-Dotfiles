@@ -45,8 +45,11 @@ box is still short of a finished gaming laptop:
   **`legiond` stays disabled** — power-profiles-daemon remains the sole
   owner of `platform_profile` ([ADR 0080]).
 - **`options.zfs.arc_max`** — a profile-only option (no Guided row), default
-  unset (ZFS default). The laptop sets `4G`; it is written as
-  `zfs_arc_max` to `/etc/modprobe.d/zfs.conf`. The desktop stays uncapped.
+  unset (ZFS default). The laptop sets `4G`; it is emitted as the
+  `zfs.zfs_arc_max=<bytes>` kernel parameter (Arch Wiki: ZFS, ARC), an
+  installer-owned fragment every Bootloader Adapter appends, like zswap.
+  Validation rejects a malformed size or a non-ZFS root. The desktop stays
+  uncapped.
 - **Hybrid BIOS mode only.** The panel must stay on the iGPU; discrete (MUX)
   mode is unsupported and undetected. It would black-screen Hyprland's
   `AQ_DRM_DEVICES=aq-igpu` pin and needs a different backlight driver.

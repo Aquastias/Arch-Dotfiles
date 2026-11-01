@@ -23,6 +23,7 @@ install_state_load "$STATE"
 _bootloader_common_source kernel.sh         ../packages/kernel.sh
 _bootloader_common_source microcode.sh      ../packages/microcode.sh
 _bootloader_common_source zswap.sh          ../boot/zswap.sh
+_bootloader_common_source zfs-arc.sh        ../boot/zfs-arc.sh
 _bootloader_common_source lsm.sh            ../boot/lsm.sh
 _bootloader_common_source vm-video.sh       ../boot/vm-video.sh
 _bootloader_common_source esp-stage.sh      ../boot/esp-stage.sh
@@ -49,6 +50,8 @@ MICROCODE_IMGS="${MICROCODE_IMGS% }"
 ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
 # AppArmor's LSM order (installer-owned, so every loader carries it).
 LSM_CMDLINE="$(lsm_cmdline_params "$(cat "$STATE")")"
+# ZFS ARC cap, a kernel parameter per the Arch Wiki (ADR 0161).
+ZFS_ARC_CMDLINE="$(zfs_arc_cmdline_params "$(cat "$STATE")")"
 # VM Full-HD floor (ADR 0119): pin a video= mode when installing inside a VM so
 # the guest's virtual panel does not come up sub-FHD. Bare metal emits nothing —
 # resolution stays autodetected (ADR 0110). systemd-detect-virt exits non-zero
@@ -60,6 +63,7 @@ VM_VIDEO_CMDLINE="$(vm_video_cmdline_params \
   "$(systemd-detect-virt 2>/dev/null || echo none)")"
 DEFAULT_OPTS="${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}\
 ${LSM_CMDLINE:+ ${LSM_CMDLINE}}\
+${ZFS_ARC_CMDLINE:+ ${ZFS_ARC_CMDLINE}}\
 ${VM_VIDEO_CMDLINE:+ ${VM_VIDEO_CMDLINE}}\
 ${INSTALL_EXTRA_CMDLINE:+ ${INSTALL_EXTRA_CMDLINE}}"
 QUIET_CMDLINE=""

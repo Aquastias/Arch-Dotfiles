@@ -226,7 +226,7 @@ _PROFILE_SCHEMA_host=(
   "options.root_shell"
   "options.swap" "options.swap_size" "options.esp_size" "options.age_key_url"
   "options.zswap.enabled" "options.zswap.compressor"
-  "options.zswap.max_pool_percent"
+  "options.zswap.max_pool_percent" "options.zfs.arc_max"
   "options.ssh.enabled" "options.mirror_countries[]"
   # — Printing Service (ADR 0079): the toggle-derived cups switch. Default on;
   #   cups is injected into host_programs at assembly, not declared in core. —

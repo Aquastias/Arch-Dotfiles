@@ -257,6 +257,13 @@ load install-state-helpers
   [ "$(jq -r '.zswap.max_pool_percent | type' "$STATE")" = "number" ]
 }
 
+@test "install_state_write: zfs.arc_max carries the configured size (ADR 0161)" {
+  setup_writer_globals
+  install_config_zfs_arc_max() { echo "4G"; }
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.zfs.arc_max' "$STATE")" = "4G" ]
+}
+
 @test "install_state_write: types — swap/extras/impermanence are booleans" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"

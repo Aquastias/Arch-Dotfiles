@@ -32,6 +32,7 @@ setup() {
  "gpu":[],
  "display_manager":"none",
  "swap":true,"zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20},
+ "zfs":{"arc_max":""},
  "esp_count":1,
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
  "persist":{"directories":[],"files":[]}}

@@ -33,6 +33,7 @@ valid_state() {
   "display_manager": "sddm",
   "swap": true, "esp_count": 1,
   "zswap": { "enabled": true, "compressor": "zstd", "max_pool_percent": 20 },
+  "zfs": { "arc_max": "" },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
                     "mount": "/persist" },
   "persist":      { "directories": [], "files": [] }
@@ -69,6 +70,7 @@ setup_writer_globals() {
   install_config_zswap_enabled()        { echo "true"; }
   install_config_zswap_compressor()     { echo "zstd"; }
   install_config_zswap_max_pool_percent() { echo "20"; }
+  install_config_zfs_arc_max() { echo ""; }
   install_config_impermanence_enabled() { echo "false"; }
   install_config_impermanence_dataset() { echo "rpool/persist"; }
   install_config_impermanence_mount()   { echo "/persist"; }

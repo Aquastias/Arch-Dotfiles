@@ -30,6 +30,10 @@
     "swap_size": "auto",
     "ssh": {
       "enabled": true
+    },
+    // 16 GB shared by ARC and games: cap ARC at 4 GiB (ADR 0161).
+    "zfs": {
+      "arc_max": "4G"
     }
   },
   "environment": {

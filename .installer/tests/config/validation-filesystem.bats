@@ -105,3 +105,31 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   run _validation_filesystem
   [ "$status" -eq 0 ]
 }
+
+# ── ZFS ARC cap (ADR 0161): a well-formed size, on a ZFS root only ───────────
+
+@test "arc_max: unset passes" {
+  write_config '{"filesystem":"zfs"}'
+  run _validation_filesystem
+  [ "$status" -eq 0 ]
+}
+
+@test "arc_max: 4G on zfs passes" {
+  write_config '{"filesystem":"zfs","options":{"zfs":{"arc_max":"4G"}}}'
+  run _validation_filesystem
+  [ "$status" -eq 0 ]
+}
+
+@test "arc_max: a malformed size is rejected, naming the field" {
+  write_config '{"filesystem":"zfs","options":{"zfs":{"arc_max":"4GB"}}}'
+  run _validation_filesystem
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "options.zfs.arc_max" ]]
+}
+
+@test "arc_max: set on a non-zfs root is rejected" {
+  write_config '{"filesystem":"btrfs","options":{"zfs":{"arc_max":"4G"}}}'
+  run _validation_filesystem
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "options.zfs.arc_max" ]]
+}

@@ -24,6 +24,8 @@
 
 # shellcheck source=../impermanence-common.sh
 source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
+# shellcheck source=../boot/zfs-arc.sh
+source "${BASH_SOURCE[0]%/*}/../boot/zfs-arc.sh"
 # shellcheck source=./validation-programs.sh
 declare -F _validation_preflight_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/validation-programs.sh"
@@ -151,6 +153,17 @@ _validation_filesystem() {
      && [[ "$filesystem" != "zfs" && "$filesystem" != "btrfs" ]]; then
     error "options.impermanence.enabled requires a snapshotting filesystem" \
       "(zfs or btrfs), not '${filesystem}'."
+  fi
+
+  # The ARC cap (ADR 0161) is a ZFS module parameter: a well-formed size, on a
+  # ZFS root only.
+  local arc_max; arc_max="$(install_config_zfs_arc_max)"
+  if [[ -n "$arc_max" ]]; then
+    [[ "$filesystem" == "zfs" ]] \
+      || error "options.zfs.arc_max needs a zfs root, not '${filesystem}'."
+    zfs_arc_max_bytes "$arc_max" >/dev/null \
+      || error "options.zfs.arc_max '${arc_max}' is not a size" \
+        "(<digits>[K|M|G|T], e.g. 4G)."
   fi
 }
 

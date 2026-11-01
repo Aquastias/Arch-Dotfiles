@@ -38,6 +38,9 @@ _INSTALL_CONFIG_SCHEMA=(
   "zswap_enabled|.options.zswap.enabled|bool|true"
   "zswap_compressor|.options.zswap.compressor|scalar|zstd"
   "zswap_max_pool_percent|.options.zswap.max_pool_percent|number|20"
+  # ZFS ARC cap (ADR 0161): profile-only, empty = the ZFS default. Validated by
+  # zfs_arc_max_bytes; emitted as a kernel parameter (lib/boot/zfs-arc.sh).
+  "zfs_arc_max|.options.zfs.arc_max|scalar|"
   "esp_size|.options.esp_size|scalar|auto"
   "root_shell|.options.root_shell|scalar|/bin/bash"
   "ssh_enabled|.options.ssh.enabled|bool|false"
