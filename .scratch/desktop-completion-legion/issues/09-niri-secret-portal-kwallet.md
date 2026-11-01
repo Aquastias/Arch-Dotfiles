@@ -7,9 +7,9 @@ gnome-keyring. A bare niri box keeps the packaged portal config. Parent: PRD
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The niri adapter writes a niri portals override keeping the packaged
+- [x] The niri adapter writes a niri portals override keeping the packaged
       preferences and routing Secret to kwallet, iff `kde` is co-installed.
-- [ ] Adapter bats cover both cases.
-- [ ] Feature Audit probe: the Secret portal backend in niri is kwallet.
+- [x] Adapter bats cover both cases.
+- [x] Feature Audit probe: the Secret portal backend in niri is kwallet.

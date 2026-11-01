@@ -424,3 +424,22 @@ _stage_gate() {
   [ "$status" -eq 0 ]
   [ ! -d "$SEED/etc/skel/.config/systemd" ]
 }
+
+# ── niri Secret portal → kwallet on a KDE co-install (ADR 0162) ──────────────
+
+@test "KDE co-installed: niri's Secret portal routes to kwallet" {
+  run env ENVIRONMENT_DESKTOP="kde niri" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local portals_file="$ROOT/etc/xdg-desktop-portal/niri-portals.conf"
+  grep -qx 'org.freedesktop.impl.portal.Secret=kwallet;' "$portals_file"
+  # The override replaces the packaged file whole, so it keeps niri's routes.
+  grep -qx 'default=gnome;gtk;' "$portals_file"
+  grep -qx 'org.freedesktop.impl.portal.Access=gtk;' "$portals_file"
+  grep -qx 'org.freedesktop.impl.portal.Notification=gtk;' "$portals_file"
+}
+
+@test "niri alone keeps the packaged portals config" {
+  run_niri
+  [ "$status" -eq 0 ]
+  [ ! -e "$ROOT/etc/xdg-desktop-portal/niri-portals.conf" ]
+}

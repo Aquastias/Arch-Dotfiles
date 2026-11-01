@@ -21,9 +21,10 @@ Three more gaps across the wlroots sessions:
   opens pcmanfm-qt ([ADR 0100]). pcmanfm-qt ≥ 1.1.0 implements
   FileManager1 but ships no activation file; it answers only in daemon mode
   (`pcmanfm-qt -d`; upstream issues #1834/#2127).
-- niri's packaged portals config routes `Secret` to `gnome-keyring`, which
-  is not installed; the fleet's Secret Service is kwallet (it Provides
-  `org.freedesktop.secrets`, unlocked by SDDM's `pam_kwallet5`).
+- niri's packaged portals config routes `Secret` to `oo7-portal` then
+  `gnome-keyring`, neither installed; the fleet's Secret Service is kwallet
+  (it Provides `org.freedesktop.secrets`, unlocked by SDDM's
+  `pam_kwallet5`).
 - Hyprland alone ships blueman ([ADR 0080]), which predates Noctalia's
   Bluetooth panel ([ADR 0097]). It also overwrites a package-owned
   `/etc/xdg/autostart` file, which the next upgrade reverts.
