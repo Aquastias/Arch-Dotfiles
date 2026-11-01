@@ -26,8 +26,11 @@ _NOCTALIA_SH_SOURCED=1
 # Qt/libfm-qt, themed via the same bridge's qt6ct path (ADR 0102) rather than
 # inheriting anything for free. inotify-tools gives the Live Theme Bridge its
 # inotifywait, so a Noctalia theme change repaints RUNNING Qt6/GTK3 apps (ADR
-# 0116). Optional companions (cava, cliphist) are install-noctalia.jsonc
-# toggles, added by their callers.
+# 0116). gvfs-mtp (phones over MTP) and ffmpegthumbnailer (video thumbnails)
+# complete pcmanfm-qt; upower serves wireplumber and peripheral batteries on
+# every box, not just laptops (Arch Wiki: MTP, File manager functionality;
+# upower is D-Bus activated). Optional companions (cava, cliphist) are
+# install-noctalia.jsonc toggles, added by their callers.
 noctalia_preset_packages() {
   printf '%s\n' \
     noctalia \
@@ -36,7 +39,10 @@ noctalia_preset_packages() {
     playerctl \
     pcmanfm-qt \
     adw-gtk-theme \
-    inotify-tools
+    inotify-tools \
+    gvfs-mtp \
+    ffmpegthumbnailer \
+    upower
 }
 
 # noctalia_core_plugins — the compositor-AGNOSTIC community plugin set (ADR

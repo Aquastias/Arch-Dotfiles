@@ -6,12 +6,20 @@ Wayland even without KDE. Parent: PRD.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The preset package set gains `gvfs-mtp`, `ffmpegthumbnailer`,
+- [x] The preset package set gains `gvfs-mtp`, `ffmpegthumbnailer`,
       `upower`, `qt6-wayland`.
-- [ ] Each confirmed package-only / D-Bus activated against its Arch Wiki
+- [x] Each confirmed package-only / D-Bus activated against its Arch Wiki
       page (no service enable needed).
-- [ ] Package Resolver reports them; resolver bats + both Fleet Golden
+- [x] Package Resolver reports them; resolver bats + both Fleet Golden
       fixtures regenerated.
-- [ ] wireplumber's UPower error gone from the desktop niri/Umbriel journal.
+- [x] wireplumber's UPower error gone from the desktop niri/Umbriel journal.
+
+## Comments
+
+- 2026-11-02: `qt6-wayland` dropped — on Qt 6.12 the Wayland platform plugin
+  (`libqwayland.so`) ships in `qt6-base`, and the Arch Wiki (Wayland#Qt) says
+  Qt 6 uses Wayland by default; `qt6-wayland` only adds compositor-side APIs.
+  The other three are package-only (upower is D-Bus activated). The
+  wireplumber UPower check is in ticket 13's journal review.

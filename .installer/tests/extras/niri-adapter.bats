@@ -351,13 +351,12 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   grep -qw "upower" "$PACMAN_LOG"
 }
 
-@test "no battery (desktop): the battery pair is absent, upower not installed" {
+@test "no battery (desktop): the battery pair is absent" {
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"   # setup glob matches no BAT
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ ! -e "$base/battery-power-management" ]
   [ ! -e "$base/battery-widget" ]
-  ! grep -qw "upower" "$PACMAN_LOG"
 }
 
 @test "laptop=true forces the battery pair even without a battery" {

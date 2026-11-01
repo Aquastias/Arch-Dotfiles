@@ -339,6 +339,17 @@ EOF
     | grep -qx 'inotify-tools'
 }
 
+# pcmanfm-qt phones (MTP) + video thumbnails, and UPower for wireplumber and
+# peripheral batteries on every box (Arch Wiki: MTP, File manager
+# functionality, Laptop).
+@test "the base preset ships gvfs-mtp, ffmpegthumbnailer and upower" {
+  local preset
+  preset="$( set +u; source "$NOCTALIA_SH"; noctalia_preset_packages )"
+  grep -qx gvfs-mtp <<<"$preset"
+  grep -qx ffmpegthumbnailer <<<"$preset"
+  grep -qx upower <<<"$preset"
+}
+
 @test "qt6ct is pre-seeded onto Noctalia's KColorScheme (ADR 0102/0124)" {
   [ -f "$QT6CT" ]
   # points at the .colors KColorScheme (qt6ct-kde applies the full scheme so

@@ -188,11 +188,12 @@ load resolver-helpers
   ! grep -qx "docker"      <<<"$noctalia_packages"    # mini-docker was dropped (ADR 0094)
 }
 
-@test "noctalia set omits battery deps under the laptop:auto default" {
-  # the resolver has no hardware, so auto does not report the battery pair
+@test "noctalia set reports upower from the base preset, not the battery pair" {
+  # upower is in the base preset; the resolver has no hardware, so laptop:auto
+  # still reports no battery plugin of its own
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
-  ! grep -qx "upower" <<<"$noctalia_packages"
+  [ "$(grep -cx "upower" <<<"$noctalia_packages")" -eq 1 ]
 }
 
 @test "noctalia set reports battery deps when laptop is forced true" {

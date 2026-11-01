@@ -283,9 +283,11 @@ noctalia	bind
 noctalia	bluez-utils
 noctalia	brightnessctl
 noctalia	ffmpeg
+noctalia	ffmpegthumbnailer
 noctalia	flatpak
 noctalia	fzf
 noctalia	grim
+noctalia	gvfs-mtp
 noctalia	imagemagick
 noctalia	inotify-tools
 noctalia	iw
@@ -309,6 +311,7 @@ noctalia	tesseract
 noctalia	translate-shell
 noctalia	udiskie
 noctalia	udisks2
+noctalia	upower
 noctalia	wf-recorder
 noctalia	wl-mirror
 noctalia	xdg-utils
