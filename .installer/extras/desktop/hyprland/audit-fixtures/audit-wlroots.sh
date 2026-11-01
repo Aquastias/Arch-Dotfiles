@@ -41,3 +41,31 @@ feature_audit_check clipboard-keepalive \
 feature_audit_check portal "xdg-desktop-portal answers on the session bus" \
   busctl --user call org.freedesktop.portal.Desktop \
     /org/freedesktop/portal/desktop org.freedesktop.DBus.Peer Ping
+# ADR 0159/0162: niri and Umbriel run XDG autostart, so on a KDE co-install
+# the seeded gates keep Plasma's daemons (and nm-applet) out; the wallet
+# unlock still runs
+_probe_autostart_gated_session() {
+  [[ "$FA_SESSION" == niri || "$FA_SESSION" == umbriel ]] \
+    && feature_audit_has_shell \
+    && [[ "$(feature_audit_config \
+      '.environment.desktop | index("kde") != null')" == true ]]
+}
+_probe_autostart_gated() {
+  ! pgrep -u "$FA_USER" -x "$1" >/dev/null \
+    && systemctl --user show -P DropInPaths "$2" \
+      | grep -q "/${FA_SESSION}.conf"
+}
+if feature_audit_gate autostart-gates \
+  "not niri/Umbriel on a KDE co-install with a shell" \
+  _probe_autostart_gated_session; then
+  feature_audit_check autostart-skip-kalendarac "kalendarac does not start" \
+    _probe_autostart_gated kalendarac app-org.kde.kalendarac@autostart.service
+  feature_audit_check autostart-skip-kdeconnectd "kdeconnectd does not start" \
+    _probe_autostart_gated kdeconnectd \
+    app-org.kde.kdeconnect.daemon@autostart.service
+  feature_audit_check autostart-skip-nm-applet "nm-applet does not start" \
+    _probe_autostart_gated nm-applet 'app-nm\x2dapplet@autostart.service'
+  feature_audit_check autostart-kwallet-init "pam_kwallet_init still runs" \
+    test "$(systemctl --user show -P Result \
+      app-pam_kwallet_init@autostart.service)" = success
+fi

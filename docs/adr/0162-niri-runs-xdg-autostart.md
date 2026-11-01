@@ -5,14 +5,15 @@ Accepted — not yet implemented. Amends [ADR 0131] (its niri premise) and
 [ADR 0080] (blueman).
 
 ## Context
-[ADR 0131] assumed niri, like Hyprland and Umbriel, never processes
+[ADR 0131] and [ADR 0159] assumed niri, like Hyprland, never processes
 `/etc/xdg/autostart`. Wrong for niri: the packaged `niri.service` has
 `Wants=xdg-desktop-autostart.target`, so systemd's XDG autostart generator
 starts every entry whose `OnlyShowIn`/`NotShowIn` admits `niri`. On a KDE
 co-install the desktop Audit Run showed kalendarac (and the akonadi it
 pulls), kdeconnectd and nm-applet (`NotShowIn=KDE;GNOME;`) starting inside
 niri — duplicating Noctalia and logging portal errors. Hyprland
-(`start-hyprland`) and Umbriel are unaffected.
+(`start-hyprland`) is unaffected. Umbriel already gates kalendarac and
+kdeconnectd with stowed user-unit drop-ins ([ADR 0159]), but not nm-applet.
 
 Three more gaps across the wlroots sessions:
 - Dolphin owns D-Bus activation of `org.freedesktop.FileManager1`, so
@@ -28,12 +29,13 @@ Three more gaps across the wlroots sessions:
   `/etc/xdg/autostart` file, which the next upgrade reverts.
 
 ## Decision
-- **Suppress, per app, by systemd drop-in**: on a KDE co-install under the
-  Noctalia preset (a bare niri may want nm-applet's tray), the niri adapter
-  writes
-  `/etc/systemd/user/app-<id>@autostart.service.d/` with
-  `ConditionEnvironment=!XDG_CURRENT_DESKTOP=niri`. A **blocklist**:
-  kalendarac, the kdeconnect daemon, nm-applet. The Discover notifier is
+- **Reuse [ADR 0159]'s autostart gates for niri**: a stowed user-unit
+  drop-in per daemon, `app-<id>@autostart.service.d/niri.conf`, with
+  `ExecCondition=` on `XDG_CURRENT_DESKTOP != niri`, staged into the niri
+  adapter and seeded into `/etc/skel` under the Noctalia preset (a bare
+  niri may want nm-applet's tray), exactly as Umbriel does. Inert on a box
+  without KDE. A **blocklist**: kalendarac, the kdeconnect daemon,
+  nm-applet — nm-applet gated in Umbriel too. The Discover notifier is
   already `OnlyShowIn=KDE`, so it needs none. Kept: `pam_kwallet_init`
   (wallet unlock), at-spi, `xdg-user-dirs`. [ADR 0131]'s seeded script
   stays — it still owns `~/Projects`.
@@ -47,6 +49,8 @@ Three more gaps across the wlroots sessions:
   the one tray on all three compositors.
 
 ## Considered Options
+- **System-wide `/etc/systemd/user` drop-ins written by the adapter** —
+  rejected: a second mechanism beside [ADR 0159]'s stowed gates.
 - **Overwrite `/etc/xdg/autostart` entries with `NotShowIn=niri`** —
   rejected: package-owned, reverted on upgrade (the blueman bug).
 - **Mask the generated units** — rejected: Plasma starts the same
@@ -69,3 +73,4 @@ Three more gaps across the wlroots sessions:
 [ADR 0097]: 0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR 0100]: 0100-noctalia-owns-lock-idle-polkit-and-wlroots-desktop-completion.md
 [ADR 0131]: 0131-xdg-user-dirs-generated-on-wlroots-sessions.md
+[ADR 0159]: 0159-umbriel-adapter-and-default-session.md

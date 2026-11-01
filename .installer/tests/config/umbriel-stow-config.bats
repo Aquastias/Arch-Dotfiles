@@ -69,9 +69,20 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 # and staged for the adapter to seed (ADR 0159).
 @test "umbriel gates KDE-only autostart daemons outside Plasma" {
   local units="$UMB/../systemd/user" unit
-  for unit in org.kde.kdeconnect.daemon org.kde.kalendarac; do
+  for unit in org.kde.kdeconnect.daemon org.kde.kalendarac 'nm\x2dapplet'; do
     grep -qx 'ExecCondition=/usr/bin/test "${XDG_CURRENT_DESKTOP}" != umbriel' \
       "$units/app-${unit}@autostart.service.d/umbriel.conf"
   done
   grep -q '_chroot_stage_autostart_gates umbriel' "$CHROOT"
+}
+
+# niri.service also pulls xdg-desktop-autostart.target (ADR 0162): the same
+# daemons, plus nm-applet, are gated off in niri.
+@test "niri gates KDE-only autostart daemons and nm-applet outside Plasma" {
+  local units="$UMB/../systemd/user" unit
+  for unit in org.kde.kdeconnect.daemon org.kde.kalendarac 'nm\x2dapplet'; do
+    grep -qx 'ExecCondition=/usr/bin/test "${XDG_CURRENT_DESKTOP}" != niri' \
+      "$units/app-${unit}@autostart.service.d/niri.conf"
+  done
+  grep -q '_chroot_stage_autostart_gates niri' "$CHROOT"
 }

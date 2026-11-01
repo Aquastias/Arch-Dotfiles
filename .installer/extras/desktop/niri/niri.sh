@@ -115,22 +115,16 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
   export NOCTALIA_SLICE_FUNCTION=noctalia_niri_plugins
   noctalia_preset_install ".config/niri/config.kdl" ".config/niri/config.kdl"
 
-  # KDE AUTOSTARTS SKIP NIRI (ADR 0162). niri.service pulls
-  # xdg-desktop-autostart.target, so on a KDE co-install Plasma's background
-  # apps start beside Noctalia. A drop-in on each generated unit skips it in
-  # niri only (Plasma starts the same units); package files stay untouched, so
-  # upgrades cannot revert it. Blocklist, not allowlist: pam_kwallet_init (the
-  # wallet unlock), at-spi and xdg-user-dirs must keep running.
-  if [[ " ${ENVIRONMENT_DESKTOP:-} " == *" kde "* ]]; then
-    section "niri: skip KDE autostarts"
-    for _autostart_id in org.kde.kalendarac org.kde.kdeconnect.daemon \
-                         nm-applet; do
-      _unit="app-$(systemd-escape "$_autostart_id")@autostart.service"
-      install -d "${ROOT}/etc/systemd/user/${_unit}.d"
-      printf '[Unit]\nConditionEnvironment=!XDG_CURRENT_DESKTOP=niri\n' \
-        > "${ROOT}/etc/systemd/user/${_unit}.d/10-not-in-niri.conf"
-    done
-  fi
+  # niri.service pulls xdg-desktop-autostart.target, so KDE-only autostart
+  # daemons (and nm-applet) would start beside Noctalia: seed the user drop-ins
+  # that gate them off outside Plasma, as Umbriel does (ADR 0159/0162).
+  for _gate in "$NIRI_CURATED_DIR"/.config/systemd/user/*@autostart.service.d
+  do
+    [[ -d "$_gate" ]] || continue
+    install -d "${SEED_ROOT%/}/etc/skel/.config/systemd/user/${_gate##*/}"
+    install -m644 "$_gate"/* \
+      "${SEED_ROOT%/}/etc/skel/.config/systemd/user/${_gate##*/}/"
+  done
 fi
 
 section "niri installation complete"

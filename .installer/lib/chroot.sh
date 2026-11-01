@@ -387,13 +387,15 @@ _chroot_copy_extras() {
   _chroot_stage_curated_compositor niri niri/config.kdl
   _chroot_stage_curated_compositor hyprland hypr/hyprland.lua
   _chroot_stage_curated_compositor umbriel umbriel/config.toml
+  _chroot_stage_autostart_gates niri
   _chroot_stage_autostart_gates umbriel
   info "Copied extras/ → /root/extras/"
 }
 
 # _chroot_stage_autostart_gates <adapter> — stage the repo's user-unit drop-ins
 # that gate XDG autostart daemons (`*@autostart.service.d/`) into the adapter's
-# curated dir, for a compositor whose session runs XDG autostart (ADR 0159).
+# curated dir, for a compositor whose session runs XDG autostart (ADR 0159,
+# niri per ADR 0162).
 _chroot_stage_autostart_gates() {
   local curated="${MOUNT_ROOT}/root/extras/desktop/$1/curated" gate
   for gate in "${SCRIPT_DIR}/../.config/systemd/user/"*@autostart.service.d

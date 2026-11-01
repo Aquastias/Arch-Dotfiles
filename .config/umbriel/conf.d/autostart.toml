@@ -9,7 +9,7 @@ autostart = [
   # Live Theme Bridge (ADR 0116): repaint running Qt6/GTK3 apps on a theme
   # change.
   "$HOME/.local/bin/noctalia-theme-bridge",
-  # XDG user dirs (ADR 0131): no /etc/xdg/autostart on a bare compositor.
+  # XDG user dirs + ~/Projects (ADR 0131, ADR 0162).
   "$HOME/.local/bin/noctalia-xdg-user-dirs",
   # Reassert the shared gsettings cursor into Bibata (ADR 0123).
   "gsettings set org.gnome.desktop.interface cursor-theme Bibata-Modern-Ice",

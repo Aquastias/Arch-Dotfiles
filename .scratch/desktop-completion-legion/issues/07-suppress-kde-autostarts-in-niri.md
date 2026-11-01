@@ -25,3 +25,8 @@ Parent: PRD (ADR 0162).
   it is already `OnlyShowIn=KDE`. Ids confirmed from the archlinux.org file
   lists (kdeconnect, network-manager-applet) and akonadi-calendar's
   kalendarac. The probe's VM proof is ticket 13.
+- 2026-11-02: reworked onto ADR 0159's existing mechanism (stowed
+  `app-<id>@autostart.service.d/<compositor>.conf` ExecCondition drop-ins,
+  seeded into /etc/skel by the adapter) instead of a second, system-wide
+  drop-in set. nm-applet is now gated in Umbriel too; the probe moved into the
+  shared wlroots checks for niri and Umbriel. ADR 0159/0162 corrected.

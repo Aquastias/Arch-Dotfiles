@@ -2,6 +2,8 @@
 
 ## Status
 Accepted — implemented; verified by the umbriel-pure and desktop Audit Runs.
+Later decisions: amended by [ADR 0162] (niri runs XDG autostart too; nm-applet
+gated).
 
 ## Context
 Umbriel is the Noctalia project's own wlroots compositor (scrolling, dwindle,
@@ -75,3 +77,4 @@ No "default desktop" exists today: a multi-desktop host (`kde`, `niri`,
 [ADR 0143]: 0143-aur-vetting-vetted-commits.md
 [ADR 0152]: 0152-feature-audit-max-feature-variants-co-located-probes.md
 [ADR 0158]: 0158-auto-display-manager-picks-noctalia-greeter.md
+[ADR 0162]: 0162-niri-runs-xdg-autostart.md
