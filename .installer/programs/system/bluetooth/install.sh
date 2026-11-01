@@ -10,7 +10,8 @@
 # provides bluetoothctl — the headless/non-KDE control path. On KDE bluez
 # already arrives via plasma-meta, so the install is a --needed no-op there and
 # the material effect is the service enable (nothing else does it). The GUI tray
-# is the desktop's concern (BlueDevil on KDE; blueman on Hyprland), never here.
+# is the desktop's concern (BlueDevil on KDE; Noctalia on the wlroots
+# compositors, ADR 0162), never here.
 # =============================================================================
 
 set -Eeuo pipefail

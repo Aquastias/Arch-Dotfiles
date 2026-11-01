@@ -681,11 +681,10 @@ time, installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off â
 genuinely absent. Owns only the **daemon layer**, never a GUI frontend: on KDE
 `bluez`/BlueDevil already arrive via `plasma-meta`, so the injection is a
 `--needed` no-op and the toggle's real contribution is *enabling the service*
-(nothing else does today). A Hyprland-session tray is a separate concern â€” the
-[[Desktop Environment Adapter]] for Hyprland ships `blueman` with a
-`NotShowIn=KDE` autostart, so a KDE session shows BlueDevil and a Hyprland
-session shows blueman ([ADR 0080]). Filtered from the Programs pickers like
-`cups`; surfaces as `source=bluetooth` in the resolver.
+(nothing else does today). The GUI is the desktop's: BlueDevil in a KDE
+session, Noctalia's Bluetooth panel on the wlroots compositors ([ADR 0162];
+the Hyprland blueman tray of [ADR 0080] is gone). Filtered from the
+Programs pickers like `cups`; surfaces as `source=bluetooth` in the resolver.
 
 ### Power Profile (`options.power.profile`)
 The **enum** generalization of the toggle-derived pattern ([ADR 0080], extending
@@ -2588,5 +2587,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0158]: docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR 0159]: docs/adr/0159-umbriel-adapter-and-default-session.md
 [ADR 0160]: docs/adr/0160-doom-emacs-opt-in-parity-twin-of-neovim-config.md
+[ADR 0162]: docs/adr/0162-niri-runs-xdg-autostart.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
