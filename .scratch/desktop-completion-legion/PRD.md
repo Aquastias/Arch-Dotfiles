@@ -263,3 +263,54 @@ internals of how a helper builds them. All seams already exist:
   are enabled.
 - VM verification follows the one-VM-at-a-time rule (ADR 0155).
 
+
+## On-Legion checklist
+
+Run on `chronos` (15ARH7H) after first boot. Not VM-verifiable (ADR 0161).
+Supersedes the hybrid-gpu-hardening PRD's list, which it includes.
+
+Before install:
+
+- BIOS in **Hybrid** graphics mode (discrete/MUX mode is unsupported).
+
+GPU (ADR 0053 + 0161):
+
+- `cat /sys/module/nvidia_drm/parameters/modeset` → `Y`.
+- `prime-run glxinfo | grep "OpenGL renderer"` → the RTX 3060.
+- `prime-run vulkaninfo --summary` → the NVIDIA device; plain
+  `vulkaninfo --summary` lists the Radeon 660M too.
+- 32-bit Vulkan sees the iGPU: a 32-bit Vulkan title (or
+  `vulkaninfo` from `lib32-vulkan-tools`) lists the RADV device.
+- Idle dGPU reaches D3cold: `cat /sys/bus/pci/devices/<dgpu>/power_state` →
+  `D3cold`, `power/runtime_status` → `suspended`.
+- `systemctl is-enabled nvidia-powerd` → `enabled`; under a game with
+  Performance mode (Fn+Q) on, `nvidia-smi -q -d POWER` shows the Dynamic
+  Boost limit above the base TGP. If `nvidia-powerd` logs no Dynamic Boost
+  support, check `/proc/driver/nvidia/gpus/*/power`.
+- Suspend → resume returns to the session with no black screen.
+- After a `nvidia*`/`linux*` upgrade and reboot, modeset is still `Y`.
+
+Compositors on the iGPU:
+
+- In niri and Umbriel, the compositor's DRM device is the AMD card
+  (`niri msg outputs` / Umbriel's log names the render node;
+  `lsof /dev/dri/card*` shows the compositor on the AMD card only). A failure
+  is a follow-up ticket (iGPU pin), not a fix here.
+
+LenovoLegionLinux:
+
+- `lsmod | grep legion` → `legion_laptop` loaded with no manual modprobe.
+- `legion_cli` (or the GUI) reads CPU/GPU temperature and fan RPM; a fan
+  curve applies.
+- `systemctl is-enabled legiond` → `disabled`; Fn+Q still cycles
+  power-profiles-daemon's profiles (`powerprofilesctl get`).
+
+Memory:
+
+- `cat /sys/module/zfs/parameters/zfs_arc_max` → `4294967296`.
+
+Laptop basics:
+
+- Brightness keys change the panel backlight (`brightnessctl get` moves).
+- Noctalia's battery plugin sets conservation / charge limit, and
+  `/sys/bus/platform/drivers/ideapad_acpi/*/conservation_mode` follows it.

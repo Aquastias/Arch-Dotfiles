@@ -1603,7 +1603,9 @@ chroot can decide whether to harden. Resolved packages populate the derived
 `GPU_PACMAN_PACKAGES` set before pacstrap.
 
 Vendor → package mapping:
-- `"amd"` → `vulkan-radeon xf86-video-amdgpu mesa` (VA-API ships in `mesa`)
+- `"amd"` → `vulkan-radeon xf86-video-amdgpu mesa lib32-mesa
+  lib32-vulkan-radeon` (VA-API ships in `mesa`; the `lib32-*` pair serves
+  32-bit games and drops when multilib is off, [ADR 0161])
 - `"nvidia"` → `nvidia-open-dkms nvidia-utils lib32-nvidia-utils
   libva-nvidia-driver egl-wayland` (open kernel module only; requires
   Turing+/RTX 20xx+; DKMS used so it builds against both `linux` and
@@ -1612,6 +1614,8 @@ Vendor → package mapping:
   (pre-Broadwell), auto-selected by parsing `lspci` device ID
 - VM GPU (VMware/VirtualBox/virtio-gpu) → `mesa` only (software rendering);
   detection logs a notice and continues without aborting
+- `["amd", "nvidia"]` additionally → `nvidia-prime` (`prime-run`, the PRIME
+  Offload entry point; hybrid only, [ADR 0161])
 
 ### GPU Hardening
 The deterministic AMD+NVIDIA hybrid configuration applied by the chroot **GPU
@@ -1621,13 +1625,14 @@ no config field. Runs before initcpio so the single `mkinitcpio -P` bakes it in.
 The set: a `modprobe.d` NVIDIA config (`nvidia_drm modeset=1 fbdev=1`,
 `NVreg_PreserveVideoMemoryAllocations`, `NVreg_DynamicPowerManagement`, `blacklist
 nouveau`), **Early KMS** (the nvidia modules in `MODULES=`), an **RTD3** udev
-rule, the suspend/resume/hibernate services, and an initramfs-regen pacman hook.
+rule, the suspend/resume/hibernate services plus `nvidia-powerd` (Dynamic
+Boost, [ADR 0161]), and an initramfs-regen pacman hook.
 Replaces the never-invoked `envycontrol` switcher.
 
 - **Hybrid Graphics / PRIME Offload** — the runtime topology: the AMD iGPU drives
   the internal panel and the KDE compositor; the NVIDIA dGPU stays idle until an
   app is offloaded to it (`prime-run`). Matches the firmware's switchable-
-  graphics mode.
+  graphics mode; discrete (MUX) mode is unsupported ([ADR 0161]).
 - **Early KMS** — loading the nvidia kernel modules from the initramfs (via
   `MODULES=`) so kernel modesetting is up before the display, closing the
   half-initialised-dGPU race.
@@ -2587,6 +2592,7 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0158]: docs/adr/0158-auto-display-manager-picks-noctalia-greeter.md
 [ADR 0159]: docs/adr/0159-umbriel-adapter-and-default-session.md
 [ADR 0160]: docs/adr/0160-doom-emacs-opt-in-parity-twin-of-neovim-config.md
+[ADR 0161]: docs/adr/0161-hybrid-laptop-completion-legion-5.md
 [ADR 0162]: docs/adr/0162-niri-runs-xdg-autostart.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
