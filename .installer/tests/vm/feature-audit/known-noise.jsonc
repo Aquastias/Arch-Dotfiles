@@ -369,5 +369,10 @@
     "reason": "skills CLI skips a malformed upstream skill (mattpocock)" },
   { "regex": ["^kwin_wayland\\[[0-9]+\\]: Input method is trying to show ",
               "itself but without a context\\. Aborting\\."],
-    "reason": "KWin input-method chatter during bind injection (upstream)" }
+    "reason": "KWin input-method chatter during bind injection (upstream)" },
+  { "regex": ["^/usr/lib/xdg-desktop-portal\\[[0-9]+\\]: (\\.\\./glib/gobject/",
+              "gtype\\.c:[0-9]+: type id '[0-9]+' is invalid|can't peek value ",
+              "table for type '<unknown>' which is not currently referenced|",
+              "g_value_unset: assertion 'value_table' failed)"],
+    "reason": "x-d-p error path on a Qt app's late Registry.Register (#1962)" }
 ]
