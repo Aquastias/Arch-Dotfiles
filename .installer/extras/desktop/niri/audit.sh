@@ -10,8 +10,9 @@ feature_audit_check niri-config \
 feature_audit_check niri-ipc "niri IPC answers" niri msg -j version
 # shellcheck source=/dev/null
 . "$FA_DIR/audit-fixtures/audit-wlroots.sh"
-# ADR 0162: on a KDE co-install the Secret portal routes to kwallet, and that
-# backend answers
+# ADR 0162: on a KDE co-install the Secret portal routes to kwallet, whose
+# backend is activatable (not pinged: activation starts ksecretd, which then
+# warns about opening the wallet with no window)
 _probe_kde_installed() {
   [[ "$(feature_audit_config \
     '.environment.desktop | index("kde") != null')" == true ]]
@@ -19,12 +20,12 @@ _probe_kde_installed() {
 _probe_secret_portal_kwallet() {
   grep -qx 'org.freedesktop.impl.portal.Secret=kwallet;' \
     /etc/xdg-desktop-portal/niri-portals.conf \
-    && busctl --user call org.freedesktop.impl.portal.desktop.kwallet \
-      /org/freedesktop/portal/desktop org.freedesktop.DBus.Peer Ping
+    && busctl --user list --activatable \
+      | grep -q '^org\.freedesktop\.impl\.portal\.desktop\.kwallet '
 }
 if feature_audit_gate niri-secret-portal "no KDE co-install" _probe_kde_installed
 then
   feature_audit_check niri-secret-portal-kwallet \
-    "the Secret portal routes to kwallet, which answers" \
+    "the Secret portal routes to kwallet, an activatable backend" \
     _probe_secret_portal_kwallet
 fi
