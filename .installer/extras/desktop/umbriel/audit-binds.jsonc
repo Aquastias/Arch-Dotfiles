@@ -13,11 +13,8 @@
       "effect": "screen-changes", "recovery": "escape" },
     { "action": "spawn noctalia msg session lock",
       "effect": "screen-changes", "recovery": "unlock" },
-    // Umbriel asks first; repeating session-quit confirms, the path upstream's
-    // own check uses (tests/harness/checks/session/quit.sh): Return after
-    // the chord flaked on the first attempt
-    { "action": "session-quit", "effect": "session-ends",
-      "then": ["Mod+Shift+E"],
+    // Umbriel asks first; Return confirms (src/input/keyboard.cpp)
+    { "action": "session-quit", "effect": "session-ends", "then": ["Return"],
       "session_ending": true, "recovery": "session" },
     { "action": "cheatsheet-toggle", "effect": "screen-changes",
       "recovery": "toggle" },
