@@ -37,3 +37,18 @@ reuse the VM it shows, `stop` it when done. Drive it with
 `.installer/vm/vm-agent.sh` (session, screenshot, apps; Qt tests use Dolphin):
 `docs/agents/vm-agent-control.md`. Run VM commands with the sandbox disabled —
 it hides `/dev/kvm` and guest SSH: `docs/agents/vm-sandbox.md`.
+
+### Never freeze the host
+
+This is the operator's daily machine; a frozen host is the worst outcome, worse
+than a skipped or slow check. No task justifies it.
+
+- Check `free -h` and load before any VM, matrix or Audit Run. Start one only
+  with the VM's RAM plus 8 GiB still available; otherwise stop and ask.
+- Nothing heavy beside a running VM: no full or parallel (`-j`) bats suite, no
+  second VM, no builds. Run them before or after, never together.
+- Cap bats parallelism at `-j 4`; prefer single files while iterating.
+- Stop every VM you started (`vm-agent.sh stop`) as soon as you are done; never
+  leave one running or suspended across turns.
+- Long background jobs: say so up front, and kill them if the host gets
+  sluggish.
