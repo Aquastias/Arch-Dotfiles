@@ -442,3 +442,11 @@ _stage_gate() {
   [ "$status" -eq 0 ]
   [ ! -e "$ROOT/etc/xdg-desktop-portal/niri-portals.conf" ]
 }
+
+# wireplumber asks the system bus for UPower without activating it, so the
+# daemon must run from boot (upower.service is WantedBy=graphical.target).
+@test "noctalia enables upower.service" {
+  run_niri ENVIRONMENT_WAYLAND_SHELL=noctalia
+  [ "$status" -eq 0 ]
+  grep -qx "systemctl enable upower.service" "$SYSTEMCTL_LOG"
+}

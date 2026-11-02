@@ -161,6 +161,9 @@ _noctalia_preset_install_packages() {
   [[ "$(_noctalia_preset_flag cava)" == true ]]     && packages+=(cava)
   [[ "$(_noctalia_preset_flag cliphist)" == true ]] && packages+=(cliphist)
   pacman -S --noconfirm --needed "${packages[@]}"
+  # wireplumber looks UPower up without activating it, so run it from boot
+  # (upower.service: WantedBy=graphical.target).
+  systemctl enable upower.service
 }
 
 # Enriched plugin set (ADR 0093/0097): the shared core plus this compositor's
