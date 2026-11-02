@@ -3,9 +3,9 @@
 show_cheatsheet = false
 
 [keybinds]
-"Mod+Return" = "spawn:kitty"
+"Mod+Return" = "spawn kitty"
 "Mod+X" = { action = "window-close", repeat = false }  # trailing comment
-"Mod+1" = "workspace-switch:1"
+"Mod+1" = "workspace-switch 1"
 
 [input.keyboard]
 layout = "us"
@@ -15,9 +15,9 @@ action = "shortcuts-inhibit-toggle"
 repeat = false
 
 [keybinds.XF86AudioMute]
-action = "spawn:wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+action = "spawn wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
 allow_when_locked = true
 
 [keybinds."Shift+Print"]
-action = '''spawn:grim -g "$(umbriel windows --json | jq -r \
+action = '''spawn grim -g "$(umbriel windows --json | jq -r \
   '.[] | select(.active)')" out.png'''

@@ -36,13 +36,13 @@ setup() {
   run feature_audit_binds_parse umbriel "$FIX/umbriel-binds.toml"
   [ "$status" -eq 0 ]
   [ "$(awk 'END { print NR }' <<<"$output")" -eq 6 ]
-  grep -qxF $'umbriel\tMod+Return\tspawn:kitty' <<<"$output"
+  grep -qxF $'umbriel\tMod+Return\tspawn kitty' <<<"$output"
   grep -qxF $'umbriel\tMod+X\twindow-close' <<<"$output"
-  grep -qxF $'umbriel\tMod+1\tworkspace-switch:1' <<<"$output"
+  grep -qxF $'umbriel\tMod+1\tworkspace-switch 1' <<<"$output"
   grep -qxF $'umbriel\tMod+Escape\tshortcuts-inhibit-toggle' <<<"$output"
-  local mute='spawn:wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle'
+  local mute='spawn wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle'
   grep -qxF "umbriel"$'\t'"XF86AudioMute"$'\t'"$mute" <<<"$output"
-  local shot='spawn:grim -g "$(umbriel windows --json | jq -r '
+  local shot='spawn grim -g "$(umbriel windows --json | jq -r '
   shot+="'.[] | select(.active)')\" out.png"
   grep -qxF "umbriel"$'\t'"Shift+Print"$'\t'"$shot" <<<"$output"
 }

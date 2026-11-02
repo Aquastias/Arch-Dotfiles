@@ -60,8 +60,8 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 # Declaring [keybinds] replaces Umbriel's built-in set, so the curated one
 # must carry the launcher and terminal itself.
 @test "umbriel binds the terminal and the Noctalia launcher" {
-  grep -qx '"Mod+Return" = "spawn:kitty"' "$UMB/conf.d/keybinds.toml"
-  grep -qx '"Mod+D" = "spawn:noctalia msg panel-toggle launcher"' \
+  grep -qx '"Mod+Return" = "spawn kitty"' "$UMB/conf.d/keybinds.toml"
+  grep -qx '"Mod+D" = "spawn noctalia msg panel-toggle launcher"' \
     "$UMB/conf.d/keybinds.toml"
 }
 

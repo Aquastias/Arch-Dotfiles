@@ -5,13 +5,13 @@
 // ws2win, dir:<d>).
 {
   "expect": [
-    { "action": "spawn:kitty", "effect": "window-opens", "arg": "kitty" },
-    { "action": "spawn:pcmanfm-qt", "effect": "window-opens",
+    { "action": "spawn kitty", "effect": "window-opens", "arg": "kitty" },
+    { "action": "spawn pcmanfm-qt", "effect": "window-opens",
       "arg": "pcmanfm" },
     { "action": "window-close", "effect": "window-closes" },
-    { "action": "spawn:noctalia msg panel-toggle launcher",
+    { "action": "spawn noctalia msg panel-toggle launcher",
       "effect": "screen-changes", "recovery": "escape" },
-    { "action": "spawn:noctalia msg session lock",
+    { "action": "spawn noctalia msg session lock",
       "effect": "screen-changes", "recovery": "unlock" },
     // Umbriel asks first; Return confirms (src/input/keyboard.cpp)
     { "action": "session-quit", "effect": "session-ends", "then": ["Return"],
@@ -41,11 +41,11 @@
     { "action": "window-move-down", "effect": "layout-changes",
       "needs": "stack dir:down" },
 
-    { "action": "workspace-switch:*", "effect": "workspace", "arg": "{num}" },
+    { "action": "workspace-switch *", "effect": "workspace", "arg": "{num}" },
     // moving to the workspace a column is already on changes nothing
-    { "action": "column-move-to-workspace:1", "effect": "layout-changes",
+    { "action": "column-move-to-workspace 1", "effect": "layout-changes",
       "needs": "ws2win workspace2" },
-    { "action": "column-move-to-workspace:*", "effect": "layout-changes" },
+    { "action": "column-move-to-workspace *", "effect": "layout-changes" },
     { "action": "workspace-next", "effect": "workspace-changes" },
     { "action": "workspace-previous", "effect": "workspace-changes",
       "needs": "workspace2" },
@@ -57,11 +57,11 @@
     { "action": "workspace-move-up", "effect": "workspace-changes",
       "needs": "ws2win workspace2" },
 
-    { "action": "spawn:noctalia msg screenshot-region",
+    { "action": "spawn noctalia msg screenshot-region",
       "effect": "screen-changes", "recovery": "escape" },
-    { "action": "spawn:noctalia msg screenshot-fullscreen",
+    { "action": "spawn noctalia msg screenshot-fullscreen",
       "effect": "file-created", "arg": "Pictures" },
-    { "action": "spawn:grim *", "effect": "file-created", "arg": "Pictures" },
+    { "action": "spawn grim *", "effect": "file-created", "arg": "Pictures" },
 
     { "action": "overview-toggle", "effect": "screen-changes",
       "recovery": "toggle" },
@@ -69,8 +69,8 @@
     { "action": "window-toggle-maximize-to-edges",
       "effect": "layout-changes" },
     { "action": "column-center", "effect": "screen-changes" },
-    { "action": "window-modify-primary-extent:*", "effect": "layout-changes" },
-    { "action": "window-modify-secondary-extent:*",
+    { "action": "window-modify-primary-extent *", "effect": "layout-changes" },
+    { "action": "window-modify-secondary-extent *",
       "effect": "layout-changes", "needs": "stack" },
     { "action": "column-toggle-tabbed", "effect": "layout-changes",
       "needs": "stack" },
@@ -98,15 +98,15 @@
     { "action": "column-focus-tab-*", "effect": "unverifiable",
       "reason": "needs a tab group; the scene builds stacks, not tabs" },
     { "action": "window-toggle-pinned", "effect": "layout-changes" },
-    { "action": "workspace-set-layout:toggle", "effect": "layout-changes" },
+    { "action": "workspace-set-layout toggle", "effect": "layout-changes" },
 
     // raising a volume already at the 1.0 cap changes nothing: lower first
     { "chord": "XF86AudioRaiseVolume", "effect": "audio-changes",
       "pre": ["XF86AudioLowerVolume"] },
-    { "action": "spawn:wpctl *", "effect": "audio-changes" },
-    { "action": "spawn:brightnessctl *", "effect": "unverifiable",
+    { "action": "spawn wpctl *", "effect": "audio-changes" },
+    { "action": "spawn brightnessctl *", "effect": "unverifiable",
       "reason": "no backlight device in a VM" },
-    { "action": "spawn:playerctl *", "effect": "unverifiable",
+    { "action": "spawn playerctl *", "effect": "unverifiable",
       "reason": "no MPRIS player running in the audit session" }
   ]
 }

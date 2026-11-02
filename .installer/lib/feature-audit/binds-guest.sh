@@ -185,15 +185,15 @@ feature_audit_binds_setup() {
 # _binds_guest_niri <action…> — a niri `msg action`.
 _binds_guest_niri() { niri msg action "$@" >/dev/null 2>&1; }
 
-# _binds_guest_umbriel <action> — an Umbriel `msg` action (one argument after
-# a colon, ADR 0159).
-_binds_guest_umbriel() { umbriel msg "$1" >/dev/null 2>&1; }
+# _binds_guest_umbriel <action> [arg…] — an Umbriel `msg` action, arguments as
+# separate words (upstream syntax since late Oct 2026; ADR 0159).
+_binds_guest_umbriel() { umbriel msg "$@" >/dev/null 2>&1; }
 
 # _binds_guest_go_to_workspace <compositor> <n> — focus workspace / desktop n.
 _binds_guest_go_to_workspace() {
   case "$1" in
     niri) _binds_guest_niri focus-workspace "$2" ;;
-    umbriel) _binds_guest_umbriel "workspace-switch:$2" ;;
+    umbriel) _binds_guest_umbriel workspace-switch "$2" ;;
     Hyprland) _binds_guest_hyprland "hl.dsp.focus({ workspace = $2 })" ;;
     kwin_wayland) qdbus6 org.kde.KWin /KWin \
       org.kde.KWin.setCurrentDesktop "$2" >/dev/null 2>&1 ;;
@@ -237,8 +237,8 @@ _binds_guest_arrange() {
     case "$compositor" in
       niri) _binds_guest_niri move-column-to-workspace 2
             _binds_guest_niri focus-workspace 1 ;;
-      umbriel) _binds_guest_umbriel column-move-to-workspace:2
-               _binds_guest_umbriel workspace-switch:1 ;;
+      umbriel) _binds_guest_umbriel column-move-to-workspace 2
+               _binds_guest_umbriel workspace-switch 1 ;;
       Hyprland)
         _binds_guest_hyprland \
           "hl.dsp.window.move({ workspace = 2, silent = true })"
@@ -360,7 +360,7 @@ feature_audit_binds_teardown() {
     [[ -n "$id" ]] || continue
     case "$compositor" in
       niri) niri msg action close-window --id "$id" >/dev/null 2>&1 ;;
-      umbriel) _binds_guest_umbriel "window-close:$id" ;;
+      umbriel) _binds_guest_umbriel window-close "$id" ;;
       Hyprland) _binds_guest_hyprland \
         "hl.dsp.window.close({ window = \"address:$id\" })" ;;
       kwin_wayland) _binds_guest_kwin_run "workspace.windowList().forEach(
