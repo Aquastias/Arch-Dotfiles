@@ -44,9 +44,12 @@ Three more gaps across the wlroots sessions:
 - **pcmanfm-qt daemon**: every compositor's curated autostart (niri,
   Hyprland, Umbriel) starts `pcmanfm-qt -d`, so the running instance owns
   FileManager1 before Dolphin can be activated. Plasma is untouched.
-- **niri Secret portal → kwallet** on a KDE co-install, via an
-  `/etc/xdg-desktop-portal/niri-portals.conf` override; a box without KDE
-  keeps the packaged file.
+- **niri keeps its packaged Secret portal routing** (reversed after the
+  desktop Audit Run): routing it to kwallet made xdg-desktop-portal start
+  ksecretd at every niri login, which popped a "create wallet 'Default
+  keyring'" dialog. Native apps still reach kwallet through
+  `org.freedesktop.secrets`; only Flatpak secret requests lack a backend on
+  niri.
 - **Drop blueman** from the Hyprland adapter; Noctalia's Bluetooth panel is
   the one tray on all three compositors.
 

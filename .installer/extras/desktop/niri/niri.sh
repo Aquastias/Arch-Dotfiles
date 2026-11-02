@@ -94,26 +94,6 @@ if [[ " ${ENVIRONMENT_DESKTOP:-} " == *" kde "* ]]; then
 fi
 
 # =============================================================================
-# SECRET PORTAL — kwallet on a KDE co-install (ADR 0162)
-# =============================================================================
-# niri's packaged niri-portals.conf routes Secret to oo7-portal / gnome-keyring,
-# neither installed; kwallet is the fleet's Secret Service and ships the
-# kwallet portal backend. /etc/xdg-desktop-portal outranks /usr/share (Arch
-# Wiki: XDG Desktop Portal; portals.conf(5)) and replaces the packaged file
-# whole, so it repeats niri's other routes.
-if [[ " ${ENVIRONMENT_DESKTOP:-} " == *" kde "* ]]; then
-  section "niri Secret portal → kwallet"
-  install -d "${ROOT}/etc/xdg-desktop-portal"
-  cat > "${ROOT}/etc/xdg-desktop-portal/niri-portals.conf" <<'PORTALS'
-[preferred]
-default=gnome;gtk;
-org.freedesktop.impl.portal.Access=gtk;
-org.freedesktop.impl.portal.Notification=gtk;
-org.freedesktop.impl.portal.Secret=kwallet;
-PORTALS
-fi
-
-# =============================================================================
 # NOCTALIA WORK PRESET (ADR 0090/0097) — wayland_shell=noctalia only
 # =============================================================================
 # Bare niri (none / unset) stops at the core above — the operator's dotfiles own
