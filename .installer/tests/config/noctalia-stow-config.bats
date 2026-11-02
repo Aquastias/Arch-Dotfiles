@@ -469,3 +469,10 @@ EOF
   grep -q '"pcmanfm-qt" "-d"' "$NAUTO"
   grep -q 'pcmanfm-qt -d' "$HAUTO"
 }
+
+# qt6ct's absent [Fonts] defaults to an empty string on Qt 6, so every Qt app
+# logs QFont::fromString '(empty)': seed both fonts (noto-fonts is a default).
+@test "qt6ct seeds valid general and fixed fonts" {
+  grep -qx 'general="Noto Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' "$QT6CT"
+  grep -qx 'fixed="Noto Sans Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' "$QT6CT"
+}
