@@ -86,3 +86,9 @@ hl.animation({ leaf = "workspacesOut", enabled = true, speed = 1.94, bezier = "a
 
 -- No hl.gesture() call: Hyprland 0.56 made swipe opt-in via the `gesture`
 -- keyword, so an absent gesture = disabled — which is what we want.
+
+-- Hyprland 0.57 turned quirks:skip_non_kms_dmabuf_formats on by default. Mesa
+-- builds a client's Wayland EGL configs from that dmabuf feedback, so on virgl
+-- and older iGPUs no alpha config is left: Noctalia exits on eglChooseConfig
+-- and kitty finds no EGLConfig. Off restores the 0.56 format list.
+hl.config({ quirks = { skip_non_kms_dmabuf_formats = false } })

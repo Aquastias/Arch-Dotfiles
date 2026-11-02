@@ -476,3 +476,11 @@ EOF
   grep -qx 'general="Noto Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' "$QT6CT"
   grep -qx 'fixed="Noto Sans Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' "$QT6CT"
 }
+
+# Hyprland 0.57 defaults quirks:skip_non_kms_dmabuf_formats on, which leaves
+# Wayland EGL clients no alpha config on virgl / older iGPUs: Noctalia dies
+# with eglChooseConfig failed and kitty finds no EGLConfig. Restore 0.56.
+@test "Hyprland keeps non-KMS dmabuf formats for EGL clients" {
+  grep -q 'skip_non_kms_dmabuf_formats = false' \
+    "$REPO/.config/hypr/conf.d/appearance.lua"
+}
