@@ -22,7 +22,9 @@ teardown() { rm -rf "$TEST_DIR"; }
   [[ "$output" == *"pacman -S parallel"* ]]
 }
 
-@test "invokes bats with --jobs nproc when parallel is present" {
+# Capped at 4 so a full run never starves the host (CLAUDE.md: never freeze
+# the host).
+@test "invokes bats with --jobs min(nproc, 4) when parallel is present" {
   # Stub parallel (presence only) and bats (log argv).
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_DIR/bin/parallel"
   printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "%s/argv"\n' \
@@ -36,5 +38,6 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -f "$TEST_DIR/argv" ]
   run head -2 "$TEST_DIR/argv"
   [ "${lines[0]}" = "--jobs" ]
-  [ "${lines[1]}" = "$(nproc)" ]
+  local cores; cores="$(nproc)"
+  [ "${lines[1]}" = "$(( cores < 4 ? cores : 4 ))" ]
 }

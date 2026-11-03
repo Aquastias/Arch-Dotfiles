@@ -125,5 +125,8 @@ if ((${#FILES[@]})); then
     < <(printf '%s\n' "${FILES[@]}" | sort -u && printf '\0')
 fi
 
-echo "[run.sh] mode=$MODE files=${#FILES[@]}" >&2
-"$BATS_DIR/bin/bats" --jobs "$(nproc)" "${FILES[@]}"
+# At most 4 jobs: a full run beside the operator's work (or a VM) must never
+# starve the host (CLAUDE.md: never freeze the host).
+jobs="$(nproc)"; ((jobs > 4)) && jobs=4
+echo "[run.sh] mode=$MODE files=${#FILES[@]} jobs=$jobs" >&2
+"$BATS_DIR/bin/bats" --jobs "$jobs" "${FILES[@]}"
