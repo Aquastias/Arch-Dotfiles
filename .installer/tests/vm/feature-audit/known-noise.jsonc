@@ -374,5 +374,13 @@
               "gtype\\.c:[0-9]+: type id '[0-9]+' is invalid|can't peek value ",
               "table for type '<unknown>' which is not currently referenced|",
               "g_value_unset: assertion 'value_table' failed)"],
-    "reason": "x-d-p error path on a Qt app's late Registry.Register (#1962)" }
+    "reason": "x-d-p error path on a Qt app's late Registry.Register (#1962)" },
+  { "regex": ["^(systemd-coredump\\[[0-9]+\\]: Process [0-9]+ ",
+              "\\(akonadiserver\\) of user [0-9]+ dumped core|",
+              "plasmashell\\[[0-9]+\\]: (Socket error occurred: ",
+              "\"QLocalSocket: Remote closed\"|Job error: +",
+              "\"Cannot connect to the Akonadi service\\.\"))"],
+    "reason": "Akonadi's first-run SQLite lock race aborts once (upstream)" },
+  { "regex": "/usr/bin/akonadiserver", "source": "coredumps",
+    "reason": "Akonadi's first-run SQLite lock race aborts once (upstream)" }
 ]
