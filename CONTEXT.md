@@ -2274,11 +2274,17 @@ variant enables is itself a failure.
 
 ### Known Noise
 A committed allowlist of expected log lines, each with its reason or ADR; the
-only way an error-shaped line stops being a [[Finding]].
+only way an error-shaped line stops being a [[Finding]] or an [[Advisory]].
 
 ### Finding
-An error, warning, failed unit, or failed feature probe from an [[Audit Run]]
-not matched by [[Known Noise]].
+An error, failed unit, coredump, or failed feature probe from an [[Audit Run]]
+not matched by [[Known Noise]]. Any Finding fails the run.
+
+### Advisory
+A warning-level line from an [[Audit Run]] (journal priority warning, or a log
+line whose only error-word is warn/warning) not matched by [[Known Noise]].
+Reported with its frequency, never failing the run.
+_Avoid_: soft finding.
 
 ### Probe Gate
 The Host Profile conditions a probe check declares it needs (a shell, a

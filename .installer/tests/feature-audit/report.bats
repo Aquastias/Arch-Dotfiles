@@ -1,11 +1,12 @@
 #!/usr/bin/env bats
-# Tests for `feature-audit.sh report <run-dir>` (ADR 0152, feature-audit/01):
+# Tests for `feature-audit.sh report <run-dir>` (ADR 0152, 0165):
 # raw collected artifacts → Findings. Pure: a synthetic Audit Run folder is
 # built per test (variant/phase/source files) and the tool is run on it.
 #
 # Source-file kinds (by extension, written by the collectors):
 #   *.log     free-form log: error/warn/fail-shaped lines are Findings
 #   *.lines   pre-filtered signal: every non-empty line is a Finding
+#   *.warnings journal priority warning: every line is an Advisory
 #   *.probe   probe output: FAIL lines are Findings (PASS/SKIP are not)
 
 setup() {
@@ -37,7 +38,7 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   grep -q 'No findings' "$RUN/findings.md"
 }
 
-@test "installer log: WARN/ERROR/pacman warning lines are findings" {
+@test "installer log: ERROR is a finding; WARN / pacman warning advisories" {
   art base install installer.log \
     "[INFO]  ok" \
     $'\e[1;33m[WARN]\e[0m  mirror slow' \
@@ -46,8 +47,10 @@ jsonl() { cat "$RUN/findings.jsonl"; }
     "[INFO]  0 packages to remove"
   report
   [ "$status" -ne 0 ]
-  [ "$(jsonl | awk 'END { print NR }')" -eq 3 ]
-  jsonl | jq -e 'select(.excerpt == "[WARN]  mirror slow")' >/dev/null
+  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
+  [ "$(awk 'END { print NR }' "$RUN/advisories.jsonl")" -eq 2 ]
+  jq -e 'select(.excerpt == "[WARN]  mirror slow")' \
+    "$RUN/advisories.jsonl" >/dev/null
   jsonl | jq -e 'select(.excerpt == "[ERROR] zpool create failed")' >/dev/null
   jsonl | jq -e 'select(.phase == "install" and .source == "installer")' \
     >/dev/null
@@ -349,10 +352,10 @@ EOF2
     "[RETRY] attempt 1/3 of pacstrap returned 1; trying again" \
     "[ATTEMPT] 2/3 pacstrap" \
     "installing zfs-utils..." \
-    "[WARN]  later, outside the attempt"
+    "[ERROR] later, outside the attempt"
   report
   [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e 'select(.excerpt == "[WARN]  later, outside the attempt")' \
+  jsonl | jq -e 'select(.excerpt == "[ERROR] later, outside the attempt")' \
     >/dev/null
 }
 
@@ -364,4 +367,52 @@ EOF2
   report
   [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
   jsonl | jq -e 'select(.excerpt == "error: two")' >/dev/null
+}
+
+# ── severity: blocking Findings vs Advisory warnings (ADR 0165) ─────────────
+
+advisories() { cat "$RUN/advisories.jsonl"; }
+
+@test "log kind: warning-only lines are advisories; the run passes" {
+  art base install installer.log \
+    $'\e[1;33m[WARN]\e[0m  mirror slow' \
+    "warning: directory permissions differ on /etc/x"
+  report
+  [ "$status" -eq 0 ]
+  [ ! -s "$RUN/findings.jsonl" ]
+  [ "$(advisories | awk 'END { print NR }')" -eq 2 ]
+  advisories | jq -e 'select(.excerpt == "[WARN]  mirror slow")' >/dev/null
+}
+
+@test "log kind: a warn line that also says failed stays blocking" {
+  art base install installer.log "[WARN]  unit foo failed to start"
+  report
+  [ "$status" -ne 0 ]
+  jsonl | jq -e 'select(.excerpt == "[WARN]  unit foo failed to start")' \
+    >/dev/null
+}
+
+@test ".warnings source: every line is an advisory under its journal name" {
+  art base boot1 journal.warnings "kwin_wayland[12]: something odd"
+  art base boot1 journal.lines ""
+  report
+  [ "$status" -eq 0 ]
+  advisories | jq -e 'select(.source == "journal" and .phase == "boot1")' \
+    >/dev/null
+}
+
+@test "known noise drops advisories too" {
+  art base boot1 journal.warnings "kwin_wayland[12]: something odd"
+  echo '[{"regex": "something odd", "reason": "t"}]' > "$NOISE"
+  report
+  [ "$status" -eq 0 ]
+  [ ! -s "$RUN/advisories.jsonl" ]
+}
+
+@test "findings.md lists advisories in their own section, after findings" {
+  art base install installer.log "[ERROR] boom" "[WARN]  meh"
+  report
+  grep -q '^## Advisory warnings' "$RUN/findings.md"
+  awk '/\[ERROR\] boom/ { e = NR } /\[WARN\]  meh/ { w = NR }
+       END { exit !(e && w && e < w) }' "$RUN/findings.md"
 }

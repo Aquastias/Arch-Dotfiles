@@ -46,16 +46,22 @@ _report_noise_tsv() {
 
 # _report_candidates <run-dir> — one aggregated Finding per line (TSV):
 # phase-rank source program check phases variants count total excerpt logs
+# severity (blocking | advisory, ADR 0165)
 _report_candidates() {
   local run="$1" phases; phases="${FA_PHASES[*]}"
   local -a files
   mapfile -t files < <(find "$run" -mindepth 3 -maxdepth 3 -type f \
-    \( -name '*.log' -o -name '*.lines' -o -name '*.probe' \) | sort)
+    \( -name '*.log' -o -name '*.lines' -o -name '*.warnings' \
+       -o -name '*.probe' \) | sort)
   ((${#files[@]})) || return 0
   # an error-shaped word, not part of a name (libgpg-error, perl-error)
   local error_regex='(^|[^a-z0-9_./-])(err|error|errors|warn|warning|failed|'
   error_regex+='failure|fatal|critical)([^a-z0-9_-]|$)'
-  awk -v run="$run/" -v phases="$phases" -v error_regex="$error_regex" -F'\t' \
+  # the same minus warn/warning: a line matching only those is advisory
+  local blocking_regex='(^|[^a-z0-9_./-])(err|error|errors|failed|failure|'
+  blocking_regex+='fatal|critical)([^a-z0-9_-]|$)'
+  awk -v run="$run/" -v phases="$phases" -v error_regex="$error_regex" \
+    -v blocking_regex="$blocking_regex" -F'\t' \
     -f "${BASH_SOURCE[0]%/*}/report-candidates.awk" \
     noisef="$FA_NOISE_TSV" "$FA_NOISE_TSV" "${files[@]}"
 }
@@ -66,11 +72,12 @@ feature_audit_report() {
     echo "feature-audit: no run folder: $run" >&2; return 2
   fi
   local jsonl="$run/findings.jsonl" markdown="$run/findings.md"
-  rm -f "$jsonl" "$markdown"
+  local advisories="$run/advisories.jsonl" all
+  rm -f "$jsonl" "$markdown" "$advisories"
   FA_NOISE_TSV="$(mktemp)"
   _report_noise_tsv > "$FA_NOISE_TSV"
   # stable sort: phase rank, then source; first-seen order within a group
-  _report_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
+  all="$(_report_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
     | jq -R -c --arg run "$run" \
         --argjson va "$(_report_variant_adr_map "$run")" '
         split("\t") as $f
@@ -82,15 +89,24 @@ feature_audit_report() {
             logs: ($f[9] | split(",") | map($run + "/" + .)),
             adrs: ([($f[5] | split(","))[] | $va[.] // [] | .[]] | unique),
             repro: ("tools/feature-audit.sh run --variant "
-                    + ($f[5] | split(",")[0]) + " --keep") }' \
-    | jq -c -s '([length, 999] | max | tostring | length) as $w
-        | to_entries | map(.value + {id: ("F" + ((.key + 1) | tostring
-        | ("0" * $w + .) | .[-$w:]))}) | .[]' > "$jsonl"
+                    + ($f[5] | split(",")[0]) + " --keep"),
+            severity: $f[10] }')"
   rm -f "$FA_NOISE_TSV"
-  [[ -s "$jsonl" ]] || : > "$jsonl"
+  _report_numbered "$all" blocking F > "$jsonl"
+  _report_numbered "$all" advisory A > "$advisories"
   _report_render_markdown "$jsonl" "$run" > "$markdown"
   [[ -s "$jsonl" ]] && return 1
   return 0
+}
+
+# _report_numbered <entries> <severity> <prefix> — the <severity> entries of
+# <entries> (JSON lines), numbered <prefix>NNN in order (width ≥ 3).
+_report_numbered() {
+  [[ -n "$1" ]] || return 0
+  jq -c -s --arg sev "$2" --arg p "$3" 'map(select(.severity == $sev))
+    | ([length, 999] | max | tostring | length) as $w
+    | to_entries | map(.value + {id: ($p + ((.key + 1) | tostring
+    | ("0" * $w + .) | .[-$w:]))}) | .[]' <<<"$1"
 }
 
 # _report_render_markdown <jsonl> <run-dir> — agent-ready findings list + the
@@ -100,8 +116,8 @@ _report_render_markdown() {
   echo "# Feature Audit findings"
   echo
   if [[ "$count" -eq 0 ]]; then
-    echo "No findings."; _report_render_skips "$run"
-    _report_render_visual "$run"; return 0
+    echo "No findings."; _report_render_advisories "$run"
+    _report_render_skips "$run"; _report_render_visual "$run"; return 0
   fi
   echo "$count finding(s). Fix each, or propose a Known Noise entry (regex +"
   echo "reason) for maintainer approval. Repro: rerun the variant with"
@@ -121,8 +137,24 @@ _report_render_markdown() {
         ) | join("\n"))
       ) | join("\n"))
   ' "$jsonl"
+  _report_render_advisories "$run"
   _report_render_skips "$run"
   _report_render_visual "$run"
+}
+
+# _report_render_advisories <run-dir> — warning-level lines (ADR 0165): listed
+# with frequency so a trend stays visible, never a Finding.
+_report_render_advisories() {
+  local advisories="$1/advisories.jsonl"
+  [[ -s "$advisories" ]] || return 0
+  echo
+  echo "## Advisory warnings"
+  echo
+  echo "Warning-level lines: reported, never failing the run."
+  echo
+  jq -r '"- **\(.id)** [\(.variants | join(", "))] \(.source) seen "
+    + "\(.count)/\(.total) (\(.phases | join(", "))): `\(.excerpt)`"' \
+    "$advisories"
 }
 
 # _report_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR

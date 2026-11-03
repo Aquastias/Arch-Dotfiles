@@ -267,13 +267,17 @@ for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
   systemctl --user -M "$u@" --failed --plain --no-legend --no-pager \
     > "$o/failed-units-user-$u.lines" 2>/dev/null || true
 done
-# system journal (services + kernel) and each user's own, as separate sources
-journalctl "${win[@]}" --system -p warning --no-pager -q -o short 2>&1 \
-  | awk "$FOLD" > "$o/journal.lines"
-for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
-  n="$(id -nu "$u" 2>/dev/null)" || continue
-  journalctl "${win[@]}" _UID="$u" -p warning --no-pager -q -o short \
-    > "$o/journal-user-$n.lines" 2>&1
+# system journal (services + kernel) and each user's own, as separate sources;
+# priority err and above is blocking (.lines), warning alone advisory
+# (.warnings, ADR 0165)
+for level in err:lines warning..warning:warnings; do
+  journalctl "${win[@]}" --system -p "${level%:*}" --no-pager -q -o short \
+    2>&1 | awk "$FOLD" > "$o/journal.${level#*:}"
+  for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
+    n="$(id -nu "$u" 2>/dev/null)" || continue
+    journalctl "${win[@]}" _UID="$u" -p "${level%:*}" --no-pager -q -o short \
+      > "$o/journal-user-$n.${level#*:}" 2>&1
+  done
 done
 cw=(); [ -n "$SINCE" ] && cw=(--since "@$SINCE")
 coredumpctl list "${cw[@]}" --no-legend --no-pager -q \

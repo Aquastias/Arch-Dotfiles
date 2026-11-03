@@ -2,7 +2,8 @@
 
 ## Status
 Accepted — design only; not yet implemented. Amended 2026-10-02 (Probe
-Gate; variant-scoped Known Noise).
+Gate; variant-scoped Known Noise). Later decisions: amended by [ADR 0165]
+(warnings are Advisories, not Findings).
 
 ## Context
 The Combination Matrix ([ADR 0046]) proves storage combinations install and
@@ -116,3 +117,4 @@ cache (staleness for no gain, base installs uncached anyway).
 [ADR 0046]: 0046-combination-matrix-two-tier-install-testing.md
 [ADR 0112]: 0112-stock-environment-variants.md
 [ADR 0117]: 0117-agent-controllable-vm.md
+[ADR 0165]: 0165-feature-audit-advisory-warnings.md

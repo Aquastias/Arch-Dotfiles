@@ -2,9 +2,11 @@
 # Findings (lib/feature-audit/report.sh, _report_candidates). Inputs: the
 # Known Noise TSV first (noisef=), then every *.log / *.lines / *.probe under
 # <run>/<variant>/<phase>/. Variables: run (the run dir + "/"), phases (the
-# phase order), error_regex (the error-shaped-word regex). Output, one line per
-# Finding (TSV): phase-rank source program check phases variants count total
-# excerpt logs.
+# phase order), error_regex (the error-shaped-word regex), blocking_regex (its
+# non-warning half). Output, one line per Finding (TSV): phase-rank source
+# program check phases variants count total excerpt logs severity. Severity
+# (ADR 0165): a log line whose only error-word is warn/warning, and every
+# *.warnings line (journal priority warning), is advisory; the rest blocking.
 function clean(s) {
   gsub(/\033\[[0-9;]*[A-Za-z]/, "", s); gsub(/\t/, " ", s)
   gsub(/\r/, "", s)
@@ -38,11 +40,12 @@ function noisy(line, src, ph,   i) {
         && line ~ nr[i]) return 1
   return 0
 }
-function add(src, prog, chk, line, path,   k, u, g) {
+function add(src, prog, chk, line, path, sev,   k, u, g) {
   if (noisy(line, src, ph)) return
-  k = src SUBSEP prog SUBSEP norm(chk " " line)
+  if (sev == "") sev = "blocking"
+  k = sev SUBSEP src SUBSEP prog SUBSEP norm(chk " " line)
   if (!(k in ex)) { ex[k] = line; order[++nk] = k; ksrc[k] = src
-                    kprog[k] = prog; kchk[k] = chk }
+                    kprog[k] = prog; kchk[k] = chk; ksev[k] = sev }
   u = var SUBSEP ph
   if (!((k, u) in seen)) { seen[k, u] = 1; cnt[k]++
     if (!((k, "v", var) in seen)) { seen[k, "v", var] = 1
@@ -62,7 +65,7 @@ function prank(p,   i) {
 }
 # flush — keep held attempt errors that no [RETRY] superseded
 function flush(   i) {
-  for (i = 1; i <= nh; i++) add(hsrc, hprog, "", hl[i], hr[i])
+  for (i = 1; i <= nh; i++) add(hsrc, hprog, "", hl[i], hr[i], hs[i])
   nh = 0; inatt = 0
 }
 BEGIN { np0 = split(phases, pl, " ") }
@@ -87,7 +90,7 @@ FNR == 1 {
   if (line ~ /^[[:space:]]*$/) next
   # a whitespace-led line continues the previous journal entry (wrapped
   # text, stack frames): the entry is one Finding, keyed by its head
-  if (kind == "lines" && $0 ~ /^[[:space:]]/) next
+  if ((kind == "lines" || kind == "warnings") && $0 ~ /^[[:space:]]/) next
   if (kind == "log") {
     # _retry markers: hold the errors of an attempt; a [RETRY] (a later
     # attempt follows) drops them, any other end keeps them
@@ -95,12 +98,15 @@ FNR == 1 {
     if (line ~ /^\[RETRY\] /) { nh = 0; inatt = 0; next }
     l = tolower(line)
     if (l ~ error_regex && l !~ / is up to date -- skipping$/) {
-      if (inatt) { hl[++nh] = line; hr[nh] = rel
+      sev = (l ~ blocking_regex) ? "blocking" : "advisory"
+      if (inatt) { hl[++nh] = line; hr[nh] = rel; hs[nh] = sev
                   hsrc = src; hprog = prog }
-      else add(src, prog, "", line, rel)
+      else add(src, prog, "", line, rel, sev)
     }
   } else if (kind == "lines") {
     add(src, prog, "", line, rel)
+  } else if (kind == "warnings") {
+    add(src, prog, "", line, rel, "advisory")
   } else if (kind == "probe") {
     if (line ~ /^PASS / && ph == "probes-online") {
       c = line; sub(/^PASS /, "", c); sub(/ .*$/, "", c)
@@ -128,8 +134,8 @@ END {
     } else add(dsrc[d], dprog[d], dchk[d], dline[d], drel[d])
   }
   for (i = 1; i <= nk; i++) { k = order[i]
-    printf "%02d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\t%s\n", rank[k], ksrc[k],
-      kprog[k], kchk[k], phs[k], vars[k], cnt[k],
-      tot[ksrc[k] SUBSEP kprog[k]], ex[k], logs[k]
+    printf "%02d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\t%s\t%s\n", rank[k],
+      ksrc[k], kprog[k], kchk[k], phs[k], vars[k], cnt[k],
+      tot[ksrc[k] SUBSEP kprog[k]], ex[k], logs[k], ksev[k]
   }
 }
