@@ -1,7 +1,7 @@
 # ADR 0163: systemd-oomd on fleet hosts, Fedora's memory-pressure defaults
 
 ## Status
-Accepted — implemented; VM proof pending the desktop Audit Run.
+Accepted — implemented; verified by the desktop Audit Run of 2026-11-03.
 
 ## Context
 Nothing acted before the kernel OOM killer on the fleet hosts: a runaway app

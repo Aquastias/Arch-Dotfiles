@@ -1,9 +1,8 @@
 # ADR 0162: niri runs XDG autostart; wlroots sessions completion
 
 ## Status
-Accepted — implemented; VM proof pending the desktop Audit Run. Amends
-[ADR 0131] (its niri premise) and
-[ADR 0080] (blueman).
+Accepted — implemented; verified by the desktop Audit Run of 2026-11-03.
+Amends [ADR 0131] (its niri premise) and [ADR 0080] (blueman).
 
 ## Context
 [ADR 0131] and [ADR 0159] assumed niri, like Hyprland, never processes

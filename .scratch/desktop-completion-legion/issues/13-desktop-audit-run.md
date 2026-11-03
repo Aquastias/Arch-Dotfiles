@@ -7,13 +7,13 @@ the new packages present, blueman absent. Parent: PRD.
 
 **Blocked by:** 07, 08, 09, 10, 11, 12.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One VM at a time (ADR 0155); `vm-agent.sh status` first, `stop`
+- [x] One VM at a time (ADR 0155); `vm-agent.sh status` first, `stop`
       after.
-- [ ] Every new probe passes in its sessions.
-- [ ] No new findings beyond accepted Known Noise.
-- [ ] Result recorded like prior Audit Run docs.
+- [x] Every new probe passes in its sessions.
+- [x] No new findings beyond accepted Known Noise.
+- [x] Result recorded like prior Audit Run docs.
 
 ## Comments
 
@@ -34,3 +34,8 @@ the new packages present, blueman absent. Parent: PRD.
     the Secret portal / probe ping).
   - Likely upstream/VM: claude skill YAML warning, kitty EGL in VM,
     xdg-desktop-portal GLib type warnings, KDE notifications unit, kwin IM.
+- 2026-11-03: Audit Run `.audit-runs/20261103-101152` (desktop, at 1079aac):
+  **No findings, exit 0.** Fixes on the way: Hyprland 0.57 dmabuf quirk,
+  Umbriel action syntax + 5 s app-scope stop timeout (ADR 0164), upower
+  enabled, qt6ct fonts, ticket 09 reverted, approved Known Noise (skills
+  YAML, kwin IM, Hyprland overlay, x-d-p GLib, Akonadi first-run abort).
