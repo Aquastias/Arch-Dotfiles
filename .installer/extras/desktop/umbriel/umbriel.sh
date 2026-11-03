@@ -64,6 +64,13 @@ pacman -S --noconfirm --needed $(umbriel_core_packages)
 # `seat` group from User Core.
 systemctl enable seatd
 
+# QUIT TIMEOUT (ADR 0164). A user quit waits for every app-umbriel-*.scope to
+# stop; one child that outlives SIGTERM (bluetoothctl with no bluetoothd)
+# held the session for systemd's 90s default. A prefix drop-in caps it.
+install -d "${ROOT}/etc/systemd/user/app-umbriel-.scope.d"
+printf '[Scope]\nTimeoutStopSec=5s\n' \
+  > "${ROOT}/etc/systemd/user/app-umbriel-.scope.d/10-stop-timeout.conf"
+
 # =============================================================================
 # CURATED SESSION — offered to whichever Display Manager is selected (ADR 0069)
 # =============================================================================

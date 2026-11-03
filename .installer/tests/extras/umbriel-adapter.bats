@@ -182,3 +182,15 @@ wl-clipboard" "$PACMAN_LOG"
   [ "$status" -eq 0 ]
   [ "$(cat "$SKEL/$gate")" == gate ]
 }
+
+# A user quit waits for every app-umbriel-*.scope to stop; one child stuck
+# past SIGTERM (bluetoothctl with no bluetoothd) held it for systemd's 90s
+# default. The prefix drop-in caps that for every Umbriel app scope.
+@test "caps the Umbriel app scopes' stop timeout so quit cannot stall" {
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local dropin="$ROOT/etc/systemd/user/app-umbriel-.scope.d"
+  dropin+="/10-stop-timeout.conf"
+  grep -qx '\[Scope\]' "$dropin"
+  grep -qx 'TimeoutStopSec=5s' "$dropin"
+}
