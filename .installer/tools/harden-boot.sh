@@ -77,7 +77,7 @@ harden_boot_plan() {
     echo install-warn-hook
     ;;
   esac
-  [[ -n "$bootloader" ]] && echo install-battery-preflight
+  [[ -n "$bootloader" ]] && echo install-boot-recovery
   [[ -n "$bootloader" && "$fstype" == zfs ]] && echo install-update-snapshot
   return 0
 }
@@ -156,15 +156,13 @@ _harden_boot_install_warn_hook() {
     "Checking for stray / zfs.ko-less kernels..."
 }
 
-# Battery preflight from the shared boot-recovery lib (ADR 0166).
-_harden_boot_install_battery_preflight() {
+# Battery preflight, Module Stash and Stash Restore through the shared
+# boot-recovery install path (ADR 0166).
+_harden_boot_install_boot_recovery() {
   local helper="$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/boot-recovery.sh"
-  install -Dm755 "$helper" "$ROOT/usr/local/lib/archzfs/boot-recovery.sh"
-  mkdir -p "$ROOT/etc/pacman.d/hooks"
   # shellcheck source=../lib/boot/boot-recovery.sh
   BOOT_RECOVERY_LIB_ONLY=1 source "$helper"
-  boot_recovery_battery_hook \
-    >"$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
+  boot_recovery_install "$ROOT" "$helper"
 }
 
 # Update Snapshot hooks from the shared lib (ADR 0166), and the keep-blank
@@ -329,7 +327,7 @@ harden_boot_apply() {
     reconcile-microcode) _harden_boot_reconcile_microcode ;;
     drop-fallback) _harden_boot_drop_fallback ;;
     pin-grub-default) _harden_boot_pin_grub_default ;;
-    install-battery-preflight) _harden_boot_install_battery_preflight ;;
+    install-boot-recovery) _harden_boot_install_boot_recovery ;;
     install-update-snapshot) _harden_boot_install_update_snapshot ;;
     esac
   done < <(harden_boot_plan "$1" "$2" "$3")

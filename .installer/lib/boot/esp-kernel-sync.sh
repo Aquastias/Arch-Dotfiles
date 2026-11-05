@@ -256,6 +256,12 @@ _esp_kernel_sync_run() {
     esp_kernel_sync_prune_dead_fallback_entries "$esp_directory"
   done
 
+  # The new kernel is on every ESP: the Module Stash has done its job (ADR
+  # 0166). Critical-copy failures exited above, so this runs only on success.
+  if [[ -x /usr/local/lib/archzfs/boot-recovery.sh ]]; then
+    /usr/local/lib/archzfs/boot-recovery.sh drop-stash || true
+  fi
+
   # Explicit success: the pruning helper's trailing test must not become the
   # hook's exit status — a normal run with nothing to prune is not a failure.
   return 0

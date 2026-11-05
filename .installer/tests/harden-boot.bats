@@ -98,7 +98,7 @@ teardown() { rm -rf "$ROOT"; }
   for loader in grub limine refind efistub; do
     run harden_boot_plan "$loader" 512
     [ "$status" -eq 0 ]
-    [ "$output" = $'install-esp-kernel-sync\ninstall-warn-hook\ninstall-battery-preflight' ]
+    [ "$output" = $'install-esp-kernel-sync\ninstall-warn-hook\ninstall-boot-recovery' ]
   done
 }
 
@@ -145,14 +145,14 @@ teardown() { rm -rf "$ROOT"; }
   [ "$(cat "$ROOT"/etc/pacman.d/hooks/*.hook)" = "$first" ]
 }
 
-@test "plan: systemd-boot and grub-native also get the battery preflight" {
+@test "plan: systemd-boot and grub-native also get the boot recovery set" {
   run harden_boot_plan systemd-boot 2048
-  [[ "$output" == *install-battery-preflight* ]]
+  [[ "$output" == *install-boot-recovery* ]]
   run harden_boot_plan grub-native 2048
-  [[ "$output" == *install-battery-preflight* ]]
+  [[ "$output" == *install-boot-recovery* ]]
 }
 
-@test "apply: battery preflight hook and helper are installed" {
+@test "apply: battery, Module Stash and Stash Restore are installed" {
   mkdir -p "$ROOT/boot/efi"
   : > "$ROOT/boot/efi/vmlinuz-linux-lts"
   run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
@@ -160,6 +160,8 @@ teardown() { rm -rf "$ROOT"; }
   grep -q 'boot-recovery.sh battery' \
     "$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
   [ -x "$ROOT/usr/local/lib/archzfs/boot-recovery.sh" ]
+  [ -f "$ROOT/etc/pacman.d/hooks/05-module-stash.hook" ]
+  [ -L "$ROOT/usr/lib/systemd/system/sysinit.target.wants/boot-recovery-restore.service" ]
 }
 
 @test "plan: a ZFS root also gets the Update Snapshot, others do not" {
