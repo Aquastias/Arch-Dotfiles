@@ -213,6 +213,9 @@ _impermanence_boot_hooks_write_resnapshot_helper_zfs() {
 # deferred to v2.
 datasets="$dataset_list"
 for ds in \$datasets; do
+  # Keep the pre-update @blank as this update's Update Snapshot (ADR 0166).
+  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \
+    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank "\${ds}"
   if zfs destroy "\${ds}@blank" 2>/dev/null; then
     logger -t impermanence "destroyed \${ds}@blank"
   fi

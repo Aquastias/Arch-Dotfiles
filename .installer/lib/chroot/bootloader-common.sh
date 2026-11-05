@@ -175,4 +175,14 @@ bootloader_common_install_boot_recovery_hooks() {
   # shellcheck source=../boot/boot-recovery.sh
   BOOT_RECOVERY_LIB_ONLY=1 source "$_LIB_DIR/boot-recovery.sh"
   boot_recovery_battery_hook > /etc/pacman.d/hooks/92-battery-preflight.hook
+  # Update Snapshot: ZFS roots only (`zpool` present is the chroot's ZFS
+  # signal, as in initcpio.sh).
+  command -v zpool >/dev/null 2>&1 || return 0
+  install -Dm755 "$_LIB_DIR/update-snapshot.sh" \
+    /usr/local/lib/archzfs/update-snapshot.sh
+  # shellcheck source=../boot/update-snapshot.sh
+  UPDATE_SNAPSHOT_LIB_ONLY=1 source "$_LIB_DIR/update-snapshot.sh"
+  update_snapshot_pre_hook > /etc/pacman.d/hooks/00-update-snapshot.hook
+  update_snapshot_post_hook \
+    > /etc/pacman.d/hooks/zzz-update-snapshot-done.hook
 }

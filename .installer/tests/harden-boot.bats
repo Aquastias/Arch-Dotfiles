@@ -162,6 +162,36 @@ teardown() { rm -rf "$ROOT"; }
   [ -x "$ROOT/usr/local/lib/archzfs/boot-recovery.sh" ]
 }
 
+@test "plan: a ZFS root also gets the Update Snapshot, others do not" {
+  run harden_boot_plan efistub 2048 zfs
+  [[ "$output" == *install-update-snapshot* ]]
+  run harden_boot_plan efistub 2048 ext4
+  [[ "$output" != *install-update-snapshot* ]]
+}
+
+@test "apply: Update Snapshot hooks + resnapshot patch on a ZFS root" {
+  mkdir -p "$ROOT/boot/efi" "$ROOT/usr/lib/impermanence"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  printf '%s\n' '#!/usr/bin/env bash' 'datasets="rpool/ROOT/etc"' \
+    'for ds in $datasets; do' '  zfs destroy "${ds}@blank"' 'done' \
+    > "$ROOT/usr/lib/impermanence/resnapshot.sh"
+  HARDEN_BOOT_ROOT_FSTYPE=zfs run bash \
+    "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -eq 0 ]
+  grep -q "update-snapshot.sh pre" \
+    "$ROOT/etc/pacman.d/hooks/00-update-snapshot.hook"
+  grep -q "update-snapshot.sh post" \
+    "$ROOT/etc/pacman.d/hooks/zzz-update-snapshot-done.hook"
+  [ -x "$ROOT/usr/local/lib/archzfs/update-snapshot.sh" ]
+  local helper="$ROOT/usr/lib/impermanence/resnapshot.sh"
+  [ "$(awk '/keep-blank/ { print NR; exit }' "$helper")" -lt \
+    "$(awk '/zfs destroy/ { print NR; exit }' "$helper")" ]
+  # idempotent: a second run does not insert the line twice
+  HARDEN_BOOT_ROOT_FSTYPE=zfs bash \
+    "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$(grep -c keep-blank "$helper")" -eq 1 ]
+}
+
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
 # /etc/default/grub used to abort after "applying: install-warn-hook".
 @test "apply: systemd-boot root without grub defaults writes every hook" {

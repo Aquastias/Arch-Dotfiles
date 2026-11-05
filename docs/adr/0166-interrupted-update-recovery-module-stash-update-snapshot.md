@@ -33,10 +33,16 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
    kernel still on the ESP then boots normally. It announces the interruption
    on the console and as a desktop notification; it never runs pacman itself.
 3. **[[Update Snapshot]]** (ZFS roots). A PreTransaction hook snapshots
-   `rpool/ROOT/arch`, `rpool/var` and, on Impermanence hosts, the Rollback
-   Datasets before every transaction. Keep the last three. The snapshot taken
-   before an unfinished transaction is exempt from pruning until a
-   transaction completes.
+   `rpool/ROOT/arch` and `rpool/var` as `@update-<UTC time>` before every
+   transaction. Keep the last three. The snapshot taken before an unfinished
+   transaction is exempt from pruning until a transaction completes. On
+   Impermanence hosts the Rollback Datasets are *not* snapshotted: the
+   boot-time `zfs rollback -r @blank` would destroy any newer snapshot.
+   Their pre-update state is `@blank` itself, so the Pacman Resnapshot Hook
+   renames the old `@blank` to the transaction's `@update-*` name instead of
+   destroying it (a renamed snapshot keeps its creation time and survives
+   the rollback). After an interrupted update `@blank` is still the
+   pre-update state.
 4. **Previous kernel pairs on the ESP.** Before every transaction (not only
    kernel ones), each staged kernel's current kernel + default initramfs is
    copied to stable `-prev` names when the `-prev` pair differs, so the

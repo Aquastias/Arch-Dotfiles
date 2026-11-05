@@ -468,3 +468,15 @@ _run_latehook() { # <hook-file>
   [[ "$output" == *"subvol=@etc /dev/vda2 /new_root/etc"* ]]
   ! grep -qE ' /new_root$' <<<"$output"
 }
+
+@test "resnapshot helper: keeps the old @blank as the Update Snapshot first" {
+  # ADR 0166: the pre-update @blank is renamed to the transaction's @update-*
+  # name before it would be destroyed, so Undo Last Update can restore it.
+  run_enabled
+  local helper_script="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local keep_line destroy_line
+  keep_line="$(awk '/update-snapshot.sh keep-blank/ { print NR; exit }' \
+    "$helper_script")"
+  destroy_line="$(awk '/zfs destroy / { print NR; exit }' "$helper_script")"
+  [ -n "$keep_line" ] && [ "$keep_line" -lt "$destroy_line" ]
+}

@@ -1142,9 +1142,10 @@ Kernel Transaction into a normal boot; the operator then re-runs pacman to
 finish the update.
 
 ### Update Snapshot
-A ZFS snapshot of the OS datasets pacman changes — the root, `/var`, and on an
-Impermanence host the Rollback Datasets — taken before every pacman
-transaction. The last three are kept. ZFS roots only.
+A ZFS snapshot of the OS datasets pacman changes — the root and `/var` —
+taken before every pacman transaction. On an Impermanence host each Rollback
+Dataset's pre-update Blank Snapshot is kept under the same name once the
+update completes. The last three are kept. ZFS roots only.
 
 ### Undo Last Update
 A boot-menu choice that returns the system to its newest Update Snapshot and

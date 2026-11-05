@@ -56,10 +56,11 @@ harden_boot_should_drop_fallback() {
   ((${1:-0} < 1024))
 }
 
-# Emit the planned retrofit actions for <bootloader> on an ESP of <esp_mib>, one
-# action token per line. Drives both --dry-run (printed) and apply (executed).
+# Emit the planned retrofit actions for <bootloader> on an ESP of <esp_mib>
+# with a root of filesystem <fstype>, one action token per line. Drives both
+# --dry-run (printed) and apply (executed).
 harden_boot_plan() {
-  local bootloader="$1" esp_mib="$2"
+  local bootloader="$1" esp_mib="$2" fstype="${3:-}"
   case "$bootloader" in
   systemd-boot)
     echo install-esp-kernel-sync
@@ -77,6 +78,7 @@ harden_boot_plan() {
     ;;
   esac
   [[ -n "$bootloader" ]] && echo install-battery-preflight
+  [[ -n "$bootloader" && "$fstype" == zfs ]] && echo install-update-snapshot
   return 0
 }
 
@@ -165,6 +167,31 @@ _harden_boot_install_battery_preflight() {
     >"$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
 }
 
+# Update Snapshot hooks from the shared lib (ADR 0166), and the keep-blank
+# call in an existing impermanence resnapshot helper, inserted once.
+_harden_boot_install_update_snapshot() {
+  local helper="$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/update-snapshot.sh"
+  local resnapshot="$ROOT/usr/lib/impermanence/resnapshot.sh"
+  install -Dm755 "$helper" "$ROOT/usr/local/lib/archzfs/update-snapshot.sh"
+  mkdir -p "$ROOT/etc/pacman.d/hooks"
+  # shellcheck source=../lib/boot/update-snapshot.sh
+  UPDATE_SNAPSHOT_LIB_ONLY=1 source "$helper"
+  update_snapshot_pre_hook >"$ROOT/etc/pacman.d/hooks/00-update-snapshot.hook"
+  update_snapshot_post_hook \
+    >"$ROOT/etc/pacman.d/hooks/zzz-update-snapshot-done.hook"
+  [[ -f "$resnapshot" ]] && ! grep -q keep-blank "$resnapshot" || return 0
+  # The same three lines the installer's resnapshot helper carries.
+  awk '{ print }
+    $0 == "for ds in $datasets; do" {
+      print "  # Keep the pre-update @blank as this update'"'"'s Update Snapshot" \
+            " (ADR 0166)."
+      print "  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \\"
+      print "    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank \"${ds}\""
+    }' "$resnapshot" >"$resnapshot.new"
+  cat "$resnapshot.new" >"$resnapshot"
+  rm -f "$resnapshot.new"
+}
+
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.
 _harden_boot_reconcile_microcode() {
   local entry_file
@@ -242,7 +269,7 @@ main() {
   echo "harden-boot: bootloader=$bootloader ESP=${esp_mib}MiB root=${ROOT:-/}$(
     ((DRY)) && echo ' (dry-run)'
   )"
-  harden_boot_apply "$bootloader" "$esp_mib"
+  harden_boot_apply "$bootloader" "$esp_mib" "$(harden_boot_root_fstype)"
   echo "harden-boot: done."
 }
 
@@ -266,6 +293,13 @@ harden_boot_parse_arguments() {
     esac
     shift
   done
+}
+
+# harden_boot_root_fstype — the filesystem of <ROOT>'s mount (zfs, ext4, …);
+# HARDEN_BOOT_ROOT_FSTYPE overrides it for tests on a temp root.
+harden_boot_root_fstype() {
+  printf '%s\n' "${HARDEN_BOOT_ROOT_FSTYPE:-$(findmnt -n -o FSTYPE \
+    --target "${ROOT:-/}" 2>/dev/null || true)}"
 }
 
 # harden_boot_esp_mib — the ESP size in MiB, 0 when there is no ESP.
@@ -296,8 +330,9 @@ harden_boot_apply() {
     drop-fallback) _harden_boot_drop_fallback ;;
     pin-grub-default) _harden_boot_pin_grub_default ;;
     install-battery-preflight) _harden_boot_install_battery_preflight ;;
+    install-update-snapshot) _harden_boot_install_update_snapshot ;;
     esac
-  done < <(harden_boot_plan "$1" "$2")
+  done < <(harden_boot_plan "$1" "$2" "$3")
 }
 
 main "$@"
