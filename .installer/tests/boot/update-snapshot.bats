@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for lib/boot/update-snapshot.sh — the Update Snapshot planner (ADR 0166).
+# Tests for lib/boot/update-snapshot.sh — the Update Snapshot planner
+# (ADR 0166).
 #
 # Sourced lib-only (UPDATE_SNAPSHOT_LIB_ONLY=1). Every planner reads `zfs list`
 # style lines on stdin, so no pool is needed.
@@ -50,7 +51,10 @@ rpool/ROOT/etc@blank
 rpool/ROOT/arch@manual
 EOF2
   [ "$status" -eq 0 ]
-  [ "$output" = $'rpool/ROOT/arch@update-20261101T000000\nrpool/ROOT/etc@update-20261101T000000\nrpool/var@update-20261101T000000' ]
+  [ "$output" = "$(printf '%s\n' \
+    rpool/ROOT/arch@update-20261101T000000 \
+    rpool/ROOT/etc@update-20261101T000000 \
+    rpool/var@update-20261101T000000)" ]
 }
 
 @test "prune: the snapshot before an unfinished update is never pruned" {

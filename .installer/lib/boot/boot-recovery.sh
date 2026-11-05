@@ -177,27 +177,67 @@ ConditionPathExists=/usr/lib/modules/.stash/%v
 [Service]
 Type=oneshot
 ExecStart=/usr/local/lib/archzfs/boot-recovery.sh restore
+StandardOutput=journal+console
 
 [Install]
 WantedBy=sysinit.target
 UNIT
 }
 
+# boot_recovery_notice <modules-dir> — the interruption notice while a Stash
+# Restore is pending: what happened and the one command that finishes the
+# update (re-installing the kernel package(s) re-runs the hooks it missed;
+# `pacman -Syu` alone would find nothing to do). Empty when nothing was
+# restored.
+boot_recovery_notice() {
+  local restored="$1/.stash/restored" packages
+  [[ -s "$restored" ]] || return 0
+  packages="$(awk 'NF > 1 && !seen[$2]++ {
+      printf "%s%s", sep, $2; sep = " " }' \
+    "$restored")"
+  echo "The last kernel update was interrupted; the previous kernel's" \
+       "modules were restored so this boot could finish. Run:" \
+       "sudo pacman -S ${packages:-<your kernel>}"
+}
+
+# boot_recovery_notice_unit — the user unit showing the notice as a desktop
+# notification after login, every login until the update is finished.
+boot_recovery_notice_unit() {
+  cat <<'UNIT'
+[Unit]
+Description=Tell the user an interrupted kernel update needs finishing
+ConditionPathExists=/usr/lib/modules/.stash/restored
+ConditionPathExists=/usr/bin/gdbus
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/archzfs/boot-recovery.sh notify
+
+[Install]
+WantedBy=default.target
+UNIT
+}
+
 # boot_recovery_install <root> <source-script> — install this helper, its
-# pacman hooks and the enabled Stash Restore unit under <root> ("" = /). The
-# one install path for the installer and the retrofit tool. The unit is
-# enabled from the vendor sysinit.target.wants, never /etc, which Impermanence
+# pacman hooks, the Stash Restore unit and the notice user unit under <root>
+# ("" = /). The one install path for the installer and the retrofit tool. Both
+# units are enabled from the vendor .wants dirs, never /etc, which Impermanence
 # rolls back at boot.
 boot_recovery_install() {
   local root="${1%/}" source_script="$2"
   local hooks="$root/etc/pacman.d/hooks" units="$root/usr/lib/systemd/system"
+  local user_units="$root/usr/lib/systemd/user"
   install -Dm755 "$source_script" "$root/usr/local/lib/archzfs/boot-recovery.sh"
-  mkdir -p "$hooks" "$units/sysinit.target.wants"
+  mkdir -p "$hooks" "$units/sysinit.target.wants" \
+    "$user_units/default.target.wants"
   boot_recovery_battery_hook >"$hooks/92-battery-preflight.hook"
   boot_recovery_stash_hook >"$hooks/05-module-stash.hook"
   boot_recovery_restore_unit >"$units/boot-recovery-restore.service"
   ln -sfn ../boot-recovery-restore.service \
     "$units/sysinit.target.wants/boot-recovery-restore.service"
+  boot_recovery_notice_unit >"$user_units/boot-recovery-notice.service"
+  ln -sfn ../boot-recovery-notice.service \
+    "$user_units/default.target.wants/boot-recovery-notice.service"
 }
 
 # Lib-only sourcing for tests: skip the runtime below.
@@ -216,6 +256,21 @@ _boot_recovery_selected() {
   fi
 }
 
+# Desktop notification through the session bus (glib2's gdbus, so no libnotify
+# dependency). Waits for a notification server, which a session starts after
+# the user manager.
+_boot_recovery_notify() {
+  local message
+  message="$(boot_recovery_notice "$_BOOT_RECOVERY_MODULES")"
+  [[ -n "$message" ]] || return 0
+  gdbus wait --session --timeout 300 org.freedesktop.Notifications || return 0
+  gdbus call --session --dest org.freedesktop.Notifications \
+    --object-path /org/freedesktop/Notifications \
+    --method org.freedesktop.Notifications.Notify \
+    "Kernel update" 0 dialog-warning "Kernel update interrupted" \
+    "$message" '[]' '{"urgency": <byte 2>}' 0 >/dev/null
+}
+
 case "${1:-}" in
 battery) boot_recovery_battery_ok >&2 ;;
 stash)
@@ -227,10 +282,13 @@ stash)
   ;;
 restore)
   boot_recovery_restore "$_BOOT_RECOVERY_MODULES" "$(uname -r)"
+  boot_recovery_notice "$_BOOT_RECOVERY_MODULES"
   ;;
 drop-stash) boot_recovery_drop_stash "$_BOOT_RECOVERY_MODULES" ;;
+notify) _boot_recovery_notify ;;
 *)
-  echo "usage: boot-recovery.sh battery | stash | restore | drop-stash" >&2
+  echo "usage: boot-recovery.sh" \
+    "battery | stash | restore | drop-stash | notify" >&2
   exit 2
   ;;
 esac

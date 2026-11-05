@@ -187,3 +187,41 @@ _kernel() {
   [ "$(readlink "$units/sysinit.target.wants/boot-recovery-restore.service")" \
     = ../boot-recovery-restore.service ]
 }
+
+# ── interruption notice ──────────────────────────────────────────────────────
+
+@test "notice: names the reinstall command for every restored kernel" {
+  mkdir -p "$FIXTURE/modules/.stash"
+  printf '%s\n' "6.18.40-1-lts linux-lts" "7.0.1-zen1-1-zen linux-zen" \
+    "6.18.40-1-lts linux-lts" >"$FIXTURE/modules/.stash/restored"
+  run boot_recovery_notice "$FIXTURE/modules"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"interrupted"* ]]
+  [[ "$output" == *"sudo pacman -S linux-lts linux-zen"* ]]
+}
+
+@test "notice: silent when nothing was restored" {
+  run boot_recovery_notice "$FIXTURE/modules"
+  [ -z "$output" ]
+}
+
+@test "restore unit: prints to the console as well as the journal" {
+  run boot_recovery_restore_unit
+  [[ "$output" == *"StandardOutput=journal+console"* ]]
+}
+
+@test "notice unit: user unit, only while a restore is pending" {
+  run boot_recovery_notice_unit
+  [[ "$output" == *"ConditionPathExists=/usr/lib/modules/.stash/restored"* ]]
+  [[ "$output" == *"boot-recovery.sh notify"* ]]
+  [[ "$output" == *"WantedBy=default.target"* ]]
+}
+
+@test "install: enables the notice user unit from the vendor dir" {
+  local root="$FIXTURE/root" users="$FIXTURE/root/usr/lib/systemd/user"
+  boot_recovery_install "$root" \
+    "$BATS_TEST_DIRNAME/../../lib/boot/boot-recovery.sh"
+  [ -f "$users/boot-recovery-notice.service" ]
+  [ "$(readlink "$users/default.target.wants/boot-recovery-notice.service")" \
+    = ../boot-recovery-notice.service ]
+}

@@ -98,7 +98,8 @@ teardown() { rm -rf "$ROOT"; }
   for loader in grub limine refind efistub; do
     run harden_boot_plan "$loader" 512
     [ "$status" -eq 0 ]
-    [ "$output" = $'install-esp-kernel-sync\ninstall-warn-hook\ninstall-boot-recovery' ]
+    [ "$output" = \
+      $'install-esp-kernel-sync\ninstall-warn-hook\ninstall-boot-recovery' ]
   done
 }
 
@@ -161,7 +162,8 @@ teardown() { rm -rf "$ROOT"; }
     "$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
   [ -x "$ROOT/usr/local/lib/archzfs/boot-recovery.sh" ]
   [ -f "$ROOT/etc/pacman.d/hooks/05-module-stash.hook" ]
-  [ -L "$ROOT/usr/lib/systemd/system/sysinit.target.wants/boot-recovery-restore.service" ]
+  local wants="$ROOT/usr/lib/systemd/system/sysinit.target.wants"
+  [ -L "$wants/boot-recovery-restore.service" ]
 }
 
 @test "plan: a ZFS root also gets the Update Snapshot, others do not" {

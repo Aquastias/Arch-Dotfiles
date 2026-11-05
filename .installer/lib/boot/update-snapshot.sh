@@ -48,7 +48,8 @@ update_snapshot_prune() {
     -v keep="$keep" -v protected="$protected" '
       { line[NR] = $0; name[NR] = $2; if (!seen[$2]++) order[++names] = $2 }
       END {
-        for (i = names - keep + 1; i <= names; i++) if (i > 0) kept[order[i]] = 1
+        for (i = names - keep + 1; i <= names; i++)
+          if (i > 0) kept[order[i]] = 1
         for (i = 1; i <= NR; i++)
           if (!kept[name[i]] && name[i] != protected) print line[i]
       }' | sort

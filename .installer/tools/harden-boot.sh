@@ -13,7 +13,8 @@
 #                      preflight) and the warn hook (ADR 0077: all five loaders
 #                      boot kernels mirrored onto the ESP).
 #   grub-native host:  a pre-ESP GRUB install whose config is in the ZFS /boot;
-#                      pin the Primary Kernel as default + install the warn hook.
+#                      pin the Primary Kernel as default + install the warn
+#                      hook.
 #
 # Installs the SAME shared artifacts the installer stages (single source, ADR
 # 0023). Pure planner helpers are lib-only-sourceable (HARDEN_BOOT_LIB_ONLY=1).
@@ -179,13 +180,16 @@ _harden_boot_install_update_snapshot() {
     >"$ROOT/etc/pacman.d/hooks/zzz-update-snapshot-done.hook"
   [[ -f "$resnapshot" ]] && ! grep -q keep-blank "$resnapshot" || return 0
   # The same three lines the installer's resnapshot helper carries.
-  awk '{ print }
-    $0 == "for ds in $datasets; do" {
-      print "  # Keep the pre-update @blank as this update'"'"'s Update Snapshot" \
-            " (ADR 0166)."
-      print "  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \\"
-      print "    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank \"${ds}\""
-    }' "$resnapshot" >"$resnapshot.new"
+  local keep_lines
+  keep_lines="$(cat <<'LINES'
+  # Keep the pre-update @blank as this update's Update Snapshot (ADR 0166).
+  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \
+    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank "${ds}"
+LINES
+)"
+  KEEP_LINES="$keep_lines" awk '{ print }
+    $0 == "for ds in $datasets; do" { print ENVIRON["KEEP_LINES"] }' \
+    "$resnapshot" >"$resnapshot.new"
   cat "$resnapshot.new" >"$resnapshot"
   rm -f "$resnapshot.new"
 }

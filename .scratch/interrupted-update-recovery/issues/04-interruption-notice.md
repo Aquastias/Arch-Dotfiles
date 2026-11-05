@@ -11,7 +11,20 @@ notice clears once a pacman transaction completes. Nothing runs pacman.
 
 **Blocked by:** 03.
 
-- [ ] Console message on a Stash Restore boot only
+- [x] Console message on a Stash Restore boot only
 - [ ] Desktop notification after login, every supported session
-- [ ] Notice gone after a completed transaction
+- [x] Notice gone after a completed transaction
 - [ ] VM (01 recipe): both notices seen
+
+## Comments
+
+- Code + bats done. Console: the restore unit prints the notice with
+  `StandardOutput=journal+console`. Desktop: a user unit enabled from the
+  vendor `default.target.wants` (Hyprland runs no XDG autostart, ADR 0162),
+  sending the notification over `gdbus` (glib2) after waiting for a
+  notification server; no libnotify dependency. Shown at every login until
+  the ESP Kernel Sync drops the stash.
+- The notice says `sudo pacman -S <kernel pkgbases>`, not `pacman -Syu`: the
+  database already lists the new kernel, so only a reinstall re-runs the
+  missed hooks.
+- Open: "every supported session" and the VM check (needs ticket 01).
