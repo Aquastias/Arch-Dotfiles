@@ -76,6 +76,7 @@ harden_boot_plan() {
     echo install-warn-hook
     ;;
   esac
+  [[ -n "$bootloader" ]] && echo install-battery-preflight
   return 0
 }
 
@@ -146,6 +147,17 @@ _harden_boot_install_warn_hook() {
   _harden_boot_write_hook 97-stray-kernel-warn.hook PostTransaction \
     "/usr/local/lib/archzfs/stray-kernel.sh warn" \
     "Checking for stray / zfs.ko-less kernels..."
+}
+
+# Battery preflight from the shared boot-recovery lib (ADR 0166).
+_harden_boot_install_battery_preflight() {
+  local helper="$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/boot-recovery.sh"
+  install -Dm755 "$helper" "$ROOT/usr/local/lib/archzfs/boot-recovery.sh"
+  mkdir -p "$ROOT/etc/pacman.d/hooks"
+  # shellcheck source=../lib/boot/boot-recovery.sh
+  BOOT_RECOVERY_LIB_ONLY=1 source "$helper"
+  boot_recovery_battery_hook \
+    >"$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
 }
 
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.
@@ -278,6 +290,7 @@ harden_boot_apply() {
     reconcile-microcode) _harden_boot_reconcile_microcode ;;
     drop-fallback) _harden_boot_drop_fallback ;;
     pin-grub-default) _harden_boot_pin_grub_default ;;
+    install-battery-preflight) _harden_boot_install_battery_preflight ;;
     esac
   done < <(harden_boot_plan "$1" "$2")
 }

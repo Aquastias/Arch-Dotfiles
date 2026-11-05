@@ -1,6 +1,6 @@
 # 05: Battery preflight
 
-Status: ready-for-agent
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -11,7 +11,7 @@ installer and the retrofit tool.
 
 **Blocked by:** 02.
 
-- [ ] Bats with a fake power-supply tree: absent, charging, discharging
+- [x] Bats with a fake power-supply tree: absent, charging, discharging
       above and below 30%, non-kernel transaction
-- [ ] Refusal aborts the transaction before any file changes
-- [ ] Retrofit installs it
+- [x] Refusal aborts the transaction before any file changes
+- [x] Retrofit installs it

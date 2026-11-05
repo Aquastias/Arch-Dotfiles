@@ -40,4 +40,5 @@ if [[ -f "$REFIND_CONF" ]]; then
 fi
 
 bootloader_common_install_esp_sync_hooks
+bootloader_common_install_boot_recovery_hooks
 echo "rEFInd installed."

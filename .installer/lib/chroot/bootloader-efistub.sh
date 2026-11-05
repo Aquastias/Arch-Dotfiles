@@ -35,4 +35,5 @@ read -r EFI_DISK EFI_PART < <(bootloader_common_esp_disk_partition)
 bootloader_common_efistub_register "$EFI_DISK" "$EFI_PART" ""
 
 bootloader_common_install_esp_sync_hooks
+bootloader_common_install_boot_recovery_hooks
 echo "EFISTUB installed."

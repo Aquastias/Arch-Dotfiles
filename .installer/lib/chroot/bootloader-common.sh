@@ -160,3 +160,15 @@ When = PostTransaction
 Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh
 HOOK
 }
+
+# bootloader_common_install_boot_recovery_hooks — install the interrupted-update
+# recovery helper + its pacman hooks (ADR 0166). Hook text comes from the
+# shared lib, the same source the retrofit tool writes from.
+bootloader_common_install_boot_recovery_hooks() {
+  mkdir -p /etc/pacman.d/hooks
+  install -Dm755 "$_LIB_DIR/boot-recovery.sh" \
+    /usr/local/lib/archzfs/boot-recovery.sh
+  # shellcheck source=../boot/boot-recovery.sh
+  BOOT_RECOVERY_LIB_ONLY=1 source "$_LIB_DIR/boot-recovery.sh"
+  boot_recovery_battery_hook > /etc/pacman.d/hooks/92-battery-preflight.hook
+}

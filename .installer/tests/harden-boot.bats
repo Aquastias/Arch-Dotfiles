@@ -98,7 +98,7 @@ teardown() { rm -rf "$ROOT"; }
   for loader in grub limine refind efistub; do
     run harden_boot_plan "$loader" 512
     [ "$status" -eq 0 ]
-    [ "$output" = $'install-esp-kernel-sync\ninstall-warn-hook' ]
+    [ "$output" = $'install-esp-kernel-sync\ninstall-warn-hook\ninstall-battery-preflight' ]
   done
 }
 
@@ -141,6 +141,23 @@ teardown() { rm -rf "$ROOT"; }
   run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
   [ "$status" -eq 0 ]
   [ "$(cat "$ROOT"/etc/pacman.d/hooks/*.hook)" = "$first" ]
+}
+
+@test "plan: systemd-boot and grub-native also get the battery preflight" {
+  run harden_boot_plan systemd-boot 2048
+  [[ "$output" == *install-battery-preflight* ]]
+  run harden_boot_plan grub-native 2048
+  [[ "$output" == *install-battery-preflight* ]]
+}
+
+@test "apply: battery preflight hook and helper are installed" {
+  mkdir -p "$ROOT/boot/efi"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -eq 0 ]
+  grep -q 'boot-recovery.sh battery' \
+    "$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
+  [ -x "$ROOT/usr/local/lib/archzfs/boot-recovery.sh" ]
 }
 
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
