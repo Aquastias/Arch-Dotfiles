@@ -140,14 +140,18 @@ undo_entry_initcpio_hook() {
   cat <<'HOOK'
 #!/usr/bin/ash
 run_latehook() {
-  local cmdline="${UNDO_CMDLINE:-/proc/cmdline}" root pool name ds
+  local cmdline="${UNDO_CMDLINE:-/proc/cmdline}" root pool name ds arg
   # The literal mirrors UNDO_ENTRY_PARAMETER: this runs in the busybox
   # initramfs, where the lib is not available.
   case " $(cat "$cmdline") " in
   *" undo_last_update "*) ;;
   *) return 0 ;;
   esac
-  root="$(tr ' ' '\n' <"$cmdline" | sed -n 's/^root=ZFS=//p')"
+  # Builtins only: this busybox has no tr.
+  root=""
+  for arg in $(cat "$cmdline"); do
+    case "$arg" in root=ZFS=*) root="${arg#root=ZFS=}" ;; esac
+  done
   if [ -z "$root" ]; then
     err "undo-update: no root=ZFS= on the cmdline"
     return 0

@@ -112,7 +112,11 @@ _run_hook() {
   local hook="$ESP/undo-update"
   undo_entry_initcpio_hook >"$hook"
   echo "$1" >"$ESP/cmdline"
-  run bash -c '
+  # Only the tools verified present in the initramfs busybox (it has no tr).
+  local bin="$ESP/initramfs-bin" tool
+  mkdir -p "$bin"
+  for tool in cat sed awk sort grep; do ln -sf "$(command -v "$tool")" "$bin/"; done
+  PATH="$bin" run /usr/bin/bash -c '
     zfs() {
       case "$1 $2" in
       "list -H") case "$*" in
