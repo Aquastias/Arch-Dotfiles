@@ -31,23 +31,24 @@ setup() {
   [ "$(esp_budget_auto_size 1 zfs systemd-boot)" = "2G" ]
 }
 
-@test "esp_budget_auto_size: four ZFS kernels land at the 2G floor" {
-  [ "$(esp_budget_auto_size 4 zfs systemd-boot)" = "2G" ]
+@test "esp_budget_auto_size: four ZFS kernels + previous pairs grow past 2G" {
+  # need 1910 + 4 x 100 previous = 2310 → round up to 2560 MiB (ADR 0166)
+  [ "$(esp_budget_auto_size 4 zfs systemd-boot)" = "2560M" ]
 }
 
 @test "esp_budget_auto_size: five ZFS kernels grow the ESP above 2G" {
-  # need 2215 → round up to 2304 MiB
-  [ "$(esp_budget_auto_size 5 zfs systemd-boot)" = "2304M" ]
+  # need 2215 + 5 x 100 previous = 2715 → round up to 2816 MiB
+  [ "$(esp_budget_auto_size 5 zfs systemd-boot)" = "2816M" ]
 }
 
 @test "esp_budget_auto_size: grub sizes like systemd-boot" {
-  [ "$(esp_budget_auto_size 5 zfs grub)" = "2304M" ]
+  [ "$(esp_budget_auto_size 5 zfs grub)" = "2816M" ]
 }
 
 @test "esp_budget_auto_size: efistub/limine/refind size like systemd-boot" {
-  [ "$(esp_budget_auto_size 5 zfs efistub)" = "2304M" ]
-  [ "$(esp_budget_auto_size 5 zfs limine)"  = "2304M" ]
-  [ "$(esp_budget_auto_size 5 zfs refind)"  = "2304M" ]
+  [ "$(esp_budget_auto_size 5 zfs efistub)" = "2816M" ]
+  [ "$(esp_budget_auto_size 5 zfs limine)"  = "2816M" ]
+  [ "$(esp_budget_auto_size 5 zfs refind)"  = "2816M" ]
 }
 
 # ── fits guard ───────────────────────────────────────────────────────────────
@@ -87,4 +88,14 @@ setup() {
 
 @test "esp_budget_fits_size: 2G pin holds 4 ZFS kernels" {
   esp_budget_fits_size 2G 4 zfs systemd-boot
+}
+
+@test "esp_budget_previous_mib: one previous pair per kernel, zfs surcharge" {
+  [ "$(esp_budget_previous_mib 1 zfs)" -eq 100 ]
+  [ "$(esp_budget_previous_mib 2 ext4)" -eq 140 ]
+}
+
+@test "esp_budget_fits_mib: previous pairs are optional, a 2G pin still fits" {
+  # ADR 0166: a short ESP skips previous pairs; it never fails the install.
+  esp_budget_fits_mib 2048 4 zfs systemd-boot
 }

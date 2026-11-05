@@ -109,6 +109,8 @@ teardown() { rm -rf "$ROOT"; }
   run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
   [ "$status" -eq 0 ]
   [ -f "$ROOT/etc/pacman.d/hooks/94-esp-kernel-sync.hook" ]
+  grep -q "esp-kernel-sync.sh previous" \
+    "$ROOT/etc/pacman.d/hooks/91-esp-previous-pair.hook"
   [ -f "$ROOT/etc/pacman.d/hooks/97-stray-kernel-warn.hook" ]
   [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]
 }

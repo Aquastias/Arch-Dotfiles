@@ -40,12 +40,24 @@ _esp_budget_mib_to_size() {
   else printf '%sM\n' "$mib"; fi
 }
 
+# esp_budget_previous_mib <kernel_count> <fs> — room for one previous kernel +
+# default initramfs per kernel, the pair Undo Last Update boots (ADR 0166).
+# Optional: the sync skips a pair that does not fit, so only auto-size counts
+# it; esp_budget_fits_mib (the hard floor) does not.
+esp_budget_previous_mib() {
+  local kernel_count="$1" filesystem="$2"
+  local per=$(( _ESP_BUDGET_VMLINUZ_MIB + _ESP_BUDGET_DEFAULT_MIB ))
+  [[ "$filesystem" == zfs ]] && per=$(( per + _ESP_BUDGET_ZFS_MIB ))
+  printf '%s\n' "$(( kernel_count * per ))"
+}
+
 # esp_budget_auto_size <kernel_count> <fs> <loader> — the resolved esp_size
-# string: the need rounded up to 256 MiB, never below the 2G floor
-# (upward-only).
+# string: the need plus the previous pairs, rounded up to 256 MiB, never
+# below the 2G floor (upward-only).
 esp_budget_auto_size() {
   local kernel_count="$1" filesystem="$2" loader="$3" need mib
   need="$(esp_budget_need_mib "$kernel_count" "$filesystem" "$loader")"
+  need=$(( need + $(esp_budget_previous_mib "$kernel_count" "$filesystem") ))
   mib=$(( (need + 255) / 256 * 256 ))
   (( mib < _ESP_BUDGET_FLOOR_MIB )) && mib=$_ESP_BUDGET_FLOOR_MIB
   _esp_budget_mib_to_size "$mib"

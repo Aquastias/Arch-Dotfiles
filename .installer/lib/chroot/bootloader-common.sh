@@ -159,6 +159,10 @@ Description = Syncing kernel and initramfs to ESP...
 When = PostTransaction
 Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh
 HOOK
+  # shellcheck source=../boot/esp-kernel-sync.sh
+  ESP_KERNEL_SYNC_LIB_ONLY=1 source "$_LIB_DIR/esp-kernel-sync.sh"
+  esp_kernel_sync_previous_hook \
+    > /etc/pacman.d/hooks/91-esp-previous-pair.hook
 }
 
 # bootloader_common_install_boot_recovery_hooks — install the interrupted-update

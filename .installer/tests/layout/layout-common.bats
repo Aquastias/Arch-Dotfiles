@@ -135,7 +135,7 @@ write_config() {
     "kernel":["lts","default","hardened","zen","lts"]}}'
   run layout_resolve_esp_size
   [ "$status" -eq 0 ]
-  [ "$output" = "2304M" ]
+  [ "$output" = "2816M" ]  # + previous pairs (ADR 0166)
 }
 
 @test "layout_resolve_esp_size: auto sizes grub like any loader (ADR 0078)" {

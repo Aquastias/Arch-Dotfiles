@@ -310,3 +310,71 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   [ "$status" -eq 0 ]
   [ -f "$ESP/loader/entries/arch-zfs.conf" ]
 }
+
+# ── previous kernel pairs (ADR 0166) ──────────────────────────────────────────
+
+@test "stale_previous lists kernels whose -prev pair is missing or old" {
+  echo new >"$ESP/vmlinuz-linux-lts"; echo old >"$ESP/vmlinuz-linux-lts-prev"
+  echo same >"$ESP/vmlinuz-linux"; echo same >"$ESP/vmlinuz-linux-prev"
+  echo k >"$ESP/vmlinuz-linux-zen"
+  run esp_kernel_sync_stale_previous "$ESP"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'linux-lts\nlinux-zen' ]
+}
+
+@test "keep_previous copies the current pair to -prev names" {
+  echo k-old >"$ESP/vmlinuz-linux-lts"
+  echo i-old >"$ESP/initramfs-linux-lts.img"
+  run esp_kernel_sync_keep_previous "$ESP" linux-lts
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ESP/vmlinuz-linux-lts-prev")" = k-old ]
+  [ "$(cat "$ESP/initramfs-linux-lts-prev.img")" = i-old ]
+  [ "$(cat "$ESP/vmlinuz-linux-lts")" = k-old ]
+  [ -z "$(esp_kernel_sync_orphan_temporaries "$ESP")" ]
+}
+
+@test "drop_previous removes a kernel's -prev pair only" {
+  : >"$ESP/vmlinuz-linux-lts-prev"; : >"$ESP/initramfs-linux-lts-prev.img"
+  : >"$ESP/vmlinuz-linux-prev"
+  esp_kernel_sync_drop_previous "$ESP" linux-lts
+  [ ! -e "$ESP/vmlinuz-linux-lts-prev" ]
+  [ ! -e "$ESP/initramfs-linux-lts-prev.img" ]
+  [ -e "$ESP/vmlinuz-linux-prev" ]
+}
+
+@test "pair_bytes = current kernel + default initramfs on the ESP" {
+  zero_file 100 "$ESP/vmlinuz-linux-lts"
+  zero_file 50 "$ESP/initramfs-linux-lts.img"
+  zero_file 999 "$ESP/initramfs-linux-lts-fallback.img"
+  [ "$(esp_kernel_sync_pair_bytes "$ESP" linux-lts)" -eq 150 ]
+}
+
+@test "planner never mirrors a -prev image" {
+  echo new >"$BOOT/vmlinuz-linux-lts"; echo old >"$ESP/vmlinuz-linux-lts"
+  echo old >"$ESP/vmlinuz-linux-lts-prev"
+  echo old >"$ESP/initramfs-linux-lts-prev.img"
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
+  [ "$output" = vmlinuz-linux-lts ]
+}
+
+@test "previous_fits: keeps the pair only when room remains after the sync" {
+  zero_file 100 "$ESP/vmlinuz-linux-lts"
+  zero_file 100 "$ESP/initramfs-linux-lts.img"
+  zero_file 100 "$BOOT/vmlinuz-linux-lts"
+  zero_file 100 "$BOOT/initramfs-linux-lts.img"
+  # needed 300 (200 + largest 100), present 200 → slack = free - 100
+  run esp_kernel_sync_previous_fits "$ESP" "$BOOT" 300 linux-lts
+  [ "$status" -eq 0 ]
+  run esp_kernel_sync_previous_fits "$ESP" "$BOOT" 299 linux-lts
+  [ "$status" -ne 0 ]
+}
+
+@test "previous hook: every transaction, PreTransaction, never aborts" {
+  run esp_kernel_sync_previous_hook
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Type = Package"* ]]
+  [[ "$output" == *"Target = *"* ]]
+  [[ "$output" == *"When = PreTransaction"* ]]
+  [[ "$output" == *"esp-kernel-sync.sh previous"* ]]
+  [[ "$output" != *AbortOnFail* ]]
+}

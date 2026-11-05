@@ -37,11 +37,15 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
    Datasets before every transaction. Keep the last three. The snapshot taken
    before an unfinished transaction is exempt from pruning until a
    transaction completes.
-4. **Previous kernel pairs on the ESP.** For each selected kernel whose
-   version changes, the ESP Kernel Sync keeps its replaced kernel + default
-   initramfs under stable `-prev` names, so boot entries (and efistub NVRAM
-   entries) are written once at install. If the ESP lacks room, the pair is
-   skipped with a warning and the update proceeds.
+4. **Previous kernel pairs on the ESP.** Before every transaction (not only
+   kernel ones), each staged kernel's current kernel + default initramfs is
+   copied to stable `-prev` names when the `-prev` pair differs, so the
+   previous pair always matches the state the Update Snapshot captures. A
+   refresh only on kernel transactions would leave `-prev` a version behind
+   the newest snapshot after any later non-kernel update. Stable names mean
+   boot entries (and efistub NVRAM entries) are written once at install. If
+   the ESP lacks room beside what the sync needs, the pair is skipped with a
+   warning and the update proceeds.
 5. **[[Undo Last Update]].** One boot entry: it rolls back to the newest
    Update Snapshot in the initramfs (on Impermanence hosts also restoring
    the matching Blank Snapshots) and boots the Primary Kernel's matching

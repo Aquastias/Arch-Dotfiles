@@ -135,6 +135,11 @@ _harden_boot_install_esp_kernel_sync() {
   _harden_boot_write_hook 94-esp-kernel-sync.hook PostTransaction \
     "/usr/local/lib/archzfs/esp-kernel-sync.sh" \
     "Syncing kernel and initramfs to ESP..."
+  # shellcheck source=../lib/boot/esp-kernel-sync.sh
+  ESP_KERNEL_SYNC_LIB_ONLY=1 source \
+    "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/esp-kernel-sync.sh"
+  esp_kernel_sync_previous_hook \
+    >"$ROOT/etc/pacman.d/hooks/91-esp-previous-pair.hook"
 }
 
 _harden_boot_install_warn_hook() {

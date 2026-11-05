@@ -4,7 +4,9 @@
 # =============================================================================
 # systemd-boot cannot read ZFS, so the kernel image, microcode, and initramfs
 # must be copied from the ZFS /boot onto the FAT32 ESP. Installed as a pacman
-# PostTransaction hook that fires on every kernel transaction.
+# PostTransaction hook that fires on every kernel transaction. A `previous`
+# mode, run before every transaction, keeps each kernel's prior pair for Undo
+# Last Update (ADR 0166).
 #
 # The set of files to mirror is the Kernel-Selection boot images already on
 # the ESP: the files the systemd-boot loader entries reference (their
@@ -156,6 +158,86 @@ esp_kernel_sync_prune_dead_fallback_entries() {
   return 0
 }
 
+# ── previous kernel pairs (ADR 0166) ─────────────────────────────────────────
+# At the start of every transaction, each kernel's current kernel + default
+# initramfs are kept as vmlinuz-<kb>-prev / initramfs-<kb>-prev.img, so the
+# previous pair always matches the state the Update Snapshot captures: the pair
+# Undo Last Update boots after rolling back to it. Refreshed only when it
+# differs (once per kernel upgrade). Stable names, so loader entries never
+# change. Optional: skipped when it won't fit.
+
+# Pure: the package base of every kernel staged on <esp_dir> whose -prev pair
+# is missing or differs from its current image.
+esp_kernel_sync_stale_previous() {
+  local esp_directory="$1" image base
+  for image in "$esp_directory"/vmlinuz-*; do
+    [[ -f "$image" ]] || continue
+    base="${image##*/vmlinuz-}"
+    [[ "$base" == *-prev ]] && continue
+    cmp -s "$image" "$esp_directory/vmlinuz-$base-prev" \
+      || printf '%s\n' "$base"
+  done
+  return 0
+}
+
+# Bytes the current pair of <kb> occupies on <esp_dir> — what keeping it as
+# the previous pair costs.
+esp_kernel_sync_pair_bytes() {
+  local esp_directory="$1" base="$2" file total=0
+  for file in "vmlinuz-$base" "initramfs-$base.img"; do
+    [[ -f "$esp_directory/$file" ]] \
+      && total=$((total + $(stat -c%s "$esp_directory/$file")))
+  done
+  echo "$total"
+}
+
+# Copy <kb>'s current pair on <esp_dir> to its -prev names, each via a temp
+# file then rename, so the current pair is never touched and a cut-off copy
+# leaves only a sweepable .new.
+esp_kernel_sync_keep_previous() {
+  local esp_directory="${1%/}" base="$2" current previous
+  for current in "vmlinuz-$base" "initramfs-$base.img"; do
+    [[ -f "$esp_directory/$current" ]] || continue
+    previous="${current/$base/$base-prev}"
+    esp_kernel_sync_install_critical "$esp_directory/$current" \
+      "$esp_directory/$previous" || return 1
+  done
+}
+
+# True when <esp_dir>, with <free_bytes> available, still has room for <kb>'s
+# previous pair once the sync has written the new images.
+esp_kernel_sync_previous_fits() {
+  local esp_directory="$1" boot_directory="$2" free="$3" base="$4"
+  local needed present
+  needed="$(esp_kernel_sync_needed_bytes "$esp_directory" "$boot_directory")"
+  present="$(esp_kernel_sync_present_bytes "$esp_directory" "$boot_directory")"
+  ((free + present - needed >= $(esp_kernel_sync_pair_bytes \
+    "$esp_directory" "$base")))
+}
+
+# Remove <kb>'s previous pair from <esp_dir>.
+esp_kernel_sync_drop_previous() {
+  rm -f "${1%/}/vmlinuz-$2-prev" "${1%/}/initramfs-$2-prev.img"
+}
+
+# esp_kernel_sync_previous_hook — the pacman hook refreshing previous pairs
+# before every transaction. Single source for the installer and the retrofit.
+esp_kernel_sync_previous_hook() {
+  cat <<'HOOK'
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = *
+
+[Action]
+Description = Keeping the previous kernel on the ESP...
+When = PreTransaction
+Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh previous
+HOOK
+}
+
 # Lib-only sourcing for tests: skip the runtime below.
 [[ "${ESP_KERNEL_SYNC_LIB_ONLY:-0}" == "1" ]] && return 0
 
@@ -203,6 +285,34 @@ _esp_kernel_sync_sweep_temporaries() {
       rm -f "$temporary_file"
     done < <(esp_kernel_sync_orphan_temporaries "$esp_directory")
   done
+}
+
+# Previous mode (PreTransaction, every transaction): refresh each stale previous
+# pair on every ESP from the current pair, before pacman changes anything (ADR
+# 0166). A stale pair always goes first; a pair that will not fit beside the
+# room the sync needs is skipped with a warning. Never fails the transaction —
+# an unmounted ESP is the kernel-transaction preflight's job, not this one's.
+_esp_kernel_sync_keep_previous_pairs() {
+  local base esp_directory free
+  esp_kernel_sync_is_mountpoint /boot/efi || return 0
+  while IFS= read -r base; do
+    for esp_directory in /boot/efi*/; do
+      esp_kernel_sync_is_mountpoint "$esp_directory" || continue
+      esp_kernel_sync_drop_previous "$esp_directory" "$base"
+      free=$(df -B1 --output=avail "$esp_directory" 2>/dev/null \
+        | awk 'END { print }')
+      free=${free//[^0-9]/}
+      if esp_kernel_sync_previous_fits "${esp_directory%/}" /boot \
+           "${free:-0}" "$base" \
+         && esp_kernel_sync_keep_previous "$esp_directory" "$base"; then
+        continue
+      fi
+      esp_kernel_sync_drop_previous "$esp_directory" "$base"
+      echo "esp-kernel-sync: WARN: no room for the previous $base on" \
+           "$esp_directory — Undo Last Update unavailable for it." >&2
+    done
+  done < <(esp_kernel_sync_stale_previous /boot/efi)
+  return 0
 }
 
 # Critical files MUST land intact on every ESP, or fail the transaction.
@@ -281,5 +391,6 @@ _esp_kernel_sync_preflight() {
 
 case "${1:-sync}" in
 preflight) _esp_kernel_sync_preflight ;;
+previous)  _esp_kernel_sync_keep_previous_pairs ;;
 *)         _esp_kernel_sync_run ;;
 esac
