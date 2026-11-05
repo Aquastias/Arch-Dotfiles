@@ -121,7 +121,9 @@ undo_entry_reconcile() {
 # undo_last_update on the cmdline it rolls every dataset holding the newest
 # Update Snapshot back to it (-r: newer snapshots go). A Rollback Dataset's
 # copy is its kept pre-update Blank Snapshot, so it becomes @blank again for
-# zfs-rollback to apply. UNDO_CMDLINE / UNDO_MOUNTS are test seams.
+# zfs-rollback to apply. The root dataset comes from root=ZFS= on the cmdline,
+# not the mount table (the initramfs mounts it at /sysroot, not /new_root).
+# UNDO_CMDLINE is the test seam.
 undo_entry_initcpio_install() {
   cat <<'INSTALL'
 #!/usr/bin/env bash
@@ -138,16 +140,18 @@ undo_entry_initcpio_hook() {
   cat <<'HOOK'
 #!/usr/bin/ash
 run_latehook() {
-  local cmdline="${UNDO_CMDLINE:-/proc/cmdline}"
-  local mounts="${UNDO_MOUNTS:-/proc/mounts}" root pool name ds
+  local cmdline="${UNDO_CMDLINE:-/proc/cmdline}" root pool name ds
   # The literal mirrors UNDO_ENTRY_PARAMETER: this runs in the busybox
   # initramfs, where the lib is not available.
   case " $(cat "$cmdline") " in
   *" undo_last_update "*) ;;
   *) return 0 ;;
   esac
-  root="$(awk '$2 == "/new_root" && $3 == "zfs" { print $1; exit }' "$mounts")"
-  [ -n "$root" ] || { err "undo-update: no ZFS root at /new_root"; return 0; }
+  root="$(tr ' ' '\n' <"$cmdline" | sed -n 's/^root=ZFS=//p')"
+  if [ -z "$root" ]; then
+    err "undo-update: no root=ZFS= on the cmdline"
+    return 0
+  fi
   pool="${root%%/*}"
   name="$(zfs list -H -t snapshot -o name -r "$pool" \
     | awk -F@ '$2 ~ /^update-/ { print $2 }' | sort \

@@ -112,7 +112,6 @@ _run_hook() {
   local hook="$ESP/undo-update"
   undo_entry_initcpio_hook >"$hook"
   echo "$1" >"$ESP/cmdline"
-  echo "rpool/ROOT/arch /new_root zfs rw 0 0" >"$ESP/mounts"
   run bash -c '
     zfs() {
       case "$1 $2" in
@@ -129,14 +128,14 @@ _run_hook() {
 }
 
 @test "hook: does nothing without the undo parameter" {
-  export UNDO_CMDLINE="$ESP/cmdline" UNDO_MOUNTS="$ESP/mounts" LOG="$ESP/log"
+  export UNDO_CMDLINE="$ESP/cmdline" LOG="$ESP/log"
   export DATASETS="rpool/ROOT/arch" SNAPSHOTS="rpool/ROOT/arch@update-1"
   _run_hook "root=ZFS=rpool/ROOT/arch rw"
   [ -z "$output" ]
 }
 
 @test "hook: rolls every dataset back to the newest Update Snapshot" {
-  export UNDO_CMDLINE="$ESP/cmdline" UNDO_MOUNTS="$ESP/mounts" LOG="$ESP/log"
+  export UNDO_CMDLINE="$ESP/cmdline" LOG="$ESP/log"
   export DATASETS="rpool rpool/ROOT/arch rpool/var rpool/home"
   export SNAPSHOTS="rpool/ROOT/arch@update-1 rpool/ROOT/arch@update-2
     rpool/var@update-2 rpool/home@manual"
@@ -146,11 +145,11 @@ _run_hook() {
 }
 
 @test "hook: a kept Blank Snapshot becomes @blank again (Impermanence)" {
-  export UNDO_CMDLINE="$ESP/cmdline" UNDO_MOUNTS="$ESP/mounts" LOG="$ESP/log"
+  export UNDO_CMDLINE="$ESP/cmdline" LOG="$ESP/log"
   export DATASETS="rpool/ROOT/arch rpool/ROOT/etc"
   export SNAPSHOTS="rpool/ROOT/arch@update-2 rpool/ROOT/etc@update-2
     rpool/ROOT/etc@blank"
-  _run_hook "undo_last_update"
+  _run_hook "root=ZFS=rpool/ROOT/arch undo_last_update"
   [ "$output" = "$(printf '%s\n' 'zfs rollback -r rpool/ROOT/arch@update-2' \
     'zfs rollback -r rpool/ROOT/etc@update-2' \
     'zfs rename rpool/ROOT/etc@update-2 rpool/ROOT/etc@blank')" ]
@@ -205,4 +204,12 @@ _run_hook() {
     echo "Boot0007* Undo Last Update"; fi; }
   undo_entry_register_efistub /dev/nvme0n1 1 linux-lts "$template"
   [ "$(grep -c -- --create-only "$log")" -eq 1 ]
+}
+
+@test "hook: no root=ZFS= on the cmdline means no rollback" {
+  export UNDO_CMDLINE="$ESP/cmdline" LOG="$ESP/log"
+  export DATASETS="rpool/ROOT/arch" SNAPSHOTS="rpool/ROOT/arch@update-2"
+  _run_hook "rw undo_last_update"
+  [[ "$output" == "ERR undo-update: no root=ZFS="* ]]
+  [[ "$output" != *rollback* ]]
 }
