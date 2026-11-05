@@ -89,3 +89,27 @@ EOF2
   [[ "$output" == *"When = PostTransaction"* ]]
   [[ "$output" == *"update-snapshot.sh post"* ]]
 }
+
+@test "install: snapshot after the aborting guards, before any removal" {
+  local root hooks
+  root="$(mktemp -d)"; hooks="$root/etc/pacman.d/hooks"
+  mkdir -p "$hooks"
+  : >"$hooks/00-update-snapshot.hook"
+  update_snapshot_install "$root" \
+    "$BATS_TEST_DIRNAME/../../lib/boot/update-snapshot.sh"
+  [ -x "$root/usr/local/lib/archzfs/update-snapshot.sh" ]
+  grep -q "update-snapshot.sh pre" "$hooks/02-update-snapshot.hook"
+  grep -q "update-snapshot.sh post" "$hooks/zzz-update-snapshot-done.hook"
+  [ ! -e "$hooks/00-update-snapshot.hook" ]
+  # a guard refusing the update must not leave the in-progress mark
+  [[ "01-esp-kernel-sync-preflight.hook" < "02-update-snapshot.hook" ]]
+  [[ "02-update-snapshot.hook" < "60-mkinitcpio-remove.hook" ]]
+  rm -rf "$root"
+}
+
+@test "keep_blank_lines: the resnapshot-loop lines calling keep-blank" {
+  run update_snapshot_keep_blank_lines
+  [ "${#lines[@]}" -eq 3 ]
+  [[ "${lines[2]}" == *'update-snapshot.sh keep-blank "${ds}"' ]]
+  bash -n <(printf 'for ds in x; do\n%s\ndone\n' "$output")
+}

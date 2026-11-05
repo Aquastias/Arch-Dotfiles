@@ -191,3 +191,18 @@ _run_hook() {
   [ "$(grep -c '^dont_scan_files + vmlinuz-linux-lts-prev,vmlinuz-linux-prev$' \
     "$root/boot/efi/EFI/refind/refind.conf")" -eq 1 ]
 }
+
+@test "register_efistub: one fixed firmware entry outside BootOrder" {
+  local log="$ESP/efibootmgr.log" template="$ESP/template"
+  echo "initrd=\\initramfs-linux-lts-prev.img root=x undo_last_update" \
+    >"$template"
+  efibootmgr() { if (($#)); then echo "$*" >>"$log"; fi; }
+  undo_entry_register_efistub /dev/nvme0n1 1 linux-lts "$template"
+  grep -q -- "--create-only --disk /dev/nvme0n1 --part 1" "$log"
+  grep -q -- "--loader \\\\vmlinuz-linux-lts-prev" "$log"
+  # already registered: nothing created again
+  efibootmgr() { if (($#)); then echo "$*" >>"$log"; else
+    echo "Boot0007* Undo Last Update"; fi; }
+  undo_entry_register_efistub /dev/nvme0n1 1 linux-lts "$template"
+  [ "$(grep -c -- --create-only "$log")" -eq 1 ]
+}

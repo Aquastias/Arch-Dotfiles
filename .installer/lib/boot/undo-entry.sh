@@ -16,13 +16,19 @@
 #
 #   reconcile   After the previous pairs change (ESP Kernel Sync `previous`).
 #
+# Used by: lib/chroot/bootloader-common.sh, lib/chroot/initcpio.sh and
+# tools/harden-boot.sh (install), lib/boot/esp-kernel-sync.sh (reconcile).
+#
 # Sourced lib-only by tests (UNDO_ENTRY_LIB_ONLY=1).
 # =============================================================================
 
-UNDO_ENTRY_PARAMETER=undo_last_update
-UNDO_ENTRY_TITLE="Undo Last Update"
+UNDO_ENTRY_PARAMETER=undo_last_update   # the cmdline flag asking for Undo
+UNDO_ENTRY_TITLE="Undo Last Update"     # the boot-menu label
+# marker lines around the Undo block in a shared loader config
 _UNDO_ENTRY_BEGIN="# >>> undo-last-update (ADR 0166)"
 _UNDO_ENTRY_END="# <<< undo-last-update"
+# where the install keeps the runtime, its settings and the template
+_UNDO_ENTRY_DIR=/usr/local/lib/archzfs
 
 # Rendering reuses the per-loader renderers; only install and retrofit render,
 # so the installed copy runs without them.
@@ -134,6 +140,8 @@ undo_entry_initcpio_hook() {
 run_latehook() {
   local cmdline="${UNDO_CMDLINE:-/proc/cmdline}"
   local mounts="${UNDO_MOUNTS:-/proc/mounts}" root pool name ds
+  # The literal mirrors UNDO_ENTRY_PARAMETER: this runs in the busybox
+  # initramfs, where the lib is not available.
   case " $(cat "$cmdline") " in
   *" undo_last_update "*) ;;
   *) return 0 ;;
@@ -174,10 +182,10 @@ undo_entry_write_initcpio() {
 # modules but the ESP's default pair is still the new kernel; re-sync the ESP
 # from the rolled-back /boot so the next normal boot matches.
 undo_entry_resync_unit() {
-  cat <<'UNIT'
+  cat <<UNIT
 [Unit]
 Description=Re-sync the ESP with the system Undo Last Update restored
-ConditionKernelCommandLine=undo_last_update
+ConditionKernelCommandLine=$UNDO_ENTRY_PARAMETER
 After=local-fs.target
 
 [Service]
@@ -218,19 +226,33 @@ undo_entry_install() {
   return 0
 }
 
+# undo_entry_register_efistub <disk> <part> <kbase> <template> — efistub's
+# fixed firmware entry booting <kbase>'s previous pair with the load options
+# in <template>. --create-only keeps it out of BootOrder, so it never becomes
+# the default; an existing entry is left alone.
+undo_entry_register_efistub() {
+  local disk="$1" part="$2" base="$3" template="$4"
+  efibootmgr | grep -qF "$UNDO_ENTRY_TITLE" && return 0
+  efibootmgr --create-only --disk "$disk" --part "$part" \
+    --label "$UNDO_ENTRY_TITLE" --loader "\\vmlinuz-$base-prev" \
+    --unicode "$(<"$template")"
+}
+
 # Lib-only sourcing for tests: skip the runtime below.
 [[ "${UNDO_ENTRY_LIB_ONLY:-0}" == "1" ]] && return 0
 
 # Runtime: the install wrote the loader and Primary Kernel to undo-entry.conf
 # and the rendered entry to undo-entry.template.
-_UNDO_ENTRY_DIR=/usr/local/lib/archzfs
 case "${1:-}" in
 reconcile)
   [[ -f "$_UNDO_ENTRY_DIR/undo-entry.conf" ]] || exit 0
   # shellcheck source=/dev/null
   source "$_UNDO_ENTRY_DIR/undo-entry.conf"
-  undo_entry_reconcile /boot/efi "${UNDO_LOADER:-}" "${UNDO_KBASE:-}" \
-    "$_UNDO_ENTRY_DIR/undo-entry.template"
+  # Every ESP: secondaries carry their own copy of the loader config.
+  for _esp in /boot/efi*/; do
+    undo_entry_reconcile "$_esp" "${UNDO_LOADER:-}" "${UNDO_KBASE:-}" \
+      "$_UNDO_ENTRY_DIR/undo-entry.template"
+  done
   ;;
 *)
   echo "usage: undo-entry.sh reconcile" >&2

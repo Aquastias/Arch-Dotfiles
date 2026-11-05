@@ -316,6 +316,7 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
 @test "stale_previous lists kernels whose -prev pair is missing or old" {
   echo new >"$ESP/vmlinuz-linux-lts"; echo old >"$ESP/vmlinuz-linux-lts-prev"
   echo same >"$ESP/vmlinuz-linux"; echo same >"$ESP/vmlinuz-linux-prev"
+  echo i >"$ESP/initramfs-linux.img"; echo i >"$ESP/initramfs-linux-prev.img"
   echo k >"$ESP/vmlinuz-linux-zen"
   run esp_kernel_sync_stale_previous "$ESP"
   [ "$status" -eq 0 ]
@@ -377,4 +378,33 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   [[ "$output" == *"When = PreTransaction"* ]]
   [[ "$output" == *"esp-kernel-sync.sh previous"* ]]
   [[ "$output" != *AbortOnFail* ]]
+}
+
+# ── install (ADR 0038 / 0166) ────────────────────────────────────────────────
+
+@test "install: script + hooks; guards sort before 60-mkinitcpio-remove" {
+  local root="$ESP/root" hooks="$ESP/root/etc/pacman.d/hooks"
+  mkdir -p "$hooks"
+  : >"$hooks/93-esp-kernel-sync-preflight.hook"
+  : >"$hooks/91-esp-previous-pair.hook"
+  esp_kernel_sync_install "$root" \
+    "$BATS_TEST_DIRNAME/../../lib/boot/esp-kernel-sync.sh"
+  [ -x "$root/usr/local/lib/archzfs/esp-kernel-sync.sh" ]
+  grep -q "AbortOnFail" "$hooks/01-esp-kernel-sync-preflight.hook"
+  grep -q "esp-kernel-sync.sh previous" "$hooks/03-esp-previous-pair.hook"
+  grep -q "When = PostTransaction" "$hooks/94-esp-kernel-sync.hook"
+  # pacman runs hooks by filename; 60-mkinitcpio-remove deletes /boot images
+  [[ "01-esp-kernel-sync-preflight.hook" < "60-mkinitcpio-remove.hook" ]]
+  [[ "03-esp-previous-pair.hook" < "60-mkinitcpio-remove.hook" ]]
+  # the old, too-late names are gone
+  [ ! -e "$hooks/93-esp-kernel-sync-preflight.hook" ]
+  [ ! -e "$hooks/91-esp-previous-pair.hook" ]
+}
+
+@test "stale_previous: an initramfs-only rebuild makes the pair stale" {
+  echo k >"$ESP/vmlinuz-linux-lts"; echo k >"$ESP/vmlinuz-linux-lts-prev"
+  echo new >"$ESP/initramfs-linux-lts.img"
+  echo old >"$ESP/initramfs-linux-lts-prev.img"
+  run esp_kernel_sync_stale_previous "$ESP"
+  [ "$output" = linux-lts ]
 }

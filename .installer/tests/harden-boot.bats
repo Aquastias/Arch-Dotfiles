@@ -111,7 +111,7 @@ teardown() { rm -rf "$ROOT"; }
   [ "$status" -eq 0 ]
   [ -f "$ROOT/etc/pacman.d/hooks/94-esp-kernel-sync.hook" ]
   grep -q "esp-kernel-sync.sh previous" \
-    "$ROOT/etc/pacman.d/hooks/91-esp-previous-pair.hook"
+    "$ROOT/etc/pacman.d/hooks/03-esp-previous-pair.hook"
   [ -f "$ROOT/etc/pacman.d/hooks/97-stray-kernel-warn.hook" ]
   [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]
 }
@@ -159,7 +159,7 @@ teardown() { rm -rf "$ROOT"; }
   run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
   [ "$status" -eq 0 ]
   grep -q 'boot-recovery.sh battery' \
-    "$ROOT/etc/pacman.d/hooks/92-battery-preflight.hook"
+    "$ROOT/etc/pacman.d/hooks/00-battery-preflight.hook"
   [ -x "$ROOT/usr/local/lib/archzfs/boot-recovery.sh" ]
   [ -f "$ROOT/etc/pacman.d/hooks/05-module-stash.hook" ]
   local wants="$ROOT/usr/lib/systemd/system/sysinit.target.wants"
@@ -183,7 +183,7 @@ teardown() { rm -rf "$ROOT"; }
     "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
   [ "$status" -eq 0 ]
   grep -q "update-snapshot.sh pre" \
-    "$ROOT/etc/pacman.d/hooks/00-update-snapshot.hook"
+    "$ROOT/etc/pacman.d/hooks/02-update-snapshot.hook"
   grep -q "update-snapshot.sh post" \
     "$ROOT/etc/pacman.d/hooks/zzz-update-snapshot-done.hook"
   [ -x "$ROOT/usr/local/lib/archzfs/update-snapshot.sh" ]
@@ -242,6 +242,23 @@ teardown() { rm -rf "$ROOT"; }
   [ -z "$output" ]
 }
 
+@test "apply: previous kernels never count as selected kernels" {
+  mkdir -p "$ROOT/boot/efi/EFI/refind"
+  echo "timeout 5" > "$ROOT/boot/efi/EFI/refind/refind.conf"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts-prev"
+  local i
+  for i in 1 2; do
+    HARDEN_BOOT_ROOT_FSTYPE=zfs HARDEN_BOOT_CMDLINE='root=x rw' \
+      run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+    [ "$status" -eq 0 ]
+  done
+  [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]
+  ! grep -q "prev-prev" "$ROOT/boot/efi/EFI/refind/refind.conf"
+  [ "$(grep -c '^dont_scan_files' "$ROOT/boot/efi/EFI/refind/refind.conf")" \
+    -eq 1 ]
+}
+
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
 # /etc/default/grub used to abort after "applying: install-warn-hook".
 @test "apply: systemd-boot root without grub defaults writes every hook" {
@@ -250,11 +267,13 @@ teardown() { rm -rf "$ROOT"; }
     > "$ROOT/boot/efi/loader/entries/arch.conf"
   printf 'title fb\nlinux /vmlinuz-linux-lts\ninitrd /x-fallback.img\n' \
     > "$ROOT/boot/efi/loader/entries/zz-fallback.conf"
+  printf 'title Undo\nlinux /vmlinuz-linux-lts-prev\n' \
+    > "$ROOT/boot/efi/loader/entries/arch-undo.conf"
   run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
   [ "$status" -eq 0 ]
   [[ "$output" == *"harden-boot: done."* ]]
   local hooks="$ROOT/etc/pacman.d/hooks"
-  [ -f "$hooks/93-esp-kernel-sync-preflight.hook" ]
+  [ -f "$hooks/01-esp-kernel-sync-preflight.hook" ]
   [ -f "$hooks/94-esp-kernel-sync.hook" ]
   [ -f "$hooks/97-stray-kernel-warn.hook" ]
   [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]

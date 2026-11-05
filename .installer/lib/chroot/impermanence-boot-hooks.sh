@@ -7,6 +7,14 @@
 # keep each @blank snapshot current. The hook/helper bodies are heredoc
 # templates, written verbatim into the new root.
 # =============================================================================
+# The keep-blank lines the zfs resnapshot helper carries (ADR 0166): staged
+# as a sibling in the chroot, one level over in the source tree.
+_IBH_UPDATE_SNAPSHOT="${BASH_SOURCE[0]%/*}/update-snapshot.sh"
+[[ -f "$_IBH_UPDATE_SNAPSHOT" ]] \
+  || _IBH_UPDATE_SNAPSHOT="${BASH_SOURCE[0]%/*}/../boot/update-snapshot.sh"
+# shellcheck source=../boot/update-snapshot.sh
+UPDATE_SNAPSHOT_LIB_ONLY=1 source "$_IBH_UPDATE_SNAPSHOT"
+
 
 # FS-conditional rollback hook (ADR 0044): write the zfs-rollback or the
 # btrfs-rollback initramfs hook. Both honour the same contract — roll every
@@ -213,9 +221,7 @@ _impermanence_boot_hooks_write_resnapshot_helper_zfs() {
 # deferred to v2.
 datasets="$dataset_list"
 for ds in \$datasets; do
-  # Keep the pre-update @blank as this update's Update Snapshot (ADR 0166).
-  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \
-    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank "\${ds}"
+$(update_snapshot_keep_blank_lines)
   if zfs destroy "\${ds}@blank" 2>/dev/null; then
     logger -t impermanence "destroyed \${ds}@blank"
   fi

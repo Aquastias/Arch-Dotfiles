@@ -88,9 +88,12 @@ harden_boot_plan() {
 # harden_boot_undo_cmdline <cmdline> — the running kernel cmdline as an Undo
 # entry's base: loader-added initrd=/BOOT_IMAGE= and the undo flag dropped.
 harden_boot_undo_cmdline() {
-  printf '%s\n' "$1" | awk '{
+  # shellcheck source=../lib/boot/undo-entry.sh
+  declare -p UNDO_ENTRY_PARAMETER >/dev/null 2>&1 || UNDO_ENTRY_LIB_ONLY=1 \
+    source "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/undo-entry.sh"
+  printf '%s\n' "$1" | awk -v undo="$UNDO_ENTRY_PARAMETER" '{
     for (i = 1; i <= NF; i++)
-      if ($i !~ /^(initrd|BOOT_IMAGE)=/ && $i != "undo_last_update")
+      if ($i !~ /^(initrd|BOOT_IMAGE)=/ && $i != undo)
         out = out (out == "" ? "" : " ") $i
     print out
   }'
@@ -119,11 +122,13 @@ _harden_boot_selected_kernels() {
   {
     for entry_file in "$ESP"/loader/entries/*.conf; do
       [[ -f "$entry_file" ]] || continue
-      awk '$1 == "linux" { sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
+      awk '$1 == "linux" && $2 !~ /-prev$/ {
+        sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
         "$entry_file"
     done
     for kernel in "$ESP"/vmlinuz-*; do
-      if [[ -f "$kernel" ]]; then printf '%s\n' "${kernel##*/vmlinuz-}"; fi
+      [[ -f "$kernel" && "$kernel" != *-prev ]] || continue
+      printf '%s\n' "${kernel##*/vmlinuz-}"
     done
   } 2>/dev/null | sort -u
   [[ -f "$ROOT/etc/default/grub" ]] || return 0
@@ -152,19 +157,11 @@ HOOK
 }
 
 _harden_boot_install_esp_kernel_sync() {
-  install -Dm755 "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/esp-kernel-sync.sh" \
-    "$ROOT/usr/local/lib/archzfs/esp-kernel-sync.sh"
-  _harden_boot_write_hook 93-esp-kernel-sync-preflight.hook PreTransaction \
-    "/usr/local/lib/archzfs/esp-kernel-sync.sh preflight" \
-    "Checking ESP free space for new boot images..." "AbortOnFail"
-  _harden_boot_write_hook 94-esp-kernel-sync.hook PostTransaction \
-    "/usr/local/lib/archzfs/esp-kernel-sync.sh" \
-    "Syncing kernel and initramfs to ESP..."
   # shellcheck source=../lib/boot/esp-kernel-sync.sh
   ESP_KERNEL_SYNC_LIB_ONLY=1 source \
     "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/esp-kernel-sync.sh"
-  esp_kernel_sync_previous_hook \
-    >"$ROOT/etc/pacman.d/hooks/91-esp-previous-pair.hook"
+  esp_kernel_sync_install "$ROOT" \
+    "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/esp-kernel-sync.sh"
 }
 
 _harden_boot_install_warn_hook() {
@@ -193,23 +190,11 @@ _harden_boot_install_boot_recovery() {
 _harden_boot_install_update_snapshot() {
   local helper="$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/update-snapshot.sh"
   local resnapshot="$ROOT/usr/lib/impermanence/resnapshot.sh"
-  install -Dm755 "$helper" "$ROOT/usr/local/lib/archzfs/update-snapshot.sh"
-  mkdir -p "$ROOT/etc/pacman.d/hooks"
   # shellcheck source=../lib/boot/update-snapshot.sh
   UPDATE_SNAPSHOT_LIB_ONLY=1 source "$helper"
-  update_snapshot_pre_hook >"$ROOT/etc/pacman.d/hooks/00-update-snapshot.hook"
-  update_snapshot_post_hook \
-    >"$ROOT/etc/pacman.d/hooks/zzz-update-snapshot-done.hook"
+  update_snapshot_install "$ROOT" "$helper"
   [[ -f "$resnapshot" ]] && ! grep -q keep-blank "$resnapshot" || return 0
-  # The same three lines the installer's resnapshot helper carries.
-  local keep_lines
-  keep_lines="$(cat <<'LINES'
-  # Keep the pre-update @blank as this update's Update Snapshot (ADR 0166).
-  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \
-    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank "${ds}"
-LINES
-)"
-  KEEP_LINES="$keep_lines" awk '{ print }
+  KEEP_LINES="$(update_snapshot_keep_blank_lines)" awk '{ print }
     $0 == "for ds in $datasets; do" { print ENVIRON["KEEP_LINES"] }' \
     "$resnapshot" >"$resnapshot.new"
   cat "$resnapshot.new" >"$resnapshot"
@@ -246,15 +231,13 @@ _harden_boot_install_undo_entry() {
   [[ -z "$ROOT" ]] || return 0
   mkinitcpio -P && /usr/local/lib/archzfs/esp-kernel-sync.sh
   [[ "$loader" == efistub ]] || return 0
-  efibootmgr | grep -q "$UNDO_ENTRY_TITLE" && return 0
   # shellcheck source=../lib/boot/esp-stage.sh
   source "$lib/esp-stage.sh"
   local disk part
   read -r disk part < <(esp_stage_split_partition \
     "$(findmnt -n -o SOURCE /boot/efi)")
-  efibootmgr --create-only --disk "$disk" --part "$part" \
-    --label "$UNDO_ENTRY_TITLE" --loader "\\vmlinuz-${base}-prev" \
-    --unicode "$(cat /usr/local/lib/archzfs/undo-entry.template)"
+  undo_entry_register_efistub "$disk" "$part" "$base" \
+    /usr/local/lib/archzfs/undo-entry.template
 }
 
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.

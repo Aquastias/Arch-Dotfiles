@@ -18,11 +18,17 @@
 #               no modules on disk.
 #   drop-stash  Called by the ESP Kernel Sync once the new kernel is on the ESP.
 #
+# Used by: lib/chroot/bootloader-common.sh and tools/harden-boot.sh (install),
+# lib/boot/esp-kernel-sync.sh (drop-stash), pacman hooks + systemd units.
+#
 # Sourced lib-only by tests (BOOT_RECOVERY_LIB_ONLY=1); every decision takes
 # its fixture dirs as arguments, so bats never touches the live system.
 # =============================================================================
 
-_BOOT_RECOVERY_MIN_BATTERY=30
+_BOOT_RECOVERY_MIN_BATTERY=30   # % below which a discharging laptop refuses
+_BOOT_RECOVERY_MODULES=/usr/lib/modules   # the live kernel module trees
+# the Kernel Selection's package bases, written at install
+_BOOT_RECOVERY_SELECTED=/usr/local/lib/archzfs/selected-kernels
 
 # boot_recovery_battery_ok [power-supply-dir] — 0 when a kernel transaction may
 # run: no battery, a charger online, a battery charging, or the batteries'
@@ -106,18 +112,23 @@ boot_recovery_stash() {
 }
 
 # boot_recovery_should_restore <modules-dir> <release> — 0 when the running
-# kernel <release> has no modules on disk but a Module Stash holds them.
+# kernel <release> has no module files on disk but a Module Stash holds them.
+# Checks kernel/, not the directory: cut off before 60-depmod, the directory
+# survives holding depmod's unowned modules.* files.
 boot_recovery_should_restore() {
-  [[ ! -d "$1/$2" && -d "$1/.stash/$2" ]]
+  [[ ! -d "$1/$2/kernel" && -d "$1/.stash/$2/kernel" ]]
 }
 
 # boot_recovery_restore <modules-dir> <release> — the Stash Restore: link the
-# stashed tree back and record "<release> <pkgbase>" for the notice and for
-# drop_stash.
+# stashed tree back into place (over any surviving depmod files), rebuild its
+# module dependencies, and record "<release> <pkgbase>" for the notice and
+# for drop_stash.
 boot_recovery_restore() {
   local modules_directory="$1" release="$2" stash="$1/.stash"
   boot_recovery_should_restore "$modules_directory" "$release" || return 0
-  cp -al "$stash/$release" "$modules_directory/$release"
+  mkdir -p "$modules_directory/$release"
+  cp -alf "$stash/$release/." "$modules_directory/$release/"
+  depmod "$release" 2>/dev/null || true
   printf '%s %s\n' "$release" \
     "$(cat "$modules_directory/$release/pkgbase" 2>/dev/null || true)" \
     >>"$stash/restored"
@@ -143,14 +154,14 @@ boot_recovery_drop_stash() {
 }
 
 # boot_recovery_stash_hook — the pacman hook taking the Module Stash before any
-# kernel transaction. Named 05- so it runs before the dkms removal hooks (7x).
+# kernel install or upgrade (a version change installs a new vmlinuz path).
+# Named 05- so it runs before 60-mkinitcpio-remove and the dkms removal hooks.
 boot_recovery_stash_hook() {
   cat <<'HOOK'
 [Trigger]
 Type = Path
 Operation = Install
 Operation = Upgrade
-Operation = Remove
 Target = usr/lib/modules/*/vmlinuz
 
 [Action]
@@ -171,8 +182,8 @@ Documentation=file:///usr/local/lib/archzfs/boot-recovery.sh
 DefaultDependencies=no
 After=systemd-remount-fs.service
 Before=systemd-modules-load.service systemd-udevd.service sysinit.target
-ConditionPathExists=!/usr/lib/modules/%v
-ConditionPathExists=/usr/lib/modules/.stash/%v
+ConditionPathExists=!/usr/lib/modules/%v/kernel
+ConditionPathExists=/usr/lib/modules/.stash/%v/kernel
 
 [Service]
 Type=oneshot
@@ -230,7 +241,9 @@ boot_recovery_install() {
   install -Dm755 "$source_script" "$root/usr/local/lib/archzfs/boot-recovery.sh"
   mkdir -p "$hooks" "$units/sysinit.target.wants" \
     "$user_units/default.target.wants"
-  boot_recovery_battery_hook >"$hooks/92-battery-preflight.hook"
+  # 00-: before every other PreTransaction hook, so a refusal changes nothing.
+  rm -f "$hooks/92-battery-preflight.hook"
+  boot_recovery_battery_hook >"$hooks/00-battery-preflight.hook"
   boot_recovery_stash_hook >"$hooks/05-module-stash.hook"
   boot_recovery_restore_unit >"$units/boot-recovery-restore.service"
   ln -sfn ../boot-recovery-restore.service \
@@ -242,9 +255,6 @@ boot_recovery_install() {
 
 # Lib-only sourcing for tests: skip the runtime below.
 [[ "${BOOT_RECOVERY_LIB_ONLY:-0}" == "1" ]] && return 0
-
-_BOOT_RECOVERY_MODULES=/usr/lib/modules
-_BOOT_RECOVERY_SELECTED=/usr/local/lib/archzfs/selected-kernels
 
 # The Kernel Selection's package bases; every installed kernel's when the list
 # is missing (a stash too many costs nothing — it is hard links).

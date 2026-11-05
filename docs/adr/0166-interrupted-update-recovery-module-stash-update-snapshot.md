@@ -23,15 +23,20 @@ transaction that never reaches the copy.
 Goal: an [[Interrupted Kernel Transaction]] is recoverable without a USB
 stick, on every ESP-mirroring loader and every Kernel Selection size.
 
-1. **[[Module Stash]].** A PreTransaction hook, ordered before the dkms
-   removal hooks, copies the modules (`zfs.ko` included) of every selected
-   kernel whose version changes to a place outside every Rollback Dataset.
-   Stray Kernels are skipped. The stash is dropped once the ESP Kernel Sync
-   has succeeded.
+1. **[[Module Stash]].** A PreTransaction hook (`05-`, before
+   `60-mkinitcpio-remove` and the dkms removal hooks) hard-links the modules
+   (`zfs.ko` included) of every installed Kernel-Selection kernel into
+   `/usr/lib/modules/.stash`, on the root dataset, outside every Rollback
+   Dataset; free, so every selected kernel is stashed, not only the changing
+   ones. Stray Kernels are skipped; a pure removal stashes nothing. The stash
+   is dropped once the ESP Kernel Sync has succeeded.
 2. **[[Stash Restore]].** An early-boot unit, ordered before module loading,
-   restores the stash when `/usr/lib/modules/$(uname -r)` is missing. The
-   kernel still on the ESP then boots normally. It announces the interruption
-   on the console and as a desktop notification; it never runs pacman itself.
+   restores the stash when the running kernel has no `kernel/` tree on disk —
+   not when its directory is missing: cut off before `60-depmod`, the
+   directory survives holding depmod's unowned `modules.*` files. It links
+   the stash back in place and re-runs `depmod`. The kernel still on the ESP
+   then boots normally. It announces the interruption on the console and as
+   a desktop notification; it never runs pacman itself.
 3. **[[Update Snapshot]]** (ZFS roots). A PreTransaction hook snapshots
    `rpool/ROOT/arch` and `rpool/var` as `@update-<UTC time>` before every
    transaction. Keep the last three. The snapshot taken before an unfinished
@@ -69,6 +74,13 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
    ZFS module) per selected kernel. Non-ZFS roots get items 1, 2, 4 and 6.
 8. **Retrofit.** `tools/harden-boot.sh` installs all of the above on
    existing machines and learns all five bootloaders.
+9. **Hook order.** pacman runs hooks by filename, and `60-mkinitcpio-remove`
+   (PreTransaction) deletes the preset and `/boot` images. Every guard runs
+   before it, the Update Snapshot after the aborting guards (so a refusal
+   leaves no in-progress mark): `00-battery-preflight`,
+   `01-esp-kernel-sync-preflight` (was [ADR 0038]'s `93-`, which ran after
+   the removal), `02-update-snapshot`, `03-esp-previous-pair`,
+   `05-module-stash`. Installs remove the old names.
 
 ## Considered Options
 - **Update Snapshot alone** — rejected: ZFS-only, and needs a menu choice
@@ -90,6 +102,11 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
   updates.
 - Every pacman transaction takes a ZFS snapshot; space is reclaimed as old
   snapshots are pruned.
+- Undo Last Update rolls back with `zfs rollback -r`, destroying any snapshot
+  newer than the Update Snapshot on those datasets (e.g. sanoid's).
+- The retrofit re-takes `@blank` on a live Impermanence host so its `/etc`
+  edits survive the boot rollback; like the Pacman Resnapshot Hook, that
+  also keeps any runtime `/etc` drift (its known v1 limitation).
 - An on-demand VM test reproduces the interruption (snapshot the VM, cut off a
   kernel swap during its hooks, reset) and checks the Stash Restore boot and
   Undo Last Update.

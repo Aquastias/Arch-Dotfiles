@@ -17,11 +17,15 @@
 #   post        PostTransaction, every transaction: clear the mark.
 #   keep-blank  <dataset>…: keep each @blank as the newest @update-* name.
 #
+# Used by: lib/chroot/bootloader-common.sh and tools/harden-boot.sh (install),
+# lib/chroot/impermanence-boot-hooks.sh (keep-blank lines), pacman hooks.
+#
 # Installed to /usr/local/lib/archzfs/. Sourced lib-only by tests
 # (UPDATE_SNAPSHOT_LIB_ONLY=1); every planner reads `zfs list` lines on stdin.
 # =============================================================================
 
-_UPDATE_SNAPSHOT_KEEP=3
+_UPDATE_SNAPSHOT_KEEP=3   # Update Snapshots kept, newest first
+# holds the snapshot taken before a transaction still in progress
 _UPDATE_SNAPSHOT_MARK=/var/lib/archzfs/update-in-progress
 
 # update_snapshot_name <epoch> — the snapshot name for a transaction started at
@@ -94,6 +98,32 @@ Description = Marking the update complete...
 When = PostTransaction
 Exec = /usr/local/lib/archzfs/update-snapshot.sh post
 HOOK
+}
+
+# update_snapshot_keep_blank_lines — the lines an Impermanence resnapshot
+# helper runs inside its `for ds in $datasets; do` loop, before destroying
+# @blank. Single source for the installer's helper and the retrofit's patch.
+update_snapshot_keep_blank_lines() {
+  cat <<'LINES'
+  # Keep the pre-update @blank as this update's Update Snapshot (ADR 0166).
+  [[ -x /usr/local/lib/archzfs/update-snapshot.sh ]] \
+    && /usr/local/lib/archzfs/update-snapshot.sh keep-blank "${ds}"
+LINES
+}
+
+# update_snapshot_install <root> <source-script> — install this helper and its
+# hooks under <root> ("" = /). The one install path for the installer and the
+# retrofit. 02- sorts after the aborting guards (00-battery, 01-esp preflight),
+# so a refused update leaves no in-progress mark, and before 60-mkinitcpio-
+# remove, so the snapshot holds the untouched system. The old 00- name goes.
+update_snapshot_install() {
+  local root="${1%/}" source_script="$2" hooks="${1%/}/etc/pacman.d/hooks"
+  install -Dm755 "$source_script" \
+    "$root/usr/local/lib/archzfs/update-snapshot.sh"
+  mkdir -p "$hooks"
+  rm -f "$hooks/00-update-snapshot.hook"
+  update_snapshot_pre_hook >"$hooks/02-update-snapshot.hook"
+  update_snapshot_post_hook >"$hooks/zzz-update-snapshot-done.hook"
 }
 
 # Lib-only sourcing for tests: skip the runtime below.

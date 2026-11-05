@@ -122,40 +122,12 @@ bootloader_common_efistub_register() {
 }
 
 # bootloader_common_install_esp_sync_hooks — install the ESP Kernel Sync helper
-# + the pacman preflight/sync hooks every ESP-mirroring loader needs (ADR 0038).
+# + its pacman hooks every ESP-mirroring loader needs, through the shared
+# install path (ADR 0038 / 0166).
 bootloader_common_install_esp_sync_hooks() {
-  mkdir -p /etc/pacman.d/hooks
-  install -Dm755 "$_LIB_DIR/esp-kernel-sync.sh" \
-    /usr/local/lib/archzfs/esp-kernel-sync.sh
-  cat > /etc/pacman.d/hooks/93-esp-kernel-sync-preflight.hook << 'HOOK'
-[Trigger]
-Type = Path
-Operation = Install
-Operation = Upgrade
-Target = usr/lib/modules/*/vmlinuz
-
-[Action]
-Description = Checking ESP free space for new boot images...
-When = PreTransaction
-Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh preflight
-AbortOnFail
-HOOK
-  cat > /etc/pacman.d/hooks/94-esp-kernel-sync.hook << 'HOOK'
-[Trigger]
-Type = Path
-Operation = Install
-Operation = Upgrade
-Target = usr/lib/modules/*/vmlinuz
-
-[Action]
-Description = Syncing kernel and initramfs to ESP...
-When = PostTransaction
-Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh
-HOOK
   # shellcheck source=../boot/esp-kernel-sync.sh
   ESP_KERNEL_SYNC_LIB_ONLY=1 source "$_LIB_DIR/esp-kernel-sync.sh"
-  esp_kernel_sync_previous_hook \
-    > /etc/pacman.d/hooks/91-esp-previous-pair.hook
+  esp_kernel_sync_install "" "$_LIB_DIR/esp-kernel-sync.sh"
 }
 
 # bootloader_common_install_boot_recovery_hooks — install the interrupted-update
@@ -165,16 +137,11 @@ bootloader_common_install_boot_recovery_hooks() {
   # shellcheck source=../boot/boot-recovery.sh
   BOOT_RECOVERY_LIB_ONLY=1 source "$_LIB_DIR/boot-recovery.sh"
   boot_recovery_install "" "$_LIB_DIR/boot-recovery.sh"
-  # Update Snapshot: ZFS roots only (`zpool` present is the chroot's ZFS
-  # signal, as in initcpio.sh).
-  command -v zpool >/dev/null 2>&1 || return 0
-  install -Dm755 "$_LIB_DIR/update-snapshot.sh" \
-    /usr/local/lib/archzfs/update-snapshot.sh
+  # Update Snapshot: ZFS roots only.
+  [[ "${FILESYSTEM:-}" == zfs ]] || return 0
   # shellcheck source=../boot/update-snapshot.sh
   UPDATE_SNAPSHOT_LIB_ONLY=1 source "$_LIB_DIR/update-snapshot.sh"
-  update_snapshot_pre_hook > /etc/pacman.d/hooks/00-update-snapshot.hook
-  update_snapshot_post_hook \
-    > /etc/pacman.d/hooks/zzz-update-snapshot-done.hook
+  update_snapshot_install "" "$_LIB_DIR/update-snapshot.sh"
 }
 
 # bootloader_common_install_undo_entry — the Undo Last Update entry (ADR 0166),
@@ -193,7 +160,6 @@ bootloader_common_install_undo_entry() {
   [[ "$BOOTLOADER" == efistub ]] || return 0
   local disk part
   read -r disk part < <(bootloader_common_esp_disk_partition)
-  efibootmgr --create-only --disk "$disk" --part "$part" \
-    --label "$UNDO_ENTRY_TITLE" --loader "\\vmlinuz-${PRIMARY_KBASE}-prev" \
-    --unicode "$(cat /usr/local/lib/archzfs/undo-entry.template)" || true
+  undo_entry_register_efistub "$disk" "$part" "$PRIMARY_KBASE" \
+    /usr/local/lib/archzfs/undo-entry.template || true
 }

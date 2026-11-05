@@ -11,6 +11,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/boot/boot-recovery.sh"
   FIXTURE="$(mktemp -d)"
   SUPPLY="$FIXTURE/power_supply"
+  depmod() { :; }  # never the live module tree
   mkdir -p "$SUPPLY"
 }
 
@@ -110,7 +111,7 @@ _kernel() {
 
 @test "should_restore: only when the running kernel's modules are gone" {
   _kernel 6.18.60-1-lts linux-lts
-  mkdir -p "$FIXTURE/modules/.stash/6.18.40-1-lts"
+  mkdir -p "$FIXTURE/modules/.stash/6.18.40-1-lts/kernel"
   run boot_recovery_should_restore "$FIXTURE/modules" 6.18.40-1-lts
   [ "$status" -eq 0 ]
   run boot_recovery_should_restore "$FIXTURE/modules" 6.18.60-1-lts
@@ -151,7 +152,8 @@ _kernel() {
   [[ "$output" == *"Target = usr/lib/modules/*/vmlinuz"* ]]
   [[ "$output" == *"When = PreTransaction"* ]]
   [[ "$output" == *"boot-recovery.sh stash"* ]]
-  [[ "$output" == *"Operation = Remove"* ]]
+  # a pure removal never reaches the sync that drops the stash
+  [[ "$output" != *"Operation = Remove"* ]]
 }
 
 @test "restore unit: before any module loads, only when modules are missing" {
@@ -159,8 +161,8 @@ _kernel() {
   [[ "$output" == *"DefaultDependencies=no"* ]]
   [[ "$output" == *"Before="*"systemd-modules-load.service"* ]]
   [[ "$output" == *"Before="*"systemd-udevd.service"* ]]
-  [[ "$output" == *"ConditionPathExists=!/usr/lib/modules/%v"* ]]
-  [[ "$output" == *"ConditionPathExists=/usr/lib/modules/.stash/%v"* ]]
+  [[ "$output" == *"ConditionPathExists=!/usr/lib/modules/%v/kernel"* ]]
+  [[ "$output" == *"ConditionPathExists=/usr/lib/modules/.stash/%v/kernel"* ]]
   [[ "$output" == *"boot-recovery.sh restore"* ]]
 }
 
@@ -178,7 +180,7 @@ _kernel() {
     "$BATS_TEST_DIRNAME/../../lib/boot/boot-recovery.sh"
   [ -x "$root/usr/local/lib/archzfs/boot-recovery.sh" ]
   grep -q "boot-recovery.sh battery" \
-    "$root/etc/pacman.d/hooks/92-battery-preflight.hook"
+    "$root/etc/pacman.d/hooks/00-battery-preflight.hook"
   grep -q "boot-recovery.sh stash" \
     "$root/etc/pacman.d/hooks/05-module-stash.hook"
   local units="$root/usr/lib/systemd/system"
@@ -224,4 +226,50 @@ _kernel() {
   [ -f "$users/boot-recovery-notice.service" ]
   [ "$(readlink "$users/default.target.wants/boot-recovery-notice.service")" \
     = ../boot-recovery-notice.service ]
+}
+
+# _cut_before_depmod <version> — what an interruption before 60-depmod leaves:
+# pacman removed the package files, only depmod's unowned modules.* remain.
+_cut_before_depmod() {
+  rm -rf "$FIXTURE/modules/$1"
+  mkdir -p "$FIXTURE/modules/$1"
+  echo stale >"$FIXTURE/modules/$1/modules.dep"
+}
+
+@test "should_restore: a tree left with only depmod's files still restores" {
+  _kernel 6.18.40-1-lts linux-lts
+  boot_recovery_stash "$FIXTURE/modules" linux-lts
+  _cut_before_depmod 6.18.40-1-lts
+  run boot_recovery_should_restore "$FIXTURE/modules" 6.18.40-1-lts
+  [ "$status" -eq 0 ]
+}
+
+@test "restore: fills a surviving tree in place, never nesting the copy" {
+  _kernel 6.18.40-1-lts linux-lts
+  boot_recovery_stash "$FIXTURE/modules" linux-lts
+  _cut_before_depmod 6.18.40-1-lts
+  boot_recovery_restore "$FIXTURE/modules" 6.18.40-1-lts
+  [ "$(cat "$FIXTURE/modules/6.18.40-1-lts/kernel/vfat.ko")" \
+    = ko-6.18.40-1-lts ]
+  [ ! -e "$FIXTURE/modules/6.18.40-1-lts/6.18.40-1-lts" ]
+}
+
+@test "restore: rebuilds the module dependencies for that release" {
+  _kernel 6.18.40-1-lts linux-lts
+  boot_recovery_stash "$FIXTURE/modules" linux-lts
+  rm -rf "$FIXTURE/modules/6.18.40-1-lts"
+  depmod() { echo "$*" >"$FIXTURE/depmod-called"; }
+  boot_recovery_restore "$FIXTURE/modules" 6.18.40-1-lts
+  [ "$(cat "$FIXTURE/depmod-called")" = 6.18.40-1-lts ]
+}
+
+@test "install: battery check first of all; the late legacy name goes" {
+  local hooks="$FIXTURE/root/etc/pacman.d/hooks"
+  mkdir -p "$hooks"
+  : >"$hooks/92-battery-preflight.hook"
+  boot_recovery_install "$FIXTURE/root" \
+    "$BATS_TEST_DIRNAME/../../lib/boot/boot-recovery.sh"
+  [ ! -e "$hooks/92-battery-preflight.hook" ]
+  [ -f "$hooks/00-battery-preflight.hook" ]
+  [[ "00-battery-preflight.hook" < "01-esp-kernel-sync-preflight.hook" ]]
 }
