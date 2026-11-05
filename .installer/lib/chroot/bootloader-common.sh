@@ -79,14 +79,7 @@ bootloader_common_stage_kernel() { esp_stage_kernel "$1" "$ESP"; }
 # partition suffix, sata does not. Shared so no adapter hardcodes the partition
 # number.
 bootloader_common_esp_disk_partition() {
-  local mountpoint="${1:-$ESP}" dev disk part
-  dev="$(findmnt -n -o SOURCE "$mountpoint")"
-  if [[ "$dev" =~ nvme|mmcblk ]]; then
-    disk="${dev%p[0-9]*}"; part="${dev##*p}"
-  else
-    disk="${dev%[0-9]*}"; part="${dev##*[a-z]}"
-  fi
-  printf '%s %s\n' "$disk" "$part"
+  esp_stage_split_partition "$(findmnt -n -o SOURCE "${1:-$ESP}")"
 }
 
 # bootloader_common_stage_microcode — copy the present vendor microcode image(s)
@@ -182,4 +175,25 @@ bootloader_common_install_boot_recovery_hooks() {
   update_snapshot_pre_hook > /etc/pacman.d/hooks/00-update-snapshot.hook
   update_snapshot_post_hook \
     > /etc/pacman.d/hooks/zzz-update-snapshot-done.hook
+}
+
+# bootloader_common_install_undo_entry — the Undo Last Update entry (ADR 0166),
+# ZFS roots only: runtime, template and initramfs hook via the shared lib, then
+# for efistub the one fixed firmware entry, created outside BootOrder so it
+# never becomes the default.
+bootloader_common_install_undo_entry() {
+  [[ "${FILESYSTEM:-}" == zfs ]] || return 0
+  local -a bases=()
+  local token
+  for token in "${KERNELS[@]}"; do bases+=("$(kernel_package "$token")"); done
+  # shellcheck source=../boot/undo-entry.sh
+  UNDO_ENTRY_LIB_ONLY=1 source "$_LIB_DIR/undo-entry.sh"
+  undo_entry_install "" "$_LIB_DIR/undo-entry.sh" "$BOOTLOADER" \
+    "$PRIMARY_KBASE" "$MICROCODE_IMGS" "$DEFAULT_OPTS" "${bases[@]}"
+  [[ "$BOOTLOADER" == efistub ]] || return 0
+  local disk part
+  read -r disk part < <(bootloader_common_esp_disk_partition)
+  efibootmgr --create-only --disk "$disk" --part "$part" \
+    --label "$UNDO_ENTRY_TITLE" --loader "\\vmlinuz-${PRIMARY_KBASE}-prev" \
+    --unicode "$(cat /usr/local/lib/archzfs/undo-entry.template)" || true
 }

@@ -53,10 +53,16 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
    the ESP lacks room beside what the sync needs, the pair is skipped with a
    warning and the update proceeds.
 5. **[[Undo Last Update]].** One boot entry: it rolls back to the newest
-   Update Snapshot in the initramfs (on Impermanence hosts also restoring
-   the matching Blank Snapshots) and boots the Primary Kernel's matching
-   pair. Hidden while the Primary Kernel has no previous pair. Older
-   snapshots are reachable only from a live ISO.
+   Update Snapshot in the initramfs (an `undo-update` hook right after `zfs`,
+   before `zfs-rollback`; on Impermanence hosts the kept Blank Snapshots
+   become `@blank` again) and boots the Primary Kernel's matching pair. The
+   entry is rendered once into a template and kept present only while that
+   pair exists, so it never dead-ends; efistub instead gets one fixed
+   firmware entry outside BootOrder. rEFInd is told not to scan the `-prev`
+   kernels, which it would otherwise boot without the rollback. After an
+   Undo boot a unit re-syncs the ESP from the rolled-back `/boot`, so the
+   next normal boot matches. Older snapshots are reachable only from a live
+   ISO.
 6. **Battery preflight.** A PreTransaction hook aborts a kernel transaction
    on battery below 30% when not charging. No battery, no check.
 7. **ESP budget** ([ADR 0078]) adds one previous pair (~100 MiB with the

@@ -50,6 +50,7 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/boot/stray-kernel.sh|stray-kernel.sh"
   "lib/boot/boot-recovery.sh|boot-recovery.sh"
   "lib/boot/update-snapshot.sh|update-snapshot.sh"
+  "lib/boot/undo-entry.sh|undo-entry.sh"
   "lib/boot/lts-hold.sh|lts-hold.sh"
   "lib/boot/zswap.sh|zswap.sh"
   "lib/boot/zfs-arc.sh|zfs-arc.sh"

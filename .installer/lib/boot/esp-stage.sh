@@ -26,3 +26,15 @@ esp_stage_kernel() {
     printf '%s\n' "$fallback_initramfs"
   fi
 }
+
+# esp_stage_split_partition <device> — "<disk> <partition-number>" for an ESP
+# partition device, as efibootmgr --disk/--part want it. nvme/mmc name their
+# partitions with a `p<N>` suffix.
+esp_stage_split_partition() {
+  local device="$1"
+  if [[ "$device" =~ nvme|mmcblk ]]; then
+    printf '%s %s\n' "${device%p[0-9]*}" "${device##*p}"
+  else
+    printf '%s %s\n' "${device%[0-9]*}" "${device##*[a-z]}"
+  fi
+}

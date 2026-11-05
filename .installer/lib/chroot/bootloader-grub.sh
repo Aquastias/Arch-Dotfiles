@@ -41,4 +41,5 @@ done
 bootloader_common_stage_microcode
 bootloader_common_install_esp_sync_hooks
 bootloader_common_install_boot_recovery_hooks
+bootloader_common_install_undo_entry
 echo "GRUB installed (kernels + grub.cfg on the ESP)."

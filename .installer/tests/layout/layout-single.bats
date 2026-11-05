@@ -216,3 +216,14 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   layout_plan
   [[ " $LAYOUT_HOOKS " == *" keyboard keymap consolefont block zfs "* ]]
 }
+
+@test "layout_plan: undo-update runs right after the pool import (ADR 0166)" {
+  layout_plan
+  [[ " $LAYOUT_HOOKS " == *" zfs undo-update filesystems "* ]]
+}
+
+@test "layout_plan: undo-update precedes the impermanence rollback" {
+  install_config_impermanence_enabled() { echo true; }
+  layout_plan
+  [[ " $LAYOUT_HOOKS " == *" zfs undo-update zfs-rollback filesystems "* ]]
+}

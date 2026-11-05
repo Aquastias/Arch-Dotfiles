@@ -121,6 +121,13 @@ if [[ "$IMPERMANENCE_ENABLED" == "true" ]]; then
     impermanence_boot_hooks_write_rollback
 fi
 
+# Same for the undo-update hook (ADR 0166), present in every ZFS HOOKS list.
+if [[ " $HOOKS " == *" undo-update "* ]]; then
+    # shellcheck source=../boot/undo-entry.sh
+    UNDO_ENTRY_LIB_ONLY=1 source "$_LIB_DIR/undo-entry.sh"
+    undo_entry_write_initcpio ""
+fi
+
 # ── Fallback preset ───────────────────────────────────────────────────────────
 # Minimal installs may only define the 'default' preset — ensure 'fallback'
 # also exists so there is a recovery boot option with all modules included.

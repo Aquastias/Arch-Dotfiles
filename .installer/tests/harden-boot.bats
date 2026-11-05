@@ -196,6 +196,42 @@ teardown() { rm -rf "$ROOT"; }
   [ "$(grep -c keep-blank "$helper")" -eq 1 ]
 }
 
+@test "plan: Undo Last Update on a ZFS root with an ESP-mirroring loader" {
+  run harden_boot_plan limine 2048 zfs
+  [[ "$output" == *install-undo-entry* ]]
+  run harden_boot_plan grub-native 2048 zfs
+  [[ "$output" != *install-undo-entry* ]]
+  run harden_boot_plan limine 2048 ext4
+  [[ "$output" != *install-undo-entry* ]]
+}
+
+@test "apply: Undo entry from the running cmdline + undo-update in HOOKS" {
+  mkdir -p "$ROOT/boot/efi" "$ROOT/etc"
+  : > "$ROOT/boot/efi/limine.conf"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  : > "$ROOT/boot/efi/amd-ucode.img"
+  echo "HOOKS=(base udev block zfs filesystems)" > "$ROOT/etc/mkinitcpio.conf"
+  local i
+  for i in 1 2; do
+    HARDEN_BOOT_ROOT_FSTYPE=zfs \
+    HARDEN_BOOT_CMDLINE='initrd=\amd-ucode.img root=ZFS=rpool/ROOT/arch rw' \
+      run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+    [ "$status" -eq 0 ]
+  done
+  local template="$ROOT/usr/local/lib/archzfs/undo-entry.template"
+  grep -q "cmdline: root=ZFS=rpool/ROOT/arch rw undo_last_update" "$template"
+  grep -q "module_path: boot():/amd-ucode.img" "$template"
+  ! grep -q "initrd=" "$template"
+  [ "$(cat "$ROOT/etc/mkinitcpio.conf")" \
+    = "HOOKS=(base udev block zfs undo-update filesystems)" ]
+}
+
+@test "undo_cmdline: drops loader-added initrd=/BOOT_IMAGE= and the undo flag" {
+  run harden_boot_undo_cmdline \
+    'BOOT_IMAGE=/vmlinuz initrd=\x.img root=ZFS=a rw undo_last_update quiet'
+  [ "$output" = "root=ZFS=a rw quiet" ]
+}
+
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
 # /etc/default/grub used to abort after "applying: install-warn-hook".
 @test "apply: systemd-boot root without grub defaults writes every hook" {

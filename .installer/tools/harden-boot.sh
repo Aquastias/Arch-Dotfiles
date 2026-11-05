@@ -80,7 +80,20 @@ harden_boot_plan() {
   esac
   [[ -n "$bootloader" ]] && echo install-boot-recovery
   [[ -n "$bootloader" && "$fstype" == zfs ]] && echo install-update-snapshot
+  [[ "$fstype" == zfs && -n "$bootloader" && "$bootloader" != grub-native ]] \
+    && echo install-undo-entry
   return 0
+}
+
+# harden_boot_undo_cmdline <cmdline> — the running kernel cmdline as an Undo
+# entry's base: loader-added initrd=/BOOT_IMAGE= and the undo flag dropped.
+harden_boot_undo_cmdline() {
+  printf '%s\n' "$1" | awk '{
+    for (i = 1; i <= NF; i++)
+      if ($i !~ /^(initrd|BOOT_IMAGE)=/ && $i != "undo_last_update")
+        out = out (out == "" ? "" : " ") $i
+    print out
+  }'
 }
 
 # Lib-only sourcing for tests: skip the apply/runtime below.
@@ -192,6 +205,47 @@ LINES
     "$resnapshot" >"$resnapshot.new"
   cat "$resnapshot.new" >"$resnapshot"
   rm -f "$resnapshot.new"
+}
+
+# Undo Last Update (ADR 0166) through the shared undo-entry install path,
+# from the running cmdline and the ESP's microcode; then undo-update in
+# HOOKS. On the live system (no --root) the initramfs is rebuilt and
+# re-synced to the ESP, and efistub gets its fixed firmware entry.
+_harden_boot_install_undo_entry() {
+  local loader="$1" base microcode="" image cmdline
+  local mkinitcpio_config="$ROOT/etc/mkinitcpio.conf"
+  local -a bases=()
+  local lib="$_HARDEN_BOOT_INSTALLER_DIR/lib/boot"
+  # shellcheck source=../lib/boot/undo-entry.sh
+  UNDO_ENTRY_LIB_ONLY=1 source "$lib/undo-entry.sh"
+  mapfile -t bases < <(_harden_boot_selected_kernels)
+  base="$(_harden_boot_primary_kernel_base || true)"
+  base="${base:-${bases[0]:-}}"
+  [[ -n "$base" ]] || { echo "  skipped: no kernel found" >&2; return 0; }
+  for image in "$ESP"/*-ucode.img; do
+    [[ -f "$image" ]] && microcode+="${microcode:+ }${image##*/}"
+  done
+  cmdline="$(harden_boot_undo_cmdline \
+    "${HARDEN_BOOT_CMDLINE:-$(cat /proc/cmdline)}")"
+  undo_entry_install "$ROOT" "$lib/undo-entry.sh" "$loader" "$base" \
+    "$microcode" "$cmdline" "${bases[@]}"
+  if [[ -f "$mkinitcpio_config" ]] \
+     && ! grep -q '^HOOKS=.*undo-update' "$mkinitcpio_config"; then
+    sed -i -E '/^HOOKS=/ s/([( ])zfs([ )])/\1zfs undo-update\2/' \
+      "$mkinitcpio_config"
+  fi
+  [[ -z "$ROOT" ]] || return 0
+  mkinitcpio -P && /usr/local/lib/archzfs/esp-kernel-sync.sh
+  [[ "$loader" == efistub ]] || return 0
+  efibootmgr | grep -q "$UNDO_ENTRY_TITLE" && return 0
+  # shellcheck source=../lib/boot/esp-stage.sh
+  source "$lib/esp-stage.sh"
+  local disk part
+  read -r disk part < <(esp_stage_split_partition \
+    "$(findmnt -n -o SOURCE /boot/efi)")
+  efibootmgr --create-only --disk "$disk" --part "$part" \
+    --label "$UNDO_ENTRY_TITLE" --loader "\\vmlinuz-${base}-prev" \
+    --unicode "$(cat /usr/local/lib/archzfs/undo-entry.template)"
 }
 
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.
@@ -333,6 +387,7 @@ harden_boot_apply() {
     pin-grub-default) _harden_boot_pin_grub_default ;;
     install-boot-recovery) _harden_boot_install_boot_recovery ;;
     install-update-snapshot) _harden_boot_install_update_snapshot ;;
+    install-undo-entry) _harden_boot_install_undo_entry "$1" ;;
     esac
   done < <(harden_boot_plan "$1" "$2" "$3")
 }

@@ -57,9 +57,11 @@ _layout_publish_boot() {
   # shellcheck disable=SC2034 # consumed by install_state_write
   LAYOUT_ROOT_CMDLINE="root=ZFS=${LAYOUT_OS_POOL_NAME}/ROOT/arch"
   LAYOUT_ROOT_CMDLINE+=" zfs_import_dir=/dev/disk/by-id"
-  local tail="zfs filesystems"
+  # undo-update (ADR 0166) rolls back to the Update Snapshot right after the
+  # import, before zfs-rollback re-applies the Blank Snapshots it restored.
+  local tail="zfs undo-update filesystems"
   [[ "$(install_config_impermanence_enabled)" == "true" ]] &&
-    tail="zfs zfs-rollback filesystems"
+    tail="zfs undo-update zfs-rollback filesystems"
   # shellcheck disable=SC2034 # consumed by install_state_write
   LAYOUT_HOOKS="base udev autodetect modconf keyboard keymap consolefont block"
   LAYOUT_HOOKS+=" ${tail}"

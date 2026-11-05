@@ -318,6 +318,10 @@ _esp_kernel_sync_keep_previous_pairs() {
            "$esp_directory — Undo Last Update unavailable for it." >&2
     done
   done < <(esp_kernel_sync_stale_previous /boot/efi)
+  # The Undo entry follows the Primary Kernel's previous pair (ADR 0166).
+  if [[ -x /usr/local/lib/archzfs/undo-entry.sh ]]; then
+    /usr/local/lib/archzfs/undo-entry.sh reconcile || true
+  fi
   return 0
 }
 

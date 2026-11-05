@@ -14,9 +14,23 @@ NVRAM entries are written once.
 
 **Blocked by:** 01, 06, 07.
 
-- [ ] Bats: entry rendered for each of the five loaders; absent without a
+- [x] Bats: entry rendered for each of the five loaders; absent without a
       previous Primary Kernel pair
 - [ ] VM: complete an update, boot Undo, previous kernel and package
       versions are back, normal boot afterwards
 - [ ] VM on an Impermanence profile: `/etc` matches the rolled-back `/usr`
-- [ ] Retrofit adds the entry where the ESP holds a previous pair
+- [x] Retrofit adds the entry where the ESP holds a previous pair
+
+## Comments
+
+- Code + bats done: renderers for all five loaders, runtime reconcile
+  (present only while the Primary Kernel's previous pair exists), the
+  `undo-update` initramfs hook (behaviour-tested against a stub `zfs`), the
+  post-Undo ESP re-sync unit, the rEFInd `dont_scan_files` line, the efistub
+  firmware entry (`--create-only`), and the retrofit (template from the
+  running cmdline, `undo-update` added to HOOKS, initramfs rebuilt on the
+  live system).
+- Every ZFS HOOKS list now carries `undo-update`, so its hook files are
+  written before `mkinitcpio -P`.
+- Open: both VM checks (need ticket 01). Also unverified until then: rolling
+  back the mounted root inside the initramfs latehook.

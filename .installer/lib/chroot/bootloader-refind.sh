@@ -41,4 +41,5 @@ fi
 
 bootloader_common_install_esp_sync_hooks
 bootloader_common_install_boot_recovery_hooks
+bootloader_common_install_undo_entry
 echo "rEFInd installed."

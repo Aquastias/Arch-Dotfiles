@@ -33,3 +33,9 @@ setup() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "split_partition: sata, nvme and mmc device names" {
+  [ "$(esp_stage_split_partition /dev/sda1)" = "/dev/sda 1" ]
+  [ "$(esp_stage_split_partition /dev/nvme0n1p2)" = "/dev/nvme0n1 2" ]
+  [ "$(esp_stage_split_partition /dev/mmcblk0p1)" = "/dev/mmcblk0 1" ]
+}
