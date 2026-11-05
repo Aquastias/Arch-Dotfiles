@@ -1,0 +1,48 @@
+// Persistent VM: the Interrupted Kernel Transaction lab (ADR 0166). ZFS root,
+// systemd-boot, Impermanence, headless, 4 GiB — the smallest install that
+// exercises the Module Stash, Stash Restore, Update Snapshot and Undo Last
+// Update (incl. Blank Snapshot restore). Driven over SSH by the recipe in
+// .scratch/interrupted-kernel-upgrade/repro.md; build from local HEAD:
+//   vm.sh --profile boot/interrupted-update --recreate --local
+{
+  "name": "arch-interrupted-update",
+  "hardware": {
+    "disks": [
+      80
+    ],
+    "ram_mb": 4096,
+    "vcpus": 2
+  },
+  "install": {
+    "system": {
+      "hostname": "vm-interrupted",
+      "locale": "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap": "us"
+    },
+    "options": {
+      "kernel": "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap": true,
+      "swap_size": "auto",
+      "impermanence": {
+        "enabled": true,
+        "dataset": "rpool/persist",
+        "mount": "/persist"
+      }
+    },
+    "post_install": {
+      "backup": false,
+      "security": false
+    },
+    "mode": "single",
+    "disk": "/dev/sda",
+    "ashift": 12,
+    "os_size": "32G",
+    "os_pool_name": "rpool",
+    "storage_pool_name": "dpool",
+    "storage_mount": "/data",
+    "storage_groups": []
+  }
+}
