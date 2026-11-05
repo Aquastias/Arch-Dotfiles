@@ -1075,20 +1075,22 @@ package install, config file generation, kernel-image entry registration. Five
 adapters: `bootloader-systemd-boot.sh`, `bootloader-grub.sh`,
 `bootloader-efistub.sh`, `bootloader-limine.sh`, `bootloader-refind.sh`. Each
 reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP
-info, etc.) and is interchangeable from the orchestrator's view. Four of the
-five are ESP-mirroring loaders; `grub` is the native-ZFS special case (ADR
-0077).
+info, etc.) and is interchangeable from the orchestrator's view. All five are
+ESP-mirroring loaders ([ADR 0077]; `grub` joined them when it moved onto the
+ESP, because it cannot read an encrypted rpool).
 
 ### ESP-mirroring loader
-The class of Bootloader Adapters — `systemd-boot`, `efistub`, `limine`,
-`refind` — that boot by reading the kernel, microcode, and initramfs the ESP
-Kernel Sync mirrors onto the FAT32 ESP, so they boot a ZFS root without reading
-ZFS. They differ only in **entry format** (systemd loader entry / `efibootmgr`
-load-options / `limine.conf` / `refind_linux.conf`) and loader-binary path,
-both carried by the Bootloader Manifest. `grub` is excluded — it reads ZFS
-natively and needs no ESP mirror to find its kernel. **efistub** is a
-direct-UEFI boot *method* (one `efibootmgr` entry per kernel + fallback), not a
-loader binary; its manifest loader path is the kernel image itself ([ADR 0077]).
+The class of Bootloader Adapters — all five: `systemd-boot`, `grub`,
+`efistub`, `limine`, `refind` — that boot by reading the kernel, microcode, and
+initramfs the ESP Kernel Sync mirrors onto the FAT32 ESP, so they boot a ZFS
+root without reading ZFS. They differ only in **entry format** (systemd loader
+entry / `grub.cfg` / `efibootmgr` load-options / `limine.conf` /
+`refind_linux.conf`) and loader-binary path, both carried by the Bootloader
+Manifest. `grub` reads no ZFS either: an encrypted rpool and newer pool
+features are beyond grub2, so its modules and a rendered `grub.cfg` live on the
+ESP too. **efistub** is a direct-UEFI boot *method* (one `efibootmgr` entry per
+kernel + fallback), not a loader binary; its manifest loader path is the kernel
+image itself ([ADR 0077]).
 
 ### Bootloader Manifest
 `.installer/lib/boot/bootloader.sh`. The pure token table — sourced host-side by
@@ -1103,9 +1105,8 @@ The pacman hook (`94-esp-kernel-sync.hook` →
 `/usr/local/lib/archzfs/esp-kernel-sync.sh`, installed from the shared
 `lib/boot/esp-kernel-sync.sh`) that copies the kernel image, microcode, and
 initramfs from the ZFS `/boot` onto the FAT32 ESP after every kernel
-transaction — required because every ESP-mirroring loader (systemd-boot,
-efistub, limine, refind) reads its kernel from the ESP, not ZFS. Not installed
-under `grub`, which reads ZFS natively. The files mirrored
+transaction — required because every ESP-mirroring loader (all five) reads its
+kernel from the ESP, not ZFS. The files mirrored
 are driven by the loader entries: only files an entry references (its
 `linux`/`initrd` lines) that exist in `/boot` are copied, so a Stray Kernel —
 having no entry — is never mirrored, and a missing file is never referenced.
@@ -1119,6 +1120,37 @@ only on multi-disk OS layouts (≥2 ESPs); it rsyncs the primary ESP
 independently bootable. Bootloader-agnostic. Runs after the ESP Kernel Sync
 (`94` < `95`) so secondaries receive freshly-synced images. Distinct from the
 ESP Kernel Sync.
+
+### Interrupted Kernel Transaction
+A pacman transaction that changes a kernel's version and is cut off (power
+loss, thermal shutdown, forced reset) after the old kernel's modules are
+removed but before the ESP Kernel Sync finishes. The ESP still holds the old
+kernel, its modules are gone, and the next boot lands in emergency mode.
+Every ESP-mirroring loader is exposed. Recovered by the Stash Restore
+([ADR 0166]).
+
+### Module Stash
+A copy of a kernel's modules (its ZFS module included), taken before a kernel
+transaction can remove them, and kept until the ESP Kernel Sync has put the
+replacement kernel on the ESP. Lives outside every Rollback Dataset. Exists so
+an Interrupted Kernel Transaction leaves the kernel still on the ESP bootable.
+
+### Stash Restore
+The early-boot step that notices the running kernel has no modules on disk and
+puts its Module Stash back before anything loads a module. Turns an Interrupted
+Kernel Transaction into a normal boot; the operator then re-runs pacman to
+finish the update.
+
+### Update Snapshot
+A ZFS snapshot of the OS datasets pacman changes — the root, `/var`, and on an
+Impermanence host the Rollback Datasets — taken before every pacman
+transaction. The last three are kept. ZFS roots only.
+
+### Undo Last Update
+A boot-menu choice that returns the system to its newest Update Snapshot and
+boots the kernels that match it. On an Impermanence host it also restores the
+matching Blank Snapshots, so `/etc` agrees with `/usr`. Recovery without a USB
+stick when an update leaves the system unbootable.
 
 ### Environment Config
 The `"environment"` key in the Host Profile. Declares desktop environment
@@ -2600,5 +2632,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0160]: docs/adr/0160-doom-emacs-opt-in-parity-twin-of-neovim-config.md
 [ADR 0161]: docs/adr/0161-hybrid-laptop-completion-legion-5.md
 [ADR 0162]: docs/adr/0162-niri-runs-xdg-autostart.md
+[ADR 0166]: docs/adr/0166-interrupted-update-recovery-module-stash-update-snapshot.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
