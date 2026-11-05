@@ -9,7 +9,11 @@
 #                      Stray Kernel warn hook from the shared lib/boot artifacts,
 #                      reconcile loader entries to present microcode, and drop the
 #                      fallback when the ESP is under the 1G floor.
-#   grub host:         pin the Primary Kernel as default + install the warn hook.
+#   grub / limine / refind / efistub host: install the ESP Kernel Sync (+
+#                      preflight) and the warn hook (ADR 0077: all five loaders
+#                      boot kernels mirrored onto the ESP).
+#   grub-native host:  a pre-ESP GRUB install whose config is in the ZFS /boot;
+#                      pin the Primary Kernel as default + install the warn hook.
 #
 # Installs the SAME shared artifacts the installer stages (single source, ADR
 # 0023). Pure planner helpers are lib-only-sourceable (HARDEN_BOOT_LIB_ONLY=1).
@@ -20,15 +24,28 @@
 _HARDEN_BOOT_INSTALLER_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." 2>/dev/null \
   && pwd || true)"
 
-# Detect the bootloader under <root>: "systemd-boot" if the ESP carries a
-# loader/entries dir, "grub" if /boot/grub exists, else "" (unknown).
+# Detect the bootloader under <root> from what each Bootloader Adapter leaves
+# on the ESP (all five are ESP-mirroring loaders, ADR 0077): "systemd-boot"
+# (loader/entries), "limine" (limine.conf), "refind" (EFI/refind/refind.conf),
+# "grub" (grub/grub.cfg on the ESP), "efistub" (bare kernels, no loader).
+# "grub-native" is a pre-ESP GRUB install whose config is in the ZFS /boot.
+# Prints "" when nothing is recognised.
 harden_boot_detect_bootloader() {
-  local root="${1:-}"
-  if [[ -d "$root/boot/efi/loader/entries" ]]; then
+  local root="${1:-}" esp="${1:-}/boot/efi" kernel
+  if [[ -d "$esp/loader/entries" ]]; then
     echo systemd-boot
-  elif [[ -d "$root/boot/grub" ]]; then
+  elif [[ -f "$esp/limine.conf" ]]; then
+    echo limine
+  elif [[ -f "$esp/EFI/refind/refind.conf" ]]; then
+    echo refind
+  elif [[ -f "$esp/grub/grub.cfg" ]]; then
     echo grub
+  elif [[ -d "$root/boot/grub" ]]; then
+    echo grub-native
   else
+    for kernel in "$esp"/vmlinuz-*; do
+      [[ -f "$kernel" ]] && { echo efistub; return 0; }
+    done
     echo ""
   fi
 }
@@ -50,8 +67,12 @@ harden_boot_plan() {
     echo reconcile-microcode
     harden_boot_should_drop_fallback "$esp_mib" && echo drop-fallback
     ;;
-  grub)
+  grub-native)
     echo pin-grub-default
+    echo install-warn-hook
+    ;;
+  grub | limine | refind | efistub)
+    echo install-esp-kernel-sync
     echo install-warn-hook
     ;;
   esac
@@ -65,14 +86,20 @@ set -Eeuo pipefail
 
 # ── apply helpers ─────────────────────────────────────────────────────────────
 # Selected kernel bases for the warn hook: derive from what the system is set to
-# boot — the loader entries' vmlinuz (systemd-boot) or GRUB_TOP_LEVEL (grub).
+# boot — the loader entries' vmlinuz (systemd-boot), the kernels staged at the
+# ESP root (every ESP-mirroring loader), or GRUB_TOP_LEVEL (grub-native).
 _harden_boot_selected_kernels() {
-  local entry_file
-  for entry_file in "$ESP"/loader/entries/*.conf; do
-    [[ -f "$entry_file" ]] || continue
-    awk '$1 == "linux" { sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
-      "$entry_file"
-  done 2>/dev/null | sort -u
+  local entry_file kernel
+  {
+    for entry_file in "$ESP"/loader/entries/*.conf; do
+      [[ -f "$entry_file" ]] || continue
+      awk '$1 == "linux" { sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
+        "$entry_file"
+    done
+    for kernel in "$ESP"/vmlinuz-*; do
+      if [[ -f "$kernel" ]]; then printf '%s\n' "${kernel##*/vmlinuz-}"; fi
+    done
+  } 2>/dev/null | sort -u
   [[ -f "$ROOT/etc/default/grub" ]] || return 0
   awk '/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-.*".*/ {
     sub(/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-/, ""); sub(/"[^"]*$/, "")

@@ -1,6 +1,6 @@
 # 02: Prefactor: retrofit tool recognises all five loaders
 
-Status: ready-for-agent
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -12,7 +12,7 @@ native-ZFS. Later slices add their artifacts to this one install path.
 
 **Blocked by:** None (can start immediately).
 
-- [ ] Detection correct for all five loaders against fake roots
-- [ ] Unknown loader: clear error, no changes
-- [ ] Idempotent; dry-run previews without writing
-- [ ] Existing harden-boot bats suite extended and green
+- [x] Detection correct for all five loaders against fake roots
+- [x] Unknown loader: clear error, no changes
+- [x] Idempotent; dry-run previews without writing
+- [x] Existing harden-boot bats suite extended and green

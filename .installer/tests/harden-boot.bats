@@ -20,11 +20,45 @@ teardown() { rm -rf "$ROOT"; }
   [ "$output" = "systemd-boot" ]
 }
 
-@test "detect_bootloader: grub when /boot/grub exists" {
+@test "detect_bootloader: grub-native when only the ZFS /boot/grub exists" {
   mkdir -p "$ROOT/boot/grub"
   run harden_boot_detect_bootloader "$ROOT"
   [ "$status" -eq 0 ]
+  [ "$output" = "grub-native" ]
+}
+
+@test "detect_bootloader: grub when its config is on the ESP" {
+  mkdir -p "$ROOT/boot/efi/grub"
+  : > "$ROOT/boot/efi/grub/grub.cfg"
+  run harden_boot_detect_bootloader "$ROOT"
   [ "$output" = "grub" ]
+}
+
+@test "detect_bootloader: limine when limine.conf is on the ESP" {
+  mkdir -p "$ROOT/boot/efi"
+  : > "$ROOT/boot/efi/limine.conf"
+  run harden_boot_detect_bootloader "$ROOT"
+  [ "$output" = "limine" ]
+}
+
+@test "detect_bootloader: refind when refind.conf is on the ESP" {
+  mkdir -p "$ROOT/boot/efi/EFI/refind"
+  : > "$ROOT/boot/efi/EFI/refind/refind.conf"
+  run harden_boot_detect_bootloader "$ROOT"
+  [ "$output" = "refind" ]
+}
+
+@test "detect_bootloader: efistub when only kernels sit on the ESP" {
+  mkdir -p "$ROOT/boot/efi"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  run harden_boot_detect_bootloader "$ROOT"
+  [ "$output" = "efistub" ]
+}
+
+@test "detect_bootloader: empty when nothing is recognised" {
+  mkdir -p "$ROOT/boot/efi"
+  run harden_boot_detect_bootloader "$ROOT"
+  [ -z "$output" ]
 }
 
 @test "should_drop_fallback: true below 1G, false at/above" {
@@ -51,12 +85,62 @@ teardown() { rm -rf "$ROOT"; }
   [[ "$output" != *drop-fallback* ]]
 }
 
-@test "plan: grub pins default + installs warn hook, no esp-sync" {
-  run harden_boot_plan grub 2048
+@test "plan: grub-native pins default + installs warn hook, no esp-sync" {
+  run harden_boot_plan grub-native 2048
   [ "$status" -eq 0 ]
   [[ "$output" == *pin-grub-default* ]]
   [[ "$output" == *install-warn-hook* ]]
   [[ "$output" != *install-esp-kernel-sync* ]]
+}
+
+@test "plan: every ESP-only loader gets the ESP Kernel Sync + warn hook" {
+  local loader
+  for loader in grub limine refind efistub; do
+    run harden_boot_plan "$loader" 512
+    [ "$status" -eq 0 ]
+    [ "$output" = $'install-esp-kernel-sync\ninstall-warn-hook' ]
+  done
+}
+
+@test "apply: limine root writes the sync hooks and its staged kernel" {
+  mkdir -p "$ROOT/boot/efi"
+  : > "$ROOT/boot/efi/limine.conf"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -eq 0 ]
+  [ -f "$ROOT/etc/pacman.d/hooks/94-esp-kernel-sync.hook" ]
+  [ -f "$ROOT/etc/pacman.d/hooks/97-stray-kernel-warn.hook" ]
+  [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]
+}
+
+@test "apply: dry-run lists actions and writes nothing" {
+  mkdir -p "$ROOT/boot/efi"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT" \
+    --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"bootloader=efistub"* ]]
+  [[ "$output" == *"would: install-esp-kernel-sync"* ]]
+  [ ! -e "$ROOT/etc" ]
+}
+
+@test "apply: unknown loader exits non-zero and writes nothing" {
+  mkdir -p "$ROOT/boot/efi"
+  run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"could not detect a bootloader"* ]]
+  [ ! -e "$ROOT/etc" ]
+}
+
+@test "apply: a second run leaves the same hooks (idempotent)" {
+  mkdir -p "$ROOT/boot/efi"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  local first
+  first="$(cat "$ROOT"/etc/pacman.d/hooks/*.hook)"
+  run bash "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ROOT"/etc/pacman.d/hooks/*.hook)" = "$first" ]
 }
 
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
