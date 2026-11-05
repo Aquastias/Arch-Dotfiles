@@ -232,6 +232,16 @@ teardown() { rm -rf "$ROOT"; }
   [ "$output" = "root=ZFS=a rw quiet" ]
 }
 
+@test "impermanence_datasets: the Rollback Datasets of the resnapshot helper" {
+  printf '%s\n' '#!/usr/bin/env bash' \
+    'datasets="rpool/ROOT/etc rpool/ROOT/opt"' 'for ds in $datasets; do' \
+    > "$ROOT/resnapshot.sh"
+  run harden_boot_impermanence_datasets "$ROOT/resnapshot.sh"
+  [ "$output" = $'rpool/ROOT/etc\nrpool/ROOT/opt' ]
+  run harden_boot_impermanence_datasets "$ROOT/missing.sh"
+  [ -z "$output" ]
+}
+
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
 # /etc/default/grub used to abort after "applying: install-warn-hook".
 @test "apply: systemd-boot root without grub defaults writes every hook" {

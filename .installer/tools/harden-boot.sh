@@ -96,6 +96,15 @@ harden_boot_undo_cmdline() {
   }'
 }
 
+# harden_boot_impermanence_datasets <resnapshot-helper> — the Rollback
+# Datasets an Impermanence host re-snapshots, one per line; none when the
+# helper is absent (no Impermanence).
+harden_boot_impermanence_datasets() {
+  [[ -f "$1" ]] || return 0
+  awk -F\" '/^datasets=/ { n = split($2, d, " ")
+    for (i = 1; i <= n; i++) print d[i] }' "$1"
+}
+
 # Lib-only sourcing for tests: skip the apply/runtime below.
 [[ "${HARDEN_BOOT_LIB_ONLY:-0}" == "1" ]] && return 0
 
@@ -326,7 +335,23 @@ main() {
     ((DRY)) && echo ' (dry-run)'
   )"
   harden_boot_apply "$bootloader" "$esp_mib" "$(harden_boot_root_fstype)"
+  ((DRY)) || [[ -n "$ROOT" ]] || _harden_boot_persist_impermanence
   echo "harden-boot: done."
+}
+
+# On a live Impermanence host /etc is rolled back to @blank at every boot,
+# which would undo this retrofit's /etc writes (pacman hooks,
+# mkinitcpio.conf). Re-take @blank on each Rollback Dataset so they stay.
+# Directly, not via the resnapshot helper: its keep-blank step would
+# mislabel the old @blank as an Update Snapshot.
+_harden_boot_persist_impermanence() {
+  local dataset
+  while IFS= read -r dataset; do
+    echo "  persisting: $dataset@blank"
+    zfs destroy "$dataset@blank" 2>/dev/null || true
+    zfs snapshot "$dataset@blank"
+  done < <(harden_boot_impermanence_datasets \
+    /usr/lib/impermanence/resnapshot.sh)
 }
 
 # harden_boot_parse_arguments <argument…> — sets DRY and ROOT.
