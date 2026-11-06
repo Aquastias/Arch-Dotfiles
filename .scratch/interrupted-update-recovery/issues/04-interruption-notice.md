@@ -1,6 +1,6 @@
 # 04: Interruption notice
 
-Status: ready-for-agent
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -12,9 +12,9 @@ notice clears once a pacman transaction completes. Nothing runs pacman.
 **Blocked by:** 03.
 
 - [x] Console message on a Stash Restore boot only
-- [ ] Desktop notification after login, every supported session
+- [x] Desktop notification after login, every supported session
 - [x] Notice gone after a completed transaction
-- [ ] VM (01 recipe): both notices seen (console seen; desktop needs a desktop VM)
+- [x] VM (01 recipe): both notices seen
 
 ## Comments
 
@@ -33,3 +33,7 @@ notice clears once a pacman transaction completes. Nothing runs pacman.
   conflicts) and the interrupted transaction leaves `db.lck`. The notice now
   names `sudo /usr/local/lib/archzfs/boot-recovery.sh finish`, and a boot unit
   clears the stale lock.
+- Desktop VMs (2026-11-07), retrofitted from HEAD with `harden-boot.sh`
+  and a planted "restore pending" marker: the notification shows at login on
+  KDE, niri and Hyprland. Noctalia cuts the body at ~3 lines, which hid the
+  command; the notice now leads with it.

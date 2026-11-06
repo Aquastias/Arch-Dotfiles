@@ -198,13 +198,14 @@ UNIT
 }
 
 # boot_recovery_notice <modules-dir> — the interruption notice while a Stash
-# Restore is pending: what happened and the one command that finishes the
-# update. Empty when nothing was restored.
+# Restore is pending: the one command that finishes the update first (desktop
+# popups cut the body after about three lines), then what happened. Empty when
+# nothing was restored.
 boot_recovery_notice() {
   [[ -s "$1/.stash/restored" ]] || return 0
-  echo "The last kernel update was interrupted; the previous kernel's" \
-       "modules were restored so this boot could finish. Run:" \
-       "sudo /usr/local/lib/archzfs/boot-recovery.sh finish"
+  echo "Finish the interrupted kernel update with: sudo" \
+       "/usr/local/lib/archzfs/boot-recovery.sh finish (this boot runs on" \
+       "the previous kernel, whose modules were restored)."
 }
 
 # boot_recovery_installed <package> — 0 when <package> is installed. Tests

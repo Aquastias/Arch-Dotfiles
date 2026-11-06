@@ -316,3 +316,11 @@ LINES
     "$cache/linux-lts-6.18.59-1-x86_64.pkg.tar.zst" \
     sync:linux-lts-headers missing:zfs-dkms-2.4.4-1)" ]
 }
+
+@test "notice: the command comes first (popups cut the body at ~3 lines)" {
+  mkdir -p "$FIXTURE/modules/.stash"
+  echo "6.18.40-1-lts linux-lts" >"$FIXTURE/modules/.stash/restored"
+  run boot_recovery_notice "$FIXTURE/modules"
+  [[ "$output" == "Finish the interrupted kernel update with: sudo"\
+" /usr/local/lib/archzfs/boot-recovery.sh finish"* ]]
+}
