@@ -36,7 +36,13 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
    directory survives holding depmod's unowned `modules.*` files. It links
    the stash back in place and re-runs `depmod`. The kernel still on the ESP
    then boots normally. It announces the interruption on the console and as
-   a desktop notification; it never runs pacman itself.
+   a desktop notification; it never runs pacman itself. The notice names one
+   command, `boot-recovery.sh finish`, which reinstalls the *installed*
+   versions of the restored kernels (+ headers) from the cache: `pacman -S`
+   could pull a newer kernel whose headers do not match, and `pacman -Syu`
+   finds nothing to do. A boot unit removes the stale `db.lck` an interrupted
+   transaction leaves — and that Undo Last Update restores, since the `/var`
+   Update Snapshot is taken mid-transaction.
 3. **[[Update Snapshot]]** (ZFS roots). A PreTransaction hook snapshots
    `rpool/ROOT/arch` and `rpool/var` as `@update-<UTC time>` before every
    transaction. Keep the last three. The snapshot taken before an unfinished

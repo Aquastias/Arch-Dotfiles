@@ -17,6 +17,8 @@
 #   restore     Early boot unit: the Stash Restore, when the running kernel has
 #               no modules on disk.
 #   drop-stash  Called by the ESP Kernel Sync once the new kernel is on the ESP.
+#   finish      Run by the user (sudo) from the notice: reinstall the restored
+#               kernels' installed versions so the skipped hooks run.
 #
 # Used by: lib/chroot/bootloader-common.sh and tools/harden-boot.sh (install),
 # lib/boot/esp-kernel-sync.sh (drop-stash), pacman hooks + systemd units.
@@ -197,18 +199,73 @@ UNIT
 
 # boot_recovery_notice <modules-dir> — the interruption notice while a Stash
 # Restore is pending: what happened and the one command that finishes the
-# update (re-installing the kernel package(s) re-runs the hooks it missed;
-# `pacman -Syu` alone would find nothing to do). Empty when nothing was
-# restored.
+# update. Empty when nothing was restored.
 boot_recovery_notice() {
-  local restored="$1/.stash/restored" packages
-  [[ -s "$restored" ]] || return 0
-  packages="$(awk 'NF > 1 && !seen[$2]++ {
-      printf "%s%s", sep, $2; sep = " " }' \
-    "$restored")"
+  [[ -s "$1/.stash/restored" ]] || return 0
   echo "The last kernel update was interrupted; the previous kernel's" \
        "modules were restored so this boot could finish. Run:" \
-       "sudo pacman -S ${packages:-<your kernel>}"
+       "sudo /usr/local/lib/archzfs/boot-recovery.sh finish"
+}
+
+# boot_recovery_installed <package> — 0 when <package> is installed. Tests
+# override it.
+boot_recovery_installed() {
+  pacman -Qq "$1" >/dev/null 2>&1
+}
+
+# boot_recovery_finish_packages <modules-dir> — the packages that finish an
+# interrupted update: each restored kernel's package base, then its headers
+# when installed (zfs-dkms builds against them).
+boot_recovery_finish_packages() {
+  local base
+  while IFS= read -r base; do
+    printf '%s\n' "$base"
+    if boot_recovery_installed "$base-headers"; then
+      printf '%s\n' "$base-headers"
+    fi
+  done < <(awk 'NF > 1 && !seen[$2]++ { print $2 }' "$1/.stash/restored")
+}
+
+# boot_recovery_finish_targets <cache-dir> — from "<name> <version>" lines on
+# stdin (the installed versions), the pacman targets: the cached package of
+# exactly that version, else "sync:<name>". Reinstalling the installed version
+# re-runs the hooks the interruption skipped without pulling a newer kernel
+# whose headers would not match.
+boot_recovery_finish_targets() {
+  local cache="$1" name version file
+  while read -r name version; do
+    file=""
+    for file in "$cache/$name-$version"-*.pkg.tar.zst; do
+      [[ -f "$file" ]] && break
+      file=""
+    done
+    if [[ -n "$file" ]]; then
+      printf '%s\n' "$file"
+    else
+      printf 'sync:%s\n' "$name"
+    fi
+  done
+}
+
+# boot_recovery_unlock_unit — remove the pacman lock an interrupted update (or
+# an Undo Last Update, whose /var snapshot was taken mid-transaction) leaves
+# behind. Safe: before sysinit.target nothing can be running pacman.
+boot_recovery_unlock_unit() {
+  cat <<'UNIT'
+[Unit]
+Description=Remove a pacman lock left by an interrupted update
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+ConditionPathExists=/var/lib/pacman/db.lck
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rm -f /var/lib/pacman/db.lck
+
+[Install]
+WantedBy=sysinit.target
+UNIT
 }
 
 # boot_recovery_notice_unit — the user unit showing the notice as a desktop
@@ -246,6 +303,9 @@ boot_recovery_install() {
   boot_recovery_battery_hook >"$hooks/00-battery-preflight.hook"
   boot_recovery_stash_hook >"$hooks/05-module-stash.hook"
   boot_recovery_restore_unit >"$units/boot-recovery-restore.service"
+  boot_recovery_unlock_unit >"$units/boot-recovery-unlock.service"
+  ln -sfn ../boot-recovery-unlock.service \
+    "$units/sysinit.target.wants/boot-recovery-unlock.service"
   ln -sfn ../boot-recovery-restore.service \
     "$units/sysinit.target.wants/boot-recovery-restore.service"
   boot_recovery_notice_unit >"$user_units/boot-recovery-notice.service"
@@ -264,6 +324,38 @@ _boot_recovery_selected() {
   else
     cat "$_BOOT_RECOVERY_MODULES"/*/pkgbase 2>/dev/null | sort -u
   fi
+}
+
+# Finish an interrupted update (as root, from the notice): clear a stale lock
+# when no pacman runs, then reinstall the installed versions of the restored
+# kernels (+ headers) so the skipped hooks run; pacman asks before changing
+# anything.
+_boot_recovery_finish() {
+  local -a packages=() files=() syncs=()
+  local target
+  if ((EUID != 0)); then
+    echo "boot-recovery: finish needs root (sudo)." >&2
+    exit 1
+  fi
+  [[ -s "$_BOOT_RECOVERY_MODULES/.stash/restored" ]] || {
+    echo "boot-recovery: no interrupted update to finish."
+    return 0
+  }
+  if [[ -e /var/lib/pacman/db.lck ]] && ! pgrep -x pacman >/dev/null; then
+    rm -f /var/lib/pacman/db.lck
+  fi
+  mapfile -t packages < <(boot_recovery_finish_packages \
+    "$_BOOT_RECOVERY_MODULES")
+  while IFS= read -r target; do
+    if [[ "$target" == sync:* ]]; then
+      syncs+=("${target#sync:}")
+    else
+      files+=("$target")
+    fi
+  done < <(pacman -Q "${packages[@]}" \
+    | boot_recovery_finish_targets /var/cache/pacman/pkg)
+  if ((${#files[@]})); then pacman -U "${files[@]}" || exit 1; fi
+  if ((${#syncs[@]})); then pacman -S "${syncs[@]}" || exit 1; fi
 }
 
 # Desktop notification through the session bus (glib2's gdbus, so no libnotify
@@ -296,9 +388,10 @@ restore)
   ;;
 drop-stash) boot_recovery_drop_stash "$_BOOT_RECOVERY_MODULES" ;;
 notify) _boot_recovery_notify ;;
+finish) _boot_recovery_finish ;;
 *)
   echo "usage: boot-recovery.sh" \
-    "battery | stash | restore | drop-stash | notify" >&2
+    "battery | stash | restore | drop-stash | notify | finish" >&2
   exit 2
   ;;
 esac

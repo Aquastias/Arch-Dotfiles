@@ -192,15 +192,6 @@ _kernel() {
 
 # ── interruption notice ──────────────────────────────────────────────────────
 
-@test "notice: names the reinstall command for every restored kernel" {
-  mkdir -p "$FIXTURE/modules/.stash"
-  printf '%s\n' "6.18.40-1-lts linux-lts" "7.0.1-zen1-1-zen linux-zen" \
-    "6.18.40-1-lts linux-lts" >"$FIXTURE/modules/.stash/restored"
-  run boot_recovery_notice "$FIXTURE/modules"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"interrupted"* ]]
-  [[ "$output" == *"sudo pacman -S linux-lts linux-zen"* ]]
-}
 
 @test "notice: silent when nothing was restored" {
   run boot_recovery_notice "$FIXTURE/modules"
@@ -272,4 +263,50 @@ _cut_before_depmod() {
   [ ! -e "$hooks/92-battery-preflight.hook" ]
   [ -f "$hooks/00-battery-preflight.hook" ]
   [[ "00-battery-preflight.hook" < "01-esp-kernel-sync-preflight.hook" ]]
+}
+
+# ── finishing an interrupted update ──────────────────────────────────────────
+
+@test "finish_packages: restored kernels plus their installed headers" {
+  mkdir -p "$FIXTURE/modules/.stash"
+  printf '%s\n' "6.18.40-1-lts linux-lts" "7.0.1-1 linux" \
+    >"$FIXTURE/modules/.stash/restored"
+  boot_recovery_installed() { [[ "$1" != linux-headers ]]; }
+  run boot_recovery_finish_packages "$FIXTURE/modules"
+  [ "$output" = $'linux-lts\nlinux-lts-headers\nlinux' ]
+}
+
+@test "finish_targets: cached installed version, else the sync repo" {
+  local cache="$FIXTURE/cache"
+  mkdir -p "$cache"
+  : >"$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst"
+  : >"$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst.sig"
+  : >"$cache/linux-lts-6.18.59-1-x86_64.pkg.tar.zst"
+  run boot_recovery_finish_targets "$cache" \
+    <<<$'linux-lts 6.18.60-1\nlinux-lts-headers 6.18.60-1'
+  [ "$output" = "$(printf '%s\n' \
+    "$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst" sync:linux-lts-headers)" ]
+}
+
+@test "notice: names the one finish command" {
+  mkdir -p "$FIXTURE/modules/.stash"
+  echo "6.18.40-1-lts linux-lts" >"$FIXTURE/modules/.stash/restored"
+  run boot_recovery_notice "$FIXTURE/modules"
+  [[ "$output" == *"sudo /usr/local/lib/archzfs/boot-recovery.sh finish"* ]]
+}
+
+@test "unlock unit: clears a stale pacman lock before anything can run pacman" {
+  run boot_recovery_unlock_unit
+  [[ "$output" == *"After=local-fs.target"* ]]
+  [[ "$output" == *"Before=sysinit.target"* ]]
+  [[ "$output" == *"ConditionPathExists=/var/lib/pacman/db.lck"* ]]
+  [[ "$output" == *"ExecStart=/usr/bin/rm -f /var/lib/pacman/db.lck"* ]]
+}
+
+@test "install: enables the unlock unit from the vendor dir" {
+  boot_recovery_install "$FIXTURE/root" \
+    "$BATS_TEST_DIRNAME/../../lib/boot/boot-recovery.sh"
+  local units="$FIXTURE/root/usr/lib/systemd/system"
+  [ -f "$units/boot-recovery-unlock.service" ]
+  [ -L "$units/sysinit.target.wants/boot-recovery-unlock.service" ]
 }

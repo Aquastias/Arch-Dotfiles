@@ -28,3 +28,8 @@ notice clears once a pacman transaction completes. Nothing runs pacman.
   database already lists the new kernel, so only a reinstall re-runs the
   missed hooks.
 - Open: "every supported session" and the VM check (needs ticket 01).
+- VM finding: `pacman -S <kernel>` is unsafe (a newer repo kernel without
+  matching headers breaks zfs-dkms; reinstalling a restored version
+  conflicts) and the interrupted transaction leaves `db.lck`. The notice now
+  names `sudo /usr/local/lib/archzfs/boot-recovery.sh finish`, and a boot unit
+  clears the stale lock.
