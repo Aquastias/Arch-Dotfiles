@@ -98,3 +98,10 @@ Found, not part of this feature:
   Resnapshot Hook never runs; `@blank` is never refreshed after updates.
 - The ESP Kernel Sync triggers only on kernel images: an initramfs rebuilt
   by a zfs-dkms or mkinitcpio update never reaches the ESP.
+
+Rerun on a VM rebuilt from HEAD (stale-lock unit + `finish`): field case
+(`80-hold`) → normal boot; `boot-recovery-unlock` removed the stale
+`db.lck`; the notice names `boot-recovery.sh finish`. With the exact versions
+neither cached nor in the repo, `finish` refuses and changes nothing; with
+them cached it reinstalls them, the ESP Kernel Sync drops the stash and the
+leftover tree, and the next boot runs the new kernel. PASS.

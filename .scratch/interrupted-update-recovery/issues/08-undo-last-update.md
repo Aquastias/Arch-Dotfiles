@@ -16,7 +16,7 @@ NVRAM entries are written once.
 
 - [x] Bats: entry rendered for each of the five loaders; absent without a
       previous Primary Kernel pair
-- [ ] VM: complete an update, boot Undo, previous kernel and package
+- [x] VM: complete an update, boot Undo, previous kernel and package
       versions are back, normal boot afterwards
 - [ ] VM on an Impermanence profile: `/etc` matches the rolled-back `/usr`
 - [x] Retrofit adds the entry where the ESP holds a previous pair
@@ -34,3 +34,8 @@ NVRAM entries are written once.
   written before `mkinitcpio -P`.
 - Open: both VM checks (need ticket 01). Also unverified until then: rolling
   back the mounted root inside the initramfs latehook.
+- VM: Undo verified (scenario 4 in `.scratch/interrupted-kernel-upgrade/
+  repro.md`) after two hook fixes. The Impermanence `/etc` check is blocked
+  by a separate, pre-existing bug: the Pacman Resnapshot Hook never runs on
+  Impermanence installs (its hook file is hidden under the `/etc/pacman.d`
+  Persist Mount), so no Rollback Dataset ever gets an Update Snapshot.

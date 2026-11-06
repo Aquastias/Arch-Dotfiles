@@ -1,6 +1,6 @@
 # 01: On-demand VM reproduction of an Interrupted Kernel Transaction
 
-Status: ready-for-agent
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -14,8 +14,8 @@ every matrix run.
 
 **Blocked by:** None (can start immediately).
 
-- [ ] Recipe written to `.scratch/interrupted-kernel-upgrade/repro.md`
-- [ ] Run on the current installer reproduces it: running kernel has no
+- [x] Recipe written to `.scratch/interrupted-kernel-upgrade/repro.md`
+- [x] Run on the current installer reproduces it: running kernel has no
       modules on disk, preset missing, emergency mode
-- [ ] VM restored to its pre-test state afterwards
-- [ ] Refuses to start when host memory is below the VM's RAM + 8 GiB
+- [x] VM restored to its pre-test state afterwards
+- [x] Refuses to start when host memory is below the VM's RAM + 8 GiB

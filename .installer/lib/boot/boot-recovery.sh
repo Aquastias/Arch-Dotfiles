@@ -226,14 +226,15 @@ boot_recovery_finish_packages() {
   done < <(awk 'NF > 1 && !seen[$2]++ { print $2 }' "$1/.stash/restored")
 }
 
-# boot_recovery_finish_targets <cache-dir> — from "<name> <version>" lines on
-# stdin (the installed versions), the pacman targets: the cached package of
-# exactly that version, else "sync:<name>". Reinstalling the installed version
-# re-runs the hooks the interruption skipped without pulling a newer kernel
-# whose headers would not match.
+# boot_recovery_finish_targets <cache-dir> — from "<name> <installed-version>
+# <repo-version>" lines on stdin, the pacman targets that reinstall exactly the
+# installed version: its cached package, else "sync:<name>" when the repo still
+# carries that version, else "missing:<name>-<version>". Reinstalling the
+# installed version re-runs the hooks the interruption skipped; a different
+# version could miss its headers or collide with the restored tree.
 boot_recovery_finish_targets() {
-  local cache="$1" name version file
-  while read -r name version; do
+  local cache="$1" name version repo_version file
+  while read -r name version repo_version; do
     file=""
     for file in "$cache/$name-$version"-*.pkg.tar.zst; do
       [[ -f "$file" ]] && break
@@ -241,8 +242,10 @@ boot_recovery_finish_targets() {
     done
     if [[ -n "$file" ]]; then
       printf '%s\n' "$file"
-    else
+    elif [[ "$repo_version" == "$version" ]]; then
       printf 'sync:%s\n' "$name"
+    else
+      printf 'missing:%s-%s\n' "$name" "$version"
     fi
   done
 }
@@ -327,12 +330,12 @@ _boot_recovery_selected() {
 }
 
 # Finish an interrupted update (as root, from the notice): clear a stale lock
-# when no pacman runs, then reinstall the installed versions of the restored
-# kernels (+ headers) so the skipped hooks run; pacman asks before changing
-# anything.
+# when no pacman runs, then reinstall exactly the installed versions of the
+# restored kernels (+ headers) so the skipped hooks run; pacman asks before
+# changing anything. A version neither cached nor in the repo stops it first.
 _boot_recovery_finish() {
-  local -a packages=() files=() syncs=()
-  local target
+  local -a packages=() files=() syncs=() missing=()
+  local target name version
   if ((EUID != 0)); then
     echo "boot-recovery: finish needs root (sudo)." >&2
     exit 1
@@ -347,13 +350,21 @@ _boot_recovery_finish() {
   mapfile -t packages < <(boot_recovery_finish_packages \
     "$_BOOT_RECOVERY_MODULES")
   while IFS= read -r target; do
-    if [[ "$target" == sync:* ]]; then
-      syncs+=("${target#sync:}")
-    else
-      files+=("$target")
-    fi
-  done < <(pacman -Q "${packages[@]}" \
-    | boot_recovery_finish_targets /var/cache/pacman/pkg)
+    case "$target" in
+    sync:*) syncs+=("${target#sync:}") ;;
+    missing:*) missing+=("${target#missing:}") ;;
+    *) files+=("$target") ;;
+    esac
+  done < <(pacman -Q "${packages[@]}" | while read -r name version; do
+      printf '%s %s %s\n' "$name" "$version" "$(pacman -Si "$name" \
+        2>/dev/null | awk -F': ' '/^Version/ { print $2; exit }')"
+    done | boot_recovery_finish_targets /var/cache/pacman/pkg)
+  if ((${#missing[@]})); then
+    echo "boot-recovery: not in the pacman cache nor the repo:" \
+         "${missing[*]}. Put those exact packages in /var/cache/pacman/pkg" \
+         "(Arch Linux Archive) and run finish again." >&2
+    exit 1
+  fi
   if ((${#files[@]})); then pacman -U "${files[@]}" || exit 1; fi
   if ((${#syncs[@]})); then pacman -S "${syncs[@]}" || exit 1; fi
 }

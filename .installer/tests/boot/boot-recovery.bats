@@ -276,17 +276,6 @@ _cut_before_depmod() {
   [ "$output" = $'linux-lts\nlinux-lts-headers\nlinux' ]
 }
 
-@test "finish_targets: cached installed version, else the sync repo" {
-  local cache="$FIXTURE/cache"
-  mkdir -p "$cache"
-  : >"$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst"
-  : >"$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst.sig"
-  : >"$cache/linux-lts-6.18.59-1-x86_64.pkg.tar.zst"
-  run boot_recovery_finish_targets "$cache" \
-    <<<$'linux-lts 6.18.60-1\nlinux-lts-headers 6.18.60-1'
-  [ "$output" = "$(printf '%s\n' \
-    "$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst" sync:linux-lts-headers)" ]
-}
 
 @test "notice: names the one finish command" {
   mkdir -p "$FIXTURE/modules/.stash"
@@ -309,4 +298,21 @@ _cut_before_depmod() {
   local units="$FIXTURE/root/usr/lib/systemd/system"
   [ -f "$units/boot-recovery-unlock.service" ]
   [ -L "$units/sysinit.target.wants/boot-recovery-unlock.service" ]
+}
+
+@test "finish_targets: the cached installed version, never a different one" {
+  local cache="$FIXTURE/cache"
+  mkdir -p "$cache"
+  : >"$cache/linux-lts-6.18.59-1-x86_64.pkg.tar.zst"
+  : >"$cache/linux-lts-6.18.59-1-x86_64.pkg.tar.zst.sig"
+  : >"$cache/linux-lts-6.18.60-1-x86_64.pkg.tar.zst"
+  # <name> <installed version> <repo version>
+  run boot_recovery_finish_targets "$cache" <<'LINES'
+linux-lts 6.18.59-1 6.18.60-1
+linux-lts-headers 6.18.59-1 6.18.59-1
+zfs-dkms 2.4.4-1 2.4.5-1
+LINES
+  [ "$output" = "$(printf '%s\n' \
+    "$cache/linux-lts-6.18.59-1-x86_64.pkg.tar.zst" \
+    sync:linux-lts-headers missing:zfs-dkms-2.4.4-1)" ]
 }

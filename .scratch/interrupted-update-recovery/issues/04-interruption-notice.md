@@ -14,7 +14,7 @@ notice clears once a pacman transaction completes. Nothing runs pacman.
 - [x] Console message on a Stash Restore boot only
 - [ ] Desktop notification after login, every supported session
 - [x] Notice gone after a completed transaction
-- [ ] VM (01 recipe): both notices seen
+- [ ] VM (01 recipe): both notices seen (console seen; desktop needs a desktop VM)
 
 ## Comments
 

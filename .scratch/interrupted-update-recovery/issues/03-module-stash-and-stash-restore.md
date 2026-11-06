@@ -1,6 +1,6 @@
 # 03: Module Stash + Stash Restore
 
-Status: ready-for-agent
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -19,7 +19,7 @@ retrofit tool, on ZFS and non-ZFS roots.
 - [x] Bats: restore only when modules missing and stash present
 - [x] Bats: stash dropped after a successful sync
 - [x] Stash survives an Impermanence boot-time rollback
-- [ ] VM (01 recipe): interrupted swap now boots to the normal target;
+- [x] VM (01 recipe): interrupted swap now boots to the normal target;
       re-running pacman completes the update and drops the stash
 - [x] Retrofit installs it on all five loaders
 
