@@ -1,6 +1,6 @@
 # Pacman Resnapshot Hook never runs on Impermanence installs
 
-Status: ready-for-agent
+Status: done
 
 ## Problem
 
@@ -30,3 +30,9 @@ The bats suite asserts the hidden path
 - Tests assert the hook ends up on the Persist Dataset.
 - VM check: after a pacman transaction on an Impermanence VM, `@blank` is
   re-taken and the Rollback Datasets carry the transaction's `@update-*`.
+
+## Comments
+
+- Fixed and VM-verified (see `.scratch/interrupted-kernel-upgrade/repro.md`):
+  the hook step runs before the curated move; the retrofit restores a
+  missing hook on existing hosts.

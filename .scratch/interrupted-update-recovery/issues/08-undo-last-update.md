@@ -39,3 +39,6 @@ NVRAM entries are written once.
   by a separate, pre-existing bug: the Pacman Resnapshot Hook never runs on
   Impermanence installs (its hook file is hidden under the `/etc/pacman.d`
   Persist Mount), so no Rollback Dataset ever gets an Update Snapshot.
+- The Impermanence `/etc` blocker is fixed
+  (`.scratch/impermanence-resnapshot-hook-hidden`); Rollback Datasets now
+  carry `@update-*`. The `/etc` restore by Undo itself is not yet VM-run.

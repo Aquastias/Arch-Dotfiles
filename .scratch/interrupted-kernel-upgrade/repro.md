@@ -105,3 +105,12 @@ Rerun on a VM rebuilt from HEAD (stale-lock unit + `finish`): field case
 neither cached nor in the repo, `finish` refuses and changes nothing; with
 them cached it reinstalls them, the ESP Kernel Sync drops the stash and the
 leftover tree, and the next boot runs the new kernel. PASS.
+
+Run 2026-11-06 (VM rebuilt from HEAD) for the two older bugs:
+- Resnapshot hook live in `/etc/pacman.d/hooks`; after the `zfs-dkms`
+  switch `@blank` was re-taken and `ROOT/etc`, `ROOT/opt` carry
+  `@update-*`. PASS.
+- `zfs-dkms` switch (no kernel change): ESP initramfs matches `/boot`. PASS.
+- Stash guard: after an interrupted kernel update, an unrelated
+  `pacman -U tree` left the stash and the restored tree; `finish` then
+  completed and the new kernel booted. PASS.
