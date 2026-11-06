@@ -4,9 +4,10 @@
 # =============================================================================
 # systemd-boot cannot read ZFS, so the kernel image, microcode, and initramfs
 # must be copied from the ZFS /boot onto the FAT32 ESP. Installed as a pacman
-# PostTransaction hook that fires on every kernel transaction. A `previous`
-# mode, run before every transaction, keeps each kernel's prior pair for Undo
-# Last Update (ADR 0166).
+# PostTransaction hook after every transaction (an initramfs rebuilt without a
+# kernel change must reach the ESP too); unchanged files are skipped. A
+# `previous` mode, run before every transaction, keeps each kernel's prior pair
+# for Undo Last Update (ADR 0166).
 #
 # The set of files to mirror is the Kernel-Selection boot images already on
 # the ESP: the files the systemd-boot loader entries reference (their
@@ -68,6 +69,8 @@ esp_kernel_sync_orphan_temporaries() {
 # byte-for-byte against <src>. Returns non-zero on any failure (ADR 0038).
 esp_kernel_sync_install_critical() {
   local source_file="$1" destination="$2"
+  # Identical already: no write, so the FAT ESP is not rewritten every update.
+  cmp -s "$source_file" "$destination" && return 0
   cp -f "$source_file" "$destination.new" 2>/dev/null \
     || { rm -f "$destination.new"; return 1; }
   mv -f "$destination.new" "$destination" \
@@ -154,6 +157,21 @@ esp_kernel_sync_prune_dead_fallback_entries() {
         break
       fi
     done < <(awk '$1 == "initrd" { print $2 }' "$entry")
+  done
+  return 0
+}
+
+# esp_kernel_sync_kernels_current <esp_dir> <boot_dir> — 0 when every kernel
+# staged on the ESP exists in /boot and matches it: the sync really put the
+# installed kernels in place. False after an Interrupted Kernel Transaction
+# (/boot lost its kernel), when the Module Stash must stay.
+esp_kernel_sync_kernels_current() {
+  local esp_directory="$1" boot_directory="$2" image base
+  for image in "$esp_directory"/vmlinuz-*; do
+    [[ -f "$image" ]] || continue
+    base="${image##*/vmlinuz-}"
+    [[ "$base" == *-prev ]] && continue
+    cmp -s "$boot_directory/vmlinuz-$base" "$image" || return 1
   done
   return 0
 }
@@ -264,10 +282,11 @@ HOOK
 esp_kernel_sync_sync_hook() {
   cat <<'HOOK'
 [Trigger]
-Type = Path
+Type = Package
 Operation = Install
 Operation = Upgrade
-Target = usr/lib/modules/*/vmlinuz
+Operation = Remove
+Target = *
 
 [Action]
 Description = Syncing kernel and initramfs to ESP...
@@ -315,7 +334,8 @@ _esp_kernel_sync_run() {
   # The new kernel is on every ESP: the Module Stash has done its job
   # (ADR 0166). Critical-copy failures exited above, so this runs only on
   # success.
-  if [[ -x /usr/local/lib/archzfs/boot-recovery.sh ]]; then
+  if [[ -x /usr/local/lib/archzfs/boot-recovery.sh ]] \
+     && esp_kernel_sync_kernels_current /boot/efi /boot; then
     /usr/local/lib/archzfs/boot-recovery.sh drop-stash || true
   fi
 
@@ -406,6 +426,7 @@ _esp_kernel_sync_copy_optional() {
   local file esp_directory
   while IFS= read -r file; do
     for esp_directory in /boot/efi*/; do
+      cmp -s "/boot/$file" "${esp_directory%/}/$file" && continue
       cp -f "/boot/$file" "${esp_directory%/}/$file" 2>/dev/null || {
         rm -f "${esp_directory%/}/$file"
         echo "esp-kernel-sync: WARN: skipped optional $file on" \

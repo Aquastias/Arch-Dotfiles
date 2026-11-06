@@ -408,3 +408,33 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   run esp_kernel_sync_stale_previous "$ESP"
   [ "$output" = linux-lts ]
 }
+
+# ── every-transaction sync (initramfs-only rebuilds) ─────────────────────────
+
+@test "sync hook: runs after every transaction, after mkinitcpio's 90-" {
+  run esp_kernel_sync_sync_hook
+  [[ "$output" == *"Type = Package"* && "$output" == *"Target = *"* ]]
+  [[ "$output" == *"When = PostTransaction"* ]]
+  [[ "90-mkinitcpio-install.hook" < "94-esp-kernel-sync.hook" ]]
+}
+
+@test "install_critical: an identical file is left untouched (no FAT write)" {
+  echo same >"$BOOT/initramfs-linux-lts.img"
+  echo same >"$ESP/initramfs-linux-lts.img"
+  local before
+  before="$(stat -c %i "$ESP/initramfs-linux-lts.img")"
+  esp_kernel_sync_install_critical "$BOOT/initramfs-linux-lts.img" \
+    "$ESP/initramfs-linux-lts.img"
+  [ "$(stat -c %i "$ESP/initramfs-linux-lts.img")" = "$before" ]
+}
+
+@test "kernels_current: every staged kernel present in /boot and equal" {
+  echo k >"$BOOT/vmlinuz-linux-lts"; echo k >"$ESP/vmlinuz-linux-lts"
+  echo p >"$ESP/vmlinuz-linux-lts-prev"
+  run esp_kernel_sync_kernels_current "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  # an interrupted update: /boot lost its kernel, the ESP kept the old one
+  rm "$BOOT/vmlinuz-linux-lts"
+  run esp_kernel_sync_kernels_current "$ESP" "$BOOT"
+  [ "$status" -ne 0 ]
+}

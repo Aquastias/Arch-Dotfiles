@@ -1104,8 +1104,9 @@ grub/else systemd` chains in `configure.sh`, `package-resolver.sh`, and
 The pacman hook (`94-esp-kernel-sync.hook` →
 `/usr/local/lib/archzfs/esp-kernel-sync.sh`, installed from the shared
 `lib/boot/esp-kernel-sync.sh`) that copies the kernel image, microcode, and
-initramfs from the ZFS `/boot` onto the FAT32 ESP after every kernel
-transaction — required because every ESP-mirroring loader (all five) reads its
+initramfs from the ZFS `/boot` onto the FAT32 ESP after every pacman
+transaction (unchanged files skipped, so an initramfs-only rebuild reaches the
+ESP too) — required because every ESP-mirroring loader (all five) reads its
 kernel from the ESP, not ZFS. The files mirrored
 are driven by the loader entries: only files an entry references (its
 `linux`/`initrd` lines) that exist in `/boot` are copied, so a Stray Kernel —

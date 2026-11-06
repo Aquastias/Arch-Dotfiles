@@ -88,6 +88,13 @@ stick, on every ESP-mirroring loader and every Kernel Selection size.
    the removal), `02-update-snapshot`, `03-esp-previous-pair`,
    `05-module-stash`. Installs remove the old names.
 
+10. **Sync after every transaction** (amends [ADR 0038]). The ESP Kernel
+    Sync ran on kernel images only, so an initramfs rebuilt by zfs-dkms,
+    mkinitcpio or firmware never reached the ESP. It now runs after every
+    transaction (after `90-mkinitcpio-install`) and skips identical files.
+    The Module Stash is dropped only once every ESP kernel matches `/boot`,
+    so an unrelated update after a Stash Restore cannot drop it.
+
 ## Considered Options
 - **Update Snapshot alone** — rejected: ZFS-only, and needs a menu choice
   plus a matching old kernel on the ESP; the stash makes the default entry
