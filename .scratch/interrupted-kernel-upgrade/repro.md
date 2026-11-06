@@ -68,4 +68,33 @@ Wait for `TEST: hold` in the pacman output, then `virsh destroy`, then
 
 ## Results
 
-(filled in per run)
+Run 2026-11-06, lab VM from local HEAD, linux-lts 6.18.60 <-> 6.18.59 from
+the cache and the Arch Linux Archive, `zfs-dkms` (the field config; the
+install's prebuilt `zfs-linux-lts` is pinned to one kernel). Root SSH: the
+inline profile creates no user, so the harness key was added for root via
+the serial console.
+
+| # | Scenario | Result |
+|---|----------|--------|
+| 1 | Baseline, stash hook removed, `80-hold` | EMERGENCY: `Failed to mount /boot/efi` — the field failure reproduced |
+| 2 | Stash Restore, `80-hold` | PASS: normal boot, restore + notice; finish completed, new kernel boots |
+| 3 | Stash Restore, `59-hold` (dir survives with depmod files) | PASS: filled in place, no nesting, `zfs`/`vfat` load |
+| 4 | Undo Last Update | PASS after two hook fixes: old kernel, old package db, canary gone, ESP re-synced, next normal boot clean |
+
+Findings fixed from these runs:
+- Undo hook looked for the root at `/new_root`; this initramfs mounts it at
+  `/sysroot`. Now taken from `root=ZFS=` on the cmdline.
+- The initramfs busybox has no `tr`; the hook parses with builtins and its
+  bats harness runs with PATH limited to the verified tools.
+- The interrupted transaction leaves `db.lck`; the `/var` Update Snapshot
+  (taken mid-transaction) restores it on Undo. A boot unit now clears it.
+- `pacman -S <kernel>` is the wrong finish (repo may be newer than the
+  headers; reinstalling a restored version conflicts). New command:
+  `boot-recovery.sh finish` (installed versions from the cache).
+
+Found, not part of this feature:
+- Impermanence: `/etc/pacman.d` is a Persist Mount copied to `/persist`
+  before `zz-impermanence-resnapshot.hook` is written, so the Pacman
+  Resnapshot Hook never runs; `@blank` is never refreshed after updates.
+- The ESP Kernel Sync triggers only on kernel images: an initramfs rebuilt
+  by a zfs-dkms or mkinitcpio update never reaches the ESP.
