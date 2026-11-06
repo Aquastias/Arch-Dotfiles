@@ -79,6 +79,7 @@ harden_boot_plan() {
     ;;
   esac
   [[ -n "$bootloader" ]] && echo install-boot-recovery
+  [[ -n "$bootloader" ]] && echo install-resnapshot-hook
   [[ -n "$bootloader" && "$fstype" == zfs ]] && echo install-update-snapshot
   [[ "$fstype" == zfs && -n "$bootloader" && "$bootloader" != grub-native ]] \
     && echo install-undo-entry
@@ -240,6 +241,19 @@ _harden_boot_install_undo_entry() {
     /usr/local/lib/archzfs/undo-entry.template
 }
 
+# An Impermanence host installed before the fix lacks its Pacman Resnapshot
+# Hook: it was written under /etc/pacman.d after that dir moved onto the
+# Persist Dataset, so the bind mount hides it. Write it into the live,
+# persisted /etc/pacman.d/hooks when the helper exists but the hook does not.
+_harden_boot_install_resnapshot_hook() {
+  [[ -f "$ROOT/usr/lib/impermanence/resnapshot.sh" ]] || return 0
+  [[ -f "$ROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook" ]] \
+    && return 0
+  # shellcheck source=../lib/chroot/impermanence-boot-hooks.sh
+  source "$_HARDEN_BOOT_INSTALLER_DIR/lib/chroot/impermanence-boot-hooks.sh"
+  impermanence_boot_hooks_write_resnapshot_hook
+}
+
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.
 _harden_boot_reconcile_microcode() {
   local entry_file
@@ -394,6 +408,7 @@ harden_boot_apply() {
     drop-fallback) _harden_boot_drop_fallback ;;
     pin-grub-default) _harden_boot_pin_grub_default ;;
     install-boot-recovery) _harden_boot_install_boot_recovery ;;
+    install-resnapshot-hook) _harden_boot_install_resnapshot_hook ;;
     install-update-snapshot) _harden_boot_install_update_snapshot ;;
     install-undo-entry) _harden_boot_install_undo_entry "$1" ;;
     esac

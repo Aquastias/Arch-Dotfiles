@@ -173,21 +173,39 @@ load chroot-impermanence-helpers
 
 # ── slice 3 cycle 1 (tracer): enabled writes pacman hook file ───────────────
 
+# _resnapshot_hook — where the Pacman Resnapshot Hook lives at runtime: on the
+# Persist Dataset, with the rest of the curated /etc/pacman.d.
+_resnapshot_hook() {
+  printf '%s/persist/etc/pacman.d/hooks/%s\n' "$FAKEROOT" \
+    zz-impermanence-resnapshot.hook
+}
+
+@test "resnapshot hook: lands on the Persist Dataset with /etc/pacman.d" {
+  # /etc/pacman.d is a curated persist dir: moved onto /persist and bound
+  # back at boot. A hook left in the root's /etc would be hidden by the bind.
+  mkdir -p "$FAKEROOT/etc/pacman.d"
+  : >"$FAKEROOT/etc/pacman.d/mirrorlist"
+  run_enabled
+  local name=etc/pacman.d/hooks/zz-impermanence-resnapshot.hook
+  [ -f "$FAKEROOT/persist/$name" ]
+  [ ! -e "$FAKEROOT/$name" ]
+}
+
 @test "resnapshot hook: enabled writes pacman hook file" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   [ -f "$hook_file" ]
 }
 
 @test "resnapshot hook: [Trigger] Type=Package" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   grep -qE "^Type ?= ?Package$" "$hook_file"
 }
 
 @test "resnapshot hook: [Trigger] Operation Install|Upgrade|Remove" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   grep -qE "^Operation ?= ?Install$" "$hook_file"
   grep -qE "^Operation ?= ?Upgrade$" "$hook_file"
   grep -qE "^Operation ?= ?Remove$"  "$hook_file"
@@ -195,25 +213,25 @@ load chroot-impermanence-helpers
 
 @test "resnapshot hook: [Trigger] Target=*" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   grep -qE '^Target ?= ?\*$' "$hook_file"
 }
 
 @test "resnapshot hook: [Action] When=PostTransaction" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   grep -qE "^When ?= ?PostTransaction$" "$hook_file"
 }
 
 @test "resnapshot hook: [Action] Exec=/usr/lib/impermanence/resnapshot.sh" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   grep -qE "^Exec ?= ?/usr/lib/impermanence/resnapshot\.sh$" "$hook_file"
 }
 
 @test "resnapshot hook: [Action] Description present" {
   run_enabled
-  local hook_file="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  local hook_file; hook_file="$(_resnapshot_hook)"
   grep -qE "^Description ?= ?" "$hook_file"
 }
 

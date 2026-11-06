@@ -390,11 +390,11 @@ impermanence_apply() {
     _impermanence_init_machine_id \
     _impermanence_skip_machine_id_commit \
     _impermanence_relocate_enablements \
+    impermanence_boot_hooks_write_resnapshot_hook \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \
     _impermanence_apply_extensions \
     impermanence_boot_hooks_write_rollback \
-    impermanence_boot_hooks_write_resnapshot_hook \
     impermanence_boot_hooks_write_resnapshot_helper \
     _impermanence_refresh_zfs_cache \
     _impermanence_graphical_session_fix \

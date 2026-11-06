@@ -2093,8 +2093,10 @@ by an always-persistent dataset (`/home`, `/var`, `/var/log`, `/var/cache`,
 
 ### Pacman Resnapshot Hook
 Pacman post-transaction hook at
-`/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook` (or shipped under
-`/usr/share/libalpm/hooks/`) that destroys and re-takes the Blank Snapshot on
+`/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook` — on the Persist Dataset,
+since `/etc/pacman.d` is a Curated Persist Default; written before that
+directory moves there, or the bind mount would hide it — that destroys and
+re-takes the Blank Snapshot on
 every Rollback Dataset after a successful pacman transaction. Necessary because
 pacman writes config defaults under `/etc/<pkg>/` etc.; without this hook those
 writes would vanish on next reboot. Known v1 limitation: user edits to

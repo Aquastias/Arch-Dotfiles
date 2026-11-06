@@ -98,8 +98,8 @@ teardown() { rm -rf "$ROOT"; }
   for loader in grub limine refind efistub; do
     run harden_boot_plan "$loader" 512
     [ "$status" -eq 0 ]
-    [ "$output" = \
-      $'install-esp-kernel-sync\ninstall-warn-hook\ninstall-boot-recovery' ]
+    [ "$output" = "$(printf '%s\n' install-esp-kernel-sync install-warn-hook \
+      install-boot-recovery install-resnapshot-hook)" ]
   done
 }
 
@@ -257,6 +257,22 @@ teardown() { rm -rf "$ROOT"; }
   ! grep -q "prev-prev" "$ROOT/boot/efi/EFI/refind/refind.conf"
   [ "$(grep -c '^dont_scan_files' "$ROOT/boot/efi/EFI/refind/refind.conf")" \
     -eq 1 ]
+}
+
+@test "apply: restores a missing impermanence resnapshot hook, any fs" {
+  mkdir -p "$ROOT/boot/efi" "$ROOT/usr/lib/impermanence"
+  : > "$ROOT/boot/efi/vmlinuz-linux-lts"
+  printf '#!/usr/bin/env bash\n' > "$ROOT/usr/lib/impermanence/resnapshot.sh"
+  HARDEN_BOOT_ROOT_FSTYPE=btrfs run bash \
+    "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"
+  [ "$status" -eq 0 ]
+  grep -q "Exec = /usr/lib/impermanence/resnapshot.sh" \
+    "$ROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+}
+
+@test "plan: every loader checks for the impermanence resnapshot hook" {
+  run harden_boot_plan efistub 2048 ext4
+  [[ "$output" == *install-resnapshot-hook* ]]
 }
 
 # Regression (harden-boot-warn-hook-abort): a systemd-boot root without
