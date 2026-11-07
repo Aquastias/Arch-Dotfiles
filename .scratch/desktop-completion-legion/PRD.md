@@ -1,6 +1,6 @@
 # Desktop completion: hybrid Legion laptop + wlroots sessions
 
-Status: ready-for-agent
+Status: done
 
 Decisions of record: ADR 0161 (hybrid laptop completion, Legion 5
 15ARH7H; amends ADR 0053) and ADR 0162 (niri runs XDG autostart;
@@ -267,6 +267,7 @@ internals of how a helper builds them. All seams already exist:
 ## On-Legion checklist
 
 Run on `chronos` (15ARH7H) after first boot. Not VM-verifiable (ADR 0161).
+Marked done by the operator on 2026-11-07.
 Supersedes the hybrid-gpu-hardening PRD's list, which it includes.
 
 Before install:

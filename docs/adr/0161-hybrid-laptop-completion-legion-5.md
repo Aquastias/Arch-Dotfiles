@@ -1,8 +1,8 @@
 # ADR 0161: Hybrid laptop completion (Legion 5 15ARH7H)
 
 ## Status
-Accepted — implemented; on-Legion checklist pending (PRD). Amends
-[ADR 0053].
+Accepted — implemented; on-Legion checklist marked done by the operator
+(2026-11-07). Amends [ADR 0053].
 
 ## Context
 The laptop (`chronos`) is a Lenovo Legion 5 15ARH7H: Ryzen 5 6600H (Radeon
