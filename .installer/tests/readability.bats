@@ -604,7 +604,7 @@ SH
   [[ "$output" != *"sudo"* ]]
 }
 
-@test "tool-reference: user scripts are scanned, notes and vendored skills not" {
+@test "tool-reference: user scripts are scanned; notes, vendored skills not" {
   make_reference_repo
   mkdir -p .local/bin .scratch/x .agents/skills/x
   printf '#!/bin/sh\nwc /etc/passwd\n' > .local/bin/tool
@@ -625,4 +625,84 @@ SH
   check_repo
   [ "$status" -ne 0 ]
   [[ "$output" == *"local-name: .local/bin/tool:2: f"* ]]
+}
+
+# ── Bash Feature Tier and jq features (ADR 0167) ───────────────────────────
+
+@test "bash-feature: each banned form is reported in a Migrated Area" {
+  make_reference_repo
+  cat > .installer/lib/a.sh <<'SH'
+value="${!name}"
+local -n target="$1"
+eval "$command_text"
+read -r first <<<"$text"
+[[ "$x" =~ ^(a)$ ]] && echo "${BASH_REMATCH[1]}"
+file="${path##*/}"
+echo "${path%/*} ${text//a/b} ${name,,} ${name@Q}"
+printf -v padded '%5s' "$x"
+SH
+  check_repo --list
+  local line
+  for line in 1 2 3 4 5 6 7 8; do
+    [[ "$output" == *"bash-feature: .installer/lib/a.sh:$line:"* ]]
+  done
+  check_repo
+  [ "$status" -ne 0 ]
+}
+
+@test "bash-feature: allowed forms and the bootstrap line pass" {
+  make_reference_repo
+  cat > .installer/lib/a.sh <<'SH'
+script_path="${BASH_SOURCE[0]}"
+script_directory="$(cd "${script_path%/*}" && pwd)"
+count="${#names[@]}"
+keys="${!names[@]}"
+mode="${1:-fast}"
+echo 'a ${x##*/} in single quotes' # and ${y%%z} in a comment
+SH
+  check_repo --list
+  [[ "$output" != *"bash-feature"* ]]
+}
+
+@test "bash-feature: outside Migrated Areas it is advisory" {
+  make_reference_repo
+  mkdir -p .installer/tools
+  printf 'eval "$x"\n' > .installer/tools/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+  check_repo --list
+  [[ "$output" == *"bash-feature: .installer/tools/a.sh:1: eval is banned"* ]]
+}
+
+@test "jq-feature: banned jq features are reported, also on later lines" {
+  make_reference_repo
+  cat > .installer/lib/a.sh <<'SH'
+jq -n 'reduce range(3) as $n (0; . + $n)'
+jq -r '
+  .users
+  | walk(.)
+' "$file"
+jq -r '.reduce_count, .paths, $def' "$file"
+SH
+  check_repo --list
+  [[ "$output" == *"jq-feature: .installer/lib/a.sh:1: jq reduce is banned"* ]]
+  [[ "$output" == *"jq-feature: .installer/lib/a.sh:4: jq walk is banned"* ]]
+  [[ "$output" != *"jq-feature: .installer/lib/a.sh:6"* ]]
+}
+
+@test "jq-feature: single-quoted text of other commands is not jq" {
+  make_reference_repo
+  printf "echo 'reduce the walk'\n" > .installer/lib/a.sh
+  check_repo --list
+  [[ "$output" != *"jq-feature"* ]]
+}
+
+@test "program-header: a .jq or .awk file needs a header comment" {
+  make_reference_repo
+  printf '.users[]\n' > .installer/lib/plan.jq
+  printf '# plan.awk — prints names\n{ print $1 }\n' > .installer/lib/plan.awk
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"program-header: .installer/lib/plan.jq:1"* ]]
+  [[ "$output" != *"plan.awk"* ]]
 }

@@ -182,6 +182,7 @@ function save_use(tool, flags, line) {
   use_file[uses] = FILENAME
   use_line[uses] = line
   use_function[uses] = current_function()
+  features_check_command(tool, flags, line)
 }
 
 # flag_problems(tool, flag) — the flag word when the Tool Reference

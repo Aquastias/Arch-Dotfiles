@@ -32,6 +32,72 @@ Order of preference ([ADR 0167]): builtins and coreutils first, then jq,
 grep and sed in their small forms, awk only as `.awk` files, and Domain
 Tools where nothing else does the job.
 
+## Bash Feature Tier
+
+The bash syntax code may use ([ADR 0167]). The lint flags the banned
+forms (`bash-feature`).
+
+Allowed:
+
+- `[[ … ]]` — a test: `[[ -f "$file" && "$mode" == fast ]]`
+- `$( … )` — a command's output as text: `today="$(date -u +%F)"`
+- arrays — `names=(a b)`, `names+=(c)`, `"${names[@]}"` (every item),
+  `"${names[0]}"` (the first)
+- `${#names[@]}` — how many items an array holds
+- `${!names[@]}` — an array's keys (associative arrays)
+- `mapfile -t lines < <(…)` — a command's output lines into an array
+- `while IFS= read -r line; do … done < <(…)` — loop over output lines
+  (`< <(…)` feeds the loop without a subshell, so variables set inside
+  survive)
+- `${var:-default}` — the value, or `default` when unset or empty
+- heredocs — `cat <<'EOF'` … `EOF` (quoted `'EOF'`: nothing expands)
+- `local` — function-local variables
+- `(( … ))` — plain arithmetic: `(( count += 1 ))`, `(( count > 3 ))`
+
+Banned, and what to write instead:
+
+- `${!name}` (read the variable whose name is in `name`) — pass the value
+  itself, or use an associative array
+- `declare -n` / `local -n` (namerefs) — return values by printing them
+- `eval` — call the function or command directly
+- `<<<` (here-string) — `printf '%s\n' "$text" | command`
+- `BASH_REMATCH` (regex captures) — `cut`, `grep -o`, or an `.awk` file
+- pattern operators: `${var#x}`, `${var##x}`, `${var%x}`, `${var%%x}`,
+  `${var/a/b}`, `${var//a/b}`, `${var^^}`, `${var,,}`, `${var@Q}` —
+  `basename`, `dirname`, `cut`, `tr` or `sed -i`
+- `printf -v name` — `name="$(printf …)"`
+
+The one exception is the bootstrap line that finds a script's own
+directory before anything else is sourced:
+
+```bash
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
+```
+
+## jq features
+
+Allowed inside a jq program ([ADR 0167]):
+
+- paths — `.users[0].name`, `.options.kernel`, `.[]` (every item)
+- `//` — a fallback: `.esp_size // "1G"`
+- `select(…)` — keep items where the test is true:
+  `.users[] | select(.admin)`
+- `map(…)` — change every item of an array: `map(.name)`
+- `keys` — an object's keys, sorted
+- `length` — how many items (or characters)
+- `has("key")` — whether an object has the key
+- `|` — feed one step's result into the next
+- comparisons and `and` / `or` / `not`, `if … then … else … end`
+- object and array building: `{name: .name}`, `[.[] | .id]`
+- `$name` — a value passed with `--arg` / `--argjson`
+
+Banned, the lint flags them (`jq-feature`): `reduce`, `foreach`, `walk`,
+`def`, `paths`, `getpath`, `setpath`, `inputs`. Write a bash loop over
+simple jq output instead; when bash truly cannot express it, move the
+program to a commented `.jq` file read with `jq -f`.
+
 ## Builtins
 
 Commands built into bash. `help <name>` shows bash's own text for each.

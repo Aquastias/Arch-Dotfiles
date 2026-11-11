@@ -217,17 +217,24 @@ function finish_file() {
 }
 
 # code_text(raw) — the line with quoted text replaced by Q and comments cut.
-# Updates `quote` so strings spanning lines stay blanked.
+# Updates `quote` so strings spanning lines stay blanked. Also sets two
+# other views of the line:
+#   expansion_text      code plus double-quoted text (where ${…} expands)
+#   single_quoted_text  the single-quoted text (awk and jq programs)
 function code_text(raw,   out, position, char, previous) {
   out = ""
+  expansion_text = ""
+  single_quoted_text = ""
   previous = " "
   for (position = 1; position <= length(raw); position++) {
     char = substr(raw, position, 1)
     if (quote == "'") {
-      if (char == "'") { quote = ""; out = out "Q" }
+      if (char == "'") { quote = ""; out = out "Q"; continue }
+      single_quoted_text = single_quoted_text char
       continue
     }
     if (quote == "\"") {
+      expansion_text = expansion_text char
       if (char == "\\") { position++; continue }
       if (char == "\"") { quote = ""; out = out "Q" }
       # "$(( … ))" is arithmetic, part of the string.
@@ -264,6 +271,7 @@ function code_text(raw,   out, position, char, previous) {
                                        continue }
     if (char == "#" && previous ~ /[ \t;(|&]/) break
     out = out char
+    expansion_text = expansion_text char
     previous = char
   }
   return out
@@ -447,6 +455,7 @@ FNR == 1 {
   starts_in_quote = (quote != "")
   code = code_text(raw)
   exempt = (raw ~ /readability-ok/)
+  features_check_line(code, FNR, exempt, starts_in_quote)
 
   # Heredoc opener (not a here-string): body starts on the next line.
   if (!starts_in_quote && \

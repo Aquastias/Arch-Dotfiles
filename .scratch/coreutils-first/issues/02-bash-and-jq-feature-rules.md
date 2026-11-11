@@ -12,11 +12,11 @@ meaning and example. Both rules honor Migrated Areas.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `bash-feature` and `jq-feature` rules with fixtures per banned form
-- [ ] Bootstrap `${path%/*}` line allowed; same form elsewhere flagged
-- [ ] jq look-alikes in strings/comments not flagged
-- [ ] `.jq` files allowed only with a header comment
-- [ ] Tool Reference Bash Feature Tier + jq sections
-- [ ] Strict whole-repo lint test still green
+- [x] `bash-feature` and `jq-feature` rules with fixtures per banned form
+- [x] Bootstrap `${path%/*}` line allowed; same form elsewhere flagged
+- [x] jq look-alikes in strings/comments not flagged
+- [x] `.jq` files allowed only with a header comment
+- [x] Tool Reference Bash Feature Tier + jq sections
+- [x] Strict whole-repo lint test still green

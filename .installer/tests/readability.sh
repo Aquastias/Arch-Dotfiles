@@ -33,6 +33,8 @@ script_path="${BASH_SOURCE[0]}"
 TESTS_DIR="$(cd "${script_path%/*}" && pwd)"
 SCANNER="$TESTS_DIR/readability-scan.awk"
 COMMAND_CHECKER="$TESTS_DIR/readability-commands.awk"
+FEATURE_CHECKER="$TESTS_DIR/readability-features.awk"
+PROGRAM_FILE_CHECKER="$TESTS_DIR/readability-program-files.awk"
 ADR_LINKER="$TESTS_DIR/readability-adr-links.awk"
 DOC_PATH_CHECKER="$TESTS_DIR/readability-doc-paths.awk"
 
@@ -68,7 +70,7 @@ NOT_OURS='^(\.installer/|\.scratch/|\.agents/skills/)'
 scanned_files() {
   local installer_files other_files
   installer_files="$(git ls-files '.installer/*.sh' '.installer/*.bash' \
-    '.installer/*.bats')"
+    '.installer/*.bats' '.installer/*.jq' '.installer/*.awk')"
   other_files="$(git ls-files '*.sh' '.local/bin/*' \
     | grep -vE "$NOT_OURS" || true)"
   printf '%s\n' "$installer_files" "$other_files" \
@@ -100,7 +102,8 @@ violations() {
     awk -v prefix_rules="$PREFIX_RULES" \
       -v migrated_areas="$MIGRATED_AREAS" \
       -v tool_reference="$TOOL_REFERENCE" \
-      -f "$SCANNER" -f "$COMMAND_CHECKER" "${files[@]}"
+      -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" -f "$COMMAND_CHECKER" \
+      -f "$FEATURE_CHECKER" "${files[@]}"
   fi
   mapfile -t files < <(linked_docs)
   ((${#files[@]})) || return 0
