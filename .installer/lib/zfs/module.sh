@@ -132,6 +132,26 @@ REPO
 # _module_try_dkms_packages — one archzfs package install; on failure, drop a
 # stale testing repo and force-refresh the dbs for the next try
 # (zfs_install_dkms).
+# _module_ensure_zfs_libraries — `zpool` must find its shared libraries.
+# archzfs builds against current Arch; when that is a library soname bump
+# ahead of the archived live ISO (OpenSSL 3 → 4, 2026-11), installing
+# zfs-utils alone is a partial upgrade and zpool cannot load libcrypto.
+# Upgrade openssl beside it, and keep the ISO's own binaries working with
+# openssl-3, Arch's package for the old soname (ADR 0168).
+_module_ensure_zfs_libraries() {
+  local zpool_path
+  zpool_path="$(command -v zpool)" || return 0
+  # Whether any library zpool links against is missing.
+  ldd "$zpool_path" | grep -q 'not found' || return 0
+  warn "zpool is missing a library (archzfs is ahead of the live ISO) —" \
+    "upgrading openssl, keeping openssl-3 for the ISO's own tools ..."
+  _retry 3 "10,30" -- pacman -S --noconfirm --needed openssl openssl-3
+  # Whether zpool now finds every library.
+  if ldd "$zpool_path" | grep -q 'not found'; then
+    error "zpool still cannot load its libraries (see: ldd $zpool_path)."
+  fi
+}
+
 _module_try_dkms_packages() {
   # stderr hidden as before: the live ISO has no /boot/vmlinuz-*, so
   # pacman's mkinitcpio hook always fails harmlessly here (20261008)
@@ -178,6 +198,8 @@ zfs_install_dkms() {
     error "Failed to install zfs-dkms from archzfs.
   Check: pacman -Ss zfs-dkms
   Check: df -h /run/archiso/cowspace  (need ~900 MB free)"
+
+  _module_ensure_zfs_libraries
 
   _module_find_zfs_source_version zfs_version
   info "ZFS source version: ${zfs_version}"

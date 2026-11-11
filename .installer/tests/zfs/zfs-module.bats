@@ -84,3 +84,49 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [[ "$output" != *"command failed to execute"* ]]
 }
+
+# ── zpool's shared libraries (ADR 0168) ─────────────────────────────────────
+# archzfs builds against current Arch. A soname bump there (OpenSSL 3 → 4)
+# leaves zpool unable to load its libraries on the older live ISO.
+
+# _stub_zpool_libraries <missing_until_openssl> — a zpool on PATH whose ldd
+# reports a missing libcrypto until `pacman -S … openssl` has run.
+_stub_zpool_libraries() {
+  mkdir -p "$TEST_DIR/bin"
+  printf '#!/bin/sh\n' > "$TEST_DIR/bin/zpool"
+  chmod +x "$TEST_DIR/bin/zpool"
+  PATH="$TEST_DIR/bin:$PATH"
+  ldd() {
+    if grep -q 'openssl openssl-3' "$CALLS"; then
+      echo "libcrypto.so.4 => /usr/lib/libcrypto.so.4"
+    else
+      echo "libcrypto.so.4 => not found"
+    fi
+  }
+}
+
+@test "zfs_install_dkms: a zpool missing libcrypto pulls openssl + openssl-3" {
+  mkdir -p "$ZFS_MODULES_DIR/7.0.3-arch1-1/build"
+  _stub_zpool_libraries
+  run zfs_install_dkms 7.0.3-arch1-1
+  [ "$status" -eq 0 ]
+  grep -q 'pacman -S --noconfirm --needed openssl openssl-3' "$CALLS"
+}
+
+@test "zfs_install_dkms: a zpool with every library leaves openssl alone" {
+  mkdir -p "$ZFS_MODULES_DIR/7.0.3-arch1-1/build"
+  _stub_zpool_libraries
+  ldd() { echo "libcrypto.so.3 => /usr/lib/libcrypto.so.3"; }
+  run zfs_install_dkms 7.0.3-arch1-1
+  [ "$status" -eq 0 ]
+  ! grep -q 'openssl' "$CALLS"
+}
+
+@test "zfs_install_dkms: still missing after the upgrade is an error" {
+  mkdir -p "$ZFS_MODULES_DIR/7.0.3-arch1-1/build"
+  _stub_zpool_libraries
+  ldd() { echo "libcrypto.so.4 => not found"; }
+  run zfs_install_dkms 7.0.3-arch1-1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"zpool still cannot load its libraries"* ]]
+}
