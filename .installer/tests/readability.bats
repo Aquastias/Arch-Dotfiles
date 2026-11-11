@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Gate for the Readability Rules (ADR 0153, docs/agents/readability.md).
+# Gate for the Readability Rules (ADR 0153, ADR 0167; rules in
+# docs/agents/readability.md).
 # The headline test runs the Readability Lint against THIS repo and asserts it
 # is clean (the lint is strict); the rest build throwaway git repos
 # to prove each rule catches / allows the right thing.
@@ -115,75 +116,9 @@ SH
   [[ "$output" == *"file-length: .installer/a.sh:1: 501 lines"* ]]
 }
 
-@test "catches replace-tier tools" {
-  make_repo
-  cat > .installer/a.sh <<'SH'
-first_line() {
-  printf 'a\nb\n' | head -n 1
-  local parent
-  parent="$(dirname /a/b)"
-}
-SH
-  check_repo
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"tool: .installer/a.sh:2: head"* ]]
-  [[ "$output" == *"tool: .installer/a.sh:4: dirname"* ]]
-}
-
-@test "ignores tool names in strings, comments, case patterns and heredocs" {
-  make_repo
-  cat > .installer/a.sh <<'SH'
-describe_tools() {
-  # head and tail are replace-tier
-  echo "use head instead"
-  grep -E 'x|head' /dev/null
-  case "$1" in
-    tail) echo tail ;;
-  esac
-  cat <<EOT
-head of the document
-EOT
-}
-SH
-  check_repo
-  [ "$status" -eq 0 ]
-}
-
-@test "catches sed without -i and allows sed -i" {
-  make_repo
-  cat > .installer/a.sh <<'SH'
-edit_files() {
-  sed -i 's/a/b/' /tmp/file
-  sed -Ei 's/a/b/' /tmp/file
-  echo a | sed 's/a/b/'
-}
-SH
-  check_repo
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"sed-not-inplace: .installer/a.sh:4"* ]]
-  [[ "$output" != *"a.sh:2"* ]]
-  [[ "$output" != *"a.sh:3"* ]]
-}
-
-@test "the readability-ok pragma exempts a line" {
-  make_repo
-  printf 'pick_first() {\n  head -n 1  # readability-ok: stream cutoff\n}\n' \
-    > .installer/a.sh
-  check_repo
-  [ "$status" -eq 0 ]
-}
-
 @test "bats @test titles are free text" {
   make_repo
   printf '@test "a b c d e" {\n  true\n}\n' > .installer/tests/a.bats
-  check_repo
-  [ "$status" -eq 0 ]
-}
-
-@test "ignores program home payloads" {
-  make_repo
-  mkdir -p .installer/programs/system/zsh/home
-  printf 'f() { head -1; }\n' > .installer/programs/system/zsh/home/x.sh
   check_repo
   [ "$status" -eq 0 ]
 }
@@ -378,34 +313,6 @@ RULES
     > .installer/lib/guided/shell.sh
   check_repo
   [ "$status" -eq 0 ]
-}
-
-@test "readlink is fine in any form; realpath is replace-tier" {
-  make_repo
-  cat > .installer/a.sh <<'SH'
-link_targets() {
-  readlink /proc/self/root
-  readlink -f ./relative
-  realpath ./relative
-}
-SH
-  check_repo
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"tool: .installer/a.sh:4: realpath"* ]]
-  [[ "$output" != *"a.sh:2"* && "$output" != *"a.sh:3"* ]]
-}
-
-@test "a here-string is not a heredoc: code after it is still scanned" {
-  make_repo
-  cat > .installer/a.sh <<'SH'
-split_words() {
-  read -r first second <<<"x y"
-  echo "$second" | head -n 1
-}
-SH
-  check_repo
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"tool: .installer/a.sh:3: head"* ]]
 }
 
 @test "heredoc bodies do not count toward function length" {
@@ -705,4 +612,194 @@ SH
   [ "$status" -ne 0 ]
   [[ "$output" == *"program-header: .installer/lib/plan.jq:1"* ]]
   [[ "$output" != *"plan.awk"* ]]
+}
+
+@test "tool-reference: words in strings, comments, cases and heredocs pass" {
+  make_reference_repo
+  cat > .installer/lib/a.sh <<'SH'
+describe_tools() {
+  # wc and stow are named here
+  printf 'use wc instead'
+  case "$1" in
+    stow) rm -f x ;;
+  esac
+  cat <<EOT
+wc of the document
+EOT
+}
+SH
+  check_repo --list
+  [[ "$output" != *"wc has no"* && "$output" != *"stow has no"* ]]
+}
+
+@test "the readability-ok pragma exempts a line" {
+  make_reference_repo
+  printf 'wc /etc/passwd  # readability-ok: counting on purpose\n' \
+    > .installer/lib/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "ignores program home payloads" {
+  make_reference_repo
+  mkdir -p .installer/programs/system/zsh/home
+  printf 'wc /etc/passwd\n' > .installer/programs/system/zsh/home/x.sh
+  check_repo --list
+  [[ "$output" != *"zsh/home"* ]]
+}
+
+@test "a here-string is not a heredoc: code after it is still scanned" {
+  make_reference_repo
+  printf 'read -r first <<<"x y"\nwc /etc/passwd\n' > .installer/lib/a.sh
+  check_repo --list
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:2: wc has no"* ]]
+}
+
+# ── One step per line (ADR 0167) ───────────────────────────────────────────
+
+# shape_repo: a reference repo that also lists the commands these tests use.
+shape_repo() {
+  make_reference_repo
+  cat >> docs/tool-reference.md <<'DOC'
+
+### `awk`
+- `-f <file>` — the program file
+
+### `sed`
+- `-i` — in place
+
+### `jq`
+- `-r` — raw strings
+
+### `sort`
+
+### `grep`
+- `-q` — quiet
+
+### `printf`
+
+### `true`
+DOC
+}
+
+@test "inline-awk: an inline awk program fails; awk -f passes" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Field one of each line.
+awk '{ print $1 }' /etc/passwd
+# Field one, from a commented program file.
+awk -f fields.awk /etc/passwd
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"inline-awk: .installer/lib/a.sh:2:"* ]]
+  [[ "$output" != *"a.sh:4"* ]]
+}
+
+@test "sed-form: only sed -i with one substitution passes" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Turn colour on.
+sed -i 's/^#Color/Color/' /etc/pacman.conf
+# Print the first line.
+sed -n '1p' /etc/pacman.conf
+# Two edits.
+sed -i 's/a/b/; s/c/d/' /etc/pacman.conf
+# A pipe-delimited substitution, every match.
+sed -i 's|/a|/b|g' /etc/pacman.conf
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"sed-form: .installer/lib/a.sh:4:"* ]]
+  [[ "$output" == *"sed-form: .installer/lib/a.sh:6:"* ]]
+  [[ "$output" != *"a.sh:2:"* && "$output" != *"a.sh:8:"* ]]
+}
+
+@test "pipeline-length: three pipes fail, also over continued lines" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Sorted names.
+printf '%s\n' b a | sort | grep -q a
+printf '%s\n' b a | sort | sort | grep -q a
+printf '%s\n' b a |
+  sort |
+  sort | grep -q a
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"pipeline-length: .installer/lib/a.sh:3: 3 |"* ]]
+  [[ "$output" == *"pipeline-length: .installer/lib/a.sh:4: 3 |"* ]]
+  [[ "$output" != *"pipeline-length: .installer/lib/a.sh:2"* ]]
+}
+
+@test "pipeline-length: a command substitution is its own pipeline" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Sorted names.
+names="$(printf '%s\n' b a | sort | sort)"
+SH
+  check_repo --list
+  [[ "$output" != *"pipeline-length"* ]]
+}
+
+@test "chain-length: three && or || fail" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+true && true || true
+true && true && true || true
+[[ -n x && -n y && -n z ]] && true
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"chain-length: .installer/lib/a.sh:2: 3 &&/||"* ]]
+  [[ "$output" != *"a.sh:1:"* ]]
+  [[ "$output" != *"chain-length: .installer/lib/a.sh:3"* ]]
+}
+
+@test "program-length: a long or multi-line inline jq program fails" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Each user's name.
+jq -r '.users[].name' "$profile"
+# Each admin user's name and shell.
+jq -r '.users[] | select(.admin) | .name + " " + .shell' "$profile"
+# Each user's name.
+jq -r '
+  .users[].name
+' "$profile"
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"program-length: .installer/lib/a.sh:4:"* ]]
+  [[ "$output" == *"program-length: .installer/lib/a.sh:6:"* ]]
+  [[ "$output" != *"a.sh:2:"* ]]
+}
+
+@test "what-comment: a program or a two-pipe pipeline needs a comment" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+jq -r '.name' "$profile"
+printf '%s\n' b a | sort | grep -q a
+printf '%s\n' b a | sort
+# shellcheck disable=SC2016
+jq -r '.name' "$profile"
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"what-comment: .installer/lib/a.sh:1:"* ]]
+  [[ "$output" == *"what-comment: .installer/lib/a.sh:2:"* ]]
+  [[ "$output" == *"what-comment: .installer/lib/a.sh:5:"* ]]
+  [[ "$output" != *"a.sh:3:"* ]]
+}
+
+@test "perf-reason: a perf exemption needs a measurement" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+wc /etc/passwd  # readability-ok: perf 300ms→20ms per redraw
+wc /etc/passwd  # readability-ok: perf faster
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"perf-reason: .installer/lib/a.sh:2:"* ]]
+  [[ "$output" != *"a.sh:1:"* ]]
 }

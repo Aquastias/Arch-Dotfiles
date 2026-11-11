@@ -183,6 +183,7 @@ function save_use(tool, flags, line) {
   use_line[uses] = line
   use_function[uses] = current_function()
   features_check_command(tool, flags, line)
+  shape_check_command(tool, flags, line)
 }
 
 # flag_problems(tool, flag) — the flag word when the Tool Reference
@@ -240,7 +241,7 @@ BEGIN {
 
   # ADR 0153 rules: strict inside .installer/ before any migration.
   split("function-name local-name function-length nesting file-length " \
-        "tool sed-not-inplace prefix", list, " ")
+        "prefix", list, " ")
   for (n in list) legacy_rule[list[n]] = 1
 
   load_tool_reference()

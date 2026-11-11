@@ -1,6 +1,6 @@
-# readability-scan.awk — the Readability Lint's scanner (ADR 0153), driven by
-# readability.sh. Reads shell files, prints one TSV row per violation:
-#   rule <TAB> file <TAB> line <TAB> symbol <TAB> detail
+# readability-scan.awk — the Readability Lint's scanner (ADR 0153, ADR 0167),
+# driven by readability.sh. Reads shell files, prints one TSV row per finding:
+#   rule <TAB> file <TAB> line <TAB> symbol <TAB> detail <TAB> strictness
 #
 # Shell is scanned as CODE only: a per-character state machine blanks quoted
 # text and comments (quotes may span lines — multi-line awk/jq programs in
@@ -37,11 +37,6 @@ BEGIN {
         "wpid gexec impon impen errre eopts accts asgn asg adrs bgid buid " \
         "nzroot biglist", list, " ")
   for (n in list) denied[list[n]] = 1
-
-  # Replace-tier tools (Tool Tiers): rewrite with jq/awk/grep or a builtin.
-  split("cut tr head tail wc paste comm uniq column bc xargs realpath " \
-        "basename dirname", list, " ")
-  for (n in list) replace_tier[list[n]] = 1
 
   # Words that may precede the real command in a segment.
   split("then do else elif ! { time exec command sudo nohup", list, " ")
@@ -220,7 +215,8 @@ function finish_file() {
 # Updates `quote` so strings spanning lines stay blanked. Also sets two
 # other views of the line:
 #   expansion_text      code plus double-quoted text (where ${…} expands)
-#   single_quoted_text  the single-quoted text (awk and jq programs)
+#   single_quoted_text  the single-quoted text (awk and jq programs), each
+#                       piece ended by \001
 function code_text(raw,   out, position, char, previous) {
   out = ""
   expansion_text = ""
@@ -229,7 +225,13 @@ function code_text(raw,   out, position, char, previous) {
   for (position = 1; position <= length(raw); position++) {
     char = substr(raw, position, 1)
     if (quote == "'") {
-      if (char == "'") { quote = ""; out = out "Q"; continue }
+      # Each quoted piece ends with \001, so pieces stay apart.
+      if (char == "'") {
+        quote = ""
+        out = out "Q"
+        single_quoted_text = single_quoted_text "\001"
+        continue
+      }
       single_quoted_text = single_quoted_text char
       continue
     }
@@ -331,13 +333,6 @@ function check_commands(code, line, exempt,   count, n, word, peak) {
     else if (word == "esac" && case_depth) case_depth--
     if (exempt) continue
     commands_record(segment[n], line)
-    # Migrated Areas follow ADR 0167, where these tools are allowed.
-    if ((word in replace_tier) && !is_migrated(FILENAME))
-      emit("tool", line, current_function() ":" word, word)
-    else if (word == "sed" && \
-             segment[n] !~ /(^|[ \t])(-[A-Za-z]*i[A-Za-z.]*|--in-place)/)
-      emit("sed-not-inplace", line, current_function() ":sed", \
-           "sed without -i")
   }
   if (function_count && peak - function_base[function_count] > \
       function_peak[function_count])
@@ -443,6 +438,9 @@ FNR == 1 {
 {
   last_line = FNR
   raw = $0
+  # Whether the line above is a comment (a "what" comment, ADR 0167).
+  above_is_comment = previous_is_comment
+  previous_is_comment = (raw ~ /^[ \t]*#/ && raw !~ /^[ \t]*# shellcheck/)
 
   if (heredoc_end != "") {
     check_line = raw
@@ -456,6 +454,7 @@ FNR == 1 {
   code = code_text(raw)
   exempt = (raw ~ /readability-ok/)
   features_check_line(code, FNR, exempt, starts_in_quote)
+  shape_check_perf(raw, FNR)
 
   # Heredoc opener (not a here-string): body starts on the next line.
   if (!starts_in_quote && \
@@ -474,22 +473,28 @@ FNR == 1 {
 
   if (open_function(code, raw, FNR)) {
     body_start = index(code, "()")
-    body = substr(code, body_start ? body_start + 2 : 1)
-    check_commands(blank_non_commands(body), FNR, exempt)
+    body = blank_non_commands(substr(code, body_start ? body_start + 2 : 1))
+    line_quoted_text = single_quoted_text
+    check_commands(body, FNR, exempt)
+    if (!exempt) shape_check_line(body, FNR, above_is_comment)
     next
   }
   close_function(code, FNR)
 
-  # A line ending in `\` continues on the next one: check the joined
-  # command once, at the line it started on.
+  # A logical line may run over several physical ones: a line ending in
+  # `\`, `|`, `&&` or `||` continues on the next. The joined command is
+  # checked once, at the line it started on.
   if (carried_code != "") {
     code = carried_code " " code
     exempt = exempt || carried_exempt
     command_line = carried_line
+    line_quoted_text = line_quoted_text single_quoted_text
   } else {
     command_line = FNR
+    command_comment = above_is_comment
+    line_quoted_text = single_quoted_text
   }
-  if (code ~ /\\[ \t]*$/) {
+  if (code ~ /(\\|\||&&)[ \t]*$/) {
     sub(/\\[ \t]*$/, "", code)
     carried_code = code
     carried_line = command_line
@@ -500,6 +505,7 @@ FNR == 1 {
   code = blank_non_commands(code)
   check_locals(code, command_line, exempt)
   check_commands(code, command_line, exempt)
+  if (!exempt) shape_check_line(code, command_line, command_comment)
 }
 
 END { finish_file() }

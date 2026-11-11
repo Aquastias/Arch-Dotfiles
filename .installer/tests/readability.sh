@@ -35,6 +35,7 @@ SCANNER="$TESTS_DIR/readability-scan.awk"
 COMMAND_CHECKER="$TESTS_DIR/readability-commands.awk"
 FEATURE_CHECKER="$TESTS_DIR/readability-features.awk"
 PROGRAM_FILE_CHECKER="$TESTS_DIR/readability-program-files.awk"
+SHAPE_CHECKER="$TESTS_DIR/readability-shape.awk"
 ADR_LINKER="$TESTS_DIR/readability-adr-links.awk"
 DOC_PATH_CHECKER="$TESTS_DIR/readability-doc-paths.awk"
 
@@ -103,7 +104,7 @@ violations() {
       -v migrated_areas="$MIGRATED_AREAS" \
       -v tool_reference="$TOOL_REFERENCE" \
       -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" -f "$COMMAND_CHECKER" \
-      -f "$FEATURE_CHECKER" "${files[@]}"
+      -f "$FEATURE_CHECKER" -f "$SHAPE_CHECKER" "${files[@]}"
   fi
   mapfile -t files < <(linked_docs)
   ((${#files[@]})) || return 0

@@ -12,11 +12,11 @@ retired. All new rules honor Migrated Areas.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each rule reports `rule: file:line: detail` with violating and clean
+- [x] Each rule reports `rule: file:line: detail` with violating and clean
       fixtures
-- [ ] Multi-line pipelines/chains (backslash continuation) counted as one
-- [ ] `perf` exemption without a measurement is flagged
-- [ ] Old `tool` / `sed-not-inplace` rules and their tests removed
-- [ ] Strict whole-repo lint test still green
+- [x] Multi-line pipelines/chains (backslash continuation) counted as one
+- [x] `perf` exemption without a measurement is flagged
+- [x] Old `tool` / `sed-not-inplace` rules and their tests removed
+- [x] Strict whole-repo lint test still green
