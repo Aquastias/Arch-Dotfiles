@@ -1,9 +1,14 @@
 # Readability
 
-How installer (`.installer/`) code is named, sized, and structured so its owner
-can read it after months away ([ADR 0153]). Every change — human or agent —
-follows these rules. The Readability Lint enforces the mechanical ones; the
-rest are on you. Comments follow [comment-style.md](comment-style.md).
+How the repo's shell code is named, sized, and structured so its owner can
+read it after months away, without an LLM ([ADR 0153], [ADR 0167]). Every
+change — human or agent — follows these rules. The Readability Lint enforces
+the mechanical ones; the rest are on you. Comments follow
+[comment-style.md](comment-style.md).
+
+Scope: all tracked shell code — `.installer/` (tests and lints included),
+`.local/bin`, `stow-configs.sh`. Out: `.scratch/`, vendored `.agents/skills/`,
+program `home/` payloads, test fixtures.
 
 ## Flow first
 
@@ -48,31 +53,49 @@ rest are on you. Comments follow [comment-style.md](comment-style.md).
 
 ## Tool Tiers
 
-One tool per job. Never trade readability for one fewer binary.
+The full rules, with every allowed command, flag, bash feature and jq
+feature, live in the [Tool Reference](../tool-reference.md) ([ADR 0167]). It
+is the allowlist: a command or flag it does not list fails the lint. Add the
+entry (meaning + a real example) before using something new. In short:
 
-- **Core:** bash builtins, `jq` (all JSON), `awk` (any multi-field or
-  multi-step text work), `grep` (filtering), `sort`, file ops (`mkdir cp mv rm
-  ln find mktemp`).
-- **`sed`:** in-place edits (`sed -i`) only; other transforms go to `awk`.
-- **Replace:** `cut tr head tail wc paste comm uniq column bc xargs realpath`
-  → a core tool or builtin (`mapfile`, `${#array[@]}`, `printf`). Symlinks
-  have one tool, `readlink` (`readlink -f` canonicalises — `realpath`'s job).
-  `basename`/`dirname` → `parent_directory` / `base_name`, defined in every
-  Commons world (Installer Stdlib, chroot common, Shell Stdlib). A
-  self-contained lib that cannot source its world's stdlib (it is sourced
-  alone, e.g. `picker.sh`, `impermanence-common.sh`) uses `${path##*/}` or a
-  private helper instead. Before any stdlib is sourced — a script locating its
-  own directory — strip the name with `"${BASH_SOURCE[0]%/*}"`, but guard a
-  path with no slash first (`bash 03-install.sh` would otherwise `cd` into the
-  file name):
+- **Coreutils and bash builtins first** (`cut head tail wc tr sort uniq comm
+  basename dirname`, `mapfile`, `printf`, …). Call `dirname`/`basename`
+  directly; the old `parent_directory` / `base_name` helpers are being
+  removed. The one pattern operator left is the bootstrap line that finds a
+  script's own directory before anything is sourced — guard a path with no
+  slash first (`bash 03-install.sh` would otherwise `cd` into the file
+  name):
 
   ```bash
   script_path="${BASH_SOURCE[0]}"
   [[ "$script_path" == */* ]] || script_path="./$script_path"
   SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
   ```
-- Merge consecutive `jq` reads of one input into one program when the result
-  stays short or is factored with named `def`s.
+- **`jq`** for all JSON, small feature set: one readable step per call.
+  `reduce`, `foreach`, `walk`, `def`, `paths`, `getpath`/`setpath`, `inputs`
+  become a bash loop over simple jq output, or a commented `.jq` file.
+- **`grep`** with `-q -E -F -v -x -c -o -l`; **`sed`** only as
+  `sed -i 's/old/new/'`.
+- **`awk`** never inline — only `.awk` files, with a header comment and a
+  comment on each rule.
+- **Domain Tools** (`pacman zfs systemctl lsblk git …`) where nothing else
+  does the job; their flags are listed like any other.
+- **Bash Feature Tier**: no `${!name}`, namerefs, `eval`, `<<<`,
+  `BASH_REMATCH`, `${…}` pattern operators or `printf -v`.
+
+## One step per line
+
+- At most 2 `|` per pipeline and 2 `&&`/`||` per chain.
+- A jq or sed program over ~40 characters (or over several lines) moves
+  into a named variable or a file.
+- Intermediate results get named variables.
+- A "what" comment sits directly above every jq, awk or sed program and
+  every 2-pipe pipeline ([comment-style.md](comment-style.md)).
+- **Speed.** Readability wins, except on a path the user waits on (the
+  guided TUI, an install loop over packages, files or disks) where the
+  readable form measurably costs >100 ms per action or >2× total. Then the
+  dense form carries `readability-ok: perf <before>→<after>`, with the
+  readable form in a comment above it.
 
 ## Frozen
 
@@ -83,8 +106,12 @@ update `CONTEXT.md` first; ADRs are never edited for renames.
 
 ## Readability Lint
 
-`.installer/tests/readability.sh` (scanner: `readability-scan.awk`; run by
-`readability.bats` in the suite) reports `rule: file:line: detail` for:
+`.installer/tests/readability.sh` (run by `readability.bats` in the suite)
+reports `rule: file:line: detail`. Its awk parts, each with its own header:
+`readability-scan.awk` (the shell scanner and [ADR 0153] rules),
+`readability-commands.awk` (Tool Reference), `readability-features.awk`
+(Bash Feature Tier, jq features), `readability-shape.awk` (one step per
+line), `readability-program-files.awk` (`.jq`/`.awk` headers).
 
 | Rule | Catches |
 | --- | --- |
@@ -93,21 +120,38 @@ update `CONTEXT.md` first; ADRs are never edited for renames.
 | `function-length` | function over 50 lines (heredoc bodies not counted: data) |
 | `nesting` | keyword nesting deeper than 3 |
 | `file-length` | file over 500 lines |
-| `tool` | a replace-tier tool at command position |
-| `sed-not-inplace` | `sed` without `-i` |
 | `prefix` | a function name not starting with its file's Prefix |
+| `tool-reference` | a command the Tool Reference does not list |
+| `flag-reference` | a flag the Tool Reference does not list for its command |
+| `bash-feature` | a banned Bash Feature Tier form |
+| `jq-feature` | a banned jq feature in an inline jq program |
+| `inline-awk` | awk given its program inline |
+| `sed-form` | sed other than `sed -i 's/old/new/'` |
+| `pipeline-length` | more than 2 `\|` in one pipeline |
+| `chain-length` | more than 2 `&&` / `\|\|` in one chain |
+| `program-length` | an inline jq/sed program over 40 characters or several lines |
+| `what-comment` | a jq/awk/sed program or 2-pipe pipeline with no comment above |
+| `perf-reason` | `readability-ok: perf` without a `<before>→<after>` measurement |
+| `program-header` | a `.jq` / `.awk` file without a header comment |
 | `adr-link` | an `ADR NNNN` in a doc that is not a link |
 | `doc-path` | a backticked repo path in a doc (ADRs aside) that is not a tracked file — name a removed file without backticks ([ADR 0156]) |
 
-The allow/deny token lists live in the scanner's `BEGIN` block — extend them
-there. Only code is scanned: quoted text, comments, and heredoc bodies are
-skipped, as are program `home/` payloads.
+The allow/deny name token lists live in the scanner's `BEGIN` block — extend
+them there. Only code is scanned: quoted text, comments, and heredoc bodies
+are skipped (the Bash Feature Tier also reads double-quoted text, and the jq
+rules read the single-quoted program of a jq call). A line ending in `\`,
+`|`, `&&` or `||` continues on the next; the joined command is checked at
+the line it starts on.
 
-**Strict.** Any violation fails the lint — new code must be clean. (The
-Readability Baseline ratchet that eased the lint in shrank to zero and was
-removed.)
+**Strict and advisory.** [ADR 0153]'s rules (names, sizes, prefix) are strict
+inside `.installer/`. [ADR 0167]'s rules, and every rule outside
+`.installer/`, are advisory until the file's area is listed in the
+**Migrated Areas** file (`.installer/tests/readability-migrated.txt`, one
+glob per line); then every rule is strict there. Advisory findings never
+fail the lint; `--list` shows them.
 
-- `readability.sh --list` prints every violation without failing.
+- `readability.sh --list` prints every violation, strict and advisory,
+  without failing.
 - `readability.sh --fix-adr-links` links every ADR mention in the docs in
   place: `ADR 0058` becomes the shortcut link `[ADR 0058]`, resolved by a
   generated definition block at the end of the file (two extra characters,
@@ -117,7 +161,8 @@ removed.)
 
 **Escape hatch.** A line containing `readability-ok: <reason>` is exempt; on a
 function's opening line it exempts the whole function. Use it for genuine
-exceptions (a `head` that cuts a stream on purpose), never to dodge a rename.
+exceptions, never to dodge a rename; a speed exception uses the `perf` form
+above.
 
 ## Config reads
 
@@ -372,3 +417,4 @@ tests/lib/
 [ADR 0153]: ../../docs/adr/0153-human-readable-installer-code.md
 [ADR 0154]: ../../docs/adr/0154-install-config-reader-binds-json-schema-owns-defaults.md
 [ADR 0156]: ../../docs/adr/0156-agent-session-guardrails.md
+[ADR 0167]: ../../docs/adr/0167-coreutils-first-tool-reference.md

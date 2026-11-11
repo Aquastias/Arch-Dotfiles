@@ -11,11 +11,11 @@ point at the Tool Reference.
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Readability doc: Tool Tiers replaced, jq-merge rule gone, rule table
+- [x] Readability doc: Tool Tiers replaced, jq-merge rule gone, rule table
       current, scope widened
-- [ ] Comment style doc: "what" comment rule added
-- [ ] `CONTEXT.md` Readability Lint entry updated
-- [ ] Coding standards link the Tool Reference
-- [ ] Readability Lint (ADR links, doc paths) passes
+- [x] Comment style doc: "what" comment rule added
+- [x] `CONTEXT.md` Readability Lint entry updated
+- [x] Coding standards link the Tool Reference
+- [x] Readability Lint (ADR links, doc paths) passes
