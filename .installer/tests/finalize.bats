@@ -81,26 +81,29 @@ teardown() { rm -rf "$TEST_DIR"; }
 # `findmnt -rno TARGET,FSTYPE`.
 
 @test "nonzfs_mounts: returns the non-zfs data mount, drops zfs ones" {
-  run _finalize_nonzfs_mounts <<<"/mnt zfs
-/mnt/home zfs
-/mnt/data/tank0 xfs"
+  run _finalize_nonzfs_mounts < <(printf '%s\n' \
+    '/mnt zfs' \
+    '/mnt/home zfs' \
+    '/mnt/data/tank0 xfs')
   [ "$status" -eq 0 ]
   [ "$output" = "/mnt/data/tank0" ]
 }
 
 @test "nonzfs_mounts: all-zfs tree yields nothing" {
-  run _finalize_nonzfs_mounts <<<"/mnt zfs
-/mnt/home zfs"
+  run _finalize_nonzfs_mounts < <(printf '%s\n' \
+    '/mnt zfs' \
+    '/mnt/home zfs')
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "nonzfs_mounts: deepest path first (nested unmount order)" {
-  run _finalize_nonzfs_mounts <<<"/mnt zfs
-/mnt/data ext4
-/mnt/data/sub btrfs"
+  run _finalize_nonzfs_mounts < <(printf '%s\n' \
+    '/mnt zfs' \
+    '/mnt/data ext4' \
+    '/mnt/data/sub btrfs')
   [ "$status" -eq 0 ]
-  [ "${output%%$'\n'*}" = "/mnt/data/sub" ]
+  [ "${lines[0]}" = "/mnt/data/sub" ]
 }
 
 # ── a busy pool (Audit Run 20261004: greetd/tuned never imported at boot) ────

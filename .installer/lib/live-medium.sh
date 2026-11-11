@@ -35,7 +35,7 @@ _live_medium_boot_partition() {
 _live_medium_parent_disk() {
   local dev="$1" parent
   [[ -n "$dev" ]] || return 0
-  parent="$(lsblk -no PKNAME "$dev" 2>/dev/null | awk 'NR == 1' || true)"
+  parent="$(lsblk -no PKNAME "$dev" 2>/dev/null | head -n 1 || true)"
   if [[ -n "$parent" ]]; then
     echo "/dev/${parent}"
   else
@@ -51,8 +51,14 @@ _live_medium_iso9660_partitions() {
 # Devices carrying an ARCH_* archiso label. blkid -t LABEL can't glob, so scan
 # the export form: DEVNAME precedes LABEL within each device's block.
 _live_medium_arch_label_partitions() {
-  blkid -o export 2>/dev/null \
-    | awk -F= '/^DEVNAME=/{d=$2} /^LABEL=ARCH_/{print d}' || true
+  local name value device=""
+  # `blkid -o export` prints NAME=value lines, a device's DEVNAME first:
+  # remember it, print it when that device's LABEL starts with ARCH_.
+  while IFS='=' read -r name value; do
+    [[ "$name" == DEVNAME ]] && device="$value"
+    [[ "$name" == LABEL && "$value" == ARCH_* ]] && printf '%s\n' "$device"
+  done < <(blkid -o export 2>/dev/null || true)
+  return 0
 }
 
 # ── Composer (pure decision over the seams) ──────────────────────────────────

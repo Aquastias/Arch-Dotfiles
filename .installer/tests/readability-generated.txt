@@ -1,0 +1,7 @@
+# Functions the Readability Lint cannot see defined, because code builds
+# them at run time (ADR 0167). One glob per line. Calls matching a glob
+# are treated as repo function calls, not commands.
+#
+# The Install Config Reader's accessors, made by `eval` from the schema
+# rows in lib/config/install-config.sh (until that eval is rewritten).
+install_config_*

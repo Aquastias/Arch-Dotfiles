@@ -151,6 +151,7 @@ function reset_file_state() {
   open_span = ""      # closer of a span still open from an earlier line
   case_depth = 0      # open `case` blocks
   carried_code = ""   # code of a command continued with `\`
+  commented_block = 0 # the line above: a program line under a "what" comment
 }
 
 # blank_span(code, opener, closer, mark) — replace each opener…closer span
@@ -441,6 +442,8 @@ FNR == 1 {
   # Whether the line above is a comment (a "what" comment, ADR 0167).
   above_is_comment = previous_is_comment
   previous_is_comment = (raw ~ /^[ \t]*#/ && raw !~ /^[ \t]*# shellcheck/)
+  # A blank line ends a block of commented program lines.
+  if (raw ~ /^[ \t]*$/) commented_block = 0
 
   if (heredoc_end != "") {
     check_line = raw
@@ -452,7 +455,9 @@ FNR == 1 {
 
   starts_in_quote = (quote != "")
   code = code_text(raw)
-  exempt = (raw ~ /readability-ok/)
+  # A readability-ok on a function's opening line exempts its whole body.
+  exempt = (raw ~ /readability-ok/) ||
+    (function_count && function_exempt[function_count])
   features_check_line(code, FNR, exempt, starts_in_quote)
   shape_check_perf(raw, FNR)
 
@@ -475,8 +480,10 @@ FNR == 1 {
     body_start = index(code, "()")
     body = blank_non_commands(substr(code, body_start ? body_start + 2 : 1))
     line_quoted_text = single_quoted_text
+    line_raw_text = raw
     check_commands(body, FNR, exempt)
     if (!exempt) shape_check_line(body, FNR, above_is_comment)
+    commented_block = 0
     next
   }
   close_function(code, FNR)
@@ -489,10 +496,12 @@ FNR == 1 {
     exempt = exempt || carried_exempt
     command_line = carried_line
     line_quoted_text = line_quoted_text single_quoted_text
+    line_raw_text = line_raw_text " " raw
   } else {
     command_line = FNR
-    command_comment = above_is_comment
+    command_comment = above_is_comment || commented_block
     line_quoted_text = single_quoted_text
+    line_raw_text = raw
   }
   if (code ~ /(\\|\||&&)[ \t]*$/) {
     sub(/\\[ \t]*$/, "", code)
@@ -505,7 +514,9 @@ FNR == 1 {
   code = blank_non_commands(code)
   check_locals(code, command_line, exempt)
   check_commands(code, command_line, exempt)
-  if (!exempt) shape_check_line(code, command_line, command_comment)
+  commented_block = 0
+  if (!exempt)
+    commented_block = shape_check_line(code, command_line, command_comment)
 }
 
 END { finish_file() }

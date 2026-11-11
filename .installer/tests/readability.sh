@@ -45,6 +45,8 @@ PREFIX_RULES=".installer/tests/readability-prefixes.txt"
 [[ -f "$PREFIX_RULES" ]] || PREFIX_RULES=""
 MIGRATED_AREAS=".installer/tests/readability-migrated.txt"
 [[ -f "$MIGRATED_AREAS" ]] || MIGRATED_AREAS=""
+GENERATED_FUNCTIONS=".installer/tests/readability-generated.txt"
+[[ -f "$GENERATED_FUNCTIONS" ]] || GENERATED_FUNCTIONS=""
 TOOL_REFERENCE="docs/tool-reference.md"
 [[ -f "$TOOL_REFERENCE" ]] || TOOL_REFERENCE=""
 
@@ -102,6 +104,7 @@ violations() {
   if ((${#files[@]})); then
     awk -v prefix_rules="$PREFIX_RULES" \
       -v migrated_areas="$MIGRATED_AREAS" \
+      -v generated_functions="$GENERATED_FUNCTIONS" \
       -v tool_reference="$TOOL_REFERENCE" \
       -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" -f "$COMMAND_CHECKER" \
       -f "$FEATURE_CHECKER" -f "$SHAPE_CHECKER" "${files[@]}"

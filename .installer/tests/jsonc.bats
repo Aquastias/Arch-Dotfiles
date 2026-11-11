@@ -210,6 +210,7 @@ write_inline_profile() {
 @test "jsonc_append_to_array: appends to a one-line non-empty array" {
   write_inline_profile
   jsonc_append_to_array "$TEST_DIR/p.jsonc" .persist.directories /etc/wg
+  # The persist directories, parsed from the stripped JSONC.
   run jq -c '.persist.directories' < <(jsonc_strip "$TEST_DIR/p.jsonc")
   [ "$output" = '["/home","/var/lib/docker","/etc/wg"]' ]
 }
@@ -217,6 +218,7 @@ write_inline_profile() {
 @test "jsonc_append_to_array: a missing array is created under its parent" {
   write_inline_profile
   jsonc_append_to_array "$TEST_DIR/p.jsonc" .persist.files /etc/foo
+  # The persist object, parsed from the stripped JSONC.
   run jq -c .persist < <(jsonc_strip "$TEST_DIR/p.jsonc")
   local want='{"files":["/etc/foo"],"directories":["/home","/var/lib/docker"]}'
   [ "$output" = "$want" ]
@@ -247,6 +249,7 @@ write_inline_profile() {
   write_inline_profile
   jsonc_remove_from_array "$TEST_DIR/p.jsonc" .persist.directories \
     /var/lib/docker
+  # The persist directories, parsed from the stripped JSONC.
   run jq -c '.persist.directories' < <(jsonc_strip "$TEST_DIR/p.jsonc")
   [ "$output" = '["/home"]' ]
 }
@@ -254,6 +257,7 @@ write_inline_profile() {
 @test "jsonc_remove_from_array: removes the first of a one-line array" {
   write_inline_profile
   jsonc_remove_from_array "$TEST_DIR/p.jsonc" .persist.directories /home
+  # The persist directories, parsed from the stripped JSONC.
   run jq -c '.persist.directories' < <(jsonc_strip "$TEST_DIR/p.jsonc")
   [ "$output" = '["/var/lib/docker"]' ]
 }

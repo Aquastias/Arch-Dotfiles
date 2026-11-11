@@ -114,9 +114,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "impermanence_common_create_rollback_datasets: creates each dataset at its mountpoint" {
   : > "$CALLS"
   impermanence_common_create_rollback_datasets rpool
-  local entry dataset mount_path
+  local entry suffix dataset mount_path
   for entry in etc:/etc opt:/opt srv:/srv usrlocal:/usr/local; do
-    dataset="rpool/ROOT/${entry%%:*}"; mount_path="${entry#*:}"
+    IFS=: read -r suffix mount_path < <(printf '%s\n' "$entry")
+    dataset="rpool/ROOT/$suffix"
     grep -qE "^zfs create .*mountpoint=$mount_path .*$dataset\$" "$CALLS" \
       || { echo "missing create for $dataset at $mount_path"; cat "$CALLS"; return 1; }
   done
@@ -263,9 +264,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 # A bind over /root would share root.mount with the rollback dataset's own
 # mount unit and lose to it, so /root is persisted, never rolled back.
 @test "ROLLBACK_DATASETS: /root is not a rollback path (curated persist)" {
-  local entry
+  local entry mount_path
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    [[ "${entry#*:}" != /root ]]
+    IFS=: read -r _ mount_path < <(printf '%s\n' "$entry")
+    [[ "$mount_path" != /root ]]
   done
   printf '%s\n' "${CURATED_DIRS[@]}" | grep -qx /root
 }
@@ -280,7 +282,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "impermanence_common_persist_unapply: removes the tmpfiles entry; preserves other lines" {
   conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  mkdir -p "${conf%/*}"
+  mkdir -p "$(dirname "$conf")"
   printf "d /etc/other 0755 root root - -\n" > "$conf"
   impermanence_common_persist_apply /etc/foo.conf f
   impermanence_common_persist_unapply /etc/foo.conf
@@ -405,7 +407,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "impermanence_common_persist_unapply: drops only the exact tmpfiles path" {
   # The target was matched as a regex, so "." in /etc/a.b also hit /etc/aXb.
   local config_file="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  mkdir -p "${config_file%/*}"
+  mkdir -p "$(dirname "$config_file")"
   printf 'd /etc/a.b 0755 root root - -\nd /etc/aXb 0755 root root - -\n' \
     >"$config_file"
   impermanence_common_persist_unapply /etc/a.b

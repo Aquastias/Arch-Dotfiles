@@ -47,8 +47,7 @@ ROLLBACK_DATASETS=(
 impermanence_common_btrfs_rollback_subvolumes() {
   local entry suffix mountpoint
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    mountpoint="${entry#*:}"
+    IFS=: read -r suffix mountpoint < <(printf '%s\n' "$entry")
     printf '@%s %s\n' "$suffix" "$mountpoint"
   done
 }
@@ -74,8 +73,7 @@ impermanence_common_create_rollback_datasets() {
   local rpool="$1"
   local entry suffix mountpoint dataset
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    mountpoint="${entry#*:}"
+    IFS=: read -r suffix mountpoint < <(printf '%s\n' "$entry")
     dataset="$rpool/ROOT/$suffix"
     zfs list -H -o name "$dataset" >/dev/null 2>&1 && continue
     zfs create -o mountpoint="$mountpoint" -o canmount=on "$dataset"
@@ -95,7 +93,7 @@ impermanence_common_mount_after_unit() {
   fi
   local entry mountpoint best=""
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    mountpoint="${entry#*:}"
+    IFS=: read -r _ mountpoint < <(printf '%s\n' "$entry")
     if [[ "$target" == "$mountpoint" || "$target" == "$mountpoint"/* ]]; then
       [[ ${#mountpoint} -gt ${#best} ]] && best="$mountpoint"
     fi
@@ -157,13 +155,9 @@ impermanence_common_link_wants() {
 }
 
 # _impermanence_common_make_parent <path> — create <path>'s parent directory
-# (`mkdir -p "$(dirname <path>)"`; this file runs without a stdlib).
+# (`mkdir -p "$(dirname <path>)"`).
 _impermanence_common_make_parent() {
-  local path="$1" parent
-  while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
-  parent="${path%/*}"
-  [[ "$path" == */* ]] || parent="."
-  mkdir -p "${parent:-/}"
+  mkdir -p "$(dirname "$1")"
 }
 
 # ── Persist Mount verbs (orchestrators) ─────────────────────────────────────
@@ -223,6 +217,7 @@ impermanence_common_persist_stage_in_copy() {
 # /persist/etc/systemd/system (pre-ADR 0144 extensions).
 impermanence_common_persist_unapply() {
   local target="$1" escaped_path directory found=0 config_file temporary_file
+  local line type path
   escaped_path="$(systemd-escape --path "$target")"
   for directory in "${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system" \
              "$IMPERMANENCE_MOUNT/etc/systemd/system"; do
@@ -235,12 +230,15 @@ impermanence_common_persist_unapply() {
   config_file="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
   if [[ -f "$config_file" ]]; then
     temporary_file="$(mktemp)"
-    awk -v t="$target" '
-      {
-        if (($1 == "d" || $1 == "f") && $2 == t) next
-        print
-      }
-    ' "$config_file" > "$temporary_file"
+    # Every line of the config but the d/f entries for $target (the
+    # `|| -n` keeps a last line that has no newline).
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      read -r type path _ < <(printf '%s\n' "$line")
+      if [[ "$path" == "$target" && ( "$type" == d || "$type" == f ) ]]; then
+        continue
+      fi
+      printf '%s\n' "$line"
+    done < "$config_file" > "$temporary_file"
     mv "$temporary_file" "$config_file"
   fi
 }

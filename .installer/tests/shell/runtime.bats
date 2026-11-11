@@ -24,7 +24,9 @@ setup() {
   stage_shell_stdlib "$DEST"
   [ -f "$DEST/shell-stdlib.sh" ]
   local module
-  for module in "$SHELL_COMMONS"/shell/*.sh; do [ -f "$DEST/shell/${module##*/}" ]; done
+  for module in "$SHELL_COMMONS"/shell/*.sh; do
+    [ -f "$DEST/shell/$(basename "$module")" ]
+  done
   run bash -c "unset SHELL_COMMONS; source '$DEST/shell-stdlib.sh' \
     && declare -F print_status >/dev/null"
   [ "$status" -eq 0 ]

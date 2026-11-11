@@ -35,7 +35,7 @@ zfs_collect_encryption_passphrase() {
 
   # Shared confirmed-secret reader (lib/prompt.sh). ZFS enforces ≥8 at pool
   # creation; we pre-check here for a friendlier retry.
-  prompt_secret ZFS_PASSPHRASE "ZFS passphrase" 8
+  ZFS_PASSPHRASE="$(prompt_secret "ZFS passphrase" 8)"
   info "Passphrase set. It will be applied to all encrypted pools."
 }
 

@@ -78,8 +78,11 @@ secrets_load() {
 _secrets_collect_user_secrets() {
   local profile="$1"
   local host_json="" user user_file
+  local -a users
   host_json="$(profile_loader_load "$profile" 2>/dev/null)" || return 0
-  while IFS= read -r user; do
+  # The host's user names, one per line.
+  mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
+  for user in "${users[@]}"; do
     [[ -n "$user" ]] || continue
     # VM users live under users/vm/<name>/ (fallback mirrors
     # _profile_loader_load).
@@ -89,7 +92,7 @@ _secrets_collect_user_secrets() {
     [[ -f "$user_file" ]] || continue
     user_secrets+=("$user_file")
     user_names+=("$user")
-  done < <(printf '%s' "$host_json" | jq -r '.users[]?')
+  done
   return 0
 }
 
@@ -125,8 +128,9 @@ _secrets_decrypt_age_key() {
     # from the tty, not stdin, so feed it through a pty via util-linux
     # `script` (mirrors vm/fixtures/regenerate.sh). Operator installs leave
     # SECRETS_AGE_PASSPHRASE unset and are prompted by age as before.
-    script -qc "age -d -o '$age_key' '$encrypted_age_key'" /dev/null \
-      <<< "${SECRETS_AGE_PASSPHRASE}"$'\n' >/dev/null 2>&1 || age_rc=$?
+    printf '%s\n' "$SECRETS_AGE_PASSPHRASE" \
+      | script -qc "age -d -o '$age_key' '$encrypted_age_key'" /dev/null \
+      >/dev/null 2>&1 || age_rc=$?
   else
     age --decrypt -o "$age_key" "$encrypted_age_key" || age_rc=$?
   fi
@@ -172,25 +176,33 @@ secrets_persist_state() {
 
   local state="${INSTALL_STATE:-/mnt/install-state.json}"
   local encoded_path
-  mkdir -p "$(parent_directory "$state")"
+  mkdir -p "$(dirname "$state")"
   [[ -f "$state" ]] || echo '{}' > "$state"
 
   install_state_update "$state" '.secrets' '{}'
   if [[ "${_SECRETS_HAS_HOST:-0}" -eq 1 ]]; then
-    encoded_path="$(jq -nR --arg v "${_SECRETS_TMPFS}/host-secrets.json" '$v')"
+    # The host secrets path as a JSON string.
+    encoded_path="$(jq -cn --arg v "${_SECRETS_TMPFS}/host-secrets.json" '$v')"
     install_state_update "$state" '.secrets.host' "$encoded_path"
   fi
   local name
   for name in "${_SECRETS_USER_NAMES[@]+"${_SECRETS_USER_NAMES[@]}"}"; do
-    encoded_path="$(jq -nR --arg v "${_SECRETS_TMPFS}/${name}-secrets.json" '$v')"
+    # This user's secrets path as a JSON string.
+    encoded_path="$(jq -cn --arg v "${_SECRETS_TMPFS}/${name}-secrets.json" \
+      '$v')"
     install_state_update "$state" ".secrets.users[\"$name\"]" "$encoded_path"
   done
 }
 
 _secrets_find_key_device() {
-  local dev
-  dev="$(lsblk -rno NAME,RM,TYPE 2>/dev/null \
-    | awk '$2==1 && $3=="disk" { print $1; exit }')"
+  local dev="" name removable type
+  # The first removable whole disk's name (sdb).
+  while read -r name removable type; do
+    if [[ "$removable" == 1 && "$type" == disk ]]; then
+      dev="$name"
+      break
+    fi
+  done < <(lsblk -rno NAME,RM,TYPE 2>/dev/null)
   if [[ -z "$dev" ]]; then
     echo "[secrets] no removable device found" >&2
     return 1
@@ -226,7 +238,8 @@ secrets_print_machine_key() {
     public_key="$(age-keygen -y "$key_file" 2>/dev/null)" || true
   fi
   if [[ -z "$public_key" ]]; then
-    public_key="$(grep '^# public key:' "$key_file" | awk '{print $NF}')" || true
+    # The key from the file's "# public key: age1…" line.
+    public_key="$(grep '^# public key:' "$key_file" | cut -d' ' -f4)" || true
   fi
   [[ -n "$public_key" ]] || return 0
 

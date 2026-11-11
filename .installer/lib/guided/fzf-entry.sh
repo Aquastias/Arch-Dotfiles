@@ -117,12 +117,12 @@ secret)
   source "${_entry_dir}/secrets-file.sh"
   _spw=""
   case "${2:-}" in
-  root) prompt_secret _spw "Root password"
+  root) _spw="$(prompt_secret "Root password")"
         guided_secrets_file_set_root "${GUIDED_SECRETS_FILE}" "$_spw" ;;
-  user) prompt_secret _spw "Password for ${3:-user}"
+  user) _spw="$(prompt_secret "Password for ${3:-user}")"
         guided_secrets_file_set_user \
           "${GUIDED_SECRETS_FILE}" "${3:-user}" "$_spw" ;;
-  enc)  prompt_secret _spw "Encryption password" 8
+  enc)  _spw="$(prompt_secret "Encryption password" 8)"
         guided_secrets_file_set_encryption "${GUIDED_SECRETS_FILE}" "$_spw" ;;
   esac
   ;;

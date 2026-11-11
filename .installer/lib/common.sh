@@ -44,7 +44,7 @@ confirm() {
   fi
   local ans
   read -rp "$(echo -e "${YELLOW}[?]${NC} $* [y/N]: ")" ans
-  [[ "${ans,,}" == "y" ]] || error "Aborted by user."
+  [[ "$ans" == [yY] ]] || error "Aborted by user."
 }
 
 # Displays a numbered menu and sets PICK_RESULT to the first word of the
@@ -59,7 +59,7 @@ pick_option() {
   local options=("$@")
 
   if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
-    PICK_RESULT="$(echo "${options[0]}" | awk '{print $1}')"
+    PICK_RESULT="$(first_word "${options[0]}")"
     info "Auto-picked option 1 (unattended): ${options[0]}"
     return
   fi
@@ -75,7 +75,7 @@ pick_option() {
       choice
     if [[ "$choice" =~ ^[0-9]+$ ]] &&
       ((choice >= 1 && choice <= ${#options[@]})); then
-      PICK_RESULT="$(echo "${options[$((choice - 1))]}" | awk '{print $1}')"
+      PICK_RESULT="$(first_word "${options[$((choice - 1))]}")"
       return
     fi
     echo -e "    ${RED}Invalid.${NC} Enter 1–${#options[@]}."
@@ -99,7 +99,8 @@ _retry() {
   local attempts="$1" backoff_csv="$2"; shift 2
   [[ "${1:-}" == "--" ]] && shift
   local -a backoff=()
-  IFS=',' read -ra backoff <<< "$backoff_csv"
+  # One backoff value per line, split at the commas.
+  mapfile -t backoff < <(printf '%s\n' "$backoff_csv" | tr ',' '\n')
   local attempt=0 rc=0
   while :; do
     attempt=$((attempt + 1))
@@ -156,7 +157,7 @@ part_name() {
 # ── Path helpers (ADR 0153) — one copy per world, never shared ──
 
 # parent_directory <path> — the directory holding <path>, like dirname.
-parent_directory() {
+parent_directory() {  # readability-ok: removed with ticket 18 (ADR 0167)
   local path="$1"
   while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
   if [[ "$path" != */* ]]; then
@@ -169,7 +170,7 @@ parent_directory() {
 }
 
 # base_name <path> [suffix] — the last part of <path>, like basename.
-base_name() {
+base_name() {  # readability-ok: removed with ticket 18 (ADR 0167)
   local path="$1" suffix="${2:-}"
   while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
   [[ "$path" == / ]] || path="${path##*/}"
@@ -177,9 +178,22 @@ base_name() {
   printf '%s\n' "$path"
 }
 
-# join_words — stdin's words joined by single spaces on one line (a trim that
-# also folds lines), like `… | xargs` without its quote handling.
+# first_word <text> — the text's first word (leading spaces skipped).
+first_word() {
+  local word _rest
+  read -r word _rest < <(printf '%s\n' "$1")
+  printf '%s\n' "$word"
+}
+
+# join_words — stdin's words joined by single spaces on one line (a trim
+# that also folds lines). "${words[*]}" joins an array with spaces.
 join_words() {
-  awk '{ for (i = 1; i <= NF; i++) words = words (words == "" ? "" : " ") $i }
-       END { print words }'
+  local -a lines=() words=() line_words=()
+  local line
+  mapfile -t lines
+  for line in "${lines[@]}"; do
+    read -ra line_words < <(printf '%s\n' "$line")
+    words+=("${line_words[@]}")
+  done
+  printf '%s\n' "${words[*]}"
 }

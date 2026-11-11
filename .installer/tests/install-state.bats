@@ -106,10 +106,10 @@ load install-state-helpers
 @test "install_state_write: emits .locales and .keymaps arrays" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.locales | type' "$STATE")" = "array" ]
-  [ "$(jq -r '.locales[0]'     "$STATE")" = "en_US.UTF-8" ]
-  [ "$(jq -r '.keymaps | type' "$STATE")" = "array" ]
-  [ "$(jq -r '.keymaps[0]'     "$STATE")" = "us" ]
+  [ "$(state_field '.locales | type')" = "array" ]
+  [ "$(state_field '.locales[0]')" = "en_US.UTF-8" ]
+  [ "$(state_field '.keymaps | type')" = "array" ]
+  [ "$(state_field '.keymaps[0]')" = "us" ]
 }
 
 
@@ -132,14 +132,14 @@ load install-state-helpers
   setup_writer_globals
   MOCK_FILESYSTEM="btrfs"
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r .filesystem "$STATE")" = "btrfs" ]
+  [ "$(state_field .filesystem)" = "btrfs" ]
 }
 
 @test "install_state_write: emits .ssh.enabled as a boolean" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.ssh.enabled | type' "$STATE")" = "boolean" ]
-  [ "$(jq -r '.ssh.enabled'        "$STATE")" = "false" ]
+  [ "$(state_field '.ssh.enabled | type')" = "boolean" ]
+  [ "$(state_field '.ssh.enabled')" = "false" ]
 }
 
 
@@ -186,38 +186,38 @@ load install-state-helpers
   setup_writer_globals
   ENVIRONMENT_DISPLAY_MANAGER="greetd"
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.display_manager' "$STATE")" = "greetd" ]
+  [ "$(state_field '.display_manager')" = "greetd" ]
 }
 
 @test "install_state_write: .display_manager falls back to none when unset" {
   setup_writer_globals
   unset ENVIRONMENT_DISPLAY_MANAGER
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.display_manager' "$STATE")" = "none" ]
+  [ "$(state_field '.display_manager')" = "none" ]
 }
 
 @test "install_state_write: emits .gpu array from ENVIRONMENT_GPU" {
   setup_writer_globals
   ENVIRONMENT_GPU=(amd nvidia)
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.gpu | type' "$STATE")" = "array" ]
-  [ "$(jq -r '.gpu[0]'     "$STATE")" = "amd" ]
-  [ "$(jq -r '.gpu[1]'     "$STATE")" = "nvidia" ]
+  [ "$(state_field '.gpu | type')" = "array" ]
+  [ "$(state_field '.gpu[0]')" = "amd" ]
+  [ "$(state_field '.gpu[1]')" = "nvidia" ]
 }
 
 @test "install_state_write: emits empty .gpu when ENVIRONMENT_GPU unset" {
   setup_writer_globals
   unset ENVIRONMENT_GPU
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.gpu | type'   "$STATE")" = "array" ]
-  [ "$(jq -r '.gpu | length' "$STATE")" = "0" ]
+  [ "$(state_field '.gpu | type')" = "array" ]
+  [ "$(state_field '.gpu | length')" = "0" ]
 }
 
 @test "install_state_write: .hostname comes from install_config_hostname" {
   setup_writer_globals
   MOCK_HOSTNAME="eterniox"
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r .hostname "$STATE")" = "eterniox" ]
+  [ "$(state_field .hostname)" = "eterniox" ]
 }
 
 @test "install_state_write: assembles full schema with nested objects" {
@@ -226,52 +226,52 @@ load install-state-helpers
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1 /dev/nvme1n1p1)
   install_state_write "$STATE" "host-a"
 
-  [ "$(jq -r .hostname     "$STATE")" = "host-a" ]
-  [ "$(jq -r .timezone     "$STATE")" = "UTC" ]
-  [ "$(jq -r .locale       "$STATE")" = "en_US.UTF-8" ]
-  [ "$(jq -r .keymap       "$STATE")" = "us" ]
-  [ "$(jq -r .kernel       "$STATE")" = "lts" ]
-  [ "$(jq -r .bootloader   "$STATE")" = "systemd-boot" ]
-  [ "$(jq -r .root_shell   "$STATE")" = "/bin/bash" ]
-  [ "$(jq -r .rpool        "$STATE")" = "rpool" ]
-  [ "$(jq -r .root_cmdline "$STATE")" = \
+  [ "$(state_field .hostname)" = "host-a" ]
+  [ "$(state_field .timezone)" = "UTC" ]
+  [ "$(state_field .locale)" = "en_US.UTF-8" ]
+  [ "$(state_field .keymap)" = "us" ]
+  [ "$(state_field .kernel)" = "lts" ]
+  [ "$(state_field .bootloader)" = "systemd-boot" ]
+  [ "$(state_field .root_shell)" = "/bin/bash" ]
+  [ "$(state_field .rpool)" = "rpool" ]
+  [ "$(state_field .root_cmdline)" = \
     "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id" ]
-  [ "$(jq -r .hooks        "$STATE")" = \
+  [ "$(state_field .hooks)" = \
     "base udev autodetect modconf block keyboard zfs filesystems" ]
-  [ "$(jq -r .swap         "$STATE")" = "true" ]
-  [ "$(jq -r .esp_count    "$STATE")" = "2" ]
-  [ "$(jq -r '.impermanence.enabled' "$STATE")" = "false" ]
-  [ "$(jq -r '.impermanence.dataset' "$STATE")" = "rpool/persist" ]
-  [ "$(jq -r '.impermanence.mount'   "$STATE")" = "/persist" ]
-  [ "$(jq -r '.persist.directories[0]' "$STATE")" = "/etc/wireguard" ]
-  [ "$(jq -r '.persist.files[0]'       "$STATE")" = "/etc/foo" ]
-  [ "$(jq -r '.zswap.enabled'          "$STATE")" = "true" ]
-  [ "$(jq -r '.zswap.compressor'       "$STATE")" = "zstd" ]
-  [ "$(jq -r '.zswap.max_pool_percent' "$STATE")" = "20" ]
+  [ "$(state_field .swap)" = "true" ]
+  [ "$(state_field .esp_count)" = "2" ]
+  [ "$(state_field '.impermanence.enabled')" = "false" ]
+  [ "$(state_field '.impermanence.dataset')" = "rpool/persist" ]
+  [ "$(state_field '.impermanence.mount')" = "/persist" ]
+  [ "$(state_field '.persist.directories[0]')" = "/etc/wireguard" ]
+  [ "$(state_field '.persist.files[0]')" = "/etc/foo" ]
+  [ "$(state_field '.zswap.enabled')" = "true" ]
+  [ "$(state_field '.zswap.compressor')" = "zstd" ]
+  [ "$(state_field '.zswap.max_pool_percent')" = "20" ]
 }
 
 @test "install_state_write: zswap types — enabled bool, percent number" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.zswap.enabled | type'          "$STATE")" = "boolean" ]
-  [ "$(jq -r '.zswap.max_pool_percent | type' "$STATE")" = "number" ]
+  [ "$(state_field '.zswap.enabled | type')" = "boolean" ]
+  [ "$(state_field '.zswap.max_pool_percent | type')" = "number" ]
 }
 
 @test "install_state_write: zfs.arc_max carries the size (ADR 0161)" {
   setup_writer_globals
   install_config_zfs_arc_max() { echo "4G"; }
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.zfs.arc_max' "$STATE")" = "4G" ]
+  [ "$(state_field '.zfs.arc_max')" = "4G" ]
 }
 
 @test "install_state_write: types — swap/extras/impermanence are booleans" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.swap | type'                 "$STATE")" = "boolean" ]
-  [ "$(jq -r '.ssh.enabled | type'          "$STATE")" = "boolean" ]
-  [ "$(jq -r '.impermanence.enabled | type' "$STATE")" = "boolean" ]
-  [ "$(jq -r '.esp_count | type'            "$STATE")" = "number" ]
-  [ "$(jq -r '.persist.directories | type'  "$STATE")" = "array" ]
+  [ "$(state_field '.swap | type')" = "boolean" ]
+  [ "$(state_field '.ssh.enabled | type')" = "boolean" ]
+  [ "$(state_field '.impermanence.enabled | type')" = "boolean" ]
+  [ "$(state_field '.esp_count | type')" = "number" ]
+  [ "$(state_field '.persist.directories | type')" = "array" ]
 }
 
 @test "install_state_write: persist comes from the effective config" {
@@ -282,10 +282,11 @@ load install-state-helpers
   MOCK_PERSIST='{"directories":["/var/lib/docker"],"files":[]}'
   export INSTALLER_DIR="$TEST_DIR/no-such-os-dir"
   install_state_write "$STATE"
+  # The state parses as JSON.
   run jq -e . "$STATE"
   [ "$status" -eq 0 ]
-  [ "$(jq -r '.persist.directories[0]' "$STATE")" = "/var/lib/docker" ]
-  [ "$(jq -r '.persist.files | length' "$STATE")" = "0" ]
+  [ "$(state_field '.persist.directories[0]')" = "/var/lib/docker" ]
+  [ "$(state_field '.persist.files | length')" = "0" ]
 }
 
 
@@ -333,27 +334,27 @@ load install-state-helpers
 @test "install_state_update: replaces scalar at existing path" {
   valid_state
   install_state_update "$STATE" '.hostname' '"renamed"'
-  [ "$(jq -r .hostname "$STATE")" = "renamed" ]
+  [ "$(state_field .hostname)" = "renamed" ]
 }
 
 @test "install_state_update: creates nested path that did not exist" {
   valid_state
   install_state_update "$STATE" '.secrets.host' '"/tmp/host-secrets.json"'
-  [ "$(jq -r .secrets.host "$STATE")" = "/tmp/host-secrets.json" ]
+  [ "$(state_field .secrets.host)" = "/tmp/host-secrets.json" ]
 }
 
 @test "install_state_update: sets nested user path under .secrets.users" {
   valid_state
   install_state_update "$STATE" '.secrets.users.alice' '"/tmp/alice.json"'
-  [ "$(jq -r .secrets.users.alice "$STATE")" = "/tmp/alice.json" ]
+  [ "$(state_field .secrets.users.alice)" = "/tmp/alice.json" ]
 }
 
 @test "install_state_update: preserves untouched fields" {
   valid_state
   install_state_update "$STATE" '.secrets.host' '"/x"'
-  [ "$(jq -r .hostname     "$STATE")" = "h" ]
-  [ "$(jq -r .timezone     "$STATE")" = "UTC" ]
-  [ "$(jq -r '.ssh.enabled' "$STATE")" = "false" ]
+  [ "$(state_field .hostname)" = "h" ]
+  [ "$(state_field .timezone)" = "UTC" ]
+  [ "$(state_field '.ssh.enabled')" = "false" ]
 }
 
 
@@ -445,8 +446,8 @@ load install-state-helpers
 @test "install_state_write: .apparmor carries the Security Extras selection" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.apparmor | type' "$STATE")" = "boolean" ]
-  [ "$(jq -r '.apparmor' "$STATE")" = "true" ]
+  [ "$(state_field '.apparmor | type')" = "boolean" ]
+  [ "$(state_field '.apparmor')" = "true" ]
   MOCK_APPARMOR=false install_state_write "$STATE" "host-a"
-  [ "$(jq -r '.apparmor' "$STATE")" = "false" ]
+  [ "$(state_field '.apparmor')" = "false" ]
 }

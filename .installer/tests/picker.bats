@@ -84,7 +84,7 @@ $BY_ID/nvme-WD_Black_SN850_X2"
   setup_disk_fixture
   run picker_enum_disks ""
   [ "$status" -eq 0 ]
-  count="$(awk 'END { print NR }' <<<"$output")"
+  count="${#lines[@]}"
   # sda, sdb, sdz — three whole disks, no partitions.
   [ "$count" -eq 3 ]
 }

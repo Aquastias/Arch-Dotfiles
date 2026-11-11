@@ -225,8 +225,8 @@ print_summary() {
   echo ""
   local disk log last_line
   for disk in "${DISKS_TO_WIPE[@]}"; do
-    log="/tmp/wipe-$(base_name "$disk").log"
-    last_line="$(awk 'END { print }' "$log" 2>/dev/null || echo 'no log')"
+    log="/tmp/wipe-$(basename "$disk").log"
+    last_line="$(tail -n 1 "$log" 2>/dev/null || echo 'no log')"
     echo -e "  ${GREEN}✔${NC}  $disk   ${DIM}${last_line}${NC}"
   done
   echo ""
@@ -247,7 +247,7 @@ parse_arguments() {
         shift
         ;;
       -h | --help)
-        echo "Usage: $(base_name "$0") [-y|--unattended] [DISK...]"
+        echo "Usage: $(basename "$0") [-y|--unattended] [DISK...]"
         echo ""
         echo "  DISK...           Explicit target disk(s) to wipe (e.g."
         echo "                    /dev/sda). When given, disk detection and"

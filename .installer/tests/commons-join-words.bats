@@ -8,7 +8,7 @@ setup() {
 }
 
 @test "join_words: trims and squeezes one line" {
-  run join_words <<<"   40G   Samsung SSD  "
+  run join_words < <(printf '%s\n' "   40G   Samsung SSD  ")
   [ "$output" = "40G Samsung SSD" ]
 }
 

@@ -75,7 +75,8 @@ _install_package() {
   _make_tool pacman
   run preflight_ensure_host_tools sgdisk:gptfdisk mkfs.fat:dosfstools
   [ "$status" -eq 0 ]
-  [ "$(awk '{ printf "%s ", $0 }' "$PACMAN_LOG")" = "gptfdisk dosfstools " ]
+  mapfile -t installed < "$PACMAN_LOG"
+  [ "${installed[*]}" = "gptfdisk dosfstools" ]
 }
 
 @test "only the missing subset is installed" {
@@ -83,7 +84,8 @@ _install_package() {
   _make_tool sgdisk               # gptfdisk already present
   run preflight_ensure_host_tools jq sgdisk:gptfdisk cryptsetup
   [ "$status" -eq 0 ]
-  [ "$(awk '{ printf "%s ", $0 }' "$PACMAN_LOG")" = "jq cryptsetup " ]
+  mapfile -t installed < "$PACMAN_LOG"
+  [ "${installed[*]}" = "jq cryptsetup" ]
 }
 
 @test "no pacman (not a live medium): hard error names packages, no install" {

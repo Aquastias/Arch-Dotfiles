@@ -41,16 +41,29 @@ valid_state() {
 JSON
 }
 
+# state_field <jq-path> — the install state's value at <jq-path>, raw
+# (strings unquoted).
+state_field() {
+  # The value at the path.
+  jq -r "$1" "$STATE"
+}
+
+# drop_field <jq-path> — remove the field at <jq-path> from the state.
 drop_field() {
   local path="$1" temporary_file
   temporary_file="$(mktemp)"
-  jq "del($path)" "$STATE" > "$temporary_file" && mv "$temporary_file" "$STATE"
+  # The state without that field.
+  jq "del($path)" "$STATE" > "$temporary_file"
+  mv "$temporary_file" "$STATE"
 }
 
+# set_field <jq-path> <json-value> — set the state's field at <jq-path>.
 set_field() {
   local path="$1" value="$2" temporary_file
   temporary_file="$(mktemp)"
-  jq "$path = $value" "$STATE" > "$temporary_file" && mv "$temporary_file" "$STATE"
+  # The state with that field set.
+  jq "$path = $value" "$STATE" > "$temporary_file"
+  mv "$temporary_file" "$STATE"
 }
 
 setup_writer_globals() {

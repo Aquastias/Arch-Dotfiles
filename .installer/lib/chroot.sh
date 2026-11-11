@@ -67,6 +67,11 @@ _CHROOT_STAGE_LIBCHROOT=(
 _CHROOT_STAGE_EXTRAS_LIB=(
   "lib/common.sh|common.sh"
   "lib/jsonc.sh|jsonc.sh"
+  # jsonc.sh runs its line edits from these awk files beside it.
+  "lib/jsonc-strip.awk|jsonc-strip.awk"
+  "lib/jsonc-append.awk|jsonc-append.awk"
+  "lib/jsonc-create-array.awk|jsonc-create-array.awk"
+  "lib/jsonc-remove.awk|jsonc-remove.awk"
   "lib/globals.sh|globals.sh"
   # common.sh sources the layout accessors (ticket 06 moved them there).
   "lib/layout/state.sh|layout/state.sh"
@@ -102,8 +107,8 @@ _chroot_stage() {
   local destination_root="$1"; shift
   local entry source_path destination
   for entry in "$@"; do
-    IFS='|' read -r source_path destination <<< "$entry"
-    mkdir -p "${destination_root}/$(parent_directory "$destination")"
+    IFS='|' read -r source_path destination < <(printf '%s\n' "$entry")
+    mkdir -p "${destination_root}/$(dirname "$destination")"
     cp "${SCRIPT_DIR}/${source_path}" "${destination_root}/${destination}"
   done
 }
@@ -249,6 +254,7 @@ chroot_collect_passwords() {
     # harness never blocks on a password prompt. Treat all installs from
     # this path as throwaway — change the password on first boot.
     info "Unattended mode — using default root password '12345'." >&2
+    # The passwords JSON, with root's password added.
     result="$(printf '%s' "$result" | jq --arg pw "12345" '. + {root: $pw}')"
     printf '%s' "$result"
     return
@@ -260,7 +266,8 @@ chroot_collect_passwords() {
 
   # Shared confirmed-secret reader (lib/prompt.sh).
   local root_password
-  prompt_secret root_password "Password for root"
+  root_password="$(prompt_secret "Password for root")"
+  # The passwords JSON, with root's password added.
   result="$(printf '%s' "$result" \
     | jq --arg pw "$root_password" '. + {root: $pw}')"
   printf '%s' "$result"
@@ -278,6 +285,7 @@ _chroot_resolve_root_password() {
   local secret_path secret_password
   secret_path="$(install_state_credential_path "$state" host)"
   if [[ -n "$secret_path" && -f "$secret_path" ]]; then
+    # The secret's root password ("" when it has none).
     secret_password="$(jq -r '.root_password // empty' "$secret_path")"
     [[ -n "$secret_password" ]] && { printf '%s' "$secret_password"; return; }
   fi
@@ -319,9 +327,10 @@ chroot_configure_system() {
   cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
   # Keep only the installed version in the cache going forward. Set here, after
   # the copy: written earlier (pacstrap step) the copy overwrote it.
+  local keep_current='s/^#CleanMethod.*/CleanMethod = KeepCurrent/'
+  # Uncomment CleanMethod as KeepCurrent, unless it is already set.
   grep -q '^CleanMethod' "${MOUNT_ROOT}/etc/pacman.conf" \
-    || sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' \
-      "${MOUNT_ROOT}/etc/pacman.conf"
+    || sed -i "$keep_current" "${MOUNT_ROOT}/etc/pacman.conf"
 
   _chroot_seed_zfs_state
   _chroot_copy_extras
@@ -337,6 +346,7 @@ chroot_configure_system() {
   # them in as a JSON string so chpasswd can set them non-interactively.
   local passwords_json root_password
   passwords_json="$(chroot_collect_passwords)"
+  # The root password from the passwords JSON.
   root_password="$(printf '%s' "$passwords_json" | jq -r '.root')"
   # A Host Secret's .root_password overrides the collected/default value — one
   # value, resolved host-side, crosses into the chroot (no decrypted secret is
@@ -400,12 +410,13 @@ _chroot_copy_extras() {
 # curated dir, for a compositor whose session runs XDG autostart (ADR 0159,
 # niri per ADR 0162).
 _chroot_stage_autostart_gates() {
-  local curated="${MOUNT_ROOT}/root/extras/desktop/$1/curated" gate
+  local curated="${MOUNT_ROOT}/root/extras/desktop/$1/curated" gate gate_name
   for gate in "${SCRIPT_DIR}/../.config/systemd/user/"*@autostart.service.d
   do
+    gate_name="$(basename "$gate")"
     [[ -d "$gate" ]] || continue
-    install -d "${curated}/.config/systemd/user/${gate##*/}"
-    install -m644 "$gate"/* "${curated}/.config/systemd/user/${gate##*/}/"
+    install -d "${curated}/.config/systemd/user/${gate_name}"
+    install -m644 "$gate"/* "${curated}/.config/systemd/user/${gate_name}/"
   done
 }
 
@@ -420,7 +431,8 @@ _chroot_stage_curated_compositor() {
   local curated="${MOUNT_ROOT}/root/extras/desktop/${adapter}/curated"
   [[ -f "${repo}/.config/${entry}" ]] || return 0
   install -Dm644 "${repo}/.config/${entry}" "${curated}/.config/${entry}"
-  local dropin_directory="${entry%/*}/conf.d"
+  local dropin_directory
+  dropin_directory="$(dirname "$entry")/conf.d"
   install -d "${curated}/.config/${dropin_directory}"
   install -m644 "${repo}/.config/${dropin_directory}/"* \
     "${curated}/.config/${dropin_directory}/"

@@ -803,3 +803,35 @@ SH
   [[ "$output" == *"perf-reason: .installer/lib/a.sh:2:"* ]]
   [[ "$output" != *"a.sh:1:"* ]]
 }
+
+@test "readability-ok on a function's opening line exempts its body" {
+  make_reference_repo
+  cat > .installer/lib/words.sh <<'SH'
+words_old() {  # readability-ok: removed with the contract ticket
+  wc /etc/passwd
+  value="${path##*/}"
+}
+words_new() {
+  wc /etc/passwd
+}
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool-reference: .installer/lib/words.sh:6: wc"* ]]
+  [[ "$output" != *"words.sh:2"* && "$output" != *"words.sh:3"* ]]
+}
+
+@test "what-comment: one comment covers a block of program lines" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# The OS pool's name and topology.
+name="$(jq -r '.name' "$profile")"
+topology="$(jq -r '.topology' "$profile")"
+
+shell="$(jq -r '.shell' "$profile")"
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"what-comment: .installer/lib/a.sh:5:"* ]]
+  [[ "$output" != *"a.sh:3:"* ]]
+}

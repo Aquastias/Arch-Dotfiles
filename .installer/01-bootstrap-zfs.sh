@@ -89,14 +89,14 @@ check_uefi() {
 check_live_env() {
   # Arch ISO mounts root at /run/archiso. Warn (don't abort) if unconfirmed —
   # custom ISOs differ.
-  if [[ -d /run/archiso ]] || grep -qi 'archiso' /proc/cmdline 2>/dev/null; then
+  if [[ -d /run/archiso ]] || grep -q 'archiso' /proc/cmdline 2>/dev/null; then
     info "Arch ISO live environment confirmed."
   else
     warn "Could not confirm Arch ISO environment."
     warn "This script is designed for the official Arch Linux ISO."
     local answer
     read -rp "$(echo -e "${YELLOW}[?]${NC} Continue anyway? [y/N]: ")" answer
-    [[ "${answer,,}" == "y" ]] || error "Aborted."
+    [[ "$answer" == [yY] ]] || error "Aborted."
   fi
 }
 
@@ -156,12 +156,31 @@ _any_host_reachable() {
   return "$reachable"
 }
 
+# ram_megabytes — total RAM in MB, from /proc/meminfo's
+# "MemTotal: <kB> kB" line.
+ram_megabytes() {
+  local label kilobytes _unit
+  while read -r label kilobytes _unit; do
+    if [[ "$label" == "MemTotal:" ]]; then
+      printf '%s\n' "$((kilobytes / 1024))"
+      return 0
+    fi
+  done < /proc/meminfo
+}
+
+# cowspace_megabytes <column> — one df column for the live ISO's
+# cowspace, in MB: "size" (total) or "avail" (free).
+cowspace_megabytes() {
+  # The value under the column's header, without df's padding.
+  df -m --output="$1" /run/archiso/cowspace | tail -n 1 | tr -d ' '
+}
+
 check_ram() {
   # RAM is the one hard constraint: cowspace and package cache live in RAM on
   # the live ISO, so too little can't be worked around.
   section "Checking RAM"
   local total_ram_mb
-  total_ram_mb="$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
+  total_ram_mb="$(ram_megabytes)"
   info "Total RAM: ${total_ram_mb} MB"
 
   if ((total_ram_mb < 1024)); then
@@ -189,9 +208,9 @@ expand_cowspace() {
   fi
 
   local cowspace_total_mb cowspace_available_mb total_ram_mb
-  cowspace_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
-  cowspace_available_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $4}')"
-  total_ram_mb="$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
+  cowspace_total_mb="$(cowspace_megabytes size)"
+  cowspace_available_mb="$(cowspace_megabytes avail)"
+  total_ram_mb="$(ram_megabytes)"
 
   info "cowspace current size : ${cowspace_total_mb} MB"
   info "cowspace available    : ${cowspace_available_mb} MB"
@@ -216,7 +235,7 @@ expand_cowspace() {
   Try rebooting with  cow_spacesize=2G  on the kernel cmdline as a workaround."
 
   local expanded_total_mb
-  expanded_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
+  expanded_total_mb="$(cowspace_megabytes size)"
   info "cowspace expanded to ${expanded_total_mb} MB."
 }
 
@@ -286,8 +305,9 @@ print_summary() {
   echo -e "  ${BOLD}The live environment is ready for ZFS installation.${NC}"
   echo ""
   printf "  %-22s %s\n" "Kernel:" "$(uname -r)"
+  # The first line of `zfs version` (the userland version).
   printf "  %-22s %s\n" "ZFS version:" \
-    "$(zfs version 2>/dev/null | awk 'NR == 1' || echo 'unknown')"
+    "$(zfs version 2>/dev/null | head -n 1 || echo 'unknown')"
   printf "  %-22s %s\n" "hostid:" "$(hostid)"
   printf "  %-22s %s\n" "Time:" "$(date)"
   echo ""

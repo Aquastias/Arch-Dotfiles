@@ -71,20 +71,95 @@ EOF
 # per-group disk mapping so a multi assignment is never implicit (ADR 0037).
 # Caller sends this to stderr; stdout is the JSON.
 _install_render_assignment() {
-  jq -rn --argjson p "$1" --argjson a "$2" '
-    "Disk assignment (per ADR 0037):",
-    "  os_pool (\($p.os_pool.pool_name // "rpool"), " +
-      "\($p.os_pool.topology // "stripe")): " +
-      "\(($a.os_pool // []) | join(" "))",
-    ( ($p.storage_groups // []) | to_entries[]
-      | "  storage_groups[\(.key)] (\(.value.name), " +
-        "\(.value.topology // "stripe")): " +
-        "\(($a.storage_groups[.key] // []) | join(" "))" ),
-    ( ($p.data_pools // []) | to_entries[]
-      | "  data_pools[\(.key)] (\(.value.name), " +
-        "\(.value.topology // "stripe")): " +
-        "\(($a.data_pools[.key] // []) | join(" "))" )
-  '
+  local profile_json="$1" assignment_json="$2"
+  local name topology
+  local -a disks
+  printf '%s\n' "Disk assignment (per ADR 0037):"
+
+  # The OS pool's name, topology and assigned disks.
+  name="$(printf '%s\n' "$profile_json" \
+    | jq -r '.os_pool.pool_name // "rpool"')"
+  topology="$(printf '%s\n' "$profile_json" \
+    | jq -r '.os_pool.topology // "stripe"')"
+  mapfile -t disks < <(printf '%s\n' "$assignment_json" \
+    | jq -r '.os_pool // [] | .[]')
+  printf '  os_pool (%s, %s): %s\n' "$name" "$topology" "${disks[*]}"
+
+  _install_render_groups storage_groups "$profile_json" "$assignment_json"
+  _install_render_groups data_pools "$profile_json" "$assignment_json"
+}
+
+# _install_render_groups <key> <profile_json> <assignment_json> — one line
+# per group of the profile's <key> list (storage_groups or data_pools):
+#   <key>[<index>] (<name>, <topology>): <assigned disks>
+_install_render_groups() {
+  local key="$1" profile_json="$2" assignment_json="$3"
+  local count index group name topology
+  local -a disks
+  # How many groups the profile lists under <key>.
+  count="$(printf '%s\n' "$profile_json" \
+    | jq -r --arg key "$key" '.[$key] // [] | length')"
+  for ((index = 0; index < count; index++)); do
+    # This group, its name and topology, and the disks assigned to it.
+    group="$(printf '%s\n' "$profile_json" \
+      | jq -c --arg key "$key" --argjson index "$index" '.[$key][$index]')"
+    name="$(printf '%s\n' "$group" | jq -r '.name')"
+    topology="$(printf '%s\n' "$group" | jq -r '.topology // "stripe"')"
+    mapfile -t disks < <(printf '%s\n' "$assignment_json" \
+      | jq -r --arg key "$key" --argjson index "$index" \
+        '.[$key][$index] // [] | .[]')
+    printf '  %s[%s] (%s, %s): %s\n' \
+      "$key" "$index" "$name" "$topology" "${disks[*]}"
+  done
+}
+
+# _install_infer_mode <profile_json> — the layout mode of a profile that
+# declares none: multi when its os_pool has a topology, single when it
+# names a disk, else empty.
+_install_infer_mode() {
+  local topology disk
+  # The OS pool's topology and the single disk ("" when absent).
+  topology="$(printf '%s\n' "$1" | jq -r '.os_pool.topology // ""')"
+  disk="$(printf '%s\n' "$1" | jq -r '.disk // ""')"
+  if [[ -n "$topology" ]]; then
+    printf 'multi\n'
+  elif [[ -n "$disk" ]]; then
+    printf 'single\n'
+  else
+    printf '\n'
+  fi
+}
+
+# _install_profile_mode <profile_json> — the layout mode the profile
+# declares, or the one its pool skeleton implies ("" when neither).
+_install_profile_mode() {
+  local mode
+  # The declared layout mode ("null" when the profile declares none).
+  mode="$(printf '%s\n' "$1" | jq -r '.mode')"
+  if [[ "$mode" == null || "$mode" == false ]]; then
+    mode="$(_install_infer_mode "$1")"
+  fi
+  printf '%s\n' "$mode"
+}
+
+# _install_pick_disks <by-id path>... — let the operator pick disks in fzf;
+# prints the picked by-id paths, one per line. Fails when none is picked.
+_install_pick_disks() {
+  local disk_path picked
+  # Readable "/dev/sda <size> <model>" label (field 1) over the by-id path
+  # (hidden field 2 — kept and previewed via {2}).
+  picked="$(
+    for disk_path in "$@"; do
+      printf '%s\t%s\n' "$(picker_disk_label "$disk_path")" "$disk_path"
+    done | fzf --multi --reverse \
+      --prompt='disks (TAB=multi, ENTER=confirm)> ' \
+      --delimiter='\t' --with-nth=1 \
+      --preview="bash -c 'source \"$INSTALLER_DIR/lib/picker.sh\"; \
+        picker_format_disk_preview {2}'" \
+      --preview-window=right,60%)" || return 1
+  [[ -n "$picked" ]] || return 1
+  # The by-id path (tab field 2) of each picked line.
+  printf '%s\n' "$picked" | cut -f2
 }
 
 # _install_pick_assignment <profile_json> — interactive disk resolution for
@@ -94,13 +169,10 @@ _install_render_assignment() {
 # seam. Multi slices the picked disks onto each declared group by disk_count, in
 # declared order (mapping rendered to stderr).
 _install_pick_assignment() {
-  local profile_json="$1" mode picked live_set disk_path
+  local profile_json="$1" mode live_set
   local -a candidates disks
 
-  mode="$(jq -r '
-    .mode // (if (.os_pool.topology // "") != "" then "multi"
-              elif (.disk // "") != ""           then "single"
-              else "" end)' <<<"$profile_json")"
+  mode="$(_install_profile_mode "$profile_json")"
   if [[ -z "$mode" || "$mode" == null ]]; then
     echo "[install.sh] profile declares no layout (mode / os_pool) yet." >&2
     echo "             A migrated profile.jsonc must declare the pool" \
@@ -114,24 +186,15 @@ _install_pick_assignment() {
     || { echo "[install.sh] no /dev/disk/by-id/* candidates found" >&2; \
          return 1; }
 
-  # Readable "/dev/sda <size> <model>" label (field 1) over the by-id path
-  # (hidden field 2 — kept and previewed via {2}).
-  picked="$(
-    for disk_path in "${candidates[@]}"; do
-      printf '%s\t%s\n' "$(picker_disk_label "$disk_path")" "$disk_path"
-    done | fzf --multi --reverse \
-      --prompt='disks (TAB=multi, ENTER=confirm)> ' \
-      --delimiter='\t' --with-nth=1 \
-      --preview="bash -c 'source \"$INSTALLER_DIR/lib/picker.sh\"; \
-        picker_format_disk_preview {2}'" \
-      --preview-window=right,60%)" \
-    || { echo "[install.sh] no disks selected" >&2; return 1; }
-  [[ -n "$picked" ]] || { echo "[install.sh] no disks selected" >&2; return 1; }
-  mapfile -t disks < <(printf '%s\n' "$picked" \
-    | while IFS=$'\t' read -r _label path; do printf '%s\n' "$path"; done)
+  mapfile -t disks < <(_install_pick_disks "${candidates[@]}")
+  if (( ${#disks[@]} == 0 )); then
+    echo "[install.sh] no disks selected" >&2
+    return 1
+  fi
 
   if [[ "$mode" == single ]]; then
     picker_validate_layout single "${#disks[@]}" || return 1
+    # The single-disk assignment JSON.
     jq -n --arg d "${disks[0]}" '{mode:"single", disk:$d}'
   else
     # Slice picked disks onto each group by disk_count, declared order (ADR
@@ -284,7 +347,7 @@ run_preflight() {
   # install withheld; else full toolchain + real install.
   local plan preflight_tier
   plan="$(preflight_resolve_plan "${debug_flag:-0}")"
-  read -r preflight_tier run_install <<<"$plan"
+  read -r preflight_tier run_install < <(printf '%s\n' "$plan")
   # Signal inspect-only mode to guided subprocesses (ADR 0063): a --debug run
   # never touches a disk, so disk-touching menu actions (Manual Partitioning
   # cfdisk hand-off) go inert. Exported so guided-fzf-entry.sh binds see it.

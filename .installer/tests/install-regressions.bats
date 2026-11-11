@@ -4,13 +4,40 @@
 
 R="$BATS_TEST_DIRNAME/.."
 
+# _extract_function <file> <name> — print one top-level function definition:
+# from its "<name>() {" line to the first line starting with "}".
+_extract_function() {
+  local line printing=0
+  while IFS= read -r line; do
+    [[ "$line" == "$2() {"* ]] && printing=1
+    (( printing )) || continue
+    printf '%s\n' "$line"
+    [[ "$line" == "}"* ]] && return 0
+  done < "$1"
+  return 0
+}
+
+# _line_of <text> <words> — the number of the first line of <text> that
+# contains <words> ("" when no line does).
+_line_of() {
+  local -a text_lines
+  local i
+  mapfile -t text_lines < <(printf '%s\n' "$1")
+  for i in "${!text_lines[@]}"; do
+    if [[ "${text_lines[i]}" == *"$2"* ]]; then
+      printf '%s\n' "$((i + 1))"
+      return 0
+    fi
+  done
+}
+
 @test "pacman.conf reaches the target on every layout, not only ZFS" {
   # ext4/btrfs installs lost [multilib] when the copy sat in the zpool branch
   local body cp zfs
-  body="$(awk '/^chroot_configure_system\(\) \{/, /^\}/' "$R/lib/chroot.sh")"
-  cp="$(awk '/cp \/etc\/pacman.conf/ { print NR; exit }' <<<"$body")"
+  body="$(_extract_function "$R/lib/chroot.sh" chroot_configure_system)"
+  cp="$(_line_of "$body" "cp /etc/pacman.conf")"
   # the ZFS-only seeding is its own step; the copy must come before it
-  zfs="$(awk '/_chroot_seed_zfs_state/ { print NR }' <<<"$body")"
+  zfs="$(_line_of "$body" _chroot_seed_zfs_state)"
   [ -n "$cp" ] && [ -n "$zfs" ] && (( cp < zfs ))
 }
 
@@ -20,12 +47,6 @@ R="$BATS_TEST_DIRNAME/.."
 }
 
 # ── errexit / ERR-trap class (bug scan 20261019) ─────────────────────────────
-
-# _extract_function <file> <name> — print one top-level function definition.
-_extract_function() {
-  awk -v name="$2" '$0 ~ "^" name "\\(\\) \\{" { on = 1 } on { print }
-    on && /^\}/ { exit }' "$1"
-}
 
 @test "bootstrap's route wait survives a slow DHCP under set -e" {
   local script="$BATS_TEST_TMPDIR/route.sh"
@@ -59,24 +80,24 @@ _extract_function() {
 @test "install.sh validates the config before 02-wipe zeroes the disks" {
   local body check wipe
   body="$(_extract_function "$R/install.sh" run_numbered_phases)"
-  check="$(awk '/03-install\.sh" --check/ { print NR; exit }' <<<"$body")"
-  wipe="$(awk '/02-wipe\.sh/ { print NR; exit }' <<<"$body")"
+  check="$(_line_of "$body" '03-install.sh" --check')"
+  wipe="$(_line_of "$body" 02-wipe.sh)"
   [ -n "$check" ] && [ -n "$wipe" ] && (( check < wipe ))
 }
 
 @test "03-install --check stops right after validation, before any disk phase" {
   local body check plan
   body="$(_extract_function "$R/03-install.sh" main)"
-  check="$(awk '/INSTALL_CHECK_ONLY/ { print NR; exit }' <<<"$body")"
-  plan="$(awk '/plan_and_confirm/ { print NR; exit }' <<<"$body")"
+  check="$(_line_of "$body" INSTALL_CHECK_ONLY)"
+  plan="$(_line_of "$body" plan_and_confirm)"
   [ -n "$check" ] && [ -n "$plan" ] && (( check < plan ))
 }
 
 @test "CleanMethod is set on the target after pacman.conf is copied over it" {
   local body copy clean
   body="$(_extract_function "$R/lib/chroot.sh" chroot_configure_system)"
-  copy="$(awk '/cp \/etc\/pacman.conf/ { print NR; exit }' <<<"$body")"
-  clean="$(awk '/CleanMethod = KeepCurrent/ { print NR; exit }' <<<"$body")"
+  copy="$(_line_of "$body" "cp /etc/pacman.conf")"
+  clean="$(_line_of "$body" "CleanMethod = KeepCurrent")"
   [ -n "$copy" ] && [ -n "$clean" ] && (( copy < clean ))
   ! grep -q 'CleanMethod' "$R/lib/packages/package-list.sh"
 }

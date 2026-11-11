@@ -175,7 +175,7 @@ finish_install() {
 # =============================================================================
 
 # Dir of this script; all lib/ paths and the default config are relative to it.
-# (The stdlib is not loaded yet, so no parent_directory here; a bare
+# (The bootstrap form, ADR 0167: nothing is sourced yet. A bare
 # `bash 03-install.sh` has no slash to strip, hence the ./ prefix.)
 script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
@@ -195,7 +195,7 @@ parse_arguments() {
         shift
         ;;
       -h | --help)
-        echo "Usage: ${0##*/} [-y|--unattended] [--check] [CONFIG_FILE]"
+        echo "Usage: $(basename "$0") [-y|--unattended] [--check] [CONFIG_FILE]"
         echo ""
         echo "  -y, --unattended  Bypass the final 'Proceed?' confirmation."
         echo "  --check           Validate the config, touch no disk, exit."

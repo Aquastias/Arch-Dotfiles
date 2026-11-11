@@ -3,3 +3,27 @@
 # rules are advisory (shown by `readability.sh --list`, never failing).
 # Each migration ticket adds its area here; the contract ticket removes
 # this list once every area is in.
+
+# Ticket 05 — the install entry path, its libs, the stdlibs, their tests.
+.installer/0*.sh
+.installer/install.sh
+.installer/lib/*.sh
+.installer/lib/*.awk
+.installer/lib/shell/*.sh
+.installer/tests/commons-*.bats
+.installer/tests/finalize.bats
+.installer/tests/grub-common.bats
+.installer/tests/impermanence-common.bats
+.installer/tests/install-pkglist.bats
+.installer/tests/install-regressions.bats
+.installer/tests/install-state.bats
+.installer/tests/install-state-helpers.bash
+.installer/tests/jsonc.bats
+.installer/tests/live-medium.bats
+.installer/tests/picker.bats
+.installer/tests/picker-assign.bats
+.installer/tests/preflight.bats
+.installer/tests/secrets.bats
+.installer/tests/sops.bats
+.installer/tests/shell/*.bats
+.installer/tests/lib/json-helpers.bash

@@ -26,7 +26,8 @@ reasoning found nowhere else.
 - **The "what" comment** ([ADR 0167]) — required directly above every jq,
   awk or sed program and every 2-pipe pipeline: one line saying what it
   produces, so a reader knows the result before decoding how. This is the
-  one place a comment may describe *what* the code does.
+  one place a comment may describe *what* the code does. One comment
+  covers a block of consecutive program lines (no blank line between).
 
   ```bash
   # Each user's name, one per line.

@@ -85,9 +85,10 @@ preflight_ensure_host_tools() {
   local -a missing_commands=() missing_packages=()
   local spec command_name package_name
   for spec in "$@"; do
-    command_name="${spec%%:*}"
-    package_name="${spec#*:}"
-    [[ "$package_name" == "$spec" ]] && package_name="$command_name"
+    # A spec is "command" or "command:package" (package defaults to the
+    # command's name).
+    IFS=: read -r command_name package_name < <(printf '%s\n' "$spec")
+    [[ -n "$package_name" ]] || package_name="$command_name"
     command_exists "$command_name" \
       || { missing_commands+=("$command_name")
            missing_packages+=("$package_name"); }

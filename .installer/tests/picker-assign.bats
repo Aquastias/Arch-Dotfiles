@@ -11,6 +11,8 @@
 # (mirror/stripe >=2, raidz1 >=3, raidz2 >=4); single mode resolves exactly
 # one OS device.
 
+load lib/json-helpers
+
 setup() {
   # shellcheck source=../lib/picker.sh
   source "$BATS_TEST_DIRNAME/../lib/picker.sh"
@@ -23,12 +25,12 @@ setup() {
     '{"system":{"hostname":"h"},"os_pool":{"pool_name":"rpool"}}' \
     '{"mode":"single","disk":"/dev/d0"}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "single"'
-  echo "$output" | jq -e '.disk == "/dev/d0"'
-  echo "$output" | jq -e '.system.hostname == "h"'
-  echo "$output" | jq -e '.os_pool.pool_name == "rpool"'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/d0"'
+  output_satisfies '.system.hostname == "h"'
+  output_satisfies '.os_pool.pool_name == "rpool"'
   # No host_profile field — the directory name is the identity (ADR 0036).
-  echo "$output" | jq -e 'has("host_profile") | not'
+  output_satisfies 'has("host_profile") | not'
 }
 
 @test "picker_assign_disks: single mode with two disks fails with a clear message" {
@@ -45,9 +47,9 @@ setup() {
     '{"os_pool":{"pool_name":"rpool","topology":"mirror"}}' \
     '{"mode":"multi","os_pool":["/dev/d0","/dev/d1"]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool.topology == "mirror"'
-  echo "$output" | jq -e '.os_pool.disks == ["/dev/d0","/dev/d1"]'
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.topology == "mirror"'
+  output_satisfies '.os_pool.disks == ["/dev/d0","/dev/d1"]'
 }
 
 @test "picker_assign_disks: under-populated os_pool raidz1 fails naming the group" {
@@ -67,8 +69,8 @@ setup() {
     '{"os_pool":{"pool_name":"rpool","topology":"none"}}' \
     '{"mode":"multi","os_pool":["/dev/d0"]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.os_pool.topology == "none"'
-  echo "$output" | jq -e '.os_pool.disks == ["/dev/d0"]'
+  output_satisfies '.os_pool.topology == "none"'
+  output_satisfies '.os_pool.disks == ["/dev/d0"]'
 }
 
 @test "picker_assign_disks: data_pool stripe + 1 disk is accepted (ADR 0037)" {
@@ -78,7 +80,7 @@ setup() {
     '{"mode":"multi","os_pool":["/dev/a","/dev/b"],
       "data_pools":[["/dev/c"]]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.data_pools[0].disks == ["/dev/c"]'
+  output_satisfies '.data_pools[0].disks == ["/dev/c"]'
 }
 
 @test "picker_assign_disks: storage_group independent + 1 disk is accepted" {
@@ -88,7 +90,7 @@ setup() {
     '{"mode":"multi","os_pool":["/dev/a","/dev/b"],
       "storage_groups":[["/dev/c"]]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.storage_groups[0].disks == ["/dev/c"]'
+  output_satisfies '.storage_groups[0].disks == ["/dev/c"]'
 }
 
 # ── multi mode: storage_groups + data_pools per-group assignment ───────────
@@ -100,8 +102,8 @@ setup() {
     '{"mode":"multi","os_pool":["/dev/a","/dev/b"],
       "storage_groups":[["/dev/c","/dev/d","/dev/e"]]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.storage_groups[0].name == "data"'
-  echo "$output" | jq -e '.storage_groups[0].disks == ["/dev/c","/dev/d","/dev/e"]'
+  output_satisfies '.storage_groups[0].name == "data"'
+  output_satisfies '.storage_groups[0].disks == ["/dev/c","/dev/d","/dev/e"]'
 }
 
 @test "picker_assign_disks: under-populated storage_group raidz1 fails naming it" {
@@ -122,8 +124,8 @@ setup() {
     '{"mode":"multi","os_pool":["/dev/a","/dev/b"],
       "data_pools":[["/dev/c","/dev/d"]]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.data_pools[0].name == "tank"'
-  echo "$output" | jq -e '.data_pools[0].disks == ["/dev/c","/dev/d"]'
+  output_satisfies '.data_pools[0].name == "tank"'
+  output_satisfies '.data_pools[0].disks == ["/dev/c","/dev/d"]'
 }
 
 # ── picker_build_assignment: slice a flat picked-disk list onto groups by
@@ -137,10 +139,10 @@ setup() {
       "data_pools":[{"name":"t","topology":"mirror","disk_count":2}]}' \
     /dev/a /dev/b /dev/c /dev/d /dev/e /dev/f
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool == ["/dev/a"]'
-  echo "$output" | jq -e '.storage_groups == [["/dev/b","/dev/c","/dev/d"]]'
-  echo "$output" | jq -e '.data_pools == [["/dev/e","/dev/f"]]'
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool == ["/dev/a"]'
+  output_satisfies '.storage_groups == [["/dev/b","/dev/c","/dev/d"]]'
+  output_satisfies '.data_pools == [["/dev/e","/dev/f"]]'
 }
 
 @test "picker_build_assignment: wrong total aborts naming the expected count" {
@@ -158,7 +160,7 @@ setup() {
   run picker_build_assignment \
     '{"mode":"multi","os_pool":{"topology":"none"}}' /dev/a
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.os_pool == ["/dev/a"]'
+  output_satisfies '.os_pool == ["/dev/a"]'
 }
 
 @test "picker_build_assignment: a non-os group missing disk_count aborts" {
@@ -179,9 +181,9 @@ setup() {
   assignment="$(picker_build_assignment "$profile" /dev/a /dev/b /dev/c /dev/d)"
   run picker_assign_disks "$profile" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.os_pool.disks == ["/dev/a"]'
-  echo "$output" | jq -e '.data_pools[0].disks == ["/dev/b"]'
-  echo "$output" | jq -e '.data_pools[1].disks == ["/dev/c","/dev/d"]'
+  output_satisfies '.os_pool.disks == ["/dev/a"]'
+  output_satisfies '.data_pools[0].disks == ["/dev/b"]'
+  output_satisfies '.data_pools[1].disks == ["/dev/c","/dev/d"]'
 }
 
 @test "picker_assign_disks: full multi-group assembly fills every group's disks" {
@@ -195,11 +197,11 @@ setup() {
       "storage_groups":[["/dev/c","/dev/d","/dev/e"]],
       "data_pools":[["/dev/f","/dev/g"]]}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool.disks == ["/dev/a","/dev/b"]'
-  echo "$output" | jq -e '.os_pool.ashift == 13'
-  echo "$output" | jq -e '.storage_groups[0].disks == ["/dev/c","/dev/d","/dev/e"]'
-  echo "$output" | jq -e '.storage_groups[0].owners == ["a"]'
-  echo "$output" | jq -e '.data_pools[0].disks == ["/dev/f","/dev/g"]'
-  echo "$output" | jq -e '.system.hostname == "nas"'
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.disks == ["/dev/a","/dev/b"]'
+  output_satisfies '.os_pool.ashift == 13'
+  output_satisfies '.storage_groups[0].disks == ["/dev/c","/dev/d","/dev/e"]'
+  output_satisfies '.storage_groups[0].owners == ["a"]'
+  output_satisfies '.data_pools[0].disks == ["/dev/f","/dev/g"]'
+  output_satisfies '.system.hostname == "nas"'
 }

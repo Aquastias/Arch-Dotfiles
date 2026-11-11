@@ -100,6 +100,7 @@ _write_sops_stub() {
   run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local host_path
+  # The host secrets path the install state records.
   host_path="$(jq -r '.secrets.host' "$INSTALL_STATE")"
   [ "$host_path" != "null" ]
   [ -f "$host_path" ]
@@ -117,6 +118,7 @@ _write_sops_stub() {
 
   run _load_and_persist "myvm"
   [ "$status" -eq 0 ]
+  # The host secrets file the install state records exists.
   [ -f "$(jq -r '.secrets.host' "$INSTALL_STATE")" ]
 }
 
@@ -135,6 +137,7 @@ _write_sops_stub() {
   run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local user_path
+  # The secrets path the install state records for alice.
   user_path="$(jq -r '.secrets.users.alice' "$INSTALL_STATE")"
   [ "$user_path" != "null" ]
   [ -f "$user_path" ]
@@ -225,6 +228,7 @@ _write_curl_stub() {
   run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local host_path
+  # The host secrets path the install state records.
   host_path="$(jq -r '.secrets.host' "$INSTALL_STATE")"
   [ "$host_path" != "null" ]
   [ -f "$host_path" ]
@@ -270,6 +274,7 @@ _write_curl_stub() {
   run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local host_path
+  # The host secrets path the install state records.
   host_path="$(jq -r '.secrets.host' "$INSTALL_STATE")"
   [ "$host_path" != "null" ]
 }
@@ -307,6 +312,7 @@ _write_curl_stub() {
 
   run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
+  # alice's secrets are recorded; the undeclared vm-test user's are not.
   [ "$(jq -r '.secrets.users.alice' "$INSTALL_STATE")" != "null" ]
   [ "$(jq -r '.secrets.users["vm-test"]' "$INSTALL_STATE")" = "null" ]
 }

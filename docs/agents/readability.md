@@ -90,7 +90,8 @@ entry (meaning + a real example) before using something new. In short:
   into a named variable or a file.
 - Intermediate results get named variables.
 - A "what" comment sits directly above every jq, awk or sed program and
-  every 2-pipe pipeline ([comment-style.md](comment-style.md)).
+  every 2-pipe pipeline; one comment covers a block of such lines with no
+  blank line between ([comment-style.md](comment-style.md)).
 - **Speed.** Readability wins, except on a path the user waits on (the
   guided TUI, an install loop over packages, files or disks) where the
   readable form measurably costs >100 ms per action or >2× total. Then the

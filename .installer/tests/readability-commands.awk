@@ -14,6 +14,7 @@
 # Inputs (awk -v):
 #   tool_reference   path of the Tool Reference doc ("" = no doc)
 #   migrated_areas   path of the Migrated Areas list ("" = none)
+#   generated_functions  path of the list of functions built at run time
 
 # load_tool_reference() — read the Tool Reference doc.
 #
@@ -69,6 +70,18 @@ function load_migrated_areas(   row) {
     if (row != "") migrated_glob[++migrated_globs] = glob_regex(row)
   }
   close(migrated_areas)
+}
+
+# load_generated_functions() — read the list of functions built at run
+# time: one glob per line, `#` comments. Fills generated_glob[].
+function load_generated_functions(   row) {
+  if (generated_functions == "") return
+  while ((getline row < generated_functions) > 0) {
+    sub(/#.*$/, "", row)
+    gsub(/[ \t]/, "", row)
+    if (row != "") generated_glob[++generated_globs] = glob_regex(row)
+  }
+  close(generated_functions)
 }
 
 # is_migrated(file) — 1 when the file is in a Migrated Area.
@@ -168,9 +181,11 @@ function is_test_file(file) {
 
 # is_function_call(tool, file) — 1 when the word calls a repo function
 # rather than a command.
-function is_function_call(tool, file) {
+function is_function_call(tool, file,   n) {
   if ((file, tool) in file_function) return 1
   if (tool in library_function) return 1
+  for (n = 1; n <= generated_globs; n++)
+    if (tool ~ generated_glob[n]) return 1
   return is_test_file(file) && (tool in test_function)
 }
 
@@ -246,6 +261,7 @@ BEGIN {
 
   load_tool_reference()
   load_migrated_areas()
+  load_generated_functions()
 }
 
 END { commands_finish() }

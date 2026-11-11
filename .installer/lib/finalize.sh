@@ -16,8 +16,15 @@
 # non-zfs mount under ${MOUNT_ROOT} holds it busy, failing `zpool export` and
 # leaving the pool active → initramfs import panic next boot (ADR 0043).
 _finalize_nonzfs_mounts() {
-  awk '$2 != "zfs" && $1 != "" { print length($1), $1 }' \
-    | sort -rn | awk '{ print $2 }'
+  local target filesystem
+  local -a by_length=()
+  while read -r target filesystem; do
+    [[ -n "$target" && "$filesystem" != zfs ]] || continue
+    by_length+=("${#target} $target")
+  done
+  (( ${#by_length[@]} )) || return 0
+  # Longest (deepest) target first, without its length prefix.
+  printf '%s\n' "${by_length[@]}" | sort -rn | cut -d' ' -f2-
 }
 
 finalize() {
@@ -106,9 +113,10 @@ _finalize_chrooted_pids() {
   local process_path process_root
   for process_path in "${FINALIZE_PROC:-/proc}"/[0-9]*; do
     process_root="$(readlink "$process_path/root" 2>/dev/null)" || continue
-    [[ "$process_root" == "$MOUNT_ROOT" \
-      || "$process_root" == "$MOUNT_ROOT/"* ]] \
-      && echo "${process_path##*/}"
+    if [[ "$process_root" == "$MOUNT_ROOT" \
+      || "$process_root" == "$MOUNT_ROOT/"* ]]; then
+      basename "$process_path"
+    fi
   done
   return 0
 }
@@ -145,7 +153,8 @@ _finalize_open_files_on_target() {
   for link in "$process_path"/cwd "$process_path"/root "$process_path"/fd/*; do
     target="$(readlink "$link" 2>/dev/null)" || continue
     [[ "$target" == "$MOUNT_ROOT"/* || "$target" == /dev/zd* ]] || continue
-    echo "${process_path##*/} $(cat "$process_path/comm" 2>/dev/null) $target"
+    echo "$(basename "$process_path")" \
+      "$(cat "$process_path/comm" 2>/dev/null) $target"
   done
 }
 
@@ -153,15 +162,10 @@ _finalize_open_files_on_target() {
 # mounted in the process's mount namespace.
 _finalize_namespace_pool_mounts() {
   local process_path="$1" pool="$2"
-  awk -v pool="$pool" -v pid="${process_path##*/}" \
-      -v command="$(cat "$process_path/comm" 2>/dev/null)" '
-    { for (field = 1; field <= NF; field++) if ($field == "-") break
-      source = $(field + 2) }
-    $(field + 1) == "zfs" && (source == pool || index(source, pool "/") == 1 \
-      || index(source, pool "@") == 1) {
-      print pid, command, "mount-ns", $5, source
-    }
-  ' "$process_path/mountinfo" 2>/dev/null
+  awk -f "$(dirname "${BASH_SOURCE[0]}")/finalize-namespace-mounts.awk" \
+    -v pool="$pool" -v pid="$(basename "$process_path")" \
+    -v command="$(cat "$process_path/comm" 2>/dev/null)" \
+    "$process_path/mountinfo" 2>/dev/null
   return 0
 }
 
@@ -170,8 +174,9 @@ _finalize_zvol_holders() {
   local holder zvol
   for holder in "${FINALIZE_SYS:-/sys}"/block/zd*/holders/*; do
     [[ -e "$holder" ]] || continue
-    zvol="${holder%/holders/*}"
-    echo "${zvol##*/} held by ${holder##*/}"
+    # …/block/zd0/holders/dm-0 → the zvol (zd0) and its holder (dm-0).
+    zvol="$(basename "$(dirname "$(dirname "$holder")")")"
+    echo "$zvol held by $(basename "$holder")"
   done
   return 0
 }

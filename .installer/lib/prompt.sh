@@ -10,26 +10,26 @@
 # Requires: lib/common.sh (warn) already sourced.
 # =============================================================================
 
-# prompt_secret <out-var> <label> [min_len] — read a secret twice from /dev/tty
-# (works regardless of stdin state), looping until non-empty, >= min_len chars
-# (default 1), and matching its confirmation. Writes into <out-var> via dynamic
-# scope — nothing on stdout, so do NOT wrap in $(...). Prompts/warnings to stderr.
+# prompt_secret <label> [min_len] — read a secret twice from /dev/tty (works
+# regardless of stdin state), looping until non-empty, >= min_len chars
+# (default 1), and matching its confirmation. Prints the secret on stdout —
+# call it as  secret="$(prompt_secret "Label")". Prompts/warnings to stderr.
 prompt_secret() {
-  local __output_variable="$1" __label="$2" __minimum_length="${3:-1}"
-  local __first_entry __confirmation
+  local label="$1" minimum_length="${2:-1}"
+  local first_entry confirmation
   while true; do
-    read -rsp "  ${__label}: " __first_entry </dev/tty; echo >&2
-    read -rsp "  Confirm ${__label}: " __confirmation </dev/tty; echo >&2
-    if [[ -z "$__first_entry" ]]; then
-      warn "Cannot be empty — try again."; continue
+    read -rsp "  ${label}: " first_entry </dev/tty; echo >&2
+    read -rsp "  Confirm ${label}: " confirmation </dev/tty; echo >&2
+    if [[ -z "$first_entry" ]]; then
+      warn "Cannot be empty — try again." >&2; continue
     fi
-    if (( ${#__first_entry} < __minimum_length )); then
-      warn "Must be at least ${__minimum_length} characters."; continue
+    if (( ${#first_entry} < minimum_length )); then
+      warn "Must be at least ${minimum_length} characters." >&2; continue
     fi
-    if [[ "$__first_entry" != "$__confirmation" ]]; then
-      warn "Values do not match — try again."; continue
+    if [[ "$first_entry" != "$confirmation" ]]; then
+      warn "Values do not match — try again." >&2; continue
     fi
-    printf -v "$__output_variable" '%s' "$__first_entry"
+    printf '%s' "$first_entry"
     return 0
   done
 }

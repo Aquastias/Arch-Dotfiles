@@ -42,8 +42,11 @@ Allowed:
 - `[[ … ]]` — a test: `[[ -f "$file" && "$mode" == fast ]]`
 - `$( … )` — a command's output as text: `today="$(date -u +%F)"`
 - arrays — `names=(a b)`, `names+=(c)`, `"${names[@]}"` (every item),
+  `"${names[*]}"` (every item joined by spaces into one word),
+  `"${names[-1]}"` (the last),
   `"${names[0]}"` (the first)
-- `${#names[@]}` — how many items an array holds
+- `${#names[@]}` — how many items an array holds; `${#text}` — how many
+  characters a variable holds
 - `${!names[@]}` — an array's keys (associative arrays)
 - `mapfile -t lines < <(…)` — a command's output lines into an array
 - `while IFS= read -r line; do … done < <(…)` — loop over output lines
@@ -90,7 +93,16 @@ Allowed inside a jq program ([ADR 0167]):
 - `has("key")` — whether an object has the key
 - `|` — feed one step's result into the next
 - comparisons and `and` / `or` / `not`, `if … then … else … end`
-- object and array building: `{name: .name}`, `[.[] | .id]`
+- object and array building: `{name: .name}`, `[.[] | .id]`, and joining
+  with `+`: `$array + [$item]`, `$a + {disks: $d}`
+- updating a field: `.mode = "multi"` (set it), `.os_pool |= (. // {})`
+  (replace it with a function of itself), `.group += {disks: $d}` (add to
+  it)
+- `.[$key]` — the field whose name is in `$key`; `.list[]?` — every item,
+  or nothing when `.list` is not a list
+- `type` — the value's kind (`"object"`, `"array"`, `"string"`, …);
+  `empty` — no result at all; `del(.a)` — the value without `.a`;
+  `index($v)` — where `$v` sits in an array (`null` when absent)
 - `$name` — a value passed with `--arg` / `--argjson`
 
 Banned, the lint flags them (`jq-feature`): `reduce`, `foreach`, `walk`,
@@ -303,6 +315,8 @@ Example: `wait || true`
 ### `kill`
 Sends a signal to a process (default: ask it to stop).
 
+- `-KILL` — stop at once; the process cannot refuse
+
 Example: `kill "$watcher_pid" 2>/dev/null || true`
 
 ### `true`
@@ -361,6 +375,7 @@ Example: `wc -l < "$file"` — just the number, no file name.
 Replaces or deletes characters.
 
 - `-d <characters>` — delete these characters
+- `-s` — squeeze: each run of a repeated character becomes one
 
 Example: `tr -d '\n'` — join all lines into one.
 
@@ -781,28 +796,43 @@ Example: `pacman -S --noconfirm --needed git`
 ### `zfs`
 Manages ZFS datasets and snapshots.
 
+- `-a` — all datasets (`zfs umount -a`, `zfs mount -a`)
+- `-H` — no header line; fields split by tabs (for scripts)
+- `-o <property=value>` — on `create` or `set`: set a property; on `list`
+  or `get`: only these columns (`-o name`)
+
 Example: `zfs rollback -r "$dataset@blank"`
 
 ### `zpool`
 Manages ZFS pools.
 
 - `-f` — force
+- `-H` — no header line; fields split by tabs (for scripts)
+- `-o <properties>` — only these columns (`name`, `health`)
 
 Example: `zpool export rpool || zpool export -f rpool`
 
 ### `mount`
 Attaches a filesystem at a directory.
 
+- `-o <options>` — mount options (`remount,size=2G`: resize in place)
+- `-t <type>` — the filesystem type (`tmpfs`)
+
 Example: `mount "$esp_partition" "${MOUNT_ROOT}/boot/efi"`
 
 ### `umount`
 Detaches a mounted filesystem.
+
+- `-R` — also everything mounted under it, deepest first
+- `-l` — lazy: detach now, finish when no longer busy
 
 ### `lsblk`
 Lists block devices (disks, partitions).
 
 - `-n` — no header line
 - `-o <columns>` — only these columns (`NAME,SIZE,FSTYPE`)
+- `-d` — whole disks only, not their partitions
+- `-r` — raw output: one plain line per device, no tree drawing
 
 Example: `lsblk -no NAME,SIZE,FSTYPE "$device"`
 
@@ -812,6 +842,8 @@ Lists mounted filesystems.
 - `-r` — raw output, no tree drawing
 - `-n` — no header line
 - `-o <columns>` — only these columns
+- `-R` — this mount and everything mounted under it
+- `-t <types>` — only filesystems of these types (`zfs`)
 
 Example: `findmnt -rno TARGET`
 
@@ -829,8 +861,184 @@ Fetches a URL.
 - `-s` — silent: no progress bar
 - `--max-time <seconds>` — give up after this long in total
 - `--connect-timeout <seconds>` — give up connecting after this long
+- `-o <file>` — save to this file instead of printing
+- `-f` — fail on an HTTP error instead of saving the error page
+- `-S` — with `-s`, still print errors
+- `-L` — follow redirects
 
 Example: `curl -s --max-time 3 --connect-timeout 3 "$url"`
+
+### `loginctl`
+Shows and controls systemd-logind sessions and users.
+
+- `--no-legend` — no header or footer lines
+
+Example: `loginctl show-user "$SUDO_USER"` — the user's session details.
+
+### `notify-send`
+Shows a desktop notification.
+
+- `-a <name>` — the application name shown
+- `-h <hint>` — an extra hint (`string:desktop-entry:<app>` groups it
+  under the app)
+- `-t <milliseconds>` — how long it stays
+- `-i <icon>` — the icon
+
+Example: `notify-send -a "$app_name" -t 15000 "$title" "$message"`
+
+### `ip`
+Shows and changes network settings.
+
+Example: `ip route show default` — fails when there is no default route.
+
+### `timedatectl`
+Shows and sets the system clock.
+
+Example: `timedatectl set-ntp true` — keep the clock synced over the network.
+
+### `lsmod`
+Lists the loaded kernel modules.
+
+Example: `lsmod | grep -q '^zfs '` — is the zfs module loaded?
+
+### `zgenhostid`
+Writes a random host id to `/etc/hostid` (ZFS pools record which host owns
+them).
+
+### `fzf`
+An interactive fuzzy picker: reads lines, lets the operator choose, prints
+the chosen lines. Drives the Guided Installer's menus.
+
+- `--multi` — allow picking several lines (TAB marks one)
+- `--reverse` — list from the top down
+- `--prompt <text>` — the text before the search input
+- `--header <text>` — a line shown above the list
+- `--header-border <style>` — a border around the header
+- `--delimiter <separator>` — what splits a line into fields
+- `--with-nth <fields>` — show only these fields (the rest stay hidden but
+  are still printed)
+- `--preview <command>` — run this for the current line and show its
+  output beside the list (`{2}` = field 2 of the line)
+- `--preview-window <layout>` — where the preview sits and how wide
+- `--bind <key:action>` — what a key does (`enter:accept`)
+- `--border <style>` — a border around the whole picker
+- `--border-label <text>` — a title on that border
+- `--border-label-pos <position>` — where the title sits
+- `--color <colors>` — the colour scheme
+- `--pointer <text>` — the marker before the current line
+- `--version` — print the version and exit
+
+Example: `fzf --multi --reverse --delimiter='	' --with-nth=1`
+
+### `dmesg`
+Shows (and controls) the kernel's message log.
+
+- `-n <level>` — only print messages more important than this level to
+  the console (`-n 1`: silence the console)
+
+### `arch-chroot`
+Runs a command (or a shell) inside the new system's root, with `/proc`,
+`/sys`, `/dev` and the ESP mounted in it.
+
+Example: `arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh`
+
+### `fuser`
+Shows (or kills) the processes using a file or a mounted filesystem.
+
+- `-k` — kill those processes
+- `-m` — the argument is a mount point: every process using that
+  filesystem
+
+Example: `fuser -km "$mountpoint"` — kill whatever holds the mount busy.
+
+### `systemd-escape`
+Turns a path (or text) into the escaped form systemd uses in unit names:
+`/home/user` → `home-user`.
+
+- `-p`, `--path` — the argument is a path (drop slashes at both ends)
+- `--suffix <suffix>` — add a unit suffix (`mount`, `service`)
+
+Example: `systemd-escape --path /var/lib/docker` — `var-lib-docker`, so
+the mount unit is `var-lib-docker.mount`.
+
+### `mountpoint`
+Tells whether a directory is a mount point.
+
+- `-q` — print nothing; the exit status says it
+
+Example: `mountpoint -q "$source_path"`
+
+### `script`
+Runs a command inside a new pseudo-terminal (a fake tty), so a program
+that only reads passwords from a terminal can be fed one.
+
+- `-q` — quiet: no start and done messages
+- `-c <command>` — the command to run
+
+Example: `printf '%s
+' "$passphrase" | script -qc "age -d -o out key.age" /dev/null`
+
+### `age`
+Encrypts and decrypts files.
+
+- `-d`, `--decrypt` — decrypt
+- `-o <file>` — write the result here
+
+Example: `age --decrypt -o "$age_key" "$encrypted_age_key"`
+
+### `age-keygen`
+Makes an age key pair.
+
+- `-y` — print the public key of an existing private key file
+- `-o <file>` — write the new key here
+
+Example: `age-keygen -y "$key_file"`
+
+### `sops`
+Encrypts and decrypts structured secret files (JSON, YAML) with age keys.
+
+- `-d`, `--decrypt` — decrypt to stdout
+- `-e` — encrypt
+- `-i` — edit the file in place
+- `--yes` — answer yes to every question
+
+Example: `SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$source"`
+
+### `smartctl`
+Reads a disk's SMART health and identity data.
+
+- `-i` — identity: model, serial, firmware, capacity
+
+Example: `smartctl -i "$dev"`
+
+### `systemd-analyze`
+Inspects systemd units; here, `verify` checks unit files for errors.
+
+- `--user` — check them as user units
+
+Example: `systemd-analyze verify "$unit_copy"`
+
+### `ssh-keygen`
+Makes and inspects SSH keys.
+
+- `-t <type>` — the key type (`ed25519`)
+- `-f <file>` — the key file
+- `-N <passphrase>` — the new key's passphrase (`""`: none)
+- `-C <comment>` — the comment stored in the key
+- `-q` — quiet
+- `-y` — print the public key of a private key file
+- `-A` — make every missing host key type (in `/etc/ssh`)
+
+Example: `ssh-keygen -t ed25519 -f "$key_file" -N "" -q`
+
+### `ssh-to-age`
+Turns an SSH ed25519 key into an age key (so the host's SSH key can
+decrypt SOPS secrets).
+
+- `-i <file>` — read this key file instead of stdin
+- `-private-key` — convert the private key, not the public one
+
+Example: `ssh-to-age < "$TEST_DIR/ssh_host_ed25519_key.pub"`
 
 <!-- ADR links: generated by readability.sh --fix-adr-links -->
 [ADR 0167]: ../docs/adr/0167-coreutils-first-tool-reference.md

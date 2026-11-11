@@ -54,18 +54,19 @@ install_state_load() {
     echo "[install-state] missing file: $path" >&2; return 1
   }
   for spec in "${_INSTALL_STATE_SCHEMA[@]}"; do
-    IFS='|' read -r variable jq_path type <<< "$spec"
+    IFS='|' read -r variable jq_path type < <(printf '%s\n' "$spec")
     if ! _install_state_has_path "$path" "$jq_path"; then
       echo "[install-state] missing field: $jq_path" >&2
       return 1
     fi
     if [[ "$type" == "array" ]]; then
+      # The array field's items, one per line.
       mapfile -t "$variable" < <(jq -r "${jq_path}[]" "$path")
       export "${variable?}"
     else
+      # The field's value.
       value="$(jq -r "$jq_path" "$path")"
-      printf -v "$variable" '%s' "$value"
-      export "${variable?}"
+      export "$variable=$value"
     fi
   done
 }
@@ -97,7 +98,16 @@ _INSTALL_STATE_TEMPLATE='{
 }'
 
 # _install_state_json_array — stdin lines as a compact JSON string array.
-_install_state_json_array() { jq -R . | jq -sc .; }
+# (The `|| -n` keeps a last line that has no newline.)
+_install_state_json_array() {
+  local line array='[]'
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # The array so far, with this line added at the end.
+    array="$(jq -cn --argjson array "$array" --arg line "$line" \
+      '$array + [$line]')"
+  done
+  printf '%s\n' "$array"
+}
 
 # _install_state_gpu_json — the resolved GPU vendor list (auto → detected
 # vendors) threaded to the chroot, where the GPU Configuration Module decides
@@ -126,6 +136,7 @@ install_state_write() {
   # locale/keymap stay the primaries for back-compat consumers.
   locales="$(install_config_locales | _install_state_json_array)"
   keymaps="$(install_config_keymaps | _install_state_json_array)"
+  # The install-state.json object, from the template above.
   jq -n \
     --arg     hostname     "$(install_config_hostname)"               \
     --arg     timezone     "$(install_config_timezone)"               \
@@ -167,6 +178,7 @@ install_state_write() {
 install_state_update() {
   local path="$1" jq_path="$2" value="$3" temporary_file
   temporary_file="$(mktemp)"
+  # The state with <jq-path> set to the value.
   jq --argjson v "$value" "${jq_path} = \$v" "$path" > "$temporary_file"
   mv "$temporary_file" "$path"
 }
@@ -188,13 +200,19 @@ install_state_update() {
 install_state_credential_path() {
   local state="$1" role="$2" name="${3:-}"
   [[ -f "$state" ]] || return 0
+  # The decrypted-secret path for the role: the SOPS key first, then
+  # the Guided no-SOPS one.
+  local host_filter='.secrets.host // .guided_passwords.host // empty'
+  local user_filter
+  # shellcheck disable=SC2016 # $n is a jq variable, not shell
+  user_filter='.secrets.users[$n] // .guided_passwords.users[$n] // empty'
   case "$role" in
     host)
-      jq -r '.secrets.host // .guided_passwords.host // empty' "$state" ;;
+      # The host credential's path.
+      jq -r "$host_filter" "$state" ;;
     user)
-      jq -r --arg n "$name" \
-        '.secrets.users[$n] // .guided_passwords.users[$n] // empty' \
-        "$state" ;;
+      # The named user credential's path.
+      jq -r --arg n "$name" "$user_filter" "$state" ;;
     *)
       echo "[install-state] bad credential role: $role" >&2; return 2 ;;
   esac
@@ -208,18 +226,32 @@ install_state_credential_path() {
 install_state_activates_sops() {
   local state="$1"
   [[ -f "$state" ]] || return 1
-  jq -e '(.secrets.host // "") != ""
-    or ((.secrets.users // {}) | length > 0)' "$state" >/dev/null 2>&1
+  local host_secret user_count
+  # The SOPS host secret path, and how many SOPS user secrets there are.
+  host_secret="$(jq -r '.secrets.host // ""' "$state" 2>/dev/null)" \
+    || return 1
+  user_count="$(jq -r '.secrets.users // {} | length' "$state" \
+    2>/dev/null)" || return 1
+  [[ -n "$host_secret" ]] || (( user_count > 0 ))
 }
 
 # Returns true iff every segment exists (parent contains key) AND the
 # final value is not JSON null. Path is dotted: ".a.b.c".
 _install_state_has_path() {
-  local file="$1" path="$2"
-  jq --arg p "${path#.}" -e '
-    ($p | split(".")) as $segs
-    | reduce $segs[] as $k (.;
-        if type=="object" and has($k) then .[$k] else null end)
-    | . != null
-  ' "$file" >/dev/null 2>&1
+  local file="$1" path="$2" value segment
+  local -a segments
+  value="$(cat "$file")"
+  # The path's keys, split at the dots (".a.b" → "", "a", "b").
+  IFS=. read -ra segments < <(printf '%s\n' "$path")
+  for segment in "${segments[@]}"; do
+    [[ -n "$segment" ]] || continue
+    # Whether the value so far is an object holding this key.
+    printf '%s\n' "$value" \
+      | jq -e --arg key "$segment" 'type == "object" and has($key)' \
+        >/dev/null 2>&1 || return 1
+    # The value under that key.
+    value="$(printf '%s\n' "$value" | jq -c --arg key "$segment" '.[$key]')"
+  done
+  # The final value must not be null.
+  printf '%s\n' "$value" | jq -e '. != null' >/dev/null 2>&1
 }

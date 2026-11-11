@@ -404,7 +404,7 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
   printf '%s\n' '{"root_password":"r00t"}' > "$GUIDED_SECRETS_MANIFEST"
   # stub the tty reader so the fall-through is observable without a terminal.
-  prompt_secret() { printf -v "$1" '%s' "prompted"; }
+  prompt_secret() { printf '%s' "prompted"; }
   ZFS_PASSPHRASE=""
   zfs_collect_encryption_passphrase
   [ "$ZFS_PASSPHRASE" = "prompted" ]   # guided tier skipped, prompt reached
@@ -421,7 +421,7 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   export INSTALL_UNATTENDED=1
   # a prompt here would mean the tier was skipped — stub it to a sentinel so a
   # regression is visible rather than hanging on /dev/tty.
-  prompt_secret() { printf -v "$1" '%s' "SHOULD-NOT-PROMPT"; }
+  prompt_secret() { printf '%s' "SHOULD-NOT-PROMPT"; }
   ZFS_PASSPHRASE=""
   zfs_collect_encryption_passphrase
   [ "$ZFS_PASSPHRASE" = "$INSTALL_DEFAULT_ENC_PASSPHRASE" ]

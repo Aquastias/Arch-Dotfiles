@@ -8,7 +8,7 @@
 # =============================================================================
 
 # parent_directory <path> — the directory holding <path>, like dirname.
-parent_directory() {
+parent_directory() {  # readability-ok: removed with ticket 18 (ADR 0167)
   local path="$1"
   while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
   if [[ "$path" != */* ]]; then
@@ -21,7 +21,7 @@ parent_directory() {
 }
 
 # base_name <path> [suffix] — the last part of <path>, like basename.
-base_name() {
+base_name() {  # readability-ok: removed with ticket 18 (ADR 0167)
   local path="$1" suffix="${2:-}"
   while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
   [[ "$path" == / ]] || path="${path##*/}"
