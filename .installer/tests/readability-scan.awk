@@ -138,8 +138,10 @@ function check_prefix(name, line,   n, want) {
     emit("prefix", line, name, name " (want " want "…)")
 }
 
+# emit() prints one finding; report() and strictness() live in
+# readability-commands.awk.
 function emit(rule, line, symbol, detail) {
-  printf "%s\t%s\t%d\t%s\t%s\n", rule, FILENAME, line, symbol, detail
+  report(rule, FILENAME, line, symbol, detail)
 }
 
 function reset_file_state() {
@@ -151,13 +153,67 @@ function reset_file_state() {
   parens = 0          # open ( count, to find the end of a nested "$(…)"
   nested = 0          # "$(…)" depth inside double quotes
   heredoc_lines = 0   # heredoc body lines seen so far in this file
+  open_span = ""      # closer of a span still open from an earlier line
+  case_depth = 0      # open `case` blocks
+  carried_code = ""   # code of a command continued with `\`
+}
+
+# blank_span(code, opener, closer, mark) — replace each opener…closer span
+# with mark. An unclosed span runs to the end of the line and sets
+# span_unclosed.
+function blank_span(code, opener, closer, mark,   start, rest, finish) {
+  span_unclosed = 0
+  while ((start = index(code, opener)) > 0) {
+    rest = substr(code, start + length(opener))
+    finish = index(rest, closer)
+    if (finish == 0) {
+      span_unclosed = 1
+      return substr(code, 1, start - 1) mark
+    }
+    code = substr(code, 1, start - 1) mark \
+      substr(rest, finish + length(closer))
+  }
+  return code
+}
+
+# skip_open_span(code, closer) — the code after closer, or "" when this
+# line does not close the span. Clears the open-span state on a close.
+function skip_open_span(code, closer) {
+  if (index(code, closer) == 0) return ""
+  open_span = ""
+  return substr(code, index(code, closer) + length(closer))
+}
+
+# blank_non_commands(code) — hide text that looks like commands but is
+# not: `[[ … ]]` tests, `(( … ))` arithmetic, array literal items and
+# case patterns. The spans become one-letter marks (T, A, P). Arithmetic
+# and array literals may span lines (open_span holds the closer).
+function blank_non_commands(code) {
+  if (open_span != "") code = skip_open_span(code, open_span)
+  if (open_span != "") return ""
+  code = blank_span(code, "[[", "]]", "T")
+  code = blank_span(code, "((", "))", "A")
+  if (span_unclosed) open_span = "))"
+  gsub(/=\([^)]*\)/, "=A", code)
+  if (code ~ /=\([^)]*$/) {
+    sub(/=\([^)]*$/, "=A", code)
+    open_span = ")"
+  }
+  # Inside a case body a line may start with a pattern (`start|stop)`),
+  # also right after a `;;`.
+  if (case_depth) {
+    sub(/^[ \t]*\(?[^ \t();=]+([ \t]*\|[ \t]*[^ \t();=]+)*\)/, "P;", code)
+    gsub(/;;[ \t]*\(?[^ \t();=]+([ \t]*\|[ \t]*[^ \t();=]+)*\)/, ";P;",
+         code)
+  }
+  return code
 }
 
 function finish_file() {
   if (current_file == "") return
   if (last_line > MAX_FILE_LINES)
-    printf "%s\t%s\t%d\t%s\t%s\n", "file-length", current_file, 1, "-", \
-      last_line " lines (max " MAX_FILE_LINES ")"
+    report("file-length", current_file, 1, "-",
+           last_line " lines (max " MAX_FILE_LINES ")")
 }
 
 # code_text(raw) — the line with quoted text replaced by Q and comments cut.
@@ -174,6 +230,13 @@ function code_text(raw,   out, position, char, previous) {
     if (quote == "\"") {
       if (char == "\\") { position++; continue }
       if (char == "\"") { quote = ""; out = out "Q" }
+      # "$(( … ))" is arithmetic, part of the string.
+      if (substr(raw, position, 3) == "$((") {
+        position += 2
+        if (index(substr(raw, position), "))") > 0)
+          position += index(substr(raw, position), "))")
+        continue
+      }
       # "$( … )" is code: scan it, then resume the string at its `)`.
       if (substr(raw, position, 2) == "$(") {
         nested++
@@ -256,8 +319,12 @@ function check_commands(code, line, exempt,   count, n, word, peak) {
     word = first_word(segment[n])
     if (word in block_opener) { depth++; if (depth > peak) peak = depth }
     else if (word in block_closer) depth--
+    if (word == "case") case_depth++
+    else if (word == "esac" && case_depth) case_depth--
     if (exempt) continue
-    if (word in replace_tier)
+    commands_record(segment[n], line)
+    # Migrated Areas follow ADR 0167, where these tools are allowed.
+    if ((word in replace_tier) && !is_migrated(FILENAME))
       emit("tool", line, current_function() ":" word, word)
     else if (word == "sed" && \
              segment[n] !~ /(^|[ \t])(-[A-Za-z]*i[A-Za-z.]*|--in-place)/)
@@ -320,6 +387,7 @@ function open_function(code, raw, line,   name, indent, rest, problems,
   match(code, /^[ \t]*/)
   indent = substr(code, 1, RLENGTH)
   exempt = (raw ~ /readability-ok/)
+  if (name !~ /^@test /) record_function(name)
 
   if (name !~ /^@test / && !exempt) {
     problems = name_problems(name)
@@ -397,13 +465,32 @@ FNR == 1 {
 
   if (open_function(code, raw, FNR)) {
     body_start = index(code, "()")
-    check_commands(substr(code, body_start ? body_start + 2 : 1), \
-                   FNR, exempt)
+    body = substr(code, body_start ? body_start + 2 : 1)
+    check_commands(blank_non_commands(body), FNR, exempt)
     next
   }
   close_function(code, FNR)
-  check_locals(code, FNR, exempt)
-  check_commands(code, FNR, exempt)
+
+  # A line ending in `\` continues on the next one: check the joined
+  # command once, at the line it started on.
+  if (carried_code != "") {
+    code = carried_code " " code
+    exempt = exempt || carried_exempt
+    command_line = carried_line
+  } else {
+    command_line = FNR
+  }
+  if (code ~ /\\[ \t]*$/) {
+    sub(/\\[ \t]*$/, "", code)
+    carried_code = code
+    carried_line = command_line
+    carried_exempt = exempt
+    next
+  }
+  carried_code = ""
+  code = blank_non_commands(code)
+  check_locals(code, command_line, exempt)
+  check_commands(code, command_line, exempt)
 }
 
 END { finish_file() }

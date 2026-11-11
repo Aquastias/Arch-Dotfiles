@@ -15,15 +15,15 @@ failing) elsewhere, so the repo stays green during migration.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Tool Reference doc with the seeded sections, each entry with meaning,
+- [x] Tool Reference doc with the seeded sections, each entry with meaning,
       flags and a real example
-- [ ] `tool-reference` and `flag-reference` rules report `rule: file:line:
+- [x] `tool-reference` and `flag-reference` rules report `rule: file:line:
       detail`
-- [ ] File set widened to all tracked shell code, exclusions honored
-- [ ] Migrated Areas list: strict inside, advisory outside; starts empty
-- [ ] Fixtures: unknown command, unknown flag, entry added flips result,
+- [x] File set widened to all tracked shell code, exclusions honored
+- [x] Migrated Areas list: strict inside, advisory outside; starts empty
+- [x] Fixtures: unknown command, unknown flag, entry added flips result,
       strings/comments/heredocs ignored, exclusions, advisory vs strict
-- [ ] "this repo passes the strict Readability Lint" still green
-- [ ] Lint code added here follows ADR 0167 itself
+- [x] "this repo passes the strict Readability Lint" still green
+- [x] Lint code added here follows ADR 0167 itself

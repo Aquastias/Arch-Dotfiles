@@ -441,3 +441,188 @@ SH
   check_repo
   [ "$status" -eq 0 ]
 }
+
+# ── Tool Reference: commands and flags (ADR 0167) ──────────────────────────
+
+# make_reference_repo: a repo whose Tool Reference lists `cut` (with -d
+# taking a value and -f) and `rm` (with -r, -f), and whose Migrated Areas
+# list holds .installer/lib/.
+make_reference_repo() {
+  make_repo
+  mkdir -p docs .installer/lib
+  cat > docs/tool-reference.md <<'DOC'
+# Tool Reference
+
+```markdown
+### `example`
+- `-z` — inside a code block: not an entry
+```
+
+### `cut`
+Prints selected fields.
+
+- `-d <delimiter>` — the character between fields
+- `-f <fields>` — which fields to print
+
+### `rm`
+- `-r` — directories too
+- `-f` — no error when missing
+
+### `sudo`
+- `-u <user>` — run as this user
+DOC
+  printf '.installer/lib/*\n' > .installer/tests/readability-migrated.txt
+}
+
+@test "tool-reference: a command missing from the Tool Reference fails" {
+  make_reference_repo
+  printf 'cut -d: -f1 /etc/passwd\nwc -l /etc/passwd\n' \
+    > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:2: wc has no"* ]]
+  [[ "$output" != *"a.sh:1"* ]]
+}
+
+@test "flag-reference: a flag missing from the Tool Reference fails" {
+  make_reference_repo
+  printf 'cut -s -f1 /etc/passwd\nrm -rf /tmp/x\nrm -rv /tmp/x\n' \
+    > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"flag-reference: .installer/lib/a.sh:1: cut -s has no"* ]]
+  [[ "$output" == *"flag-reference: .installer/lib/a.sh:3: rm -rv has no"* ]]
+  [[ "$output" != *"a.sh:2"* ]]
+}
+
+@test "flag-reference: a flag that takes a value ends a cluster" {
+  make_reference_repo
+  printf 'cut -d: -f1 /etc/passwd\ncut -fd /etc/passwd\n' \
+    > .installer/lib/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "tool-reference: adding the entry makes the command pass" {
+  make_reference_repo
+  printf 'wc /etc/passwd\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  printf '\n### `wc`\nCounts lines.\n' >> docs/tool-reference.md
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "tool-reference: entries inside a code block declare nothing" {
+  make_reference_repo
+  printf 'example\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:1: example has no"* ]]
+}
+
+@test "tool-reference: outside Migrated Areas findings are advisory" {
+  make_reference_repo
+  mkdir -p .installer/tools
+  printf 'stow /etc/passwd\n' > .installer/tools/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+  check_repo --list
+  [[ "$output" == *"tool-reference: .installer/tools/a.sh:1: stow has no"* ]]
+}
+
+@test "tool-reference: repo functions, scripts and variables need no entry" {
+  make_reference_repo
+  cat > .installer/lib/words.sh <<'SH'
+words_count() { cut -f1 "$1"; }
+words_main() {
+  words_count /etc/passwd
+  ./run.sh
+  "$HELPER" --flag
+  .installer/tools/fetch.sh
+}
+SH
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "tool-reference: a test stub does not hide the real command" {
+  make_reference_repo
+  mkdir -p .installer/tests
+  printf 'wc() { :; }\n' > .installer/tests/stub.bash
+  printf 'wc /etc/passwd\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:1: wc has no"* ]]
+}
+
+@test "tool-reference: words that are not commands are skipped" {
+  make_reference_repo
+  cat > .installer/lib/words.sh <<'SH'
+words_walk() {
+  local item
+  for item in alpha beta; do
+    rm -f "$item"
+  done
+  local -a names=(alpha beta)
+  local -a more=(
+    gamma
+    delta
+  )
+  if [[ -n "$item" && $item == alpha ]]; then rm -f x; fi
+  (( count = count + 1 ))
+  case "$1" in
+    start | stop) rm -f y ;;
+    -h|--help) rm -f z ;;
+  esac
+  echo "wc $(cut -f1 x) $((1 + 2))"  # wc in text
+  cat <<EOT
+wc in a heredoc
+EOT
+}
+SH
+  printf '\n### `echo`\n\n### `cat`\n\n### `local`\n- `-a` — array\n' \
+    >> docs/tool-reference.md
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "tool-reference: a continued line is one command" {
+  make_reference_repo
+  printf 'cut -d: \\\n  -f1 \\\n  -s /etc/passwd\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"flag-reference: .installer/lib/a.sh:1: cut -s has no"* ]]
+}
+
+@test "tool-reference: a wrapper's command is checked too" {
+  make_reference_repo
+  printf 'sudo -u root wc /etc/passwd\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:1: wc has no"* ]]
+  [[ "$output" != *"sudo"* ]]
+}
+
+@test "tool-reference: user scripts are scanned, notes and vendored skills not" {
+  make_reference_repo
+  mkdir -p .local/bin .scratch/x .agents/skills/x
+  printf '#!/bin/sh\nwc /etc/passwd\n' > .local/bin/tool
+  printf 'wc /etc/passwd\n' > .scratch/x/a.sh
+  printf 'wc /etc/passwd\n' > .agents/skills/x/a.sh
+  check_repo --list
+  [[ "$output" == *"tool-reference: .local/bin/tool:2: wc has no"* ]]
+  [[ "$output" != *".scratch"* && "$output" != *".agents"* ]]
+}
+
+@test "ADR 0153 rules are advisory outside .installer/ until migrated" {
+  make_reference_repo
+  mkdir -p .local/bin
+  printf 'greet() {\n  local f=1\n}\n' > .local/bin/tool
+  check_repo
+  [ "$status" -eq 0 ]
+  printf '.local/bin/*\n' >> .installer/tests/readability-migrated.txt
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"local-name: .local/bin/tool:2: f"* ]]
+}

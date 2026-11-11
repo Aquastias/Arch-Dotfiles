@@ -1,0 +1,770 @@
+# Tool Reference
+
+Every command the repo's shell code may call, and every flag it may pass,
+each with what it means and an example from the repo ([ADR 0167]). If a
+line of code puzzles you, look its command up here.
+
+This doc is also the allowlist. The Readability Lint fails on a command or
+flag that is not listed here (strict in Migrated Areas, advisory
+elsewhere). To use a new command or flag, add its entry first.
+
+## How an entry is written
+
+```markdown
+### `cut`
+Prints selected fields of each line.
+
+- `-d <delimiter>` — the character between fields
+- `-f <fields>` — which fields to print (`1`, `2,3`, `2-`)
+
+Example: `cut -d: -f1 /etc/passwd` — every user name.
+```
+
+- The heading holds the command name, alone, in backticks.
+- A flag bullet starts with the flag in backticks. A `<placeholder>` after
+  the flag means it takes a value (`-d :` or `-d:`).
+- Two spellings of one flag share a bullet: `` `-r`, `--raw-output` ``.
+- Short flags may be joined in code (`rm -rf` = `rm -r -f`); list each
+  letter on its own.
+- Functions defined in the repo need no entry.
+
+Order of preference ([ADR 0167]): builtins and coreutils first, then jq,
+grep and sed in their small forms, awk only as `.awk` files, and Domain
+Tools where nothing else does the job.
+
+## Builtins
+
+Commands built into bash. `help <name>` shows bash's own text for each.
+
+### `[`
+Tests a condition; same as `test`. Exit status 0 means true. Close it
+with `]`. Prefer `[[ ]]` in new code; `[` stays in bats assertions.
+
+- `-e <path>` — the path exists
+- `-f <path>` — the path is a regular file
+- `-d <path>` — the path is a directory
+- `-L <path>` — the path is a symlink
+- `-s <path>` — the file exists and is not empty
+- `-x <path>` — the file is executable
+- `-z <text>` — the text is empty
+- `-n <text>` — the text is not empty
+- `-eq`, `-ne`, `-lt`, `-gt`, `-le`, `-ge` — numbers: equal, not equal,
+  less than, greater than, less or equal, greater or equal
+
+Example: `[ "$status" -eq 0 ]` — the last `run` succeeded.
+
+### `test`
+Same as `[`, without the closing `]`.
+
+- `-f <path>` — the path is a regular file
+- `-s <path>` — the file exists and is not empty
+
+Example: `test -s "$HOME/.config/qt6ct/qt6ct.conf"`
+
+### `:`
+Does nothing and succeeds. Used as an empty function body.
+
+Example: `history_load() { :; }`
+
+### `.`
+Same as `source`.
+
+### `source`
+Runs a file in the current shell, so its functions and variables stay
+defined afterwards.
+
+Example: `source "$INSTALLER_DIR/lib/common.sh"`
+
+### `local`
+Declares variables visible only inside the current function.
+
+- `-a` — the variable is an indexed array
+- `-A` — the variable is an associative array (string keys)
+
+Example: `local -a kept=()`
+
+### `declare`
+Declares variables, or lists functions.
+
+- `-a` — an indexed array
+- `-A` — an associative array (string keys)
+- `-g` — global, even when declared inside a function
+- `-F` — print function names only; with a name, succeeds when the
+  function exists
+- `-f` — print a function's full definition
+- `-p` — print a variable's declaration
+
+Example: `declare -F install_config_use_json >/dev/null` — is the
+function defined?
+
+### `readonly`
+Declares a variable that can never change.
+
+- `-a` — an indexed array
+
+Example: `readonly _RUNNER_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"`
+
+### `export`
+Makes a variable (or function) visible to child processes.
+
+- `-f` — export a function, so a child `bash` can call it
+
+Example: `export INSTALLER_DIR="$TEST_DIR"`
+
+### `unset`
+Removes a variable or function.
+
+- `-f` — remove a function
+
+Example: `unset -f zfs logger` — drop test stubs.
+
+### `echo`
+Prints its arguments and a newline. Prefer `printf` for anything but
+plain text.
+
+- `-e` — interpret backslash escapes (`\n`, `\t`)
+
+Example: `echo ""` — an empty line.
+
+### `printf`
+Prints text using a format. `%s` is a string, `%d` a number, `\n` a
+newline. The format repeats for extra arguments, so `printf '%s\n' a b`
+prints two lines.
+
+Example: `printf '%s\n' "${packages[@]}"` — one package per line.
+
+### `read`
+Reads one line of input into variables.
+
+- `-r` — keep backslashes as typed (always use it)
+- `-a <array>` — split the line into an array
+- `-d <delimiter>` — stop at this character instead of a newline
+  (`-d ''` reads to the end of input)
+- `-p <prompt>` — show a prompt first
+- `-s` — do not echo what is typed (passwords)
+- `-t <seconds>` — give up after this many seconds
+
+Example: `while IFS= read -r line; do … done < "$file"` — each line.
+
+### `mapfile`
+Reads lines of input into an array.
+
+- `-t` — drop the trailing newline of each line (always use it)
+- `-O <index>` — start filling at this index (appends)
+
+Example: `mapfile -t users < <(jq -r '.users[]?' "$profile")`
+
+### `return`
+Leaves a function with an exit status (0 = success).
+
+Example: `return 0`
+
+### `exit`
+Ends the script with an exit status.
+
+Example: `exit 1`
+
+### `shift`
+Drops the first argument; `$2` becomes `$1`.
+
+Example: `shift`
+
+### `set`
+Sets shell options.
+
+- `-e` — stop the script when a command fails
+- `-u` — an unset variable is an error
+- `-o <option>` — set a named option (`pipefail`: a pipeline fails when
+  any part fails)
+- `-E` — `ERR` traps also fire inside functions
+- `-x` — print each command before running it (debugging)
+
+Example: `set -Eeuo pipefail`
+
+### `shopt`
+Sets bash-only options.
+
+- `-s <option>` — turn on (`nullglob`: a glob matching nothing expands
+  to nothing)
+- `-u <option>` — turn off
+
+Example: `shopt -s nullglob`
+
+### `trap`
+Runs a command when the shell gets a signal or exits.
+
+- `-p` — print the current traps
+
+Example: `trap 'rm -rf "$temporary_directory"' EXIT`
+
+### `cd`
+Changes the current directory.
+
+Example: `cd "$(git rev-parse --show-toplevel)"`
+
+### `pwd`
+Prints the current directory.
+
+Example: `SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"`
+
+### `command`
+Runs a command, skipping functions of the same name.
+
+- `-v` — print where a command is found; fails when it is missing
+
+Example: `command -v ssh-keygen >/dev/null || skip "no ssh-keygen"`
+
+### `compgen`
+Lists completions; used here to test a glob.
+
+- `-G <glob>` — print paths matching the glob; fails when none match
+
+Example: `compgen -G '/etc/secrets/sops/*.json' >/dev/null`
+
+### `continue`
+Skips to the next loop iteration.
+
+### `break`
+Leaves the loop.
+
+### `wait`
+Waits for background jobs to finish.
+
+- `-n` — wait for the next one only
+
+Example: `wait || true`
+
+### `kill`
+Sends a signal to a process (default: ask it to stop).
+
+Example: `kill "$watcher_pid" 2>/dev/null || true`
+
+### `true`
+Does nothing and succeeds.
+
+### `false`
+Does nothing and fails.
+
+### `exec`
+Replaces the shell with a command, or (with only redirections) points
+the shell's own input/output somewhere else.
+
+Example: `exec >"$log_file" 2>&1` — from here on, all output goes to the
+log.
+
+## Coreutils
+
+GNU coreutils: the basic file and text commands. `man <name>` has the
+full text.
+
+### `cat`
+Prints files one after another (or its input, with no file).
+
+Example: `cat > "$file" <<'EOF'` — write a heredoc to a file.
+
+### `cut`
+Prints selected fields of each line.
+
+- `-d <delimiter>` — the character between fields
+- `-f <fields>` — which fields to print (`1`, `2,3`, `2-`)
+
+Example: `cut -d: -f1 /etc/passwd` — every user name.
+
+### `head`
+Prints the first lines of its input.
+
+- `-n <count>` — how many lines (default 10)
+
+Example: `head -n 1 "$file"` — the first line.
+
+### `tail`
+Prints the last lines of its input.
+
+- `-n <count>` — how many lines; `-n +2` means "from line 2 on"
+
+Example: `tail -n +2 "$csv"` — everything but the header line.
+
+### `wc`
+Counts lines, words or bytes.
+
+- `-l` — count lines
+
+Example: `wc -l < "$file"` — just the number, no file name.
+
+### `tr`
+Replaces or deletes characters.
+
+- `-d <characters>` — delete these characters
+
+Example: `tr -d '\n'` — join all lines into one.
+
+### `sort`
+Sorts lines.
+
+- `-u` — drop repeated lines
+- `-V` — compare version numbers (`6.9` before `6.10`)
+- `-n` — compare as numbers
+- `-r` — reverse the order
+- `-k <field>` — sort by this field (`-k2,2` = only field 2)
+- `-t <separator>` — the character between fields
+- `-s` — keep equal lines in input order
+
+Example: `sort -u` — sorted, each line once.
+
+### `uniq`
+Drops repeated adjacent lines (sort first).
+
+- `-c` — prefix each line with how often it repeated
+
+Example: `sort | uniq -c`
+
+### `comm`
+Compares two sorted files line by line.
+
+- `-1`, `-2`, `-3` — hide lines only in file 1, only in file 2, in both
+
+Example: `comm -23 wanted.txt installed.txt` — wanted but not installed.
+
+### `basename`
+Prints a path's last part.
+
+Example: `basename /a/b/c.sh` — `c.sh`.
+
+### `dirname`
+Prints a path without its last part.
+
+Example: `dirname /a/b/c.sh` — `/a/b`.
+
+### `mkdir`
+Creates directories.
+
+- `-p` — create missing parents too; no error if it exists
+
+Example: `mkdir -p "$directory"`
+
+### `rm`
+Removes files.
+
+- `-r` — remove directories and everything in them
+- `-f` — no error when the file is missing; never ask
+
+Example: `rm -rf "$TEST_DIR"`
+
+### `rmdir`
+Removes empty directories.
+
+Example: `rmdir "$ESP/loader/entries" "$ESP/loader"`
+
+### `cp`
+Copies files.
+
+- `-r` — copy directories and everything in them
+- `-a` — archive: like `-r`, keeping owners, modes, times and links
+- `-f` — replace existing files
+- `-p` — keep modes and times
+- `-l` — make hard links instead of copies
+- `-L` — copy what symlinks point to, not the links
+
+Example: `cp -r "$OS/lib/." "$test_directory/lib/"`
+
+### `mv`
+Moves or renames files.
+
+Example: `mv "$temporary_file" "$file"` — replace a file in one step.
+
+### `ln`
+Makes links.
+
+- `-s` — a symbolic link (a path pointer) instead of a hard link
+- `-f` — replace an existing file
+- `-n` — when the target is a symlink to a directory, replace the link
+  itself
+
+Example: `ln -sf /usr/share/wayland-sessions/plasma.desktop "$target"`
+
+### `readlink`
+Prints where a symlink points.
+
+- `-f` — follow every link and print the full real path
+
+Example: `readlink -f ./relative`
+
+### `install`
+Copies a file and sets its mode and owner in one step; also makes
+directories.
+
+- `-d` — create directories instead of copying
+- `-D` — create missing parent directories of the target
+- `-m <mode>` — permission mode (`644`, `755`)
+- `-o <owner>` — owner
+- `-g <group>` — group
+
+Example: `install -Dm644 "$source" "$target"`
+
+### `chmod`
+Changes permission modes.
+
+Example: `chmod +x "$TEST_DIR/bin/lsblk"`
+
+### `chown`
+Changes owners.
+
+- `-R` — also everything inside a directory
+
+Example: `chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}/.config"`
+
+### `touch`
+Creates an empty file, or updates a file's time.
+
+Example: `touch "$marker"`
+
+### `mktemp`
+Creates a temporary file (or directory) with a unique name and prints
+the name.
+
+- `-d` — a directory
+- `--suffix <text>` — end the name with this text
+
+Example: `temporary_directory="$(mktemp -d)"`
+
+### `tee`
+Copies its input to a file and to its output.
+
+- `-a` — append to the file
+
+Example: `printf '%s\n' "$line" | tee -a "$log_file"`
+
+### `date`
+Prints the date and time.
+
+- `-u` — in UTC
+- `-d <date>` — this date instead of now
+- `-I <precision>` — ISO 8601 form (`-Is` = to the second)
+
+Example: `date -u +%Y%m%d-%H%M%S`
+
+### `sleep`
+Waits a number of seconds.
+
+Example: `sleep 1`
+
+### `timeout`
+Runs a command and stops it after a time limit.
+
+Example: `timeout 60 gamemoded -t`
+
+### `env`
+Runs a command with a changed environment.
+
+- `-i` — start from an empty environment
+- `-u <name>` — remove this variable
+
+Example: `env -u SUDO_USER bash "$script"`
+
+### `nohup`
+Runs a command that keeps going after the terminal closes.
+
+### `id`
+Prints user and group ids.
+
+- `-u` — the user id only
+- `-g` — the group id only
+- `-G` — every group id
+- `-n` — names instead of numbers
+
+Example: `id -un` — the current user's name.
+
+### `whoami`
+Prints the current user's name.
+
+### `uname`
+Prints system information.
+
+- `-r` — the running kernel's release
+
+Example: `uname -r`
+
+### `stat`
+Prints file details.
+
+- `-c <format>` — print only these fields (`%s` size, `%U` owner)
+
+Example: `stat -c %s "$file"` — the size in bytes.
+
+### `df`
+Shows disk space per filesystem.
+
+- `-h` — human sizes (`1.5G`)
+- `-m` — sizes in MiB
+- `-B <unit>` — sizes in this unit (`-B1` = bytes)
+- `--output <fields>` — only these columns (`avail`, `size`)
+
+Example: `df -h "$esp_directory"`
+
+### `du`
+Shows space used by files.
+
+- `-s` — one total per argument
+- `-h` — human sizes
+
+### `seq`
+Prints a sequence of numbers.
+
+Example: `seq 1 5`
+
+### `nproc`
+Prints the number of CPUs.
+
+### `truncate`
+Sets a file's size.
+
+- `-s <size>` — the size (`-s 10G`)
+
+Example: `truncate -s 20G "$disk_image"`
+
+### `sha256sum`
+Prints SHA-256 checksums.
+
+### `base64`
+Encodes (or decodes) base64 text.
+
+- `-w <columns>` — wrap lines at this width (`-w0` = never wrap)
+- `-d` — decode
+
+### `ls`
+Lists directory contents. Prefer globs in code; `ls` is for display.
+
+- `-A` — include hidden files, but not `.` and `..`
+- `-1` — one name per line
+
+### `hostid`
+Prints the host's numeric id (ZFS uses it to own pools).
+
+## Text tools
+
+### `grep`
+Prints lines that match a pattern. Only these flags ([ADR 0167]):
+
+- `-q` — print nothing; the exit status says whether a line matched
+- `-E` — extended regular expressions (`a|b`, `x+`, `(…)`)
+- `-F` — the pattern is plain text, not a regular expression
+- `-v` — print the lines that do not match
+- `-x` — the whole line must match
+- `-c` — print how many lines matched
+- `-o` — print only the matching part of each line
+- `-l` — print the names of files with a match
+
+Example: `grep -qxF "$package" "$list_file"` — is this exact line in
+the file?
+
+### `sed`
+Edits a file in place, one plain substitution only ([ADR 0167]):
+`sed -i 's/old/new/' file`. Anything bigger goes to bash or an `.awk`
+file.
+
+- `-i` — change the file itself instead of printing
+
+Example: `sed -i 's/^#Color/Color/' "$pacman_conf"`
+
+### `jq`
+Reads and writes JSON — the one JSON tool. Each call should be one
+small, readable step ([ADR 0167]).
+
+- `-r` — print strings without their quotes
+- `-e` — fail when the result is `false` or `null`
+- `-c` — print each result on one line
+- `-n` — start without reading input (build JSON from `--arg`s)
+- `--arg <name> <text>` — make `$name` a string inside the program
+- `--argjson <name> <json>` — make `$name` a JSON value inside the
+  program
+- `-f <file>` — read the program from a commented `.jq` file
+
+Example: `jq -r '.users[].name' "$profile"` — each user's name.
+
+### `awk`
+Runs an awk program. Only from an `.awk` file with a header comment and
+a comment on each rule ([ADR 0167]); never inline.
+
+- `-f <file>` — the program file
+- `-v <name=value>` — set an awk variable before the program starts
+
+Example: `awk -f "$SCANNER" -v prefix_rules="$PREFIX_RULES" "$file"`
+
+### `diff`
+Shows how two files differ.
+
+- `-q` — only say whether they differ
+
+Example: `diff <(registry_keys | sort) <(coverage_keys | sort)`
+
+### `cmp`
+Compares two files byte by byte.
+
+- `-s` — print nothing; the exit status says whether they are equal
+
+Example: `cmp -s "$doc" "$doc.linked"`
+
+### `find`
+Lists files under a directory that match tests. Its tests look like
+flags but are words: `-name`, `-type`.
+
+- `-name <glob>` — the file name matches the glob
+- `-path <glob>` — the whole path matches the glob
+- `-type <kind>` — `f` file, `d` directory, `l` symlink
+- `-maxdepth <levels>` — go at most this deep
+- `-mindepth <levels>` — skip results shallower than this
+- `-not` — negate the next test
+- `-print` — print the path (the default)
+- `-print0` — print paths separated by NUL bytes
+- `-printf <format>` — print using a format (`%P` = path under the
+  start directory)
+- `-quit` — stop at the first result
+- `-exec <command> {} \;` — run a command per result (`{}` is the path)
+
+Example: `find "$target/programs" -name '*.sh' -exec chmod +x {} \;`
+
+## Shells
+
+### `bash`
+Runs a bash script (or a command string).
+
+- `-c <command>` — run this text as the script
+- `-n` — check syntax only, run nothing
+- `-u` — an unset variable is an error
+
+Example: `bash "$ADAPTER"`
+
+### `sh`
+Runs a POSIX shell script.
+
+- `-n` — check syntax only
+
+## bats
+
+The test runner. `.bats` files hold `@test "name" { … }` blocks.
+
+### `run`
+Runs a command and saves its exit status in `$status` and its output in
+`$output` (and line by line in `${lines[@]}`), so the test can check them.
+
+- `--separate-stderr` — keep error output apart, in `$stderr`
+
+Example: `run bash "$CHECK"`
+
+### `load`
+Sources a helper file next to the test (`.bash` is added).
+
+Example: `load install-helpers`
+
+### `skip`
+Skips the current test, with a reason.
+
+Example: `skip "ssh-keygen not available"`
+
+### `bats_require_minimum_version`
+Fails when bats is older than this version.
+
+## Domain Tools
+
+System commands with no coreutils or builtin substitute ([ADR 0167]).
+Their used flags are listed like any other.
+
+### `sudo`
+Runs a command as root (or another user).
+
+- `-u <user>` — run as this user
+- `-E` — keep the caller's environment
+
+Example: `sudo install -o root -g root -m 644 "$file" "$target"`
+
+### `git`
+Version control. Flags below are spread over subcommands (`git status`,
+`git commit`, …).
+
+- `-C <directory>` — run as if started in this directory
+- `-q` — quiet
+- `-c <name=value>` — set a config value for this command only
+- `-m <message>` — the commit message
+- `-a` — commit every changed tracked file
+- `-A` — stage every change, new files too
+- `--short` — short status output
+- `--show-toplevel` — print the repository's root directory
+- `--name-only` — print only changed file names
+
+Example: `cd "$(git rev-parse --show-toplevel)"`
+
+### `systemctl`
+Controls systemd services.
+
+- `--user` — the user's own service manager, not the system's
+
+Example: `systemctl enable seatd`
+
+### `pacman`
+Arch's package manager.
+
+- `-S` — install packages
+- `-y` — refresh the package lists first
+- `-u` — upgrade installed packages
+- `-Q` — query installed packages
+- `--noconfirm` — never ask
+- `--needed` — skip packages already up to date
+
+Example: `pacman -S --noconfirm --needed git`
+
+### `zfs`
+Manages ZFS datasets and snapshots.
+
+Example: `zfs rollback -r "$dataset@blank"`
+
+### `zpool`
+Manages ZFS pools.
+
+- `-f` — force
+
+Example: `zpool export rpool || zpool export -f rpool`
+
+### `mount`
+Attaches a filesystem at a directory.
+
+Example: `mount "$esp_partition" "${MOUNT_ROOT}/boot/efi"`
+
+### `umount`
+Detaches a mounted filesystem.
+
+### `lsblk`
+Lists block devices (disks, partitions).
+
+- `-n` — no header line
+- `-o <columns>` — only these columns (`NAME,SIZE,FSTYPE`)
+
+Example: `lsblk -no NAME,SIZE,FSTYPE "$device"`
+
+### `findmnt`
+Lists mounted filesystems.
+
+- `-r` — raw output, no tree drawing
+- `-n` — no header line
+- `-o <columns>` — only these columns
+
+Example: `findmnt -rno TARGET`
+
+### `blkid`
+Prints filesystem details (UUID, type, label) of block devices.
+
+- `-t <name=value>` — only devices with this tag (`TYPE=iso9660`)
+- `-o <format>` — output form (`device` = only device paths)
+
+Example: `blkid -t TYPE=iso9660 -o device`
+
+### `curl`
+Fetches a URL.
+
+- `-s` — silent: no progress bar
+- `--max-time <seconds>` — give up after this long in total
+- `--connect-timeout <seconds>` — give up connecting after this long
+
+Example: `curl -s --max-time 3 --connect-timeout 3 "$url"`
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[ADR 0167]: adr/0167-coreutils-first-tool-reference.md

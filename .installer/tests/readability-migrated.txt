@@ -1,0 +1,5 @@
+# Migrated Areas for the Readability Lint (ADR 0167). One glob per line.
+# A file matching a glob gets every rule strict; elsewhere ADR 0167's
+# rules are advisory (shown by `readability.sh --list`, never failing).
+# Each migration ticket adds its area here; the contract ticket removes
+# this list once every area is in.
