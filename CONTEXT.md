@@ -841,10 +841,10 @@ helpers (`print_status`, `command_exists`, package/permission/notification
 helpers) without their own source line.
 
 ### Readability Rules
-The naming, size, flow, and tool conventions every `.installer/` change
-follows ([ADR 0153]), written down in `docs/agents/readability.md`. A function's
-name tells you its file (its **Prefix**) and whether it acts, tests, or
-prints.
+The naming, size, flow, and tool conventions every change to tracked code
+follows ([ADR 0153], [ADR 0167]), written down in
+`docs/agents/readability.md`. A function's name tells you its file (its
+**Prefix**) and whether it acts, tests, or prints.
 _Avoid_: style guide, coding standards (too broad — Comment Style is separate)
 
 ### Prefix
@@ -865,10 +865,29 @@ its glossary role, not its file (the one exception to Prefix).
 _Avoid_: hook, callback, polymorphic function
 
 ### Tool Tiers
-Which external commands installer code may call ([ADR 0153]): **core** (`jq`
-for JSON, `awk` for text, `grep` to filter, `sort`, file ops), **sed `-i`
-only**, and **replace** (`cut`, `tr`, `head`, `tail`, `wc`, … — rewrite with
-a core tool or a bash builtin).
+The order in which code reaches for a tool ([ADR 0167], superseding
+[ADR 0153]): coreutils and bash builtins first; `jq` for JSON with a small
+feature set; `grep` and `sed -i 's/a/b/'` with a few flags; `awk` only as
+commented `.awk` files; Domain Tools where nothing else does the job. A
+tool or flag is usable only once the Tool Reference lists it.
+
+### Tool Reference
+The human doc listing every command, flag, jq feature and Bash Feature
+Tier entry the code may use, each with its meaning and a real example. It
+is the allowlist: anything it lacks is not allowed ([ADR 0167]).
+_Avoid_: cheat sheet, command list
+
+### Domain Tool
+A system command with no coreutils or builtin substitute — `pacman`,
+`zfs`, `systemctl`, `lsblk`, `mount`, `git`, … — allowed, with its used
+flags in the Tool Reference ([ADR 0167]).
+_Avoid_: system tool, external tool
+
+### Bash Feature Tier
+Which bash features code may use: plain ones (`[[ ]]`, arrays, `mapfile`,
+`while read`, `${var:-default}`) allowed, dense ones (`eval`, namerefs,
+`${!ref}`, `<<<`, pattern substitutions) banned ([ADR 0167]).
+_Avoid_: bash subset, shell dialect
 
 ### Readability Lint
 `.installer/tests/readability.sh` — checks the Readability Rules,
@@ -2637,5 +2656,6 @@ links, it does not create them. _Distinct from_ the Task Manager's pinned
 [ADR 0161]: docs/adr/0161-hybrid-laptop-completion-legion-5.md
 [ADR 0162]: docs/adr/0162-niri-runs-xdg-autostart.md
 [ADR 0166]: docs/adr/0166-interrupted-update-recovery-module-stash-update-snapshot.md
+[ADR 0167]: docs/adr/0167-coreutils-first-tool-reference.md
 [ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
 [ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
