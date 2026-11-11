@@ -3,6 +3,8 @@
 # 0139). Sourced lib-only (LTS_HOLD_LIB_ONLY=1) so the runtime is skipped; we
 # assert the pure IgnorePkg editor over a temp pacman.conf.
 
+load ../lib/text-helpers
+
 setup() {
   LTS_HOLD_LIB_ONLY=1
   # shellcheck source=../../lib/boot/lts-hold.sh
@@ -18,9 +20,9 @@ teardown() { rm -f "$CONF"; }
   grep -q '^IgnorePkg = linux-lts linux-lts-headers  # archzfs-lts-hold$' "$CONF"
   # placed within [options], before [core]
   local options_line core
-  options_line=$(awk '/^\[options\]/ { print NR }' "$CONF")
-  core=$(awk '/^\[core\]/ { print NR }' "$CONF")
-  local ign; ign=$(awk '/archzfs-lts-hold/ { print NR }' "$CONF")
+  options_line="$(line_number_of "$CONF" '[options]')"
+  core="$(line_number_of "$CONF" '[core]')"
+  local ign; ign="$(line_number_of "$CONF" archzfs-lts-hold)"
   [ "$options_line" -lt "$ign" ]; [ "$ign" -lt "$core" ]
 }
 

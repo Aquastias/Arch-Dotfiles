@@ -370,6 +370,7 @@ Example: `tail -n +2 "$csv"` — everything but the header line.
 Counts lines, words or bytes.
 
 - `-l` — count lines
+- `-c` — count bytes
 
 Example: `wc -l < "$file"` — just the number, no file name.
 
@@ -378,6 +379,7 @@ Replaces or deletes characters.
 
 - `-d <characters>` — delete these characters
 - `-s` — squeeze: each run of a repeated character becomes one
+- `-c` — complement: act on every character NOT listed (`-dc 0-9`: keep only digits)
 
 Example: `tr -d '\n'` — join all lines into one.
 
@@ -453,6 +455,8 @@ Example: `cp -r "$OS/lib/." "$test_directory/lib/"`
 ### `mv`
 Moves or renames files.
 
+- `-f` — replace the target without asking
+
 Example: `mv "$temporary_file" "$file"` — replace a file in one step.
 
 ### `ln`
@@ -486,6 +490,8 @@ Example: `install -Dm644 "$source" "$target"`
 
 ### `chmod`
 Changes permission modes.
+
+- `-R` — also everything inside a directory
 
 Example: `chmod +x "$TEST_DIR/bin/lsblk"`
 
@@ -565,6 +571,7 @@ Prints the current user's name.
 Prints system information.
 
 - `-r` — the running kernel's release
+- `-m` — the machine architecture (`x86_64`)
 
 Example: `uname -r`
 
@@ -793,6 +800,13 @@ Arch's package manager.
 - `-Q` — query installed packages
 - `--noconfirm` — never ask
 - `--needed` — skip packages already up to date
+- `-q` — quiet: names only, no versions
+- `-o <file>` — with `-Q`: which installed package owns the file
+- `-i` — detailed info (`-Si`: the sync repo's copy, `-Qi`: the installed one)
+- `-U <file>` — install a package file
+- `-p` — with `-S`: print what would be installed, install nothing
+- `--dbpath <directory>` — use this package database instead of the system's
+- `--logfile <file>` — log here instead of `/var/log/pacman.log`
 
 Example: `pacman -S --noconfirm --needed git`
 
@@ -803,6 +817,10 @@ Manages ZFS datasets and snapshots.
 - `-H` — no header line; fields split by tabs (for scripts)
 - `-o <property=value>` — on `create` or `set`: set a property; on `list`
   or `get`: only these columns (`-o name`)
+- `-t <types>` — on `list`: only these kinds (`filesystem`, `snapshot`)
+- `-r` — recursive: the dataset and everything under it
+- `-V <size>` — on `create`: a volume (zvol) of this size
+- `-b <bytes>` — on `create -V`: the volume's block size
 
 Example: `zfs rollback -r "$dataset@blank"`
 
@@ -816,6 +834,7 @@ Manages ZFS pools.
 - `-L` — resolve symlinks to the real device
 - `-d <directory>` — on `import`: look for pool devices only here
 - `-N` — on `import`: import without mounting any dataset
+- `-p` — exact numbers (bytes), not human sizes
 
 Example: `zpool export rpool || zpool export -f rpool`
 
@@ -1126,6 +1145,119 @@ Lists the shared libraries a program needs and where each was found
 (`not found` when it is missing).
 
 Example: `ldd "$zpool_path" | grep -q 'not found'` — is any library missing?
+
+### `pacman-key`
+Manages pacman's keyring of trusted package-signing keys.
+
+- `--init` — create the keyring
+- `--populate <keyring>` — add a distribution's keys (`archlinux`)
+- `--recv-keys <key>` — fetch a key from a keyserver
+- `--keyserver <url>` — the keyserver to fetch from
+- `--lsign-key <key>` — trust a key locally
+
+Example: `pacman-key --lsign-key "$key"`
+
+### `dkms`
+Builds kernel modules from source for each installed kernel (here, ZFS
+against the live ISO's kernel). Subcommands: `add`, `build`, `install`.
+
+- `-m <module>` — the module name (`zfs`)
+- `-v <version>` — the module version
+- `-k <kernel>` — the kernel version to build for
+- `--kernelsourcedir <directory>` — that kernel's headers
+
+Example: `dkms install -m zfs -v "$zfs_version" -k "$kernel_version"`
+
+### `depmod`
+Rebuilds the kernel's module dependency lists.
+
+- `-a` — for every module
+
+### `modprobe`
+Loads a kernel module and the modules it needs.
+
+Example: `modprobe zfs`
+
+### `modinfo`
+Shows a kernel module's details.
+
+- `-F <field>` — only this field (`version`)
+
+Example: `modinfo -F version zfs`
+
+### `pgrep`
+Finds processes by name.
+
+- `-x` — the whole name must match
+- `-u <user>` — only this user's processes
+- `-f` — match the full command line, not just the name
+
+Example: `pgrep -x pacman` — is pacman running?
+
+### `gdbus`
+Talks to D-Bus services (here: desktop notifications).
+
+- `--session` — the user's session bus
+- `--dest <name>` — the service to call
+- `--object-path <path>` — the object on it
+- `--method <interface.method>` — the method to call
+- `--timeout <seconds>` — give up after this long
+
+Example: `gdbus wait --session --timeout 300 org.freedesktop.Notifications`
+
+### `mkinitcpio`
+Builds initramfs images.
+
+- `-p <preset>` — build every image a preset names (`linux-lts`)
+- `-S <hooks>` — skip these hooks (`autodetect`: a fallback image works on
+  any hardware)
+- `-g <file>` — write the image to this file
+
+Example: `mkinitcpio -g "${boot}/${fallback_initramfs}"`
+
+### `swapon`
+Turns swap on, or lists the swap in use.
+
+- `--show <columns>` — list the active swap areas (`--show=NAME`: device
+  names only)
+- `--noheadings` — no header line
+
+Example: `swapon --show=NAME --noheadings`
+
+### `swapoff`
+Turns a swap area off.
+
+Example: `swapoff "$swap_device"`
+
+### `udevadm`
+Controls udev, which creates the `/dev` device nodes and links.
+
+Example: `udevadm settle` — wait until udev has handled every new device.
+
+### `getconf`
+Prints a system setting.
+
+Example: `getconf PAGESIZE` — the memory page size in bytes.
+
+### `mkswap`
+Prepares a device or file as swap.
+
+- `-f` — force, even when it already holds something
+
+Example: `mkswap -f "/dev/zvol/${pool_name}/swap"`
+
+### `efibootmgr`
+Lists and edits the firmware's UEFI boot entries.
+
+- `--create` — add an entry and put it first in BootOrder
+- `--create-only` — add an entry without touching BootOrder
+- `--disk <disk>` — the disk holding the ESP
+- `--part <number>` — the ESP's partition number
+- `--label <text>` — the entry's name
+- `--loader <path>` — the EFI file to boot, on the ESP (`mlinuz-linux`)
+- `--unicode <options>` — the kernel command line passed to it
+
+Example: `efibootmgr --create-only --disk "$disk" --part "$part" --label "$title"`
 
 <!-- ADR links: generated by readability.sh --fix-adr-links -->
 [ADR 0167]: ../docs/adr/0167-coreutils-first-tool-reference.md

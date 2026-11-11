@@ -31,7 +31,7 @@ _entry() {
   } >"$entry_file"
 }
 
-in_output() { grep -qxF "$1" <<<"$output"; }
+in_output() { printf '%s\n' "$output" | grep -qxF "$1"; }
 
 # zero_file <bytes> <path> — a <bytes>-long file of zeros.
 zero_file() { : >"$2"; truncate -s "$1" "$2"; }
@@ -124,7 +124,7 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   run esp_kernel_sync_planned_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   # vmlinuz-linux-lts is referenced by both entries — appears exactly once
-  [ "$(grep -cxF vmlinuz-linux-lts <<<"$output")" -eq 1 ]
+  [ "$(printf '%s\n' "$output" | grep -cxF vmlinuz-linux-lts)" -eq 1 ]
   in_output initramfs-linux-lts-fallback.img
 }
 

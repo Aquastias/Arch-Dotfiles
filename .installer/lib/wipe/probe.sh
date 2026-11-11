@@ -18,6 +18,7 @@
 # onto, so skipping is sound even if data hides between windows.
 wipe_probe_disk() {
   local disk="$1" is_live=0 signature="" partition_count=0 nonzero=0
+  local -a lsblk_names
 
   live_medium_contains_disk "$disk" && is_live=1
 
@@ -27,8 +28,12 @@ wipe_probe_disk() {
   if [[ -b "$disk" ]]; then
     # Presence only — wipefs output is multi-line, so collapse it to a token.
     [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && signature=present
-    partition_count="$(lsblk -ln -o NAME "$disk" 2>/dev/null \
-      | awk 'NR > 1 { count++ } END { print count + 0 }')"
+    # lsblk lists the disk, then one line per partition.
+    mapfile -t lsblk_names < <(lsblk -ln -o NAME "$disk" 2>/dev/null)
+    partition_count=0
+    if (( ${#lsblk_names[@]} > 0 )); then
+      partition_count=$(( ${#lsblk_names[@]} - 1 ))
+    fi
     _probe_has_nonzero_data "$disk" && nonzero=1
   fi
 
@@ -49,10 +54,10 @@ _probe_has_nonzero_data() {
   for ((i = 0; i <= windows; i++)); do
     offset=$((i * step))
     ((offset > size - chunk)) && offset=$((size > chunk ? size - chunk : 0))
+    # How many bytes of the window are not zero (NUL bytes deleted, the
+    # rest counted).
     nonzero_bytes="$(dd if="$disk" bs="$chunk" count=1 skip="$offset" \
-      iflag=skip_bytes status=none 2>/dev/null \
-      | LC_ALL=C awk 'BEGIN { RS = "\0" } { count += length($0) }
-                      END { print count + 0 }')"
+      iflag=skip_bytes status=none 2>/dev/null | tr -d '\000' | wc -c)"
     ((nonzero_bytes > 0)) && return 0
   done
   return 1

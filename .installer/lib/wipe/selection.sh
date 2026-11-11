@@ -18,18 +18,21 @@ wipe_detect_disks() {
   local live_set
   live_set="$(live_medium_disks)"
   [[ -n "$live_set" ]] \
-    && info "Live medium detected (excluded): $(join_words <<<"$live_set")" >&2
+    && info "Live medium detected (excluded):" \
+      "$(printf '%s\n' "$live_set" | join_words)" >&2
 
-  local disks=() kernel_name path
-  while IFS= read -r kernel_name; do
+  local disks=() kernel_name type read_only path
+  # Each whole disk that is not read-only.
+  while read -r kernel_name type read_only; do
+    [[ "$type" == disk && "$read_only" == 0 ]] || continue
     path="/dev/${kernel_name}"
-    grep -qxF "$path" <<<"$live_set" && continue
+    printf '%s\n' "$live_set" | grep -qxF "$path" && continue
     if _selection_has_mounted_partition "$path"; then
       warn "Skipping $path — has mounted partitions." >&2
       continue
     fi
     disks+=("$path")
-  done < <(lsblk -dno NAME,TYPE,RO | awk '$2=="disk" && $3=="0" {print $1}')
+  done < <(lsblk -dno NAME,TYPE,RO)
 
   ((${#disks[@]} > 0)) && printf '%s\n' "${disks[@]}" || true
 }
@@ -40,7 +43,7 @@ _selection_has_mounted_partition() {
   local partition
   while IFS= read -r partition; do
     grep -q "^/dev/${partition}" /proc/mounts 2>/dev/null && return 0
-  done < <(lsblk -ln -o NAME "$1" 2>/dev/null | awk 'NR > 1')
+  done < <(lsblk -ln -o NAME "$1" 2>/dev/null | tail -n +2)
   return 1
 }
 
@@ -81,8 +84,8 @@ wipe_print_disk_table() {
 # per line. Empty INPUT selects nothing (default-cancel).
 wipe_parse_selection() {
   local input="$1"; shift
-  [[ -z "${input//[[:space:]]/}" ]] && return 0  # cancel → wipe nothing
-  if [[ "${input,,}" == "all" ]]; then
+  [[ "$input" =~ ^[[:space:]]*$ ]] && return 0  # cancel → wipe nothing
+  if [[ "$(printf '%s\n' "$input" | tr '[:upper:]' '[:lower:]')" == all ]]; then
     printf '%s\n' "$@"
     return 0
   fi

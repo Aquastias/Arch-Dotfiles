@@ -79,8 +79,11 @@ zfs_install_tools_if_needed() {
 
 zfs_ram_gib() {
   # Returns total installed RAM in whole GiB (rounded up).
-  local kib
-  kib="$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+  local label kib _unit
+  # The "MemTotal: <kB> kB" line of /proc/meminfo.
+  while read -r label kib _unit; do
+    [[ "$label" == MemTotal: ]] && break
+  done < /proc/meminfo
   echo $(((kib + 1048575) / 1048576))
 }
 
@@ -106,7 +109,7 @@ _pools_directory_matches() {
   for link in "$directory"/*; do
     [[ -e "$link" ]] || continue
     [[ "$(readlink -f "$link" 2>/dev/null)" == "$target" ]] || continue
-    case "${link##*/}" in
+    case "$(basename "$link")" in
     wwn-*) [[ -z "$wwn" || "$link" < "$wwn" ]] && wwn="$link" ;;
     *) [[ -z "$pref" || "$link" < "$pref" ]] && pref="$link" ;;
     esac
@@ -265,7 +268,10 @@ zfs_auto_swap_gib() {
 
 # _pools_pool_size_bytes <pool> — the pool's size in bytes (0 if unknown).
 _pools_pool_size_bytes() {
-  zpool list -Hp -o size "$1" 2>/dev/null | awk 'NR == 1 { print $1 + 0 }'
+  local size=""
+  read -r size < <(zpool list -Hp -o size "$1" 2>/dev/null) || true
+  [[ "$size" =~ ^[0-9]+$ ]] || size=0
+  printf '%s\n' "$size"
 }
 
 zfs_create_os_datasets() {

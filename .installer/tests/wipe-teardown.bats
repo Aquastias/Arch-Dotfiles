@@ -34,10 +34,12 @@ _pools() {
   zpool() {
     local spec
     case "$1" in
-    list) for spec in $POOL_SPEC; do echo "${spec%%:*}"; done ;;
+    list) for spec in $POOL_SPEC; do printf '%s\n' "$spec" | cut -d: -f1; done ;;
     status)
       for spec in $POOL_SPEC; do
-        [[ "${spec%%:*}" == "${@: -1}" ]] && echo "	  ${spec#*:}  ONLINE"
+        # A spec is "<pool>:<vdev>".
+        [[ "$(printf '%s\n' "$spec" | cut -d: -f1)" == "${@: -1}" ]] \
+          && echo "	  $(printf '%s\n' "$spec" | cut -d: -f2-)  ONLINE"
       done ;;
     destroy) echo "${@: -1}" >>"$DESTROYED" ;;
     import) return 1 ;;
@@ -67,7 +69,7 @@ _pools() {
   pvs() {
     case "$*" in
     *pv_name*) printf '  /dev/sda2\n  /dev/sdab1\n' ;;
-    *vg_name*) local device="${*: -1}"; echo "  vg_${device##*/}" ;;
+    *vg_name*) local device="${*: -1}"; echo "  vg_$(basename "$device")" ;;
     esac
   }
   vgremove() { echo "vgremove ${@: -1}" >>"$DESTROYED"; }

@@ -90,8 +90,8 @@ boot_recovery_stash_plan() {
     [[ -f "$marker" ]] || continue
     base="$(<"$marker")"
     if [[ -n "${selected[$base]:-}" ]]; then
-      marker="${marker%/pkgbase}"
-      printf '%s\n' "${marker##*/}"
+      # The kernel directory holding the marker: …/<version>/pkgbase.
+      basename "$(dirname "$marker")"
     fi
   done
 }
@@ -218,13 +218,17 @@ boot_recovery_installed() {
 # interrupted update: each restored kernel's package base, then its headers
 # when installed (zfs-dkms builds against them).
 boot_recovery_finish_packages() {
-  local base
-  while IFS= read -r base; do
+  local -A seen=()
+  local _first base _rest
+  # Each "<…> <base>" line of the restored list: each base once, in order.
+  while read -r _first base _rest; do
+    [[ -n "$base" && -z "${seen[$base]:-}" ]] || continue
+    seen[$base]=1
     printf '%s\n' "$base"
     if boot_recovery_installed "$base-headers"; then
       printf '%s\n' "$base-headers"
     fi
-  done < <(awk 'NF > 1 && !seen[$2]++ { print $2 }' "$1/.stash/restored")
+  done < "$1/.stash/restored"
 }
 
 # boot_recovery_finish_targets <cache-dir> — from "<name> <installed-version>
@@ -296,7 +300,7 @@ UNIT
 # units are enabled from the vendor .wants dirs, never /etc, which Impermanence
 # rolls back at boot.
 boot_recovery_install() {
-  local root="${1%/}" source_script="$2"
+  local root="$1" source_script="$2"
   local hooks="$root/etc/pacman.d/hooks" units="$root/usr/lib/systemd/system"
   local user_units="$root/usr/lib/systemd/user"
   install -Dm755 "$source_script" "$root/usr/local/lib/archzfs/boot-recovery.sh"
@@ -330,13 +334,36 @@ _boot_recovery_selected() {
   fi
 }
 
+# _boot_recovery_repo_version <package> — the version the sync repos hold
+# ("" when none): pacman -Si prints "Version         : 6.18.62-1".
+_boot_recovery_repo_version() {
+  local key _colon value
+  while read -r key _colon value; do
+    if [[ "$key" == Version ]]; then
+      printf '%s\n' "$value"
+      return 0
+    fi
+  done < <(pacman -Si "$1" 2>/dev/null)
+}
+
+# _boot_recovery_versions <package>… — one "<name> <installed version>
+# <repo version>" line per package.
+_boot_recovery_versions() {
+  local name version
+  while read -r name version; do
+    printf '%s %s %s\n' "$name" "$version" \
+      "$(_boot_recovery_repo_version "$name")"
+  done < <(pacman -Q "$@")
+}
+
 # Finish an interrupted update (as root, from the notice): clear a stale lock
 # when no pacman runs, then reinstall exactly the installed versions of the
 # restored kernels (+ headers) so the skipped hooks run; pacman asks before
 # changing anything. A version neither cached nor in the repo stops it first.
 _boot_recovery_finish() {
   local -a packages=() files=() syncs=() missing=()
-  local target name version
+  local target versions
+  local -a targets=()
   if ((EUID != 0)); then
     echo "boot-recovery: finish needs root (sudo)." >&2
     exit 1
@@ -350,16 +377,17 @@ _boot_recovery_finish() {
   fi
   mapfile -t packages < <(boot_recovery_finish_packages \
     "$_BOOT_RECOVERY_MODULES")
-  while IFS= read -r target; do
+  versions="$(_boot_recovery_versions "${packages[@]}")"
+  mapfile -t targets < <(printf '%s\n' "$versions" \
+    | boot_recovery_finish_targets /var/cache/pacman/pkg)
+  # A target is sync:<name>, missing:<name>, or a cached package file.
+  for target in "${targets[@]}"; do
     case "$target" in
-    sync:*) syncs+=("${target#sync:}") ;;
-    missing:*) missing+=("${target#missing:}") ;;
+    sync:*) syncs+=("$(printf '%s\n' "$target" | cut -d: -f2-)") ;;
+    missing:*) missing+=("$(printf '%s\n' "$target" | cut -d: -f2-)") ;;
     *) files+=("$target") ;;
     esac
-  done < <(pacman -Q "${packages[@]}" | while read -r name version; do
-      printf '%s %s %s\n' "$name" "$version" "$(pacman -Si "$name" \
-        2>/dev/null | awk -F': ' '/^Version/ { print $2; exit }')"
-    done | boot_recovery_finish_targets /var/cache/pacman/pkg)
+  done
   if ((${#missing[@]})); then
     echo "boot-recovery: not in the pacman cache nor the repo:" \
          "${missing[*]}. Put those exact packages in /var/cache/pacman/pkg" \

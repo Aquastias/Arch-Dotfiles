@@ -22,6 +22,18 @@
 declare -F layout_has_leftover >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../layout/state.sh"
 
+# _pool_owners_first_word <words> — the first of the space-separated words.
+_pool_owners_first_word() {
+  local word _rest
+  read -r word _rest < <(printf '%s\n' "$1")
+  printf '%s' "$word"
+}
+
+# _pool_owners_group_name <@group> — the group's name, without its @.
+_pool_owners_group_name() {
+  printf '%s\n' "$1" | cut -c2-
+}
+
 # Ownership mode for the pool:
 #   chown — plain `chown <base>:` (the common single-human case)
 #   acl   — POSIX ACLs (more than one principal, or any @group)
@@ -49,7 +61,7 @@ zfs_pool_owners_mode() {
 zfs_pool_owners_base() {
   local owners="$1" users="$2"
   if [[ -z "$owners" ]]; then
-    printf '%s' "${users%% *}"
+    _pool_owners_first_word "$users"
     return
   fi
   # The nominal owner is the first listed *user* (a @group can't own a dir).
@@ -65,7 +77,7 @@ zfs_pool_owners_base() {
 zfs_pool_owners_access_users() {
   local owners="$1" users="$2" groupmap="$3"
   if [[ -z "$owners" ]]; then
-    [[ -n "$users" ]] && printf '%s\n' "${users%% *}"
+    [[ -n "$users" ]] && printf '%s\n' "$(_pool_owners_first_word "$users")"
     return 0
   fi
   # Union of listed users and the members of listed @groups, in order, deduped.
@@ -73,7 +85,8 @@ zfs_pool_owners_access_users() {
   for owner_token in $owners; do
     if [[ "$owner_token" == @* ]]; then
       for member in \
-          $(_pool_owners_group_members "${owner_token#@}" "$groupmap"); do
+          $(_pool_owners_group_members "$(_pool_owners_group_name \
+            "$owner_token")" "$groupmap"); do
         _pool_owners_in_list "$member" "${out[*]}" || out+=("$member")
       done
     else
@@ -86,11 +99,11 @@ zfs_pool_owners_access_users() {
 
 # Space-separated members of <group> from the "group:m1,m2 group2:m3" <map>.
 _pool_owners_group_members() {
-  local group="$1" map="$2" pair
+  local group="$1" map="$2" pair pair_group members_csv
   for pair in $map; do
-    if [[ "$pair" == "${group}:"* ]]; then
-      local members_csv="${pair#*:}"
-      printf '%s' "${members_csv//,/ }"
+    IFS=: read -r pair_group members_csv < <(printf '%s\n' "$pair")
+    if [[ "$pair_group" == "$group" ]]; then
+      printf '%s' "$members_csv" | tr ',' ' '
       return
     fi
   done
@@ -104,14 +117,14 @@ zfs_pool_owners_acl_entries() {
   local owners="$1" owner_token
   for owner_token in $owners; do
     if [[ "$owner_token" == @* ]]; then
-      printf 'g:%s:rwx\n' "${owner_token#@}"
+      printf 'g:%s:rwx\n' "$(_pool_owners_group_name "$owner_token")"
     else
       printf 'u:%s:rwx\n' "$owner_token"
     fi
   done
   for owner_token in $owners; do
     if [[ "$owner_token" == @* ]]; then
-      printf 'd:g:%s:rwx\n' "${owner_token#@}"
+      printf 'd:g:%s:rwx\n' "$(_pool_owners_group_name "$owner_token")"
     else
       printf 'd:u:%s:rwx\n' "$owner_token"
     fi
@@ -127,13 +140,14 @@ zfs_pool_owners_acl_entries() {
 # Omitted owners is always valid (it defaults to the Primary User, or is left
 # root-owned with a warning on a userless host).
 zfs_pool_owners_validate() {
-  local owners="$1" users="$2" groupmap="$3" owner_token members
+  local owners="$1" users="$2" groupmap="$3" owner_token members group
   [[ -n "$owners" ]] || return 0
   for owner_token in $owners; do
     if [[ "$owner_token" == @* ]]; then
-      members="$(_pool_owners_group_members "${owner_token#@}" "$groupmap")"
-      [[ -n "${members// }" ]] || {
-        printf '%s' "group '${owner_token#@}' has no declared members"
+      group="$(_pool_owners_group_name "$owner_token")"
+      members="$(_pool_owners_group_members "$group" "$groupmap")"
+      [[ "$members" =~ [^[:space:]] ]] || {
+        printf '%s' "group '${group}' has no declared members"
         return 1
       }
     else
@@ -165,10 +179,23 @@ _pool_owners_in_list() {
 # (ADR 0031). POOL_OWNERS_HOME_BASE is only a fallback when a user has no home
 # field; tests may override it.
 
+# _pool_owners_database_field <file> <name> <n> — field <n> of the first
+# line of the colon-separated <file> (passwd, group) whose first field is
+# <name>; empty when no line is.
+_pool_owners_database_field() {
+  local -a fields
+  [[ -f "$1" ]] || return 1
+  while IFS=: read -ra fields; do
+    if [[ "${fields[0]:-}" == "$2" ]]; then
+      printf '%s\n' "${fields[$3 - 1]:-}"
+      return 0
+    fi
+  done < "$1"
+}
+
 # Field <n> of <user>'s row in the installed passwd; empty when absent.
 _pool_owners_passwd_field() {
-  awk -F: -v u="$1" -v n="$2" '$1==u{print $n; exit}' \
-    "${MOUNT_ROOT}/etc/passwd" 2>/dev/null
+  _pool_owners_database_field "${MOUNT_ROOT}/etc/passwd" "$1" "$2"
 }
 _pool_owners_uid()      { _pool_owners_passwd_field "$1" 3; }
 _pool_owners_user_gid() { _pool_owners_passwd_field "$1" 4; }
@@ -176,8 +203,7 @@ _pool_owners_home()     { _pool_owners_passwd_field "$1" 6; }
 
 # GID of <group> from the installed group db; empty when absent.
 _pool_owners_group_gid() {
-  awk -F: -v g="$1" '$1==g{print $3; exit}' \
-    "${MOUNT_ROOT}/etc/group" 2>/dev/null
+  _pool_owners_database_field "${MOUNT_ROOT}/etc/group" "$1" 3
 }
 
 # Rewrite one name-based ACL spec to numeric ids. u:NAME / g:NAME (and their
@@ -185,14 +211,15 @@ _pool_owners_group_gid() {
 # Prints nothing when a name can't be resolved, so the caller skips it.
 _pool_owners_acl_to_numeric() {
   local entry="$1" pre name perm id
+  local -a parts
+  IFS=: read -ra parts < <(printf '%s\n' "$entry")
   case "$entry" in
-  d:u:*) pre="d:u"; name="${entry#d:u:}" ;;
-  d:g:*) pre="d:g"; name="${entry#d:g:}" ;;
-  u:*)   pre="u";   name="${entry#u:}" ;;
-  g:*)   pre="g";   name="${entry#g:}" ;;
+  d:u:* | d:g:*)
+    pre="${parts[0]}:${parts[1]}"; name="${parts[2]:-}"; perm="${parts[3]:-}" ;;
+  u:* | g:*)
+    pre="${parts[0]}"; name="${parts[1]:-}"; perm="${parts[2]:-}" ;;
   *)     printf '%s' "$entry"; return 0 ;;   # m::rwx / d:m::rwx — no name
   esac
-  perm="${name##*:}"; name="${name%%:*}"
   case "$pre" in
   *u) id="$(_pool_owners_uid "$name")" ;;
   *g) id="$(_pool_owners_group_gid "$name")" ;;
@@ -203,7 +230,8 @@ _pool_owners_acl_to_numeric() {
 # The runtime mountpoints to own for a pool/group. A non-independent pool is
 # one mountpoint; an `independent` storage group splits into per-disk child
 # datasets (<mount>/disk1 … <mount>/diskN) — the parent is canmount=off, so the
-# children are the writable datasets (mirrors layout_create_multi_data_pool's layout).
+# children are the writable datasets (mirrors layout_create_multi_data_pool's
+# layout).
 _pool_owners_group_mounts() {
   local mount="$1" topology="$2" disk_count="$3"
   if [[ "$topology" == "independent" ]]; then
@@ -323,7 +351,7 @@ _pool_owners_group_map() {
   for user in $users; do
     user_json="$(profile_loader_load_user "$user" 2>/dev/null)" || continue
     groups_csv="$(runner_resolve_user_groups "$user_json" 2>/dev/null)" || true
-    for group in ${groups_csv//,/ }; do
+    for group in $(printf '%s\n' "$groups_csv" | tr ',' ' '); do
       [[ -n "$group" ]] || continue
       if [[ -n "${members[$group]:-}" ]]; then members[$group]+=",$user"
       else members[$group]="$user"; fi
@@ -342,7 +370,8 @@ _pool_owners_data_pool_owners_by_name() {
   for ((i = 0; i < pool_count; i++)); do
     name="$(install_config_data_pool_name "$i")"
     [[ "$name" == "$want" ]] || continue
-    install_config_data_pool_owners "$i" | awk '{ printf "%s ", $0 }'
+    # The owners, one per line, joined with a space after each.
+    install_config_data_pool_owners "$i" | tr '\n' ' '
     return
   done
 }
@@ -383,25 +412,27 @@ _pool_owners_apply_standalone_pools() {
 _pool_owners_apply_storage_groups() {
   local users="$1" groupmap="$2"
   local storage_group_count i name mount owners topology disk_count
+  # How many storage groups the config declares.
   storage_group_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   for ((i = 0; i < storage_group_count; i++)); do
     name="$(config_required ".storage_groups[$i].name")"
     mount="$(config_required ".storage_groups[$i].mount")"
-    owners="$(install_config_storage_group_owners "$i" \
-      | awk '{ printf "%s ", $0 }')"
+    # The group's owners, one per line, joined with a space after each.
+    owners="$(install_config_storage_group_owners "$i" | tr '\n' ' ')"
     topology="$(layout_group_topology "$name")"
     topology="${topology:-$(config_optional ".storage_groups[$i].topology")}"
     topology="${topology:-stripe}"
+    # How many disks the group declares.
     disk_count="$(jsonc "$CONFIG_FILE" \
-      | jq ".storage_groups[$i].disks | length")"
+      | jq --argjson i "$i" '.storage_groups[$i].disks | length')"
     _pool_owners_apply_pool "$name" "$mount" "$topology" "$disk_count" \
       "$owners" "$users" "$groupmap"
   done
 }
 
 # Folded leftover OS disks → dpool/DATA/extra (interactive, no config entry)
-# — default to the Primary User. Topology mirrors layout_create_multi_data_pool's
-# leftover default (independent).
+# — default to the Primary User. Topology mirrors
+# layout_create_multi_data_pool's leftover default (independent).
 _pool_owners_apply_leftover() {
   local users="$1" groupmap="$2"
   layout_has_leftover || return 0
@@ -410,7 +441,7 @@ _pool_owners_apply_leftover() {
   leftover_partitions="$(layout_leftover_parts)"
   leftover_topology="$(layout_group_topology _leftover)"
   leftover_topology="${leftover_topology:-independent}"
-  read -ra leftover_list <<<"$leftover_partitions"
+  read -ra leftover_list < <(printf '%s\n' "$leftover_partitions")
   _pool_owners_apply_pool extra /data/extra "$leftover_topology" \
     "${#leftover_list[@]}" "" "$users" "$groupmap"
 }

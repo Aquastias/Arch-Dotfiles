@@ -36,7 +36,7 @@ setup() {
   run loader_entries_systemd_boot "t" linux "" initramfs-linux.img "root=x rw"
   [ "$status" -eq 0 ]
   # exactly one initrd line (the initramfs), no blank microcode line
-  [ "$(grep -c '^initrd' <<<"$output")" -eq 1 ]
+  [ "$(printf '%s\n' "$output" | grep -c '^initrd')" -eq 1 ]
   [[ "$output" != *$'\n\n'* ]]
 }
 
@@ -59,7 +59,7 @@ setup() {
 @test "loader_entries_limine: empty microcode omits the module line" {
   run loader_entries_limine "t" linux "" initramfs-linux.img "root=x rw"
   [ "$status" -eq 0 ]
-  [ "$(grep -c 'module_path' <<<"$output")" -eq 1 ]
+  [ "$(printf '%s\n' "$output" | grep -c 'module_path')" -eq 1 ]
 }
 
 # ── grub ─────────────────────────────────────────────────────────────────────

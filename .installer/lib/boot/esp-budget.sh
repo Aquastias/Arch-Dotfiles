@@ -73,11 +73,15 @@ esp_budget_fits_mib() {
 }
 
 # esp_budget_size_mib <size> — parse an esp_size string ("2G"/"512M"/bare) to
-# MiB. Deliberately mirrors layout core's layout_parse_size_to_mib so this budget lib
-# stays standalone (layout/core.sh sources THIS; a back-dependency would loop).
+# MiB. Deliberately mirrors layout core's layout_parse_size_to_mib so this
+# budget lib stays standalone (layout/core.sh sources THIS; a back-dependency
+# would loop).
 esp_budget_size_mib() {
-  local size="${1^^}" number unit
-  number="${size//[^0-9]/}"; unit="${size//[0-9]/}"
+  local size number unit
+  # The size in capitals ("2g" → "2G"), then its digits and its unit.
+  size="$(printf '%s\n' "$1" | tr '[:lower:]' '[:upper:]')"
+  number="$(printf '%s\n' "$size" | tr -dc '0-9')"
+  unit="$(printf '%s\n' "$size" | tr -d '0-9')"
   number=$((10#${number:-0}))   # base 10: a leading zero is not octal
   case "$unit" in
   G | GIB) printf '%s\n' "$(( number * 1024 ))" ;;

@@ -33,8 +33,8 @@ _kernel() {
   _kernel 7.0.11-arch1-1 linux zfs
   run stray_kernel_list "$MODULES" linux-lts
   [ "$status" -eq 0 ]
-  grep -qxF linux <<<"$output"
-  ! grep -qxF linux-lts <<<"$output"
+  printf '%s\n' "$output" | grep -qxF linux
+  ! printf '%s\n' "$output" | grep -qxF linux-lts
 }
 
 @test "stray_kernel_presets maps strays to their mkinitcpio preset paths" {

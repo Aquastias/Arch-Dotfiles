@@ -34,7 +34,7 @@ EOF2
 }
 
 @test "targets: a pool without a /var dataset snapshots the root only" {
-  run update_snapshot_targets tank/ROOT/arch <<<$'tank\ntank/ROOT/arch'
+  run update_snapshot_targets tank/ROOT/arch < <(printf '%s\n' tank tank/ROOT/arch)
   [ "$output" = tank/ROOT/arch ]
 }
 
@@ -75,7 +75,7 @@ rpool/ROOT/arch@blank
 rpool/ROOT/arch@update-20261104T000000
 EOF2
   [ "$output" = update-20261104T000000 ]
-  run update_snapshot_newest <<<'rpool/ROOT/arch@blank'
+  run update_snapshot_newest < <(printf '%s\n' rpool/ROOT/arch@blank)
   [ -z "$output" ]
 }
 

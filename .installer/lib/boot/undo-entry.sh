@@ -42,15 +42,16 @@ declare -F loader_entries_systemd_boot >/dev/null 2>&1 \
 undo_entry_render() {
   local loader="$1" base="$2" microcode="$3" cmdline="$4 $UNDO_ENTRY_PARAMETER"
   local initrd="initramfs-$base-prev.img" image initrds=""
-  for image in $microcode; do initrds+="initrd  /$image"$'\n'; done
+  # One "initrd  /<image>" line per microcode image.
+  initrds="$(for image in $microcode; do printf 'initrd  /%s\n' "$image"; done)"
   case "$loader" in
   systemd-boot)
     loader_entries_systemd_boot "$UNDO_ENTRY_TITLE" "$base-prev" \
-      "${initrds%$'\n'}" "$initrd" "$cmdline"
+      "$initrds" "$initrd" "$cmdline"
     ;;
   limine)
     loader_entries_limine "$UNDO_ENTRY_TITLE" "$base-prev" \
-      "${initrds%$'\n'}" "$initrd" "$cmdline"
+      "$initrds" "$initrd" "$cmdline"
     ;;
   grub)
     loader_entries_grub "$UNDO_ENTRY_TITLE" "$base-prev" "$microcode" \
@@ -83,16 +84,20 @@ undo_entry_refind_hide() {
 # _undo_entry_strip <file> — remove the marked Undo block from <file>.
 _undo_entry_strip() {
   [[ -f "$1" ]] || return 0
-  awk -v begin="$_UNDO_ENTRY_BEGIN" -v end="$_UNDO_ENTRY_END" '
-    $0 == begin { skip = 1; next }
-    $0 == end { skip = 0; next }
-    !skip' "$1" >"$1.new" && mv -f "$1.new" "$1"
+  local line skipping=0
+  # Every line outside the begin…end markers (the markers dropped too).
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == "$_UNDO_ENTRY_BEGIN" ]]; then skipping=1; continue; fi
+    if [[ "$line" == "$_UNDO_ENTRY_END" ]]; then skipping=0; continue; fi
+    (( skipping )) || printf '%s\n' "$line"
+  done < "$1" > "$1.new"
+  mv -f "$1.new" "$1"
 }
 
 # undo_entry_reconcile <esp> <loader> <kbase> <template> — make the Undo entry
 # present exactly while <kbase>'s previous pair is on <esp>.
 undo_entry_reconcile() {
-  local esp="${1%/}" loader="$2" base="$3" template="$4" config present=0
+  local esp="$1" loader="$2" base="$3" template="$4" config present=0
   [[ -f "$esp/vmlinuz-$base-prev" && -f "$esp/initramfs-$base-prev.img" ]] \
     && present=1
   case "$loader" in
@@ -180,7 +185,7 @@ HOOK
 # undo_entry_write_initcpio <root> — write the hook pair into the vendor
 # initcpio dirs under <root> (never /etc, which Impermanence rolls back).
 undo_entry_write_initcpio() {
-  local root="${1%/}"
+  local root="$1"
   mkdir -p "$root/usr/lib/initcpio/install" "$root/usr/lib/initcpio/hooks"
   undo_entry_initcpio_install >"$root/usr/lib/initcpio/install/undo-update"
   undo_entry_initcpio_hook >"$root/usr/lib/initcpio/hooks/undo-update"
@@ -212,7 +217,7 @@ UNIT
 # from autodetection. The one install path for the installer and the retrofit.
 # Units are enabled from the vendor .wants dir, never /etc.
 undo_entry_install() {
-  local root="${1%/}" source_script="$2" loader="$3" base="$4"
+  local root="$1" source_script="$2" loader="$3" base="$4"
   local microcode="$5" cmdline="$6"
   shift 6
   local lib="$root/usr/local/lib/archzfs" units="$root/usr/lib/systemd/system"

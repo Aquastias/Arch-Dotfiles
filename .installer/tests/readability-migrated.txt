@@ -27,3 +27,13 @@
 .installer/tests/sops.bats
 .installer/tests/shell/*.bats
 .installer/tests/lib/json-helpers.bash
+
+# Ticket 06 — boot, ZFS and wipe, with their tests.
+.installer/lib/boot/*.sh
+.installer/lib/zfs/*.sh
+.installer/lib/wipe/*.sh
+.installer/tests/boot/*.bats
+.installer/tests/zfs/*.bats
+.installer/tests/wipe/*.bats
+.installer/tests/wipe-*.bats
+.installer/tests/lib/text-helpers.bash

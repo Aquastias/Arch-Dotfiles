@@ -24,12 +24,16 @@
 # its zswap defaults, so the zstd / 20 fallback only covers a partial state
 # (ADR 0154).
 zswap_cmdline_params() {
-  jq -r '
-    (.swap == true) as $swap
-    | (.zswap.enabled == true) as $on
-    | if ($swap and $on) then
-        "zswap.enabled=1"
-        + " zswap.compressor=\(.zswap.compressor // "zstd")"
-        + " zswap.max_pool_percent=\(.zswap.max_pool_percent // 20)"
-      else "" end' <<<"$1"
+  local swap enabled compressor percent
+  # Whether swap and zswap are on, then zswap's compressor and pool share.
+  swap="$(printf '%s\n' "$1" | jq -r '.swap == true')" || return 1
+  enabled="$(printf '%s\n' "$1" | jq -r '.zswap.enabled == true')"
+  compressor="$(printf '%s\n' "$1" | jq -r '.zswap.compressor // "zstd"')"
+  percent="$(printf '%s\n' "$1" | jq -r '.zswap.max_pool_percent // 20')"
+  if [[ "$swap" == true && "$enabled" == true ]]; then
+    printf 'zswap.enabled=1 zswap.compressor=%s zswap.max_pool_percent=%s\n' \
+      "$compressor" "$percent"
+  else
+    printf '\n'
+  fi
 }

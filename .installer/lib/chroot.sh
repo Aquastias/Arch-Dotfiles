@@ -47,6 +47,7 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/boot/bootloader.sh|bootloader.sh"
   "lib/boot/loader-entries.sh|loader-entries.sh"
   "lib/boot/esp-kernel-sync.sh|esp-kernel-sync.sh"
+  "lib/boot/esp-kernel-sync-install.sh|esp-kernel-sync-install.sh"
   "lib/boot/stray-kernel.sh|stray-kernel.sh"
   "lib/boot/boot-recovery.sh|boot-recovery.sh"
   "lib/boot/update-snapshot.sh|update-snapshot.sh"

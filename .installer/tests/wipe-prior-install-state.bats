@@ -51,11 +51,11 @@ setup() {
   findmnt() { printf '%s\n' / /run/archiso/bootmnt /mnt /mnt/boot/efi /mntfoo; }
   run _prior_install_mounts_under_mount_root
   [ "$status" -eq 0 ]
-  grep -qx '/mnt'          <<<"$output"        # install root kept
-  grep -qx '/mnt/boot/efi' <<<"$output"        # ESP kept
-  ! grep -qx '/'                     <<<"$output"   # live root excluded
-  ! grep -qx '/run/archiso/bootmnt'  <<<"$output"   # archiso excluded
-  ! grep -qx '/mntfoo'               <<<"$output"   # no false prefix match
+  printf '%s\n' "$output" | grep -qx '/mnt'        # install root kept
+  printf '%s\n' "$output" | grep -qx '/mnt/boot/efi'        # ESP kept
+  ! printf '%s\n' "$output" | grep -qx '/'   # live root excluded
+  ! printf '%s\n' "$output" | grep -qx '/run/archiso/bootmnt'   # archiso excluded
+  ! printf '%s\n' "$output" | grep -qx '/mntfoo'   # no false prefix match
 }
 
 @test "pools seam selects only altroot=/mnt pools" {
@@ -64,9 +64,9 @@ setup() {
   zpool() { printf '%s\t%s\n' rpool /mnt dpool /mnt tank -; }
   run _prior_install_pools_with_mount_root_altroot
   [ "$status" -eq 0 ]
-  grep -qx rpool <<<"$output"
-  grep -qx dpool <<<"$output"
-  ! grep -qx tank <<<"$output"
+  printf '%s\n' "$output" | grep -qx rpool
+  printf '%s\n' "$output" | grep -qx dpool
+  ! printf '%s\n' "$output" | grep -qx tank
 }
 
 # The wipe_detect_disks live-medium exclusion + stdout-cleanliness regression

@@ -26,13 +26,14 @@ wipe_progress_percent() {
 #   A "[####----]" bar WIDTH cells wide (default 20), filled to the clamped
 #   percent. Echoes the bar.
 wipe_progress_bar() {
-  local bytes="$1" size="$2" width="${3:-20}" percent fill bar pad
+  local bytes="$1" size="$2" width="${3:-20}" percent fill i bar=""
   percent="$(wipe_progress_percent "$bytes" "$size")"
   fill=$((percent * width / 100))
   ((fill > width)) && fill=$width
-  printf -v bar '%*s' "$fill" ''
-  printf -v pad '%*s' "$((width - fill))" ''
-  printf '[%s%s]' "${bar// /#}" "${pad// /-}"
+  # <fill> cells of #, then - up to <width>.
+  for ((i = 0; i < fill; i++)); do bar+="#"; done
+  for ((i = fill; i < width; i++)); do bar+="-"; done
+  printf '[%s]' "$bar"
 }
 
 # wipe_progress_parse_bytes STREAM
@@ -40,9 +41,14 @@ wipe_progress_bar() {
 #   copied, ...". Echoes the latest sample's byte count, or nothing when no
 #   sample is present yet.
 wipe_progress_parse_bytes() {
-  printf '%s' "$1" | awk 'BEGIN { RS = "\r|\n" }
-    match($0, /^[0-9]+ bytes/) { latest = substr($0, 1, RLENGTH - 6) }
-    END { if (latest != "") print latest }'
+  local count word _rest latest=""
+  # One sample per line (the \r between samples made newlines); the
+  # `|| -n` keeps a last sample that has no newline.
+  while read -r count word _rest || [[ -n "$count" ]]; do
+    [[ "$count" =~ ^[0-9]+$ && "$word" == bytes ]] && latest="$count"
+  done < <(printf '%s' "$1" | tr '\r' '\n')
+  [[ -n "$latest" ]] && printf '%s\n' "$latest"
+  return 0
 }
 
 # _progress_humanize N [SUFFIX]

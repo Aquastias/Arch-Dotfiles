@@ -59,6 +59,7 @@ _encryption_passphrase_without_prompt() {
   # written. A guided-captured passphrase skips the tty prompt.
   local manifest="${GUIDED_SECRETS_MANIFEST:-}" guided_passphrase
   if [[ -n "$manifest" && -s "$manifest" ]]; then
+    # The passphrase the Guided Installer captured ("" when none).
     guided_passphrase="$(jq -r '.enc_passphrase // ""' "$manifest" 2>/dev/null)"
     if [[ -n "$guided_passphrase" ]]; then
       ZFS_PASSPHRASE="$guided_passphrase"

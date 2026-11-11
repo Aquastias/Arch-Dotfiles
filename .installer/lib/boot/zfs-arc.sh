@@ -17,8 +17,10 @@
 # anything else (4GB, -1G, 1.5G) is rejected.
 zfs_arc_max_bytes() {
   local size="$1" number unit
-  [[ "$size" =~ ^([0-9]+)([KMGT]?)$ ]] || return 1
-  number="${BASH_REMATCH[1]}" unit="${BASH_REMATCH[2]}"
+  [[ "$size" =~ ^[0-9]+[KMGT]?$ ]] || return 1
+  # The digits, and the unit letter after them ("" for bytes).
+  number="$(printf '%s\n' "$size" | tr -d 'KMGT')"
+  unit="$(printf '%s\n' "$size" | tr -d '0-9')"
   (( 10#$number > 0 )) || return 1
   case "$unit" in
     K) echo $(( 10#$number << 10 )) ;;
@@ -32,9 +34,11 @@ zfs_arc_max_bytes() {
 # zfs_arc_cmdline_params <state-json> — empty on a non-ZFS root or an unset
 # cap. A bad size never reaches here: validation rejects it before install.
 zfs_arc_cmdline_params() {
-  local size bytes
-  size="$(jq -r 'if .filesystem == "zfs" then .zfs.arc_max // "" else "" end' \
-    <<<"$1")"
+  local filesystem size bytes
+  # The root's filesystem, and the ARC cap it sets ("" when unset).
+  filesystem="$(printf '%s\n' "$1" | jq -r '.filesystem')" || return 1
+  size="$(printf '%s\n' "$1" | jq -r '.zfs.arc_max // ""')"
+  [[ "$filesystem" == zfs ]] || size=""
   [[ -n "$size" ]] || return 0
   bytes="$(zfs_arc_max_bytes "$size")" || return 0
   echo "zfs.zfs_arc_max=${bytes}"

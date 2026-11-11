@@ -34,35 +34,64 @@ update_snapshot_name() {
   printf 'update-%s\n' "$(date -u -d "@$1" +%Y%m%dT%H%M%S)"
 }
 
+# update_snapshot_pool <dataset> — the pool a dataset lives in (its first
+# path part): rpool/ROOT/arch → rpool.
+update_snapshot_pool() {
+  printf '%s\n' "$1" | cut -d/ -f1
+}
+
 # update_snapshot_targets <root-dataset> — from dataset names on stdin, the
 # datasets to snapshot: <root-dataset> and <pool>/var when it exists. /home,
 # /tmp, /var/cache, /var/log and data pools are left out.
 update_snapshot_targets() {
-  local root_dataset="$1"
-  awk -v root="$root_dataset" -v var="${root_dataset%%/*}/var" \
-    '$1 == root || $1 == var { print $1 }'
+  local root_dataset="$1" pool dataset _rest
+  pool="$(update_snapshot_pool "$root_dataset")"
+  while read -r dataset _rest; do
+    if [[ "$dataset" == "$root_dataset" || "$dataset" == "$pool/var" ]]; then
+      printf '%s\n' "$dataset"
+    fi
+  done
+}
+
+# _update_snapshot_is_listed <word> <list>… — 0 when <word> is in <list>.
+_update_snapshot_is_listed() {
+  local word="$1" item
+  shift
+  for item in "$@"; do
+    [[ "$item" == "$word" ]] && return 0
+  done
+  return 1
 }
 
 # update_snapshot_prune <keep> <protected-name> — from snapshot names
 # (dataset@name) on stdin, the @update-* snapshots to destroy: every dataset's
 # copy of a name outside the newest <keep> names and not <protected-name>.
+# Names hold their UTC time, so sorting them sorts them by age.
 update_snapshot_prune() {
-  local keep="$1" protected="$2"
-  awk -F@ '$2 ~ /^update-/' | sort -t@ -k2,2 -k1,1 | awk -F@ \
-    -v keep="$keep" -v protected="$protected" '
-      { line[NR] = $0; name[NR] = $2; if (!seen[$2]++) order[++names] = $2 }
-      END {
-        for (i = names - keep + 1; i <= names; i++)
-          if (i > 0) kept[order[i]] = 1
-        for (i = 1; i <= NR; i++)
-          if (!kept[name[i]] && name[i] != protected) print line[i]
-      }' | sort
+  local keep="$1" protected="$2" snapshot name
+  local -a snapshots=() names=() kept=()
+  # The @update-* snapshots, sorted.
+  mapfile -t snapshots < <(grep '@update-' | sort)
+  (( ${#snapshots[@]} )) || return 0
+  # Every distinct name, oldest first, and the newest <keep> of them.
+  mapfile -t names < <(printf '%s\n' "${snapshots[@]}" | cut -d@ -f2 | sort -u)
+  mapfile -t kept < <(printf '%s\n' "${names[@]}" | tail -n "$keep")
+  for snapshot in "${snapshots[@]}"; do
+    name="$(printf '%s\n' "$snapshot" | cut -d@ -f2)"
+    [[ "$name" == "$protected" ]] && continue
+    _update_snapshot_is_listed "$name" "${kept[@]}" && continue
+    printf '%s\n' "$snapshot"
+  done
 }
 
 # update_snapshot_newest — the newest @update-* name among the snapshot names
 # on stdin; empty when there is none.
 update_snapshot_newest() {
-  awk -F@ '$2 ~ /^update-/ { print $2 }' | sort | awk 'END { if (NR) print }'
+  local names
+  # The @update-* names (after the "@"), oldest first.
+  names="$(grep '@update-' | cut -d@ -f2 | sort)" || true
+  [[ -n "$names" ]] || return 0
+  printf '%s\n' "$names" | tail -n 1
 }
 
 # update_snapshot_pre_hook / update_snapshot_post_hook — the pacman hooks around
@@ -117,7 +146,7 @@ LINES
 # so a refused update leaves no in-progress mark, and before 60-mkinitcpio-
 # remove, so the snapshot holds the untouched system. The old 00- name goes.
 update_snapshot_install() {
-  local root="${1%/}" source_script="$2" hooks="${1%/}/etc/pacman.d/hooks"
+  local root="$1" source_script="$2" hooks="$1/etc/pacman.d/hooks"
   install -Dm755 "$source_script" \
     "$root/usr/local/lib/archzfs/update-snapshot.sh"
   mkdir -p "$hooks"
@@ -136,13 +165,15 @@ _update_snapshot_root_dataset() {
 
 _update_snapshot_pre() {
   local root_dataset name protected
-  local -a targets=()
+  local -a targets=() snapshots=() doomed=()
+  local target snapshot
   root_dataset="$(_update_snapshot_root_dataset)" || return 0
   [[ -n "$root_dataset" ]] || return 0
   name="$(update_snapshot_name "$(date +%s)")"
   mapfile -t targets < <(zfs list -H -o name -t filesystem \
     | update_snapshot_targets "$root_dataset")
-  if ! zfs snapshot "${targets[@]/%/@$name}"; then
+  for target in "${targets[@]}"; do snapshots+=("$target@$name"); done
+  if ! zfs snapshot "${snapshots[@]}"; then
     echo "update-snapshot: WARN: could not take @$name — Undo Last Update" \
          "will not cover this update." >&2
     return 0
@@ -153,18 +184,21 @@ _update_snapshot_pre() {
     protected="$(<"$_UPDATE_SNAPSHOT_MARK")"
   else
     protected="$name"
-    mkdir -p "${_UPDATE_SNAPSHOT_MARK%/*}"
+    mkdir -p "$(dirname "$_UPDATE_SNAPSHOT_MARK")"
     printf '%s\n' "$name" >"$_UPDATE_SNAPSHOT_MARK"
   fi
-  zfs list -H -o name -t snapshot -r "${root_dataset%%/*}" \
-    | update_snapshot_prune "$_UPDATE_SNAPSHOT_KEEP" "$protected" \
-    | while IFS= read -r snapshot; do zfs destroy "$snapshot"; done
+  # The pool's snapshots past the keep limit.
+  mapfile -t doomed < <(zfs list -H -o name -t snapshot -r \
+    "$(update_snapshot_pool "$root_dataset")" \
+    | update_snapshot_prune "$_UPDATE_SNAPSHOT_KEEP" "$protected")
+  for snapshot in "${doomed[@]}"; do zfs destroy "$snapshot"; done
   return 0
 }
 
 _update_snapshot_keep_blank() {
   local root_dataset name dataset
   root_dataset="$(_update_snapshot_root_dataset)" || return 0
+  # The newest Update Snapshot of the root.
   name="$(zfs list -H -o name -t snapshot "$root_dataset" 2>/dev/null \
     | update_snapshot_newest)"
   [[ -n "$name" ]] || return 0

@@ -56,7 +56,7 @@ write_config() { printf '%s\n' "$1" > "$CFG"; }
   }'
   run wipe_resolve_targets "$CFG"
   [ "$status" -eq 0 ]
-  [ "$(grep -c "^/dev/sda$" <<<"$output")" -eq 1 ]
+  [ "$(printf '%s\n' "$output" | grep -c "^/dev/sda$")" -eq 1 ]
 }
 
 @test "no disks declared: resolves to nothing" {

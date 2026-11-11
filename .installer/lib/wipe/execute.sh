@@ -37,18 +37,19 @@ _execute_device_on_disk() {
   device="$(readlink -f "$1" 2>/dev/null)"; device="${device:-$1}"
   disk="$(readlink -f "$2" 2>/dev/null)"; disk="${disk:-$2}"
   [[ "$device" == "$disk" ]] && return 0
-  parent="$(lsblk -no PKNAME "$device" 2>/dev/null | awk 'NR == 1')"
+  parent="$(lsblk -no PKNAME "$device" 2>/dev/null | head -n 1)"
   [[ -n "$parent" && "/dev/${parent}" == "$disk" ]]
 }
 
 # _execute_pool_on_disk <pool> <disk> — 0 when any vdev of the imported <pool>
-# lives on <disk>. `status -P -L` prints full, symlink-resolved vdev paths.
+# lives on <disk>. `status -P -L` prints each vdev's full, symlink-resolved
+# /dev path as the first word of its line.
 _execute_pool_on_disk() {
-  local pool="$1" disk="$2" vdev
-  while IFS= read -r vdev; do
-    _execute_device_on_disk "$vdev" "$disk" && return 0
-  done < <(zpool status -P -L "$pool" 2>/dev/null \
-    | awk '$1 ~ "^/dev/" { print $1 }')
+  local pool="$1" disk="$2" first_word _rest
+  while read -r first_word _rest; do
+    [[ "$first_word" == /dev/* ]] || continue
+    _execute_device_on_disk "$first_word" "$disk" && return 0
+  done < <(zpool status -P -L "$pool" 2>/dev/null)
   return 1
 }
 
@@ -69,9 +70,13 @@ wipe_teardown_zfs() {
 
   # Try to import and then destroy any un-imported pools on this disk.
   # Limit the device scan to /dev to avoid hanging on network devices.
-  local pools
-  pools="$(zpool import -d /dev 2>/dev/null | awk '/pool:/{print $2}' || true)"
-  for pool in $pools; do
+  local label name _rest
+  local -a pools=()
+  # `zpool import` lists each importable pool on a "pool: <name>" line.
+  while read -r label name _rest; do
+    [[ "$label" == pool: ]] && pools+=("$name")
+  done < <(zpool import -d /dev 2>/dev/null || true)
+  for pool in "${pools[@]}"; do
     zpool import -N -d /dev "$pool" 2>/dev/null || continue
     if _execute_pool_on_disk "$pool" "$disk"; then
       warn "Destroying ZFS pool '${pool}' on ${disk}"
@@ -85,37 +90,44 @@ wipe_teardown_zfs() {
 wipe_teardown_lvm() {
   local disk="$1" physical_volume volume_group
   command_exists pvs || return 0
-  while IFS= read -r physical_volume; do
+  # pvs pads its output; `read` trims it.
+  while read -r physical_volume; do
     [[ -n "$physical_volume" ]] || continue
     _execute_device_on_disk "$physical_volume" "$disk" || continue
-    volume_group="$(pvs --noheadings -o vg_name "$physical_volume" 2>/dev/null \
-      | awk '{ $1 = $1; print }' || true)"
+    volume_group="$(pvs --noheadings -o vg_name "$physical_volume" \
+      2>/dev/null | join_words || true)"
     if [[ -n "$volume_group" ]]; then
       warn "Removing LVM VG '${volume_group}' on ${physical_volume}"
       vgremove -f "$volume_group" 2>/dev/null || true
     fi
     pvremove -f "$physical_volume" 2>/dev/null || true
-  done < <(pvs --noheadings -o pv_name 2>/dev/null \
-    | awk '{ $1 = $1; print }' || true)
+  done < <(pvs --noheadings -o pv_name 2>/dev/null || true)
 }
 
 wipe_teardown_mdraid() {
   local disk="$1" part array_device
+  local -a words
   command_exists mdadm || return 0
   while IFS= read -r part; do
-    array_device="$(mdadm --query "/dev/${part}" 2>/dev/null |
-      awk '/is a member of/{print $NF}' || true)"
+    # The array the partition belongs to: the last word of mdadm's
+    # "… is a member of <array>" line ("" when none).
+    array_device=""
+    while read -ra words; do
+      [[ "${words[*]}" == *"is a member of"* ]] && array_device="${words[-1]}"
+    done < <(mdadm --query "/dev/${part}" 2>/dev/null || true)
     if [[ -n "$array_device" && -b "$array_device" ]]; then
       warn "Stopping MD array ${array_device} (contains /dev/${part})"
       mdadm --stop "$array_device" 2>/dev/null || true
     fi
-  done < <(lsblk -ln -o NAME "$disk" 2>/dev/null | awk 'NR > 1')
+  done < <(lsblk -ln -o NAME "$disk" 2>/dev/null | tail -n +2)
 }
 
 # _execute_rotational <disk> — lsblk's ROTA flag (1 HDD, 0 SSD/NVMe), trimmed;
 # empty when lsblk cannot tell.
 _execute_rotational() {
-  lsblk -dno ROTA "$1" 2>/dev/null | awk 'NR == 1 { $1 = $1; print }' || true
+  local rotational=""
+  read -r rotational < <(lsblk -dno ROTA "$1" 2>/dev/null) || true
+  printf '%s\n' "$rotational"
 }
 
 # =============================================================================
@@ -125,7 +137,7 @@ _execute_rotational() {
 wipe_one_disk() {
   local disk="$1"
   local log progress_file disk_name
-  disk_name="$(base_name "$disk")"
+  disk_name="$(basename "$disk")"
   log="/tmp/wipe-${disk_name}.log"
   progress_file="/tmp/wipe-${disk_name}.progress"
   {
@@ -210,7 +222,7 @@ _execute_spawn_jobs() {
   for disk in "${DISKS_TO_WIPE[@]}"; do
     size_map+=("$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)")
     method_map+=("$(wipe_method "$(_execute_rotational "$disk")")")
-    rm -f "/tmp/wipe-$(base_name "$disk").progress"
+    rm -f "/tmp/wipe-$(basename "$disk").progress"
     info "Spawning wipe job: $disk"
     wipe_one_disk "$disk" &
     pids+=($!)
@@ -252,7 +264,7 @@ _execute_live_display() {
 # _execute_running_line <index> <elapsed> — an in-flight job's status line.
 _execute_running_line() {
   local disk_name size method bytes
-  disk_name="$(base_name "${disk_map[$1]}")"
+  disk_name="$(basename "${disk_map[$1]}")"
   size="${size_map[$1]}"; method="${method_map[$1]}"
   bytes="$(wipe_progress_parse_bytes \
     "$(cat "/tmp/wipe-${disk_name}.progress" 2>/dev/null || true)")"
@@ -270,7 +282,7 @@ _execute_running_line() {
 # log carries the "Done:" line, else a pointer to the log.
 _execute_finished_line() {
   local disk_name size
-  disk_name="$(base_name "${disk_map[$1]}")"
+  disk_name="$(basename "${disk_map[$1]}")"
   size="${size_map[$1]}"
   if grep -q "Done:" "/tmp/wipe-${disk_name}.log" 2>/dev/null; then
     printf '%s\n' "  ${GREEN}✔${NC} ${disk_name} $(wipe_progress_bar "$size" \
@@ -285,7 +297,7 @@ _execute_finished_line() {
 _execute_report_failures() {
   local any_failed=false i log
   for i in "${!pids[@]}"; do
-    log="/tmp/wipe-$(base_name "${disk_map[$i]}").log"
+    log="/tmp/wipe-$(basename "${disk_map[$i]}").log"
     if ! grep -q "Done:" "$log" 2>/dev/null; then
       warn "Wipe may have failed for ${disk_map[$i]} — check $log"
       any_failed=true

@@ -514,6 +514,11 @@ FNR == 1 {
   code = blank_non_commands(code)
   check_locals(code, command_line, exempt)
   check_commands(code, command_line, exempt)
+  # A lone `{` opens a group: a comment above it covers the lines inside.
+  if (code ~ /^[ \t]*\{[ \t]*$/) {
+    commented_block = command_comment
+    next
+  }
   commented_block = 0
   if (!exempt)
     commented_block = shape_check_line(code, command_line, command_comment)

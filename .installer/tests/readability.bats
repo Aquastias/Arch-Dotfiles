@@ -835,3 +835,21 @@ SH
   [[ "$output" == *"what-comment: .installer/lib/a.sh:5:"* ]]
   [[ "$output" != *"a.sh:3:"* ]]
 }
+
+@test "what-comment: a comment above a { … } group covers its lines" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Each user's name and shell, sorted.
+{
+  jq -r '.name' "$profile"
+  jq -r '.shell' "$profile"
+} | sort
+{
+  jq -r '.home' "$profile"
+}
+SH
+  check_repo --list
+  [[ "$output" != *"what-comment: .installer/lib/a.sh:3:"* ]]
+  [[ "$output" != *"what-comment: .installer/lib/a.sh:4:"* ]]
+  [[ "$output" == *"what-comment: .installer/lib/a.sh:7:"* ]]
+}

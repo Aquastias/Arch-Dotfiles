@@ -45,7 +45,7 @@ zfs_kernels_missing_module() {
   local marker kernel_directory
   for marker in "$modules_directory"/*/pkgbase; do
     [[ -f "$marker" ]] || continue
-    kernel_directory="${marker%/pkgbase}"
+    kernel_directory="$(dirname "$marker")"
     _verify_module_present "$kernel_directory" && continue
     printf '%s\n' "$(<"$marker")"
   done | sort -u
@@ -68,7 +68,7 @@ zfs_missing_selected_kernels() {
     if [[ -n "$kernel" && -n "${selected[$kernel]:-}" ]]; then
       printf '%s\n' "$kernel"
     fi
-  done <<<"$missing_text" | sort -u
+  done < <(printf '%s\n' "$missing_text") | sort -u
 }
 
 # Fail-fast guard. Runs host-side after pacstrap, before chroot configuration.
@@ -102,13 +102,12 @@ zfs_verify_target_modules() {
     warn "Stray Kernel '${kernel}' has no zfs.ko — tolerated. It is not in the
   Kernel Selection, is dropped before mkinitcpio, never reaches the ESP, and is
   never the default boot; it will not block this install (ADR 0138)."
-  done <<<"$missing"
+  done < <(printf '%s\n' "$missing")
 
   [[ -z "$abort_set" ]] && return 0
 
   local list
-  list="${abort_set//$'\n'/ }"
-  list="${list% }"
+  list="$(printf '%s\n' "$abort_set" | join_words)"
   error "No ZFS kernel module was built for: ${list}.
   archzfs could not build zfs-dkms against this/these SELECTED kernel(s). Left
   unchecked the install would crash later in 'mkinitcpio -P' with

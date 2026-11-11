@@ -31,10 +31,14 @@ esp_stage_kernel() {
 # partition device, as efibootmgr --disk/--part want it. nvme/mmc name their
 # partitions with a `p<N>` suffix.
 esp_stage_split_partition() {
-  local device="$1"
+  local device="$1" number disk
+  # The partition number: the device's trailing digits.
+  number="$(printf '%s\n' "$device" | grep -oE '[0-9]+$')"
+  # The disk: the device without those digits.
+  disk="$(printf '%s\n' "$device" | cut -c"1-$(( ${#device} - ${#number} ))")"
+  # nvme and mmc put a "p" before the partition number: drop it too.
   if [[ "$device" =~ nvme|mmcblk ]]; then
-    printf '%s %s\n' "${device%p[0-9]*}" "${device##*p}"
-  else
-    printf '%s %s\n' "${device%[0-9]*}" "${device##*[a-z]}"
+    disk="$(printf '%s\n' "$disk" | cut -c"1-$(( ${#disk} - 1 ))")"
   fi
+  printf '%s %s\n' "$disk" "$number"
 }

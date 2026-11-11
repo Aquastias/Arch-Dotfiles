@@ -39,13 +39,16 @@ loader_entries_systemd_boot() {
 loader_entries_limine() {
   local label="$1" kbase="$2" microcode="$3" initrd="$4" cmdline="$5"
   local microcode_line
+  local -a words
   printf '/%s\n' "$label"
   printf '    protocol: linux\n'
   printf '    kernel_path: boot():/vmlinuz-%s\n' "$kbase"
   while IFS= read -r microcode_line; do
     [[ -n "$microcode_line" ]] || continue
-    printf '    module_path: boot():%s\n' "${microcode_line##* }"
-  done <<< "$microcode"
+    # The line's last word: the microcode image path.
+    read -ra words < <(printf '%s\n' "$microcode_line")
+    printf '    module_path: boot():%s\n' "${words[-1]}"
+  done < <(printf '%s\n' "$microcode")
   printf '    module_path: boot():/%s\n' "$initrd"
   printf '    cmdline: %s\n' "$cmdline"
 }
@@ -57,6 +60,7 @@ loader_entries_limine() {
 loader_entries_grub() {
   local label="$1" kbase="$2" microcode="$3" initrd="$4" cmdline="$5"
   local microcode_line
+  local -a words
   local imgs=""
   for microcode_line in $microcode; do imgs+="/$microcode_line "; done
   printf "menuentry '%s' {\n" "$label"

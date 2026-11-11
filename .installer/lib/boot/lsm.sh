@@ -13,7 +13,12 @@
 # =============================================================================
 
 lsm_cmdline_params() {
-  jq -r 'if .apparmor == true
-    then "lsm=landlock,lockdown,yama,integrity,apparmor,bpf" else "" end' \
-    <<<"$1"
+  local apparmor
+  # Whether the state turns AppArmor on.
+  apparmor="$(printf '%s\n' "$1" | jq -r '.apparmor == true')" || return 1
+  if [[ "$apparmor" == true ]]; then
+    printf '%s\n' "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"
+  else
+    printf '\n'
+  fi
 }

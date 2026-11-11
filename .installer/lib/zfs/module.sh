@@ -41,10 +41,49 @@ zfs_remove_stale_archzfs_testing() {
   # to prevent pacman from trying to fetch a non-existent database.
   if grep -q '\[archzfs-testing\]' /etc/pacman.conf; then
     warn "Removing stale [archzfs-testing] entry from /etc/pacman.conf ..."
-    # Delete the [archzfs-testing] block (header + Server line + blank line)
-    sed -i '/^\[archzfs-testing\]/,/^$/d' /etc/pacman.conf
+    _module_drop_archzfs_testing_block /etc/pacman.conf
     info "[archzfs-testing] removed."
   fi
+}
+
+# _module_drop_archzfs_testing_block <file> — remove the [archzfs-testing]
+# block from <file>: its header line and every line after it up to and
+# including the next blank one. The file keeps its owner and mode. (The
+# `|| -n` keeps a last line that has no newline.)
+_module_drop_archzfs_testing_block() {
+  local file="$1" line skipping=0 kept
+  kept="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if (( skipping )); then
+      [[ -z "$line" ]] && skipping=0
+      continue
+    fi
+    if [[ "$line" == "[archzfs-testing]"* ]]; then
+      skipping=1
+      continue
+    fi
+    printf '%s\n' "$line"
+  done < "$file" > "$kept"
+  cat "$kept" > "$file"
+  rm -f "$kept"
+}
+
+# _module_set_archzfs_siglevel <file> — the SigLevel line right after the
+# [archzfs] header becomes "SigLevel = Never". The file keeps its owner
+# and mode.
+_module_set_archzfs_siglevel() {
+  local file="$1" line after_header=0 edited
+  edited="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if (( after_header )) && [[ "$line" == *SigLevel* ]]; then
+      line="SigLevel = Never"
+    fi
+    after_header=0
+    [[ "$line" == *"[archzfs]"* ]] && after_header=1
+    printf '%s\n' "$line"
+  done < "$file" > "$edited"
+  cat "$edited" > "$file"
+  rm -f "$edited"
 }
 
 # ── archzfs repository ─────────────────────────────────────────────────────
@@ -107,11 +146,11 @@ _module_write_archzfs_repo() {
     if grep -q 'archzfs.com' /etc/pacman.conf; then
       warn "Updating stale archzfs.com repo URL to GitHub ..."
       local server="$_MODULE_ARCHZFS_SERVER"
+      # Point the old archzfs.com Server line at GitHub.
       sed -i \
         "s|Server = https://archzfs.com/.*|Server = ${server}|" \
         /etc/pacman.conf
-      sed -i '/\[archzfs\]/{n; s/SigLevel.*/SigLevel = Never/}' \
-        /etc/pacman.conf 2>/dev/null || true
+      _module_set_archzfs_siglevel /etc/pacman.conf
       info "archzfs repo URL updated."
     fi
     return 0
@@ -201,7 +240,10 @@ zfs_install_dkms() {
 
   _module_ensure_zfs_libraries
 
-  _module_find_zfs_source_version zfs_version
+  zfs_version="$(_module_find_zfs_source_version)" ||
+    error "zfs-dkms installed but no usable /usr/src/zfs-* source directory.
+  This means the zfs-dkms package did not install correctly.
+  Try: pacman -S --noconfirm zfs-dkms && ls /usr/src/zfs-*"
   info "ZFS source version: ${zfs_version}"
 
   # Register the module with DKMS if not already registered.
@@ -272,37 +314,28 @@ _module_ensure_kernel_headers() {
   fi
 }
 
-# _module_find_zfs_source_version <out-var> — the installed zfs-dkms source
+# _module_find_zfs_source_version — the installed zfs-dkms source
 # version. zfs-dkms always installs its source to /usr/src/zfs-<version>/;
 # this is more reliable than parsing `dkms status`, whose output format
 # changed in DKMS 3.x (Arch ships DKMS 3.x) from:
 #   old: "zfs, 2.1.x, ..."
 #   new: "zfs/2.1.x, 6.10.x-arch1-1, x86_64: added"
-# SC2012 fix: avoid `ls | grep | sort | tail` — use a glob expansion to
-# collect zfs-* directories, then version-sort with sort -V.
-# ZFS_SRC_DIR defaults to the real path; tests override it to a temp dir.
-# Writes <out-var> (not stdout): `error` must abort the installer, which it
-# cannot do from inside $( … ).
+# A glob collects the zfs-* directories; the highest version wins. Prints
+# the version; fails when there is none. ZFS_SRC_DIR defaults to the real
+# path; tests override it to a temp dir.
 _module_find_zfs_source_version() {
-  local __version_variable="$1" __version
-  local -a __source_directories=()
-  shopt -s nullglob
-  __source_directories=("${ZFS_SRC_DIR:-/usr/src}"/zfs-*)
-  shopt -u nullglob
-  if ((${#__source_directories[@]} == 0)); then
-    error "zfs-dkms installed but /usr/src/zfs-* source directory not found.
-  This means the zfs-dkms package did not install correctly.
-  Try: pacman -S --noconfirm zfs-dkms && ls /usr/src/zfs-*"
-  fi
-  # Pick the highest version directory: strip path, sort -V,
-  # take last, strip prefix.
-  __version="$(printf '%s\n' "${__source_directories[@]##*/}" \
-    | sort -V | awk 'END { print }')"
-  __version="${__version#zfs-}"
-  if [[ -z "$__version" ]]; then
-    error "Could not determine ZFS version from /usr/src/zfs-* directory names."
-  fi
-  printf -v "$__version_variable" '%s' "$__version"
+  local directory latest version
+  local -a names=()
+  for directory in "${ZFS_SRC_DIR:-/usr/src}"/zfs-*; do
+    [[ -e "$directory" ]] && names+=("$(basename "$directory")")
+  done
+  (( ${#names[@]} )) || return 1
+  # The highest-versioned name, then the version without its 4-character
+  # "zfs-" prefix.
+  latest="$(printf '%s\n' "${names[@]}" | sort -V | tail -n 1)"
+  version="$(printf '%s\n' "$latest" | cut -c5-)"
+  [[ -n "$version" ]] || return 1
+  printf '%s\n' "$version"
 }
 
 # _module_build_dkms <zfs_version> <kernel_version> <kernel_source> — build
@@ -364,6 +397,6 @@ zfs_load_module() {
   Or re-run: ./01-bootstrap-zfs.sh"
 
   local zfs_version
-  zfs_version="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
+  zfs_version="$(modinfo -F version zfs 2>/dev/null)"
   info "ZFS module loaded. Version: ${zfs_version:-unknown}"
 }

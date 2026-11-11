@@ -18,8 +18,12 @@ _prior_install_mounts_under_mount_root() {
 }
 _prior_install_pools_with_mount_root_altroot() {
   command_exists zpool || return 0
-  zpool list -H -o name,altroot 2>/dev/null \
-    | awk '$2 ~ /^\/mnt(\/|$)/ {print $1}'
+  local name altroot
+  while read -r name altroot; do
+    if [[ "$altroot" == /mnt || "$altroot" == /mnt/* ]]; then
+      printf '%s\n' "$name"
+    fi
+  done < <(zpool list -H -o name,altroot 2>/dev/null)
 }
 
 # Returns 0 if a previous-install scratch state is present at /mnt.
@@ -52,7 +56,7 @@ _prior_install_report() {
     warn "Mounted under /mnt:"
     while IFS= read -r line; do
       [[ -n "$line" ]] && echo "      ${line}"
-    done <<<"$mounts"
+    done < <(printf '%s\n' "$mounts")
   fi
   [[ -n "$pools" ]] && warn "Imported pool(s) with altroot=/mnt: ${pools}"
   return 0

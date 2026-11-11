@@ -20,25 +20,61 @@
 # planner without the runtime copy loop (mirrors initcpio.sh's lib-only guard).
 # =============================================================================
 
+# esp_kernel_sync_without_slash <path> — <path> with one trailing "/"
+# dropped ("/boot/efi/" → "/boot/efi").
+esp_kernel_sync_without_slash() {
+  local path="$1"
+  if [[ "$path" == */ ]]; then
+    # Every character but the last.
+    path="$(printf '%s\n' "$path" | cut -c"1-$(( ${#path} - 1 ))")"
+  fi
+  printf '%s\n' "$path"
+}
+
+# esp_kernel_sync_entry_files <entry> <key>... — the file named on each
+# "<key> <path>" line of a loader entry (`linux`, `initrd`), without its
+# leading "/". (The `|| -n` keeps a last line that has no newline.)
+esp_kernel_sync_entry_files() {
+  local entry="$1" key path _rest wanted
+  shift
+  while read -r key path _rest || [[ -n "$key" ]]; do
+    for wanted in "$@"; do
+      [[ "$key" == "$wanted" ]] || continue
+      # The path without its leading "/".
+      [[ "$path" == /* ]] && path="$(printf '%s\n' "$path" | cut -c2-)"
+      printf '%s\n' "$path"
+    done
+  done < "$entry"
+}
+
+# esp_kernel_sync_esp_files <esp_dir> — every boot file <esp_dir> uses: the
+# files its loader entries reference, then the boot images staged at its
+# root. One per line, unsorted, maybe repeated.
+esp_kernel_sync_esp_files() {
+  local esp_directory="$1" entry staged
+  for entry in "$esp_directory"/loader/entries/*.conf; do
+    [[ -f "$entry" ]] || continue
+    esp_kernel_sync_entry_files "$entry" linux initrd
+  done
+  for staged in "$esp_directory"/vmlinuz-* "$esp_directory"/initramfs-*.img \
+                "$esp_directory"/*-ucode.img; do
+    [[ -f "$staged" ]] || continue
+    basename "$staged"
+  done
+}
+
 # Pure: print the /boot filenames to mirror onto <esp_dir> — those its loader
 # entries reference plus the boot images staged at its root — that also exist
 # in <boot_dir>, one per line, sorted and de-duplicated.
 esp_kernel_sync_planned_files() {
-  local esp_directory="$1" boot_directory="$2" entry name staged
-  {
-    for entry in "$esp_directory"/loader/entries/*.conf; do
-      [[ -f "$entry" ]] || continue
-      awk '$1 == "linux" || $1 == "initrd" { sub(/^\//, "", $2); print $2 }' \
-        "$entry"
-    done
-    for staged in "$esp_directory"/vmlinuz-* "$esp_directory"/initramfs-*.img \
-                  "$esp_directory"/*-ucode.img; do
-      [[ -f "$staged" ]] || continue
-      printf '%s\n' "${staged##*/}"
-    done
-  } | sort -u | while IFS= read -r name; do
+  local esp_directory="$1" boot_directory="$2" name
+  local -a names
+  # The ESP's boot files, sorted, each once.
+  mapfile -t names < <(esp_kernel_sync_esp_files "$esp_directory" | sort -u)
+  for name in "${names[@]}"; do
     [[ -n "$name" && -f "$boot_directory/$name" ]] && printf '%s\n' "$name"
   done
+  return 0
 }
 
 # Critical files — those an entry references that must land intact or the sync
@@ -122,9 +158,14 @@ esp_kernel_sync_space_ok() {
 # next boot — the preflight asserts this before any package is touched. Pure +
 # testable: tests pass a fixture mounts file (ADR 0038).
 esp_kernel_sync_is_mountpoint() {
-  local directory="${1%/}" mounts="${2:-/proc/self/mounts}"
+  local directory mounts="${2:-/proc/self/mounts}" _device target _rest
+  directory="$(esp_kernel_sync_without_slash "$1")"
   [[ -n "$directory" && -r "$mounts" ]] || return 1
-  awk -v d="$directory" '$2 == d { f = 1 } END { exit f ? 0 : 1 }' "$mounts"
+  # Each mounts line is "<device> <target> <type> …".
+  while read -r _device target _rest; do
+    [[ "$target" == "$directory" ]] && return 0
+  done < "$mounts"
+  return 1
 }
 
 # True when <script> is a well-formed executable: it exists, is executable, and
@@ -146,19 +187,26 @@ esp_kernel_sync_script_ok() {
 # leak as the hook's exit code (a normal run with no dead entry would otherwise
 # report failure to pacman). Pure: touches only <esp_dir>; fixture-testable.
 esp_kernel_sync_prune_dead_fallback_entries() {
-  local esp_directory="${1%/}" entry referenced_file
+  local esp_directory entry referenced_file
+  esp_directory="$(esp_kernel_sync_without_slash "$1")"
   for entry in "$esp_directory"/loader/entries/*.conf; do
     [[ -f "$entry" ]] || continue
     while IFS= read -r referenced_file; do
-      referenced_file="${referenced_file#/}"
       if [[ "$referenced_file" == *fallback* \
             && ! -f "$esp_directory/$referenced_file" ]]; then
         rm -f "$entry"
         break
       fi
-    done < <(awk '$1 == "initrd" { print $2 }' "$entry")
+    done < <(esp_kernel_sync_entry_files "$entry" initrd)
   done
   return 0
+}
+
+# esp_kernel_sync_kernel_base <image> — the kernel package an ESP kernel
+# image is named for: …/vmlinuz-linux-lts → linux-lts.
+esp_kernel_sync_kernel_base() {
+  # The file name after its 8-character "vmlinuz-" prefix.
+  basename "$1" | cut -c9-
 }
 
 # esp_kernel_sync_kernels_current <esp_dir> <boot_dir> — 0 when every kernel
@@ -169,7 +217,7 @@ esp_kernel_sync_kernels_current() {
   local esp_directory="$1" boot_directory="$2" image base
   for image in "$esp_directory"/vmlinuz-*; do
     [[ -f "$image" ]] || continue
-    base="${image##*/vmlinuz-}"
+    base="$(esp_kernel_sync_kernel_base "$image")"
     [[ "$base" == *-prev ]] && continue
     cmp -s "$boot_directory/vmlinuz-$base" "$image" || return 1
   done
@@ -191,7 +239,7 @@ esp_kernel_sync_stale_previous() {
   local esp_directory="$1" image base
   for image in "$esp_directory"/vmlinuz-*; do
     [[ -f "$image" ]] || continue
-    base="${image##*/vmlinuz-}"
+    base="$(esp_kernel_sync_kernel_base "$image")"
     [[ "$base" == *-prev ]] && continue
     if ! cmp -s "$image" "$esp_directory/vmlinuz-$base-prev" \
        || ! cmp -s "$esp_directory/initramfs-$base.img" \
@@ -217,13 +265,19 @@ esp_kernel_sync_pair_bytes() {
 # file then rename, so the current pair is never touched and a cut-off copy
 # leaves only a sweepable .new.
 esp_kernel_sync_keep_previous() {
-  local esp_directory="${1%/}" base="$2" current previous
-  for current in "vmlinuz-$base" "initramfs-$base.img"; do
-    [[ -f "$esp_directory/$current" ]] || continue
-    previous="${current/$base/$base-prev}"
-    esp_kernel_sync_install_critical "$esp_directory/$current" \
-      "$esp_directory/$previous" || return 1
-  done
+  local esp_directory base="$2"
+  esp_directory="$(esp_kernel_sync_without_slash "$1")"
+  # Each image of the pair, kernel then initramfs, copied to its -prev
+  # name: vmlinuz-<base> → vmlinuz-<base>-prev, initramfs-<base>.img →
+  # initramfs-<base>-prev.img.
+  if [[ -f "$esp_directory/vmlinuz-$base" ]]; then
+    esp_kernel_sync_install_critical "$esp_directory/vmlinuz-$base" \
+      "$esp_directory/vmlinuz-$base-prev" || return 1
+  fi
+  if [[ -f "$esp_directory/initramfs-$base.img" ]]; then
+    esp_kernel_sync_install_critical "$esp_directory/initramfs-$base.img" \
+      "$esp_directory/initramfs-$base-prev.img" || return 1
+  fi
 }
 
 # True when <esp_dir>, with <free_bytes> available, still has room for <base>'s
@@ -240,81 +294,28 @@ esp_kernel_sync_previous_fits() {
 # esp_kernel_sync_drop_previous <esp_dir> <base> — Undo has no pair for <base>
 # on that ESP from here on.
 esp_kernel_sync_drop_previous() {
-  rm -f "${1%/}/vmlinuz-$2-prev" "${1%/}/initramfs-$2-prev.img"
+  local esp_directory
+  esp_directory="$(esp_kernel_sync_without_slash "$1")"
+  rm -f "$esp_directory/vmlinuz-$2-prev" \
+    "$esp_directory/initramfs-$2-prev.img"
 }
 
-# esp_kernel_sync_previous_hook — the pacman hook refreshing previous pairs
-# before every transaction. Single source for the installer and the retrofit.
-esp_kernel_sync_previous_hook() {
-  cat <<'HOOK'
-[Trigger]
-Type = Package
-Operation = Install
-Operation = Upgrade
-Operation = Remove
-Target = *
+# Lib-only sourcing (tests, the installer, the retrofit): also load the
+# install-time half, then skip the runtime below.
+if [[ "${ESP_KERNEL_SYNC_LIB_ONLY:-0}" == "1" ]]; then
+  # shellcheck source=esp-kernel-sync-install.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/esp-kernel-sync-install.sh"
+  return 0
+fi
 
-[Action]
-Description = Keeping the previous kernel on the ESP...
-When = PreTransaction
-Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh previous
-HOOK
+# _esp_kernel_sync_free_bytes <esp_dir> — the ESP's free space in bytes (0
+# when df cannot tell).
+_esp_kernel_sync_free_bytes() {
+  local free
+  # The number under df's "Avail" header, digits only.
+  free="$(df -B1 --output=avail "$1" 2>/dev/null | tail -n 1 | tr -dc '0-9')"
+  printf '%s\n' "${free:-0}"
 }
-
-# esp_kernel_sync_preflight_hook / esp_kernel_sync_sync_hook — the kernel-path
-# hooks around a kernel transaction: the fail-closed preflight and the sync.
-esp_kernel_sync_preflight_hook() {
-  cat <<'HOOK'
-[Trigger]
-Type = Path
-Operation = Install
-Operation = Upgrade
-Target = usr/lib/modules/*/vmlinuz
-
-[Action]
-Description = Checking ESP free space for new boot images...
-When = PreTransaction
-Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh preflight
-AbortOnFail
-HOOK
-}
-
-esp_kernel_sync_sync_hook() {
-  cat <<'HOOK'
-[Trigger]
-Type = Package
-Operation = Install
-Operation = Upgrade
-Operation = Remove
-Target = *
-
-[Action]
-Description = Syncing kernel and initramfs to ESP...
-When = PostTransaction
-Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh
-HOOK
-}
-
-# esp_kernel_sync_install <root> <source-script> — install this script and its
-# three hooks under <root> ("" = /). The one install path for the installer
-# and the retrofit. pacman runs hooks by filename, and 60-mkinitcpio-remove
-# (PreTransaction) deletes the /boot images: the preflight (01-) and the
-# previous-pair refresh (03-) must run before it. The old, too-late 93-/91-
-# names are removed (ADR 0166).
-esp_kernel_sync_install() {
-  local root="${1%/}" source_script="$2" hooks="${1%/}/etc/pacman.d/hooks"
-  install -Dm755 "$source_script" \
-    "$root/usr/local/lib/archzfs/esp-kernel-sync.sh"
-  mkdir -p "$hooks"
-  rm -f "$hooks/93-esp-kernel-sync-preflight.hook" \
-    "$hooks/91-esp-previous-pair.hook"
-  esp_kernel_sync_preflight_hook >"$hooks/01-esp-kernel-sync-preflight.hook"
-  esp_kernel_sync_previous_hook >"$hooks/03-esp-previous-pair.hook"
-  esp_kernel_sync_sync_hook >"$hooks/94-esp-kernel-sync.hook"
-}
-
-# Lib-only sourcing for tests: skip the runtime below.
-[[ "${ESP_KERNEL_SYNC_LIB_ONLY:-0}" == "1" ]] && return 0
 
 # Runtime: mirror /boot onto every mounted ESP, fail-closed on a critical copy.
 # The primary ESP (/boot/efi) holds the loader entries that drive the plan.
@@ -328,6 +329,7 @@ _esp_kernel_sync_run() {
   # an entry never dead-ends on a missing initrd.
   local esp_directory
   for esp_directory in /boot/efi*/; do
+    esp_directory="$(esp_kernel_sync_without_slash "$esp_directory")"
     esp_kernel_sync_prune_dead_fallback_entries "$esp_directory"
   done
 
@@ -351,6 +353,7 @@ _esp_kernel_sync_run() {
 _esp_kernel_sync_require_mounted() {
   local esp_directory
   for esp_directory in /boot/efi*/; do
+    esp_directory="$(esp_kernel_sync_without_slash "$esp_directory")"
     esp_kernel_sync_is_mountpoint "$esp_directory" || {
       echo "esp-kernel-sync: FATAL: $esp_directory is not a mountpoint —" \
            "refusing to write boot images into the ZFS directory, not the" \
@@ -364,6 +367,7 @@ _esp_kernel_sync_require_mounted() {
 _esp_kernel_sync_sweep_temporaries() {
   local esp_directory temporary_file
   for esp_directory in /boot/efi*/; do
+    esp_directory="$(esp_kernel_sync_without_slash "$esp_directory")"
     while IFS= read -r temporary_file; do
       rm -f "$temporary_file"
     done < <(esp_kernel_sync_orphan_temporaries "$esp_directory")
@@ -378,23 +382,22 @@ _esp_kernel_sync_sweep_temporaries() {
 _esp_kernel_sync_keep_previous_pairs() {
   local base esp_directory free
   for esp_directory in /boot/efi*/; do
+    esp_directory="$(esp_kernel_sync_without_slash "$esp_directory")"
     esp_kernel_sync_is_mountpoint "$esp_directory" || continue
     # Per ESP: a secondary ESP is only mirrored on kernel transactions, so its
     # pairs can lag the primary's.
     while IFS= read -r base; do
       esp_kernel_sync_drop_previous "$esp_directory" "$base"
-      free=$(df -B1 --output=avail "$esp_directory" 2>/dev/null \
-        | awk 'END { print }')
-      free=${free//[^0-9]/}
-      if esp_kernel_sync_previous_fits "${esp_directory%/}" /boot \
-           "${free:-0}" "$base" \
+      free="$(_esp_kernel_sync_free_bytes "$esp_directory")"
+      if esp_kernel_sync_previous_fits "$esp_directory" /boot \
+           "$free" "$base" \
          && esp_kernel_sync_keep_previous "$esp_directory" "$base"; then
         continue
       fi
       esp_kernel_sync_drop_previous "$esp_directory" "$base"
       echo "esp-kernel-sync: WARN: no room for the previous $base on" \
            "$esp_directory — Undo Last Update unavailable for it." >&2
-    done < <(esp_kernel_sync_stale_previous "${esp_directory%/}")
+    done < <(esp_kernel_sync_stale_previous "$esp_directory")
   done
   # The Undo entry follows the Primary Kernel's previous pair (ADR 0166).
   if [[ -x /usr/local/lib/archzfs/undo-entry.sh ]]; then
@@ -409,7 +412,7 @@ _esp_kernel_sync_copy_critical() {
   while IFS= read -r file; do
     for esp_directory in /boot/efi*/; do
       esp_kernel_sync_install_critical "/boot/$file" \
-        "${esp_directory%/}/$file" || {
+        "$esp_directory/$file" || {
         echo "esp-kernel-sync: FATAL: could not write $file to" \
              "$esp_directory (ESP full?) — boot images left intact," \
              "failing the transaction." >&2
@@ -426,9 +429,9 @@ _esp_kernel_sync_copy_optional() {
   local file esp_directory
   while IFS= read -r file; do
     for esp_directory in /boot/efi*/; do
-      cmp -s "/boot/$file" "${esp_directory%/}/$file" && continue
-      cp -f "/boot/$file" "${esp_directory%/}/$file" 2>/dev/null || {
-        rm -f "${esp_directory%/}/$file"
+      cmp -s "/boot/$file" "$esp_directory/$file" && continue
+      cp -f "/boot/$file" "$esp_directory/$file" 2>/dev/null || {
+        rm -f "$esp_directory/$file"
         echo "esp-kernel-sync: WARN: skipped optional $file on" \
              "$esp_directory (no room)." >&2
       }
@@ -458,6 +461,7 @@ _esp_kernel_sync_preflight() {
   }
 
   for esp_directory in /boot/efi*/; do
+    esp_directory="$(esp_kernel_sync_without_slash "$esp_directory")"
     esp_kernel_sync_is_mountpoint "$esp_directory" || {
       echo "esp-kernel-sync: PRE-TRANSACTION ABORT: $esp_directory is not a" \
            "mountpoint —" \
@@ -465,10 +469,8 @@ _esp_kernel_sync_preflight() {
            "kernel would not reach the ESP (ADR 0038)." >&2
       exit 1
     }
-    free=$(df -B1 --output=avail "$esp_directory" 2>/dev/null \
-      | awk 'END { print }')
-    free=${free//[^0-9]/}
-    esp_kernel_sync_space_ok /boot/efi /boot "${free:-0}" || {
+    free="$(_esp_kernel_sync_free_bytes "$esp_directory")"
+    esp_kernel_sync_space_ok /boot/efi /boot "$free" || {
       echo "esp-kernel-sync: PRE-TRANSACTION ABORT: ESP $esp_directory lacks" \
            "room for the" \
            "new boot images. Free space and retry (ADR 0038)." >&2
