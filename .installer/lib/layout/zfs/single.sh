@@ -81,8 +81,8 @@ layout_calculate_single_disk() {
   local usable_mib=$((total_mib - esp_mib - align_mib))
 
   local swap_gib os_gib
-  _zfs_single_resolve_swap_gib swap_gib "$ram" "$total_gib"
-  _zfs_single_resolve_os_gib os_gib "$swap_gib" "$usable_mib"
+  swap_gib="$(_zfs_single_resolve_swap_gib "$ram" "$total_gib")" || exit 1
+  os_gib="$(_zfs_single_resolve_os_gib "$swap_gib" "$usable_mib")" || exit 1
   _zfs_single_check_sizes "$os_gib" "$usable_mib"
 
   # OS partition size in sectors for sgdisk (uses 512-byte sectors)
@@ -92,40 +92,42 @@ layout_calculate_single_disk() {
     "$(( (usable_mib - os_gib * 1024) / 1024 ))"
 }
 
-# _zfs_single_resolve_swap_gib <out-var> <ram_gib> <disk_gib> — the swap size
-# in GiB: configured, or RAM × 2 capped to a quarter of a small disk.
+# _zfs_single_resolve_swap_gib <ram_gib> <disk_gib> — the swap size in GiB:
+# configured, or RAM × 2 capped to a quarter of a small disk. Prints the
+# size; its info lines go to stderr.
 _zfs_single_resolve_swap_gib() {
-  local __swap_variable="$1" ram="$2" total_gib="$3" configured __swap_gib
+  local ram="$1" total_gib="$2" configured swap_gib
   configured="$(config_optional '.options.swap_size')"
   if [[ -n "$configured" && "$configured" != "auto" ]]; then
-    __swap_gib="$(layout_parse_size_to_gib "$configured")"
-    info "Swap: ${__swap_gib} GiB  (from config)"
-    printf -v "$__swap_variable" '%s' "$__swap_gib"
+    swap_gib="$(layout_parse_size_to_gib "$configured")"
+    info "Swap: ${swap_gib} GiB  (from config)" >&2
+    printf '%s\n' "$swap_gib"
     return 0
   fi
-  __swap_gib=$((ram * 2))
+  swap_gib=$((ram * 2))
   # Cap swap to 25% of disk for small disks so the OS still fits
   local swap_cap=$((total_gib / 4))
   ((swap_cap < 2)) && swap_cap=2
-  if ((__swap_gib > swap_cap)); then
-    warn "Swap auto (${__swap_gib}G = RAM×2) capped to ${swap_cap}G" \
-         "on this small disk."
-    __swap_gib=$swap_cap
+  if ((swap_gib > swap_cap)); then
+    warn "Swap auto (${swap_gib}G = RAM×2) capped to ${swap_cap}G" \
+         "on this small disk." >&2
+    swap_gib=$swap_cap
   fi
-  info "Swap: ${__swap_gib} GiB  (auto)"
-  printf -v "$__swap_variable" '%s' "$__swap_gib"
+  info "Swap: ${swap_gib} GiB  (auto)" >&2
+  printf '%s\n' "$swap_gib"
 }
 
-# _zfs_single_resolve_os_gib <out-var> <swap_gib> <usable_mib> — the OS
-# partition in GiB: configured, or the largest of three candidates (never more
-# than 90% of usable space, so there is always room for a storage partition).
+# _zfs_single_resolve_os_gib <swap_gib> <usable_mib> — the OS partition in
+# GiB: configured, or the largest of three candidates (never more than 90%
+# of usable space, so there is always room for a storage partition). Prints
+# the size; its info lines go to stderr.
 _zfs_single_resolve_os_gib() {
-  local __os_variable="$1" swap_gib="$2" usable_mib="$3" configured __os_gib
+  local swap_gib="$1" usable_mib="$2" configured os_gib
   configured="$(config_optional '.os_size')"
   if [[ -n "$configured" && "$configured" != "auto" ]]; then
-    __os_gib="$(layout_parse_size_to_gib "$configured")"
-    info "OS size: ${__os_gib} GiB  (from config)"
-    printf -v "$__os_variable" '%s' "$__os_gib"
+    os_gib="$(layout_parse_size_to_gib "$configured")"
+    info "OS size: ${os_gib} GiB  (from config)" >&2
+    printf '%s\n' "$os_gib"
     return 0
   fi
   local floor=20                              # absolute minimum in GiB
@@ -134,19 +136,19 @@ _zfs_single_resolve_os_gib() {
   # Note: 80% gives ~31G on a 40G disk — enough for KDE + base + headroom.
   # Storage pool gets the remaining 20% (~8G) for user data.
 
-  __os_gib=$floor
-  ((ram_based > __os_gib)) && __os_gib=$ram_based
-  ((percent_gib > __os_gib)) && __os_gib=$percent_gib
+  os_gib=$floor
+  ((ram_based > os_gib)) && os_gib=$ram_based
+  ((percent_gib > os_gib)) && os_gib=$percent_gib
 
   # Hard cap: never claim more than 90% of usable MiB
   local os_cap_mib=$((usable_mib * 90 / 100))
   local os_cap_gib=$((os_cap_mib / 1024))
-  ((__os_gib > os_cap_gib && os_cap_gib > 0)) && __os_gib=$os_cap_gib
+  ((os_gib > os_cap_gib && os_cap_gib > 0)) && os_gib=$os_cap_gib
 
   info "OS size (auto): floor=${floor}G ram-based=${ram_based}G" \
        "80%=$((usable_mib * 80 / 100 / 1024))G" \
-       "→ ${__os_gib}G (cap: ${os_cap_gib}G)"
-  printf -v "$__os_variable" '%s' "$__os_gib"
+       "→ ${os_gib}G (cap: ${os_cap_gib}G)" >&2
+  printf '%s\n' "$os_gib"
 }
 
 # _zfs_single_check_sizes <os_gib> <usable_mib> — abort when the OS partition

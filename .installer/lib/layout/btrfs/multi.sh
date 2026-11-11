@@ -49,6 +49,7 @@ layout_validate() {
     "'encrypt' hook opens only one device. Use a single-disk encrypted btrfs" \
     "root, or a plaintext multi-disk raid."
   # shellcheck disable=SC2153 # CONFIG_FILE is the Install Config global
+  # The OS pool's disks, one per line.
   mapfile -t _LAYOUT_BTRFS_DISKS \
     < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
   ((${#_LAYOUT_BTRFS_DISKS[@]} >= 1)) || error "btrfs multi: no os_pool.disks."
@@ -89,7 +90,7 @@ _layout_plan_mode() {
     ((i == 0)) && swap_mib="$(layout_nonzfs_swap_mib "$total_mib")"
     plan="$(layout_nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
     _LAYOUT_BTRFS_PLANS+=("$plan")
-    root_number="$(printf '%s\n' "$plan" | layout_plan_field root_part_num)"
+    root_number="$(layout_plan_field root_part_num "$plan")"
     _LAYOUT_BTRFS_ROOT_PARTS+=("$(part_name "$disk" "$root_number")")
     _LAYOUT_BTRFS_ESP_PARTS+=("$(part_name "$disk" 1)")
   done
@@ -140,8 +141,8 @@ layout_partition() {
 
   # Swap (primary disk only) → reuse the spine's swap tail via its state vars.
   local primary_swap_number
-  primary_swap_number="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" \
-    | layout_plan_field swap_part_num)"
+  primary_swap_number="$(layout_plan_field swap_part_num \
+    "${_LAYOUT_BTRFS_PLANS[0]}")"
   if [[ -n "$primary_swap_number" ]]; then
     _LAYOUT_IMPL_SWAP_PART="$(part_name "${_LAYOUT_BTRFS_DISKS[0]}" "$primary_swap_number")"
     _LAYOUT_IMPL_SWAP_DEV="$_LAYOUT_IMPL_SWAP_PART"

@@ -117,7 +117,8 @@ layout_partition_data_pools() {
   local name
   for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
     local disks=()
-    read -ra disks <<<"${_LAYOUT_IMPL_DATA_POOL_DISKS[$name]}"
+    read -ra disks \
+      < <(printf '%s\n' "${_LAYOUT_IMPL_DATA_POOL_DISKS[$name]}")
     # GPT type by filesystem: bf00 (Solaris/ZFS) for a zfs pool, 8300 (Linux
     # filesystem) for ext4/xfs/btrfs — LUKS lives inside an 8300 partition too.
     local filesystem="${_LAYOUT_IMPL_DATA_POOL_FILESYSTEM[$name]:-zfs}" ptype label
@@ -154,7 +155,8 @@ layout_create_data_pools() {
     local mount="${_LAYOUT_IMPL_DATA_POOL_MOUNT[$name]}"
     local encryption="${_LAYOUT_IMPL_DATA_POOL_ENCRYPTION[$name]:-false}"
     local parts=()
-    read -ra parts <<<"${_LAYOUT_IMPL_DATA_POOL_PARTS[$name]}"
+    read -ra parts \
+      < <(printf '%s\n' "${_LAYOUT_IMPL_DATA_POOL_PARTS[$name]}")
 
     # Uniform per-group dispatch (ADR 0043): every group — zfs or not — goes to
     # its Data Group Formatter leaf (data_formatter_source <fs> → <fs>/data.sh)

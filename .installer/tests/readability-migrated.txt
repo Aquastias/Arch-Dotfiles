@@ -37,3 +37,7 @@
 .installer/tests/wipe/*.bats
 .installer/tests/wipe-*.bats
 .installer/tests/lib/text-helpers.bash
+
+# Ticket 07 — layout, with its tests.
+.installer/lib/layout/**
+.installer/tests/layout/*

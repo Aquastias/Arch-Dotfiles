@@ -90,8 +90,8 @@ layout_partition_os_disks_multi() {
   if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
     rpool_disks=("$_LAYOUT_IMPL_OS_DISK")
   else
-    while IFS= read -r d; do rpool_disks+=("$d"); done \
-      < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+    # The OS pool's disks, one per line.
+    mapfile -t rpool_disks < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
   fi
 
   local disk
@@ -121,12 +121,14 @@ layout_partition_storage_disks_multi() {
 
   # Config-defined storage groups
   local storage_group
+  # How many storage groups the config declares.
   storage_group="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   local i
   for ((i = 0; i < storage_group; i++)); do
     local name
     name="$(config_required ".storage_groups[$i].name")"
     local parts=()
+    # Each of the group's disks (from the config), partitioned whole.
     while IFS= read -r disk; do
       info "Partitioning storage disk: $disk  (group: ${name})"
       wipefs -af "$disk"
@@ -134,7 +136,8 @@ layout_partition_storage_disks_multi() {
       sgdisk -n1:0:0 -t1:bf00 -c1:"ZFS dpool-${name}" "$disk"
       partprobe "$disk"
       parts+=("$(part_name "$disk" 1)")
-    done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
+    done < <(jsonc "$CONFIG_FILE" \
+      | jq -r --argjson i "$i" '.storage_groups[$i].disks[]')
     _LAYOUT_IMPL_STORAGE_PARTS["$name"]="${parts[*]}"
   done
 
@@ -188,6 +191,7 @@ layout_create_multi_data_pool() {
   section "Creating Data Pool (dpool)"
 
   local storage_group_count has_leftover=false
+  # How many storage groups the config declares.
   storage_group_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   [[ -v "_LAYOUT_IMPL_STORAGE_PARTS[_leftover]" ]] && has_leftover=true
 
@@ -198,18 +202,22 @@ layout_create_multi_data_pool() {
   zfs_encryption_options
 
   # Collect vdev specs from all groups
-  local all_vdevs=() i name parts leftover_topology
+  local all_vdevs=() group_vdevs=() i name parts leftover_topology group_spec
   for ((i = 0; i < storage_group_count; i++)); do
     name="$(config_required ".storage_groups[$i].name")"
-    read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
-    _zfs_multi_add_group_vdevs all_vdevs "$name" \
-      "${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}" "${parts[@]}"
+    read -ra parts < <(printf '%s\n' "${_LAYOUT_IMPL_STORAGE_PARTS[$name]}")
+    group_spec="$(_zfs_multi_group_vdevs "$name" \
+      "${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}" "${parts[@]}")" || exit 1
+    read -ra group_vdevs < <(printf '%s\n' "$group_spec")
+    all_vdevs+=("${group_vdevs[@]}")
   done
   leftover_topology="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
   if $has_leftover; then
-    read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
-    _zfs_multi_add_group_vdevs all_vdevs _leftover "$leftover_topology" \
-      "${parts[@]}"
+    read -ra parts < <(printf '%s\n' "${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}")
+    group_spec="$(_zfs_multi_group_vdevs _leftover "$leftover_topology" \
+      "${parts[@]}")" || exit 1
+    read -ra group_vdevs < <(printf '%s\n' "$group_spec")
+    all_vdevs+=("${group_vdevs[@]}")
   fi
 
   # Use the first storage group's ashift (all storage disks ideally match)
@@ -237,7 +245,7 @@ _zfs_multi_create_datasets() {
   # One dataset per config-defined group
   for ((i = 0; i < storage_group_count; i++)); do
     name="$(config_required ".storage_groups[$i].name")"
-    read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
+    read -ra parts < <(printf '%s\n' "${_LAYOUT_IMPL_STORAGE_PARTS[$name]}")
     _zfs_multi_create_group_datasets "dpool/DATA/${name}" \
       "$(config_required ".storage_groups[$i].mount")" \
       "${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}" "${#parts[@]}"
@@ -245,25 +253,20 @@ _zfs_multi_create_datasets() {
 
   # Dataset(s) for leftover OS disks
   if $has_leftover; then
-    read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
+    read -ra parts < <(printf '%s\n' "${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}")
     _zfs_multi_create_group_datasets "dpool/DATA/extra" "/data/extra" \
       "$leftover_topology" "${#parts[@]}"
   fi
 }
 
-# _zfs_multi_add_group_vdevs <array-name> <group> <topology> <part>... —
-# append the group's vdev spec tokens to the named array.
-_zfs_multi_add_group_vdevs() {
-  local -n __vdevs="$1"
-  local group="$2" topology="$3" vdev_spec
-  shift 3
-  vdev_spec="$(zfs_vdev_spec "$topology" "$@")"
-  # SC2206 (intentional): vdev_spec is a single string built from
-  # zfs_vdev_spec output that we want word-split into separate vdev tokens
-  # (e.g. "mirror /dev/sdb1 /dev/sdc1" → 3 array elements).
-  # shellcheck disable=SC2206
-  __vdevs+=($vdev_spec)
-  info "  Group '${group}': ${topology}  [$*]"
+# _zfs_multi_group_vdevs <group> <topology> <part>... — the group's vdev
+# spec tokens on one line ("mirror /dev/sdb1 /dev/sdc1"); logs the group
+# to stderr.
+_zfs_multi_group_vdevs() {
+  local group="$1" topology="$2"
+  shift 2
+  info "  Group '${group}': ${topology}  [$*]" >&2
+  zfs_vdev_spec "$topology" "$@"
 }
 
 # _zfs_multi_create_group_datasets <dataset> <mountpoint> <topology> <disks>
@@ -322,6 +325,7 @@ _layout_plan_mode() {
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=()
   local _storage_group_count
+  # How many storage groups the config declares.
   _storage_group_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   if ((_storage_group_count > 0)) || ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
     LAYOUT_DATA_POOL_NAMES+=("dpool")
@@ -340,6 +344,7 @@ _layout_os_disks() {
   if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
     printf '%s\n' "$_LAYOUT_IMPL_OS_DISK"
   else
+    # The OS pool's disks, one per line.
     jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]'
   fi
 }

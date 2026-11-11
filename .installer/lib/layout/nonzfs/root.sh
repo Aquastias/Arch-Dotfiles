@@ -110,7 +110,7 @@ _layout_plan_mode() {
   _LAYOUT_IMPL_PLAN="$(layout_nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
 
   local root_mib
-  root_mib="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | layout_plan_field root_mib)"
+  root_mib="$(layout_plan_field root_mib "$_LAYOUT_IMPL_PLAN")"
   info "Disk $_LAYOUT_IMPL_DISK: ESP ${esp_mib}M, swap ${swap_mib}M," \
        "root ${root_mib}M (${fstype})"
 
@@ -169,11 +169,11 @@ _nonzfs_root_luks_open() {
 layout_nonzfs_partition_one_disk() {
   local disk="$1" plan="$2"
   local esp_number swap_number root_number esp_mib swap_mib
-  esp_number="$(printf '%s\n' "$plan" | layout_plan_field esp_part_num)"
-  swap_number="$(printf '%s\n' "$plan" | layout_plan_field swap_part_num)"
-  root_number="$(printf '%s\n' "$plan" | layout_plan_field root_part_num)"
-  esp_mib="$(printf '%s\n' "$plan" | layout_plan_field esp_mib)"
-  swap_mib="$(printf '%s\n' "$plan" | layout_plan_field swap_mib)"
+  esp_number="$(layout_plan_field esp_part_num "$plan")"
+  swap_number="$(layout_plan_field swap_part_num "$plan")"
+  root_number="$(layout_plan_field root_part_num "$plan")"
+  esp_mib="$(layout_plan_field esp_mib "$plan")"
+  swap_mib="$(layout_plan_field swap_mib "$plan")"
 
   wipefs -af "$disk"
   sgdisk --zap-all "$disk"
@@ -202,11 +202,11 @@ layout_partition() {
   local encryption devs
   encryption="$(layout_nonzfs_encryption_mode)"
   devs="$(layout_nonzfs_root_devices "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN" "$encryption")"
-  _LAYOUT_IMPL_ESP_PART="$(printf '%s\n' "$devs" | layout_plan_field esp_part)"
-  _LAYOUT_IMPL_SWAP_PART="$(layout_plan_field swap_part <<<"$devs")"
-  _LAYOUT_IMPL_ROOT_PART="$(layout_plan_field root_part <<<"$devs")"
-  _LAYOUT_IMPL_ROOT_DEV="$(printf '%s\n' "$devs" | layout_plan_field root_dev)"
-  _LAYOUT_IMPL_SWAP_DEV="$(printf '%s\n' "$devs" | layout_plan_field swap_dev)"
+  _LAYOUT_IMPL_ESP_PART="$(layout_plan_field esp_part "$devs")"
+  _LAYOUT_IMPL_SWAP_PART="$(layout_plan_field swap_part "$devs")"
+  _LAYOUT_IMPL_ROOT_PART="$(layout_plan_field root_part "$devs")"
+  _LAYOUT_IMPL_ROOT_DEV="$(layout_plan_field root_dev "$devs")"
+  _LAYOUT_IMPL_SWAP_DEV="$(layout_plan_field swap_dev "$devs")"
 
   mkfs.fat -F32 -n EFI "$_LAYOUT_IMPL_ESP_PART"
   # Open the root LUKS container so root_dev (/dev/mapper/cryptroot) exists for

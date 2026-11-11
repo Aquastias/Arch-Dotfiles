@@ -16,12 +16,15 @@
 # Pure: parses its JSON argument only, no disk access. Uses error() (common.sh).
 #
 # Public API:
-#   layout_manual_supported_data_filesystems            → the data filesystems, one per line
-#   layout_manual_supported_mounts             → the mountpoints, one per line
-#   layout_manual_partition_problems <parts>   → human problems (rc1 if any), NON-fatal
-#   layout_manual_partition_validate <parts>   → error()s the FIRST problem + the
-#                                         supported-values help (the hard stop)
-#   layout_manual_partition_plan <parts>       → validate, then emit the plan
+#   layout_manual_supported_data_filesystems → the data filesystems, one per
+#                                              line
+#   layout_manual_supported_mounts           → the mountpoints, one per line
+#   layout_manual_partition_problems <parts> → human problems (rc1 if any),
+#                                              NON-fatal
+#   layout_manual_partition_validate <parts> → error()s the FIRST problem +
+#                                              the supported-values help (the
+#                                              hard stop)
+#   layout_manual_partition_plan <parts>     → validate, then emit the plan
 # =============================================================================
 
 # The filesystems the manual Root Layout Adapter can mkfs/mount for a data mount
@@ -31,7 +34,9 @@ _MANUAL_DATA_FS=(ext4 xfs btrfs)
 # The mountpoints the assignment understands. "" (unassigned) is filtered out.
 _MANUAL_MOUNTS=(/ /boot/efi /home "[swap]")
 
-layout_manual_supported_data_filesystems() { printf '%s\n' "${_MANUAL_DATA_FS[@]}"; }
+layout_manual_supported_data_filesystems() {
+  printf '%s\n' "${_MANUAL_DATA_FS[@]}"
+}
 layout_manual_supported_mounts()  { printf '%s\n' "${_MANUAL_MOUNTS[@]}"; }
 
 # The "here is what the installer supports — change cfdisk / the assignment to
@@ -48,53 +53,91 @@ filesystem and mountpoint, then try again.
 EOF
 }
 
-# _manual_plan_count <mountpoint> <assigned-json> — how many partitions claim it.
-_manual_plan_count() {
-  jq --arg m "$1" '[.[] | select(.mountpoint == $m)] | length' <<< "$2"
+# The jq step listing the assigned partitions (those with a mountpoint), one
+# "device|mountpoint|fs|format" row each; a missing fs or format reads "null".
+# shellcheck disable=SC2016 # a jq program, not shell
+_MANUAL_PLAN_ROW_PROGRAM='.[] | select((.mountpoint // "") != "")
+  | "\(.device)|\(.mountpoint)|\(.fs)|\(.format)"'
+
+# _manual_plan_rows <parts> — the assigned partitions, one row each.
+_manual_plan_rows() {
+  # One "device|mountpoint|fs|format" row per assigned partition.
+  printf '%s\n' "${1:-[]}" | jq -r "$_MANUAL_PLAN_ROW_PROGRAM"
 }
 
-# layout_manual_partition_problems <parts> — every reason the assignment is not yet
-# installable, one bullet per line on stdout; rc 1 when there is at least one,
-# rc 0 when valid. NON-fatal (no error(), no exit) so the guided menu can show
-# it live and the install-time validator can turn it into a hard stop.
+# _manual_plan_is_listed <word> <list>… — 0 when <word> is in <list>.
+_manual_plan_is_listed() {
+  local word="$1" item
+  shift
+  for item in "$@"; do
+    [[ "$item" == "$word" ]] && return 0
+  done
+  return 1
+}
+
+# layout_manual_partition_problems <parts> — every reason the assignment is
+# not yet installable, one bullet per line on stdout; rc 1 when there is at
+# least one, rc 0 when valid. NON-fatal (no error(), no exit) so the guided
+# menu can show it live and the install-time validator can turn it into a
+# hard stop.
 layout_manual_partition_problems() {
-  local parts="${1:-[]}" assigned count out="" dev mountpoint filesystem esp_filesystem
-  assigned="$(jq -c '[.[] | select((.mountpoint // "") != "")]' <<< "$parts")"
+  local out="" row device mountpoint filesystem _format problem
+  local root_count=0 esp_count=0 esp_filesystem=""
+  local -a rows
+  mapfile -t rows < <(_manual_plan_rows "${1:-[]}")
+  for row in "${rows[@]}"; do
+    IFS='|' read -r device mountpoint filesystem _format \
+      < <(printf '%s\n' "$row")
+    [[ "$mountpoint" == / ]] && root_count=$((root_count + 1))
+    if [[ "$mountpoint" == /boot/efi ]]; then
+      esp_count=$((esp_count + 1))
+      esp_filesystem="$filesystem"
+    fi
+  done
 
-  count="$(_manual_plan_count / "$assigned")"
-  ((count == 1)) || out+="• ${count} partitions mount at root (/); need one."$'\n'
-
-  count="$(_manual_plan_count /boot/efi "$assigned")"
-  if ((count != 1)); then
-    out+="• ${count} partitions mount at /boot/efi; need exactly one ESP."$'\n'
-  else
-    esp_filesystem="$(jq -r '.[] | select(.mountpoint == "/boot/efi") | .fs' \
-      <<< "$assigned")"
-    [[ "$esp_filesystem" == "fat32" ]] \
-      || out+="• the ESP is '${esp_filesystem:-unset}' — it must be fat32."$'\n'
+  ((root_count == 1)) \
+    || out+="• ${root_count} partitions mount at root (/); need one."$'\n'
+  if ((esp_count != 1)); then
+    out+="• ${esp_count} partitions mount at /boot/efi;"
+    out+=" need exactly one ESP."$'\n'
+  elif [[ "$esp_filesystem" != "fat32" ]]; then
+    out+="• the ESP is '${esp_filesystem:-unset}' — it must be fat32."$'\n'
   fi
 
   # Every assigned partition: a known mountpoint, and a supported fs on a data
   # mount (swap has no fs; the ESP was checked above).
-  while IFS=$'\t' read -r dev mountpoint filesystem; do
-    [[ -n "$dev" ]] || continue
-    if ! printf '%s\n' "${_MANUAL_MOUNTS[@]}" | grep -qxF "$mountpoint"; then
-      out+="• ${dev}: mountpoint '${mountpoint}' is not supported."$'\n'
-      continue
-    fi
-    case "$mountpoint" in
-    "[swap]" | "/boot/efi") ;;   # swap: no fs; ESP: checked above
-    *)
-      printf '%s\n' "${_MANUAL_DATA_FS[@]}" | grep -qxF "$filesystem" \
-        || out+="• ${dev} (${mountpoint}): fs '${filesystem:-none}' is unsupported."$'\n'
-      ;;
-    esac
-  done < <(jq -r '.[] | [.device, .mountpoint, (.fs // "")] | @tsv' \
-    <<< "$assigned")
+  for row in "${rows[@]}"; do
+    IFS='|' read -r device mountpoint filesystem _format \
+      < <(printf '%s\n' "$row")
+    [[ -n "$device" ]] || continue
+    [[ "$filesystem" == null ]] && filesystem=""
+    problem="$(_manual_plan_partition_problem "$device" "$mountpoint" \
+      "$filesystem")"
+    [[ -n "$problem" ]] && out+="$problem"$'\n'
+  done
 
   [[ -z "$out" ]] && return 0
   printf '%s' "$out"
   return 1
+}
+
+# _manual_plan_partition_problem <device> <mountpoint> <fs> — the problem
+# bullet for one partition, or nothing when it is fine.
+_manual_plan_partition_problem() {
+  local device="$1" mountpoint="$2" filesystem="$3"
+  if ! _manual_plan_is_listed "$mountpoint" "${_MANUAL_MOUNTS[@]}"; then
+    printf '%s' "• ${device}: mountpoint '${mountpoint}' is not supported."
+    return 0
+  fi
+  case "$mountpoint" in
+  "[swap]" | "/boot/efi") ;;   # swap: no fs; ESP: checked above
+  *)
+    _manual_plan_is_listed "$filesystem" "${_MANUAL_DATA_FS[@]}" \
+      || printf '%s' \
+        "• ${device} (${mountpoint}): fs '${filesystem:-none}' is unsupported."
+    ;;
+  esac
+  return 0
 }
 
 # layout_manual_partition_validate <parts> — the install-time hard stop: if the
@@ -108,6 +151,18 @@ layout_manual_partition_validate() {
     "$(layout_manual_supported_help)"
 }
 
+# _manual_plan_depth <mountpoint> — how many path parts it has: / → 0,
+# /home → 1, /boot/efi → 2.
+_manual_plan_depth() {
+  local path_part depth=0
+  local -a path_parts
+  IFS=/ read -ra path_parts < <(printf '%s\n' "$1")
+  for path_part in "${path_parts[@]}"; do
+    [[ -n "$path_part" ]] && depth=$((depth + 1))
+  done
+  printf '%s\n' "$depth"
+}
+
 # layout_manual_partition_plan <parts> — validate, then emit the plan on stdout:
 #   root_device=<dev>
 #   esp_device=<dev>
@@ -116,25 +171,30 @@ layout_manual_partition_validate() {
 # Mount records are ordered shallow→deep so a parent (/) mounts before a child
 # (/home) and the ESP (/boot/efi) last.
 layout_manual_partition_plan() {
-  local parts="${1:-[]}"
+  local parts="${1:-[]}" row device mountpoint filesystem format record
+  local -a rows mounts=() swaps=()
+  local root_device="" esp_device=""
   layout_manual_partition_validate "$parts"
-
-  local assigned
-  assigned="$(jq -c '[.[] | select((.mountpoint // "") != "")]' <<< "$parts")"
-
-  printf 'root_device=%s\n' \
-    "$(jq -r '.[] | select(.mountpoint == "/") | .device' <<< "$assigned")"
-  printf 'esp_device=%s\n' \
-    "$(jq -r '.[] | select(.mountpoint == "/boot/efi") | .device' \
-      <<< "$assigned")"
-
-  jq -r '
-    [.[] | select(.mountpoint != "[swap]")]
-    | sort_by(.mountpoint | split("/") | map(select(. != "")) | length)
-    | .[]
-    | "mount\t\(.device)\t\(.mountpoint)\t\(.fs)\t\(.format)"
-  ' <<< "$assigned"
-
-  jq -r '.[] | select(.mountpoint == "[swap]") | "swap\t\(.device)"' \
-    <<< "$assigned"
+  mapfile -t rows < <(_manual_plan_rows "$parts")
+  for row in "${rows[@]}"; do
+    IFS='|' read -r device mountpoint filesystem format \
+      < <(printf '%s\n' "$row")
+    [[ "$mountpoint" == / ]] && root_device="$device"
+    [[ "$mountpoint" == /boot/efi ]] && esp_device="$device"
+    if [[ "$mountpoint" == "[swap]" ]]; then
+      swaps+=("swap"$'\t'"$device")
+    else
+      # The depth first, so a stable numeric sort puts parents first.
+      record="$(printf 'mount\t%s\t%s\t%s\t%s' "$device" "$mountpoint" \
+        "$filesystem" "$format")"
+      mounts+=("$(_manual_plan_depth "$mountpoint")|$record")
+    fi
+  done
+  printf 'root_device=%s\n' "$root_device"
+  printf 'esp_device=%s\n' "$esp_device"
+  if (( ${#mounts[@]} )); then
+    # The mount records shallow → deep, without their depth prefix.
+    printf '%s\n' "${mounts[@]}" | sort -s -t'|' -k1,1n | cut -d'|' -f2-
+  fi
+  if (( ${#swaps[@]} )); then printf '%s\n' "${swaps[@]}"; fi
 }

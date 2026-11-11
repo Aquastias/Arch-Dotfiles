@@ -34,13 +34,26 @@ layout_btrfs_root_cmdline() {
 # duplicated when multi-disk already added it).
 layout_btrfs_hooks() {
   local encrypted="${1:-}" multi="${2:-}" impermanence="${3:-}" hooks
-  local ins=()
+  local ins=() word inserted=0
+  local -a words hook_words=()
   hooks="$(layout_nonzfs_hooks "$encrypted")"
   [[ "$multi" == "multi" ]] && ins+=("btrfs")
   if [[ "$impermanence" == "impermanence" ]]; then
     [[ "$multi" == "multi" ]] || ins+=("btrfs")
     ins+=("btrfs-rollback")
   fi
-  ((${#ins[@]})) && hooks="${hooks/ filesystems/ ${ins[*]} filesystems}"
+  if ((${#ins[@]})); then
+    # The hooks with the extra ones put right before the first
+    # "filesystems".
+    read -ra words < <(printf '%s\n' "$hooks")
+    for word in "${words[@]}"; do
+      if [[ "$word" == filesystems && "$inserted" == 0 ]]; then
+        hook_words+=("${ins[@]}")
+        inserted=1
+      fi
+      hook_words+=("$word")
+    done
+    hooks="${hook_words[*]}"
+  fi
   printf '%s\n' "$hooks"
 }

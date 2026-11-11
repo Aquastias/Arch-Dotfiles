@@ -8,14 +8,18 @@
 # Strategy mirrors nonzfs-plan.bats: stub error() to exit like production, feed
 # an assignment, assert the emitted plan or the named rejection.
 
+load ../lib/text-helpers
+
 setup() {
+  # shellcheck source=../../lib/layout/core.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/core.sh"
   error() { echo "ERROR: $*" >&2; exit 1; }
   export -f error
   # shellcheck source=../../lib/layout/manual/plan.sh
   source "$BATS_TEST_DIRNAME/../../lib/layout/manual/plan.sh"
 }
 
-plan_field() { KEY="$1" awk -F= '$1 == ENVIRON["KEY"] { print $2 }'; }
+plan_field() { layout_plan_field "$1" || true; }
 
 ESP='{"device":"/dev/sda1","mountpoint":"/boot/efi","fs":"fat32","format":true}'
 ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
@@ -37,14 +41,16 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
   [ "$mounts" -eq 2 ]
   # root (/) is shallower than /boot/efi, so it must be emitted first.
   local first
-  first="$(printf '%s\n' "$output" | awk -F'\t' '/^mount/ { print $3; exit }')"
+  # The first mount record, then its mountpoint (tab field 3).
+  first="$(printf '%s\n' "$output" | grep '^mount' | head -n 1)"
+  first="$(printf '%s\n' "$first" | cut -f3)"
   [ "$first" = "/" ]
 }
 
 @test "plan: a mount record carries device, mountpoint, fs and format flag" {
   run layout_manual_partition_plan "[$ESP,$ROOT]"
   [ "$status" -eq 0 ]
-  printf '%s\n' "$output" | grep -qP '^mount\t/dev/sda2\t/\text4\ttrue$'
+  output_has_line $'mount\t/dev/sda2\t/\text4\ttrue'
 }
 
 # ── /home + swap + keep-existing ────────────────────────────────────────────
@@ -53,7 +59,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
   local swap='{"device":"/dev/sda3","mountpoint":"[swap]","fs":"","format":true}'
   run layout_manual_partition_plan "[$ESP,$ROOT,$swap]"
   [ "$status" -eq 0 ]
-  printf '%s\n' "$output" | grep -qP '^swap\t/dev/sda3$'
+  output_has_line $'swap\t/dev/sda3'
   # [swap] never appears as a filesystem mount.
   ! printf '%s\n' "$output" | grep -q '^mount.*\[swap\]'
 }
@@ -62,7 +68,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
   local home='{"device":"/dev/sda3","mountpoint":"/home","fs":"xfs","format":false}'
   run layout_manual_partition_plan "[$ESP,$ROOT,$home]"
   [ "$status" -eq 0 ]
-  printf '%s\n' "$output" | grep -qP '^mount\t/dev/sda3\t/home\txfs\tfalse$'
+  output_has_line $'mount\t/dev/sda3\t/home\txfs\tfalse'
 }
 
 @test "plan: an unassigned partition (no mountpoint) is ignored" {

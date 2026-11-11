@@ -57,8 +57,8 @@ layout_zfs_data_pool_encryption_options() {
     # zfs is the data pool's filesystem; the UUID arg is unused on the zfs path.
     local plan
     plan="$(layout_data_group_crypto true zfs "$name" UNUSED)"
-    keyfile="$(layout_plan_field keyfile <<<"$plan")"
-    options="$(layout_plan_field zfs_keyload <<<"$plan")"
+    keyfile="$(layout_plan_field keyfile "$plan")"
+    options="$(layout_plan_field zfs_keyload "$plan")"
   fi
 
   printf 'keyfile=%s\n' "$keyfile"
@@ -81,14 +81,14 @@ data_formatter_create_group() {
 
   local sel keyfile options
   sel="$(layout_zfs_data_pool_encryption_options "$encrypted" "$name")"
-  keyfile="$(layout_plan_field keyfile <<<"$sel")"
-  options="$(layout_plan_field opts <<<"$sel")"
+  keyfile="$(layout_plan_field keyfile "$sel")"
+  options="$(layout_plan_field opts "$sel")"
   # ZFS_ENCRYPTION_OPTIONS is consumed by zfs_create_pool (the global it word-splits into the
   # zpool create command); read -ra splits the controlled -O token string. It is
   # local so this pool's opts never leak into a later create.
   local ZFS_ENCRYPTION_OPTIONS=()
   # shellcheck disable=SC2034
-  read -ra ZFS_ENCRYPTION_OPTIONS <<<"$options"
+  read -ra ZFS_ENCRYPTION_OPTIONS < <(printf '%s\n' "$options")
   [[ -n "$keyfile" ]] \
     && _zfs_data_generate_keyfile "${MOUNT_ROOT}${keyfile}" "${keyfile}"
 

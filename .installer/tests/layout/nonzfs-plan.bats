@@ -6,6 +6,8 @@
 # adapter turns into sgdisk calls. Pure: no disk access.
 
 setup() {
+  # shellcheck source=../../lib/layout/core.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/core.sh"
   # error() aborts in production (common.sh exits); mirror that so a failed
   # validation stops the function rather than falling through.
   error() { echo "ERROR: $*" >&2; exit 1; }
@@ -15,7 +17,7 @@ setup() {
 }
 
 # Helper: extract a key=value field from the plan output.
-plan_field() { KEY="$1" awk -F= '$1 == ENVIRON["KEY"] { print $2 }'; }
+plan_field() { layout_plan_field "$1" || true; }
 
 # ── tracer: ESP + swap + root(remainder) ────────────────────────────────────
 

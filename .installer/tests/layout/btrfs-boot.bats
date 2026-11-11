@@ -72,7 +72,7 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^(.*)block(.*)btrfs\ btrfs-rollback\ filesystems(.*)$ ]]
   # btrfs must not be duplicated
-  [ "$(grep -oc 'btrfs ' <<<"$output")" -eq 1 ]
+  [ "$(printf '%s\n' "$output" | grep -oc 'btrfs ')" -eq 1 ]
 }
 
 @test "layout_btrfs_hooks: encrypted single + impermanence keeps encrypt first" {

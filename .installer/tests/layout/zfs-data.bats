@@ -15,7 +15,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/data.sh"
 }
 
-data_pool_field() { KEY="$1" awk 'index($0, ENVIRON["KEY"] "=") == 1 { print substr($0, length(ENVIRON["KEY"]) + 2) }'; }
+data_pool_field() { layout_plan_field "$1" || true; }
 
 # ── layout_zfs_data_pool_encryption_options (pure) ────────────────────────────────────────────
 

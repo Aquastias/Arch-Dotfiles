@@ -10,7 +10,7 @@ load layout-multi-helpers
 @test "layout_suggest_os_topologies(1): emits exactly one line" {
   run layout_suggest_os_topologies 1
   [ "$status" -eq 0 ]
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 1 ]
+  [ "${#lines[@]}" -eq 1 ]
 }
 
 @test "layout_suggest_os_topologies(1): the single option is none" {
@@ -22,7 +22,7 @@ load layout-multi-helpers
 @test "layout_suggest_os_topologies(2): first recommendation is mirror" {
   run layout_suggest_os_topologies 2
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == mirror* ]]
+  [[ "${lines[0]}" == mirror* ]]
 }
 
 @test "layout_suggest_os_topologies(3): includes mirror as an option" {
@@ -37,37 +37,37 @@ load layout-multi-helpers
 @test "layout_suggest_storage_topologies(1): first recommendation is independent" {
   run layout_suggest_storage_topologies 1
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == independent* ]]
+  [[ "${lines[0]}" == independent* ]]
 }
 
 @test "layout_suggest_storage_topologies(2): first recommendation is mirror" {
   run layout_suggest_storage_topologies 2
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == mirror* ]]
+  [[ "${lines[0]}" == mirror* ]]
 }
 
 @test "layout_suggest_storage_topologies(3): first recommendation is raidz1" {
   run layout_suggest_storage_topologies 3
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == raidz1* ]]
+  [[ "${lines[0]}" == raidz1* ]]
 }
 
 @test "layout_suggest_storage_topologies(4): first recommendation is raidz1" {
   run layout_suggest_storage_topologies 4
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == raidz1* ]]
+  [[ "${lines[0]}" == raidz1* ]]
 }
 
 @test "layout_suggest_storage_topologies(5): first recommendation is raidz2" {
   run layout_suggest_storage_topologies 5
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == raidz2* ]]
+  [[ "${lines[0]}" == raidz2* ]]
 }
 
 @test "layout_suggest_storage_topologies(6): first recommendation is raidz2" {
   run layout_suggest_storage_topologies 6
   [ "$status" -eq 0 ]
-  [[ "${output%%$'\n'*}" == raidz2* ]]
+  [[ "${lines[0]}" == raidz2* ]]
 }
 
 

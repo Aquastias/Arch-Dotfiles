@@ -35,9 +35,9 @@ layout_nonzfs_root_devices() {
   local disk="$1" plan="$2" encryption="$3"
 
   local esp_number swap_number root_number
-  esp_number="$(layout_plan_field esp_part_num   <<<"$plan")"
-  swap_number="$(layout_plan_field swap_part_num <<<"$plan")"
-  root_number="$(layout_plan_field root_part_num <<<"$plan")"
+  esp_number="$(layout_plan_field esp_part_num "$plan")"
+  swap_number="$(layout_plan_field swap_part_num "$plan")"
+  root_number="$(layout_plan_field root_part_num "$plan")"
 
   local esp_part swap_part root_part
   esp_part="$(part_name "$disk" "$esp_number")"

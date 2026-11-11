@@ -83,9 +83,11 @@ layout_settle() {
 
 # Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.
 layout_parse_size_to_gib() {
-  local raw="${1^^}"
-  local number="${raw//[^0-9]/}"
-  local unit="${raw//[0-9]/}"
+  local raw number unit
+  # The size in capitals ("80g" → "80G"), then its digits and its unit.
+  raw="$(printf '%s\n' "$1" | tr '[:lower:]' '[:upper:]')"
+  number="$(printf '%s\n' "$raw" | tr -dc '0-9')"
+  unit="$(printf '%s\n' "$raw" | tr -d '0-9')"
   # Base 10 explicitly: a leading zero (010G) must not read as octal.
   [[ -n "$number" ]] || error "Cannot parse size string: '$1'"
   number=$((10#$number))
@@ -101,9 +103,11 @@ layout_parse_size_to_gib() {
 # loss. Unlike layout_parse_size_to_gib, this keeps sub-GiB precision so the ESP floor
 # can distinguish 512M from 1G.
 layout_parse_size_to_mib() {
-  local raw="${1^^}"
-  local number="${raw//[^0-9]/}"
-  local unit="${raw//[0-9]/}"
+  local raw number unit
+  # The size in capitals ("80g" → "80G"), then its digits and its unit.
+  raw="$(printf '%s\n' "$1" | tr '[:lower:]' '[:upper:]')"
+  number="$(printf '%s\n' "$raw" | tr -dc '0-9')"
+  unit="$(printf '%s\n' "$raw" | tr -d '0-9')"
   # Base 10 explicitly: a leading zero (010G) must not read as octal.
   [[ -n "$number" ]] || error "Cannot parse size string: '$1'"
   number=$((10#$number))
@@ -117,16 +121,25 @@ layout_parse_size_to_mib() {
 
 # ── Plan text protocol (shared) ──────────────────────────────────────────────
 
-# Read one field out of a `key=value` plan text on stdin (the non-ZFS root
-# partition plan, the device plan, and the per-group datacrypt plan all share
-# this line format). The single reader for all three — root.sh, devices.sh, and
-# data.sh used to each carry a byte-identical copy. Exits 1 when the key is
-# absent (as the grep it replaced did), so a missing field still fails.
+# layout_plan_field <key> [plan] — the value of each "<key>=<value>" line
+# of a plan text (<plan>, or stdin without it). The non-ZFS root partition
+# plan, the device plan and the per-group datacrypt plan share this line
+# format; this is the one reader for all three. Fails when the key is
+# absent, so a missing field still fails.
 layout_plan_field() {
-  awk -v key="$1" '
-    index($0, key "=") == 1 { print substr($0, length(key) + 2); found = 1 }
-    END { exit !found }
-  '
+  local key="$1" line found=1
+  if (( $# >= 2 )); then
+    printf '%s\n' "$2" | layout_plan_field "$key"
+    return
+  fi
+  # The text after "<key>=" on each such line. (The `|| -n` keeps a last
+  # line that has no newline.)
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == "$key="* ]] || continue
+    printf '%s\n' "$line" | cut -c"$(( ${#key} + 2 ))-"
+    found=0
+  done
+  return "$found"
 }
 
 # ── Plan / partition contract (ESP — shared) ─────────────────────────────────

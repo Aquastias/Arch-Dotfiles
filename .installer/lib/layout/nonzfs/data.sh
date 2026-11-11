@@ -104,16 +104,11 @@ data_formatter_create_group() {
   if [[ -z "${source_device:-}" ]]; then
     source_device="UUID=$(blkid -s UUID -o value "$target")"
   fi
-  _nonzfs_data_append_line LAYOUT_FSTAB_EXTRA \
-    "$(layout_data_group_fstab_line "$source_device" "$mount" "$filesystem")"
+  # The fstab record, with a newline first when it already has lines.
+  LAYOUT_FSTAB_EXTRA+="${LAYOUT_FSTAB_EXTRA:+$'\n'}"
+  LAYOUT_FSTAB_EXTRA+="$(layout_data_group_fstab_line "$source_device" \
+    "$mount" "$filesystem")"
   info "Data group '${name}' formatted → ${mount} (${filesystem})"
-}
-
-# _nonzfs_data_append_line <variable> <line> — append a line to a
-# newline-separated layout record (LAYOUT_CRYPTTAB, LAYOUT_FSTAB_EXTRA).
-_nonzfs_data_append_line() {
-  local -n __record="$1"
-  __record="${__record:+${__record}$'\n'}$2"
 }
 
 # ── single-disk encrypted (ext4/xfs/btrfs) — the verified path ──
@@ -123,8 +118,8 @@ _nonzfs_data_append_line() {
 _nonzfs_data_open_single_encrypted() {
   local filesystem="$1" name="$2" partition="$3" plan keyfile mapper uuid
   plan="$(layout_data_group_crypto true "$filesystem" "$name" PENDING)"
-  keyfile="$(printf '%s\n' "$plan" | layout_plan_field keyfile)"
-  mapper="$(printf '%s\n' "$plan" | layout_plan_field mapper)"
+  keyfile="$(layout_plan_field keyfile "$plan")"
+  mapper="$(layout_plan_field mapper "$plan")"
 
   _nonzfs_data_generate_keyfile "${MOUNT_ROOT}${keyfile}"
   cryptsetup luksFormat --type luks2 --batch-mode \
@@ -136,9 +131,11 @@ _nonzfs_data_open_single_encrypted() {
   mkfs_inputs=("$target")
 
   uuid="$(blkid -s UUID -o value "$partition")" # LUKS container UUID
-  _nonzfs_data_append_line LAYOUT_CRYPTTAB \
-    "$(layout_data_group_crypto true "$filesystem" "$name" "$uuid" \
-       | layout_plan_field crypttab)"
+  # The crypttab record, with a newline first when it already has lines.
+  LAYOUT_CRYPTTAB+="${LAYOUT_CRYPTTAB:+$'\n'}"
+  LAYOUT_CRYPTTAB+="$(layout_data_group_crypto true \
+    "$filesystem" "$name" "$uuid" \
+    | layout_plan_field crypttab)"
 }
 
 # ── multi-disk encrypted (btrfs raid over per-device LUKS mappers) ──
@@ -164,8 +161,9 @@ _nonzfs_data_open_multi_encrypted() {
     cryptsetup open "$part" "$mapper" --key-file "${MOUNT_ROOT}${keyfile}"
     mkfs_inputs+=("/dev/mapper/${mapper}")
     uuid="$(blkid -s UUID -o value "$part")" # LUKS container UUID
-    _nonzfs_data_append_line LAYOUT_CRYPTTAB \
-      "${mapper}  UUID=${uuid}  ${keyfile}  luks"
+    # The crypttab record, with a newline first when it already has lines.
+    LAYOUT_CRYPTTAB+="${LAYOUT_CRYPTTAB:+$'\n'}"
+    LAYOUT_CRYPTTAB+="${mapper}  UUID=${uuid}  ${keyfile}  luks"
   done
   target="${mkfs_inputs[0]}"
 }

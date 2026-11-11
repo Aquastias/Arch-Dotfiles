@@ -36,6 +36,8 @@ _stub_layout_commands() {
   zfs_ram_gib()             { echo 4; }
 }
 
+load ../lib/text-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   CONFIG_FILE="$TEST_DIR/install.json"
@@ -134,8 +136,8 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   layout_plan
   layout_partition
   local wipe_line sgdisk_line
-  wipe_line="$(awk '/^wipefs/ { print NR; exit }' "$CALLS")"
-  sgdisk_line="$(awk '/^sgdisk/ { print NR; exit }' "$CALLS")"
+  wipe_line="$(line_number_of "$CALLS" wipefs)"
+  sgdisk_line="$(line_number_of "$CALLS" sgdisk)"
   ((wipe_line < sgdisk_line))
 }
 

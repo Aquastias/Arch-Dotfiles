@@ -9,11 +9,20 @@ _stub_layout_commands() {
   blockdev()  { echo $((100 * 1024 * 1024 * 1024)); }
   layout_disk_exists() { return 0; }
   zfs_ram_gib() { echo 4; }
-  local command_name
-  for command_name in wipefs sgdisk partprobe mkfs.fat mkfs.btrfs mkfs.ext4 \
-      mount umount mkdir btrfs mkswap modprobe; do
-    eval "${command_name}() { printf '${command_name} %s\n' \"\$*\" >>\"\$CALLS\"; }"
-  done
+  # Each stubbed command appends "<name> <arguments>" to $CALLS.
+  _record() { printf '%s %s\n' "$1" "${*:2}" >>"$CALLS"; }
+  wipefs() { _record wipefs "$@"; }
+  sgdisk() { _record sgdisk "$@"; }
+  partprobe() { _record partprobe "$@"; }
+  mkfs.fat() { _record mkfs.fat "$@"; }
+  mkfs.btrfs() { _record mkfs.btrfs "$@"; }
+  mkfs.ext4() { _record mkfs.ext4 "$@"; }
+  mount() { _record mount "$@"; }
+  umount() { _record umount "$@"; }
+  mkdir() { _record mkdir "$@"; }
+  btrfs() { _record btrfs "$@"; }
+  mkswap() { _record mkswap "$@"; }
+  modprobe() { _record modprobe "$@"; }
   sleep() { :; }; udevadm() { :; }
   blkid() { echo UUID-X; }
   part_name() { printf '%s%s' "$1" "$2"; }

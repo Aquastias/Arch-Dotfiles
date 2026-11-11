@@ -8,9 +8,10 @@
 # the pure planner (manual/plan.sh), formats only the partitions marked
 # `format`, mounts them under MOUNT_ROOT (root first, then deeper paths, ESP
 # last), activates any [swap] partition, and publishes the plain (non-ZFS,
-# non-LUKS) boot record the FS-agnostic bootloader / initcpio / chroot_write_fstab
-# consume. There is no encryption, impermanence, or data-pool path here (they
-# are disabled the moment Manual Partitioning is toggled on).
+# non-LUKS) boot record the FS-agnostic bootloader / initcpio /
+# chroot_write_fstab consume. There is no encryption, impermanence, or
+# data-pool path here (they are disabled the moment Manual Partitioning is
+# toggled on).
 #
 # Provides the layout seam 03-install.sh drives: layout_validate, layout_plan,
 # layout_partition, layout_create_pools, layout_mount_esp. Reuses the shared
@@ -18,7 +19,8 @@
 # boot emitters (a manual root is exactly a plain non-ZFS root by UUID).
 #
 # INTERNAL STATE (do not reference outside this module):
-#   _MANUAL_PLAN         — layout_manual_partition_plan output (records + summary)
+#   _MANUAL_PLAN         — layout_manual_partition_plan output (records +
+#                          summary)
 #   _MANUAL_ESP_DEV      — the ESP partition device (mounted at /boot/efi)
 #   _MANUAL_ROOT_DEV     — the root partition device (mounted at MOUNT_ROOT)
 #   _MANUAL_ESP_FORMAT   — "true" to mkfs the ESP, "false" to keep it (dualboot)
@@ -62,19 +64,28 @@ layout_validate() {
   layout_exit_phase validate
 }
 
+# _manual_root_esp_format <plan> — the format flag (true/false) of the plan's
+# /boot/efi mount record.
+_manual_root_esp_format() {
+  local tag _device mountpoint _filesystem format
+  while IFS=$'\t' read -r tag _device mountpoint _filesystem format; do
+    if [[ "$tag" == mount && "$mountpoint" == /boot/efi ]]; then
+      printf '%s\n' "$format"
+    fi
+  done < <(printf '%s\n' "$1")
+}
+
 # Plan: resolve the assignment into the LAYOUT_* record. No disk writes. The
 # root cmdline + fstab tail need post-mkfs UUIDs, so they are set in the create
 # verb; the hooks + ESP + empty pool record are knowable now.
 layout_plan() {
   layout_enter_phase plan
   section "Manual Partitioning Layout"
-  _MANUAL_PLAN="$(layout_manual_partition_plan "$(install_config_partitions_json)")"
-  _MANUAL_ESP_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | layout_plan_field esp_device)"
-  _MANUAL_ROOT_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | layout_plan_field root_device)"
-  _MANUAL_ESP_FORMAT="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | awk -F'\t' '$1=="mount" && $3=="/boot/efi"{print $5}')"
+  _MANUAL_PLAN="$(layout_manual_partition_plan \
+    "$(install_config_partitions_json)")"
+  _MANUAL_ESP_DEV="$(layout_plan_field esp_device "$_MANUAL_PLAN")"
+  _MANUAL_ROOT_DEV="$(layout_plan_field root_device "$_MANUAL_PLAN")"
+  _MANUAL_ESP_FORMAT="$(_manual_root_esp_format "$_MANUAL_PLAN")"
 
   # A manual root has no OS pool and no data pools.
   # shellcheck disable=SC2034 # consumed by install_state_write / finalize.sh
@@ -114,7 +125,8 @@ layout_create_pools() {
   local extra="" tag dev mountpoint filesystem format uuid mount_options fsck
   while IFS=$'\t' read -r tag dev mountpoint filesystem format; do
     [[ "$tag" == "mount" ]] || continue
-    [[ "$mountpoint" == "/boot/efi" ]] && continue   # mounted by layout_mount_esp
+    # The ESP is mounted by layout_mount_esp.
+    [[ "$mountpoint" == "/boot/efi" ]] && continue
     if [[ "$format" == "true" ]]; then
       layout_manual_mkfs "$filesystem" "$dev"
       # The live ISO may ship the mkfs tool without the fs module loaded.
@@ -129,24 +141,23 @@ layout_create_pools() {
       mount_options="defaults"; fsck=2
     fi
     uuid="$(blkid -s UUID -o value "$dev")"
-    extra+="# ${mountpoint}"$'\n'"UUID=${uuid}  ${mountpoint}  ${filesystem}  ${mount_options}  0 ${fsck}"$'\n'
-    info "  ${dev} → ${mountpoint} (${filesystem}$([[ "$format" == true ]] && echo ' fmt'))"
-  done <<< "$_MANUAL_PLAN"
+    extra+="# ${mountpoint}"$'\n'
+    extra+="UUID=${uuid}  ${mountpoint}  ${filesystem}  ${mount_options}"
+    extra+="  0 ${fsck}"$'\n'
+    info "  ${dev} → ${mountpoint}" \
+      "(${filesystem}$([[ "$format" == true ]] && echo ' fmt'))"
+  done < <(printf '%s\n' "$_MANUAL_PLAN")
 
   # Boot by the root filesystem's UUID (stable across device reshuffles).
   local root_uuid; root_uuid="$(blkid -s UUID -o value "$_MANUAL_ROOT_DEV")"
   # shellcheck disable=SC2034 # consumed by install_state_write
   LAYOUT_ROOT_CMDLINE="$(layout_nonzfs_root_cmdline "$root_uuid")"
 
-  # Swap partitions the operator cut (type 8200) and assigned [swap].
-  while IFS=$'\t' read -r tag dev; do
-    [[ "$tag" == "swap" ]] || continue
-    mkswap "$dev"
-    swapon "$dev" 2>/dev/null || true
-    local swap_uuid; swap_uuid="$(blkid -s UUID -o value "$dev")"
-    extra+="# swap"$'\n'"UUID=${swap_uuid}  none  swap  defaults  0 0"$'\n'
-    info "  ${dev} → swap"
-  done <<< "$_MANUAL_PLAN"
+  # The operator's [swap] partitions, on and in the fstab ($(…) drops the
+  # last newline, so it goes back).
+  local swap_lines
+  swap_lines="$(_manual_root_activate_swap)"
+  [[ -n "$swap_lines" ]] && extra+="$swap_lines"$'\n'
 
   # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
@@ -156,9 +167,24 @@ layout_create_pools() {
   layout_exit_phase pools
 }
 
+# _manual_root_activate_swap — mkswap + swapon each partition the operator
+# cut (type 8200) and assigned [swap]; prints their fstab lines, each with
+# its newline (progress goes to stderr).
+_manual_root_activate_swap() {
+  local tag dev swap_uuid
+  while IFS=$'\t' read -r tag dev; do
+    [[ "$tag" == "swap" ]] || continue
+    mkswap "$dev" >&2
+    swapon "$dev" 2>/dev/null || true
+    swap_uuid="$(blkid -s UUID -o value "$dev")"
+    printf '# swap\nUUID=%s  none  swap  defaults  0 0\n' "$swap_uuid"
+    info "  ${dev} → swap" >&2
+  done < <(printf '%s\n' "$_MANUAL_PLAN")
+}
+
 # Mount the ESP. Format it only when the operator marked it (a kept ESP is a
-# shared/dual-boot partition we must not wipe). chroot_write_fstab writes its fstab
-# line from LAYOUT_ESP_PARTS.
+# shared/dual-boot partition we must not wipe). chroot_write_fstab writes
+# its fstab line from LAYOUT_ESP_PARTS.
 layout_mount_esp() {
   layout_enter_phase esp
   section "Mounting ESP"

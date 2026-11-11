@@ -33,7 +33,7 @@ _zfs_multi_validate_owners() {
   # No-op when owners is omitted — that case defaults to the Primary User, or
   # is left root-owned with a warning on a host with no declared users.
   local label="$1" owners="$2"
-  [[ -n "${owners// }" ]] || return 0
+  [[ "$owners" =~ [^[:space:]] ]] || return 0
   local reason
   reason="$(zfs_pool_owners_validate "$owners" \
     "$(_zfs_multi_validate_declared_users)" \
@@ -69,6 +69,7 @@ layout_validate() {
   _zfs_multi_validate_storage_groups
 
   local data_pool_count
+  # How many Standalone Data Pools the config declares.
   data_pool_count="$(jsonc_strip "$CONFIG_FILE" \
     | jq '(.data_pools // []) | length')"
   _zfs_multi_validate_data_pools "$data_pool_count"
@@ -94,6 +95,7 @@ _zfs_multi_validate_os_pool() {
     esac
   fi
 
+  # How many disks the OS pool lists.
   disk_count="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
   ((disk_count >= 1)) || error "os_pool.disks must list at least 1 disk."
   # raidz needs its parity disks (the menu's minimums)
@@ -102,6 +104,7 @@ _zfs_multi_validate_os_pool() {
     error "os_pool: ${message}"
   fi
 
+  # Each OS pool disk.
   while IFS= read -r disk; do
     layout_disk_exists "$disk" || error "OS disk not found: $disk"
   done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
@@ -109,21 +112,25 @@ _zfs_multi_validate_os_pool() {
 
 _zfs_multi_validate_storage_groups() {
   local storage_group_count group_name group_disk_count i disk
+  # How many storage groups the config declares.
   storage_group_count="$(jsonc_strip "$CONFIG_FILE" \
     | jq '.storage_groups | length')"
   for ((i = 0; i < storage_group_count; i++)); do
     group_name="$(config_required ".storage_groups[$i].name")"
+    # How many disks the group lists.
     group_disk_count="$(jsonc_strip "$CONFIG_FILE" \
-      | jq ".storage_groups[$i].disks | length")"
+      | jq --argjson i "$i" '.storage_groups[$i].disks | length')"
     ((group_disk_count >= 1)) \
       || error "Storage group '${group_name}' has no disks."
+    # Each of the group's disks.
     while IFS= read -r disk; do
       layout_disk_exists "$disk" \
         || error "Group '${group_name}' disk not found: $disk"
-    done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
+    done < <(jsonc_strip "$CONFIG_FILE" \
+      | jq -r --argjson i "$i" '.storage_groups[$i].disks[]')
     _zfs_multi_validate_owners "Storage group '${group_name}'" \
       "$(install_config_storage_group_owners "$i" \
-         | awk '{ printf "%s ", $0 }')"
+         | tr '\n' ' ')"
   done
 }
 
@@ -137,10 +144,11 @@ _zfs_multi_validate_data_pools() {
     if ! reason="$(zfs_valid_pool_name "$data_name")"; then
       error "Data pool: ${reason}"
     fi
+    # The pool's topology (stripe by default) and how many disks it lists.
     data_topology="$(jsonc_strip "$CONFIG_FILE" \
-      | jq -r ".data_pools[$i].topology // \"stripe\"")"
+      | jq -r --argjson i "$i" '.data_pools[$i].topology // "stripe"')"
     data_disk_count="$(jsonc_strip "$CONFIG_FILE" \
-      | jq "(.data_pools[$i].disks // []) | length")"
+      | jq --argjson i "$i" '.data_pools[$i].disks // [] | length')"
     # Filesystem-aware: a non-zfs pool carries a native topology (e.g. btrfs
     # raid1) the zfs vdev validator doesn't know; its validity is gated by
     # validation.sh, so the dispatch passes it through here (ADR 0043).
@@ -150,29 +158,56 @@ _zfs_multi_validate_data_pools() {
       error "Data pool '${data_name}': ${reason}"
     fi
     _zfs_multi_validate_owners "Data pool '${data_name}'" \
-      "$(install_config_data_pool_owners "$i" | awk '{ printf "%s ", $0 }')"
+      "$(install_config_data_pool_owners "$i" | tr '\n' ' ')"
   done
 }
 
 # _zfs_multi_validate_first_duplicate — the first line (in sorted order) that
 # stdin repeats; nothing when every line is unique.
 _zfs_multi_validate_first_duplicate() {
-  sort | awk 'seen && $0 == previous { print; exit }
-              { previous = $0; seen = 1 }'
+  # One copy of each repeated line (sorted), then the first of those.
+  sort | uniq -d | head -n 1
 }
 
 # Pool names must be unique across rpool + the Combined Data Pool (dpool) +
 # every Standalone Data Pool, and no disk may serve two pools.
 _zfs_multi_validate_unique_names() {
   local rpool_name duplicate_name
+  local -a data_pool_names
   rpool_name="$(config_required '.os_pool.pool_name')"
-  duplicate_name="$( { printf '%s\n' "$rpool_name" dpool
-                       jsonc_strip "$CONFIG_FILE" | jq -r '.data_pools[].name'
-                     } | _zfs_multi_validate_first_duplicate)"
+  # Each Standalone Data Pool's name.
+  mapfile -t data_pool_names < <(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.data_pools[].name')
+  duplicate_name="$(printf '%s\n' "$rpool_name" dpool \
+    "${data_pool_names[@]}" | _zfs_multi_validate_first_duplicate)"
   [[ -z "$duplicate_name" ]] \
     || error "Duplicate pool name '${duplicate_name}': names must be" \
       "unique across rpool, dpool, and all data_pools."
 
+}
+
+# _zfs_multi_validate_all_disks — every disk the config names, one per line:
+# the OS pool's, then each storage group's and each data pool's.
+_zfs_multi_validate_all_disks() {
+  local config
+  config="$(jsonc_strip "$CONFIG_FILE")"
+  # The OS pool's disks, each storage group's, each data pool's.
+  printf '%s\n' "$config" | jq -r '.os_pool.disks // [] | .[]'
+  printf '%s\n' "$config" | jq -r '.storage_groups[]?.disks // [] | .[]'
+  printf '%s\n' "$config" | jq -r '.data_pools[]?.disks // [] | .[]'
+}
+
+# _zfs_multi_validate_all_mounts — every storage mount the config declares,
+# one per line: each storage group's, then each data pool's (defaulting to
+# /data/<name>).
+_zfs_multi_validate_all_mounts() {
+  local config
+  # shellcheck disable=SC2016 # a jq program, not shell
+  local data_pool_mount='.data_pools[]? | .mount // "/data/\(.name)"'
+  config="$(jsonc_strip "$CONFIG_FILE")"
+  # Each storage group's mount, then each data pool's.
+  printf '%s\n' "$config" | jq -r '.storage_groups[]? | .mount // empty'
+  printf '%s\n' "$config" | jq -r "$data_pool_mount"
 }
 
 # Disk reuse across OS pool, storage groups, and data pools — checked on every
@@ -180,10 +215,7 @@ _zfs_multi_validate_unique_names() {
 # had its fresh partitions zapped).
 _zfs_multi_validate_unique_disks() {
   local data_disk
-  data_disk="$(jsonc_strip "$CONFIG_FILE" | jq -r '
-    [ (.os_pool.disks // [])[],
-      (.storage_groups[]?.disks // [])[],
-      (.data_pools[]?.disks // [])[] ] | .[]' \
+  data_disk="$(_zfs_multi_validate_all_disks \
     | _zfs_multi_validate_first_duplicate)"
   [[ -z "$data_disk" ]] \
     || error "Disk '${data_disk}' is used in more than one" \
@@ -198,9 +230,7 @@ _zfs_multi_validate_mounts() {
   local mounts=() mountpoint duplicate_mount
   while IFS= read -r mountpoint; do
     [[ -n "$mountpoint" ]] && mounts+=("$mountpoint")
-  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
-    [ (.storage_groups[]? | .mount // empty),
-      (.data_pools[]? | .mount // ("/data/" + .name)) ] | .[]')
+  done < <(_zfs_multi_validate_all_mounts)
   for mountpoint in "${mounts[@]}"; do
     ! _zfs_multi_validate_mount_is_reserved "$mountpoint" \
       || error "Mountpoint '${mountpoint}' is reserved for the OS —" \
@@ -219,10 +249,12 @@ _zfs_multi_validate_data_disks_exist() {
   local data_pool_count="$1" i data_name disk
   for ((i = 0; i < data_pool_count; i++)); do
     data_name="$(config_required ".data_pools[$i].name")"
+    # Each of the data pool's disks.
     while IFS= read -r disk; do
       layout_disk_exists "$disk" \
         || error "Data pool '${data_name}' disk not found: $disk"
-    done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".data_pools[$i].disks[]?")
+    done < <(jsonc_strip "$CONFIG_FILE" \
+      | jq -r --argjson i "$i" '.data_pools[$i].disks[]?')
   done
 }
 

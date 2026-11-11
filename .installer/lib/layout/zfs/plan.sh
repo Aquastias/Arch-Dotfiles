@@ -34,7 +34,7 @@ layout_leftover_choice() {
     "own   (its own Standalone Data Pool, single-disk stripe)"
   # pick_option yields the chosen line's first word (fold|own).
   # shellcheck disable=SC2034
-  LAYOUT_LEFTOVER_CHOICE="$(printf '%s' "$PICK_RESULT" | awk '{print $1}')"
+  LAYOUT_LEFTOVER_CHOICE="$(first_word "$PICK_RESULT")"
 }
 
 layout_leftover_pool_name() {

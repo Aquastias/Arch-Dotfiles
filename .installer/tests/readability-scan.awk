@@ -151,6 +151,7 @@ function reset_file_state() {
   open_span = ""      # closer of a span still open from an earlier line
   case_depth = 0      # open `case` blocks
   carried_code = ""   # code of a command continued with `\`
+  loop_depth = 0      # open loops; loop_comment[] has their "what" comments
   commented_block = 0 # the line above: a program line under a "what" comment
 }
 
@@ -514,6 +515,12 @@ FNR == 1 {
   code = blank_non_commands(code)
   check_locals(code, command_line, exempt)
   check_commands(code, command_line, exempt)
+  # A loop's input arrives on its `done` line (`done < <(jq …)`): the
+  # comment above the loop's `while` / `until` / `for` describes it.
+  if (code ~ /^[ \t]*(while|until|for)([ \t]|$)/)
+    loop_comment[++loop_depth] = above_is_comment
+  if (code ~ /^[ \t]*done([ \t;<>|&]|$)/ && loop_depth > 0)
+    command_comment = command_comment || loop_comment[loop_depth--]
   # A lone `{` opens a group: a comment above it covers the lines inside.
   if (code ~ /^[ \t]*\{[ \t]*$/) {
     commented_block = command_comment

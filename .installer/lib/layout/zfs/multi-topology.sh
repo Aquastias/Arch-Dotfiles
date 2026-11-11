@@ -84,8 +84,8 @@ layout_resolve_os_topology() {
 
   local configured_topology disk all_os=()
   configured_topology="$(config_optional '.os_pool.topology')"
-  while IFS= read -r disk; do all_os+=("$disk"); done \
-    < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+  # The OS pool's disks, one per line.
+  mapfile -t all_os < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
 
   if [[ -n "$configured_topology" ]]; then
     # Topology set in config — use it directly without prompting
@@ -163,14 +163,16 @@ layout_resolve_storage_topologies() {
 
   # ── Config-defined storage groups ─────────────────────────────────────────
   local storage_group_count
+  # How many storage groups the config declares.
   storage_group_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   local i
   for ((i = 0; i < storage_group_count; i++)); do
     local name
     name="$(config_required ".storage_groups[$i].name")"
     local disk_count
+    # How many disks the group lists.
     disk_count="$(jsonc "$CONFIG_FILE" \
-      | jq ".storage_groups[$i].disks | length")"
+      | jq --argjson i "$i" '.storage_groups[$i].disks | length')"
     local topology
     topology="$(config_optional ".storage_groups[$i].topology")"
 
@@ -183,11 +185,13 @@ layout_resolve_storage_topologies() {
       while IFS= read -r line; do choices+=("$line"); done \
         < <(layout_suggest_storage_topologies "$disk_count")
       echo -e "\n  ${BOLD}Storage group '${name}' — ${disk_count} disk(s):${NC}"
+      # Each of the group's disks, with its size.
       while IFS= read -r disk; do
         local size
         size="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
         printf "    %s  (%s)\n" "$disk" "$size"
-      done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
+      done < <(jsonc "$CONFIG_FILE" \
+        | jq -r --argjson i "$i" '.storage_groups[$i].disks[]')
       pick_option "Choose topology for '${name}':" "${choices[@]}"
       _LAYOUT_IMPL_TOPOLOGIES["$name"]="$PICK_RESULT"
       info "Group '${name}': topology '${PICK_RESULT}' (selected)"

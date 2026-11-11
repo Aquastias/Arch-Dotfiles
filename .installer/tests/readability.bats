@@ -853,3 +853,19 @@ SH
   [[ "$output" != *"what-comment: .installer/lib/a.sh:4:"* ]]
   [[ "$output" == *"what-comment: .installer/lib/a.sh:7:"* ]]
 }
+
+@test "what-comment: a comment above a loop covers its done < <(…) input" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Each user's name.
+while read -r name; do
+  printf '%s\n' "$name"
+done < <(jq -r '.users[].name' "$profile")
+while read -r name; do
+  printf '%s\n' "$name"
+done < <(jq -r '.users[].name' "$profile")
+SH
+  check_repo --list
+  [[ "$output" != *"what-comment: .installer/lib/a.sh:4:"* ]]
+  [[ "$output" == *"what-comment: .installer/lib/a.sh:7:"* ]]
+}

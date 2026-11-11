@@ -10,12 +10,14 @@
 # curated persist set. Pure: string transforms, no disk access.
 
 setup() {
+  # shellcheck source=../../lib/layout/core.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/core.sh"
   # shellcheck source=../../lib/layout/nonzfs/datacrypt.sh
   source "$BATS_TEST_DIRNAME/../../lib/layout/nonzfs/datacrypt.sh"
 }
 
 # Helper: extract a key=value field from the emitted plan.
-datacrypt_field() { KEY="$1" awk 'index($0, ENVIRON["KEY"] "=") == 1 { print substr($0, length(ENVIRON["KEY"]) + 2) }'; }
+datacrypt_field() { layout_plan_field "$1" || true; }
 
 # ── tracer: an unencrypted group emits an empty plan (false round-trips) ─────
 

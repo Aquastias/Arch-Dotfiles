@@ -147,7 +147,7 @@ setup_leftover_fixture() {
     local question="$1"; shift
     local index=0
     [[ "$question" == *"Leftover disk"* ]] && index=1
-    PICK_RESULT="$(echo "${@:$((index + 1)):1}" | awk '{print $1}')"
+    PICK_RESULT="$(first_word "${@:$((index + 1)):1}")"
   }
 }
 
