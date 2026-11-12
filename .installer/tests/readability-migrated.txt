@@ -86,3 +86,10 @@
 .installer/lib/config/**
 .installer/tests/config/*
 .installer/tests/lib/language-registry.awk
+
+# Ticket 12 — the guided controller, with its tests.
+.installer/lib/guided/controller*
+.installer/tests/guided/controller-*
+.installer/tests/guided/chrome.bats
+.installer/tests/guided/detail.bats
+.installer/tests/commons-text-split.bats

@@ -17,10 +17,12 @@ _controller_autocommit() {
   [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]] || return 0
   local history now previous
   history="$(<"$GUIDED_HIST_FILE")"
-  now="$(_controller_state | jq -cS .)"
-  previous="$(history_present "$history" | jq -cS .)"
-  [[ "$now" == "$previous" ]] && return 0
-  history_commit "$history" "$(_controller_state)" >"$GUIDED_HIST_FILE"
+  now="$(_controller_state)"
+  previous="$(history_present "$history")"
+  # Unchanged since the last snapshot: jq's == ignores key order.
+  printf '%s\n' "$now" | jq -e --argjson p "$previous" '. == $p' >/dev/null \
+    && return 0
+  history_commit "$history" "$now" >"$GUIDED_HIST_FILE"
   # A fresh edit voids the `+ New host` reset-undo stash: its side-state no
   # longer matches the current session, so a later undo must not resurrect it.
   rm -f "${GUIDED_SESSION_UNDO_FILE:-/nonexistent}"
@@ -35,30 +37,30 @@ _controller_autocommit() {
 # longer fits the state, this backs the nav out to its category; any other nav
 # is returned unchanged.
 _controller_navigation_reconcile() {
-  local navigation="$1" state="$2" screen kind i exists
+  local navigation="$1" state="$2" screen kind i exists pool_path
   screen="$(navigation_screen "$navigation")"
   case "$screen" in
   datapools)
     # The unified layout editor only makes sense for a multi layout; after a
     # reset to the single-disk default it would show only the add rows, so back
     # out to the category (which shows the default "layout: single disk").
-    if [[ "$(jq -r '.mode // "single"' <<<"$state")" == "multi" ]]; then
+    local mode
+    # The layout mode, single by default.
+    mode="$(printf '%s\n' "$state" | jq -r '.mode // "single"')"
+    if [[ "$mode" == "multi" ]]; then
       printf '%s' "$navigation"
     else navigation_to_category "$(navigation_get "$navigation" category)"; fi
     return ;;
   pooledit | pooldisks) ;;
   *) printf '%s' "$navigation"; return ;;
   esac
-  kind="$(_controller_pool_kind "$navigation")"; \
-    i="$(navigation_get "$navigation" index)"; i="${i:-0}"
-  case "$kind" in
-  os)      exists="$(jq -r 'if .os_pool then 1 else 0 end' <<<"$state")" ;;
-  storage) exists="$(jq -r --argjson i "$i" \
-             'if (.storage_groups[$i] // null) then 1 else 0 end' \
-             <<<"$state")" ;;
-  *)       exists="$(jq -r --argjson i "$i" \
-             'if (.data_pools[$i] // null) then 1 else 0 end' <<<"$state")" ;;
-  esac
+  kind="$(_controller_pool_kind "$navigation")"
+  i="$(navigation_get "$navigation" index)"
+  i="${i:-0}"
+  pool_path="$(_controller_pool_path "$kind")"
+  # Whether the addressed pool still exists: 1 or 0.
+  exists="$(printf '%s\n' "$state" | jq -r --argjson i "$i" \
+    "if (${pool_path} // null) then 1 else 0 end")"
   if [[ "$exists" == "1" ]]; then printf '%s' "$navigation"
   else navigation_to_category "$(navigation_get "$navigation" category)"; fi
 }
@@ -131,25 +133,26 @@ _controller_focus_position() {
 # $GUIDED_RESULT_FILE then accepts; an edit-oneshot hands the tty to the
 # existing helper then re-lists.
 _controller_directive_to_action() {
-  local directive="$1" entry="$2"
+  local directive="$1" entry="$2" argument
+  # The text after the directive's first word ("terminal install" → install).
+  argument="$(printf '%s\n' "$directive" | cut -d' ' -f2-)"
   case "$directive" in
   render)  _controller_render_action "$entry" ;;
   refresh) _controller_refresh_action "$entry" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
-                      "${directive#terminal }" \
-                      "${GUIDED_RESULT_FILE:-/dev/null}" ;;
+                      "$argument" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
   "secret-root")
     printf 'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;
   "secret-user "*)
     printf 'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
-      "$entry" "${directive#secret-user }" "$entry" ;;
+      "$entry" "$argument" "$entry" ;;
   "secret-enc")
     printf 'execute(bash %q secret enc)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;
-  "notice "*)       printf 'change-header(%s)+bell' "${directive#notice }" ;;
+  "notice "*)       printf 'change-header(%s)+bell' "$argument" ;;
   manual-on)
     # Reload the Disks screen (locked fields greyed, Partitions row shown) and
     # point the operator at the cfdisk hand-off (ADR 0073).

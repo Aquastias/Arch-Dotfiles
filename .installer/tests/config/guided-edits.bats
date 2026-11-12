@@ -38,6 +38,21 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
+@test "edit_flip_bool: flips a set bool, an explicit false included" {
+  run edit_flip_bool '{"options":{"swap":false}}' options.swap true
+  [ "$status" -eq 0 ]
+  output_satisfies '.options.swap == true'
+  run edit_flip_bool '{"options":{"swap":true}}' options.swap false
+  output_satisfies '.options.swap == false'
+}
+
+@test "edit_flip_bool: an unset bool flips from its default" {
+  run edit_flip_bool '{}' options.zswap.enabled true
+  output_satisfies '.options.zswap.enabled == false'
+  run edit_flip_bool '{}' options.encryption false
+  output_satisfies '.options.encryption == true'
+}
+
 @test "edit_set_array: stores a JSON string array, order preserved" {
   run edit_set_array '{}' options.kernel lts zen
   [ "$status" -eq 0 ]

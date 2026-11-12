@@ -15,6 +15,8 @@
 #   config_state_set   <state> <path> <v>  → state with override at <path> = <v>
 #   config_state_get   <state> <path>      → raw value at <path> (empty if
 #                                            unset)
+#   config_state_get_json <state> <path>   → the value at <path> as compact
+#                                            JSON (null if unset)
 #   config_state_unset <state> <path>      → state with the override at <path>
 #                                            gone
 #   config_state_is_overridden <state> <p> → rc 0 if <p> is overridden, else 1
@@ -89,6 +91,15 @@ config_state_get() {
   jq_path="$(_config_state_jq_path "$path")" || return 1
   # The value at <path>, unless it is null.
   printf '%s\n' "$state" | jq -r "${jq_path} | select(. != null)"
+}
+
+# config_state_get_json <state> <path> — the value at <path> as compact JSON
+# (an array stays an array); null when unset.
+config_state_get_json() {
+  local state="$1" path="$2" jq_path
+  jq_path="$(_config_state_jq_path "$path")" || return 1
+  # The value at <path>, as JSON on one line.
+  printf '%s\n' "$state" | jq -c "$jq_path"
 }
 
 # config_state_unset <state> <path> — drop the override at <path>. Ancestor

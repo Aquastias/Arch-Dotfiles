@@ -71,7 +71,7 @@ _controller_enter_package_category() {
     echo refresh; return
   fi
   _controller_write_navigation \
-    "$(navigation_to_packages "$cat" "$slot" "${line%% ▸*}")"
+    "$(navigation_to_packages "$cat" "$slot" "$(text_before "$line" " ▸")")"
   echo render
 }
 
@@ -90,7 +90,7 @@ _controller_enter_packages() {
       "$(navigation_back "$navigation")"; echo render; return; }
 
   # strip the "[x] " / "[ ] " mark and any trailing override dot
-  package="${line:4}"; package="${package%%  ●}"
+  package="$(text_before "${line:4}" "  ●")"
   [[ -n "$package" ]] || { echo noop; return; }
 
   local state; state="$(_controller_state)"
@@ -98,40 +98,20 @@ _controller_enter_packages() {
     # currently installed → remove it
     if _controller_package_in_baseline "$slot" "$package_category" \
       "$package"; then
-      state="$(jq --arg p "$package" \
-        '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
-        <<<"$state")"
+      state="$(_controller_package_exclude "$state" "$package")"
     else
-      state="$(jq --arg s "$slot" --arg k "$package_category" \
-        --arg p "$package" \
-        'if .packages[$s][$k] then
-           .packages[$s][$k] |= map(select(. != $p)) else . end' <<<"$state")"
+      state="$(_controller_package_drop "$state" "$slot" \
+        "$package_category" "$package")"
     fi
   else
     # currently excluded or absent → put it back
-    state="$(jq --arg p "$package" \
-      'if .packages.exclude then
-         .packages.exclude |= map(select(. != $p)) else . end
-       | if (.packages.exclude // null) == [] then del(.packages.exclude)
-         else . end' <<<"$state")"
+    state="$(_controller_package_unexclude "$state" "$package")"
     _controller_package_in_baseline "$slot" "$package_category" "$package" \
-      || state="$(jq \
-      --arg s "$slot" --arg k "$package_category" --arg p "$package" \
-      '.packages[$s][$k] = (((.packages[$s][$k] // []) + [$p]) | unique)' \
-      <<<"$state")"
+      || state="$(_controller_package_add "$state" "$slot" \
+        "$package_category" "$package")"
   fi
   _controller_write_state "$state"
   echo refresh
-}
-
-# _controller_package_in_baseline_any <slot> <pkg> — rc 0 when <pkg> is in ANY
-# of the session baseline's <slot> category arrays. The browser has no single
-# pkgcat, so it tests the whole slot to decide add-vs-exclude the way
-# _controller_enter_packages does per-cat.
-_controller_package_in_baseline_any() {
-  jq -e --arg s "$1" --arg p "$2" \
-    '[(.packages[$s] // {}) | .[] | .[]?] | index($p)' \
-    <<<"$(_controller_baseline)" >/dev/null 2>&1
 }
 
 # _controller_enter_package_browse <line> — toggle one package from the full
@@ -165,7 +145,7 @@ _controller_enter_package_browse() {
     return; }
   # strip the "[x] "/"[ ] " mark and any trailing annotation (a name has no
   # embedded double space, so cutting at the first one is safe)
-  package="${line:4}"; package="${package%%  *}"
+  package="$(text_before "${line:4}" "  ")"
   [[ -n "$package" ]] || { echo noop; return; }
 
   _controller_write_state "$(_controller_toggle_browsed_package \
@@ -181,21 +161,13 @@ _controller_toggle_browsed_package() {
   local state="$1" slot="$2" package="$3" mark="$4"
   if [[ "$mark" == "[x]" ]]; then
     if _controller_package_in_baseline_any "$slot" "$package"; then
-      state="$(jq --arg p "$package" \
-        '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
-        <<<"$state")"
+      state="$(_controller_package_exclude "$state" "$package")"
     else
-      state="$(jq --arg s "$slot" --arg p "$package" \
-        'if .packages[$s].extra then
-           .packages[$s].extra |= map(select(. != $p)) else . end' <<<"$state")"
+      state="$(_controller_package_drop "$state" "$slot" extra "$package")"
     fi
   else
     if _controller_package_in_baseline_any "$slot" "$package"; then
-      state="$(jq --arg p "$package" \
-        'if .packages.exclude then
-           .packages.exclude |= map(select(. != $p)) else . end
-         | if (.packages.exclude // null) == [] then del(.packages.exclude)
-           else . end' <<<"$state")"
+      state="$(_controller_package_unexclude "$state" "$package")"
     else
       state="$(_controller_route_package_entry "$state" "$package" "$slot")"
     fi
@@ -214,8 +186,10 @@ _controller_enter_package_derived() {
   [[ "$line" == "← Back" ]] && {
     _controller_write_navigation \
       "$(navigation_back "$navigation")"; echo render; return; }
+  local source_name
+  source_name="$(text_before "$line" " ▸")"
   _controller_write_navigation \
-    "$(navigation_to_package_derived_source "$cat" "${line%% ▸*}")"
+    "$(navigation_to_package_derived_source "$cat" "$source_name")"
   echo render
 }
 
@@ -260,7 +234,7 @@ _controller_enter_secret() {
   phase="$(navigation_get "$navigation" phase)"
   # The return screen carried since open (ADR 0059); propagated across the
   # entry↔confirm phase rewrites so it survives to the save.
-  origin="$(jq -c '.origin // empty' <<<"$navigation")"
+  origin="$(printf '%s\n' "$navigation" | jq -c '.origin // empty')"
   buffer="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
   if [[ "$phase" != "confirm" ]]; then
     [[ -n "$buffer" ]] || { echo "notice ⚠ password cannot be empty"; return; }
@@ -304,9 +278,11 @@ _controller_enter_secret() {
 # strict-delta baseline the editor compares an override against.
 _controller_user_committed_shell() {
   local shell=""
-  _controller_user_is_committed "$1" \
-    && shell="$(profile_loader_load_user "$1" 2>/dev/null \
-              | jq -r '.shell // empty' 2>/dev/null)"
+  if _controller_user_is_committed "$1"; then
+    # The committed profile's shell, empty when it sets none.
+    shell="$(profile_loader_load_user "$1" 2>/dev/null \
+      | jq -r '.shell // empty' 2>/dev/null)"
+  fi
   printf '%s' "${shell:-$(_controller_default_user_shell)}"
 }
 
@@ -364,11 +340,13 @@ _controller_open_user_field() {
 _controller_toggle_user_sudo() {
   local user="$1" current next committed
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
-  current="$(jq -r 'if .sudo then true else false end' \
-    <<<"$(_controller_user_effective "$user")")"
-  next="$([[ "$current" == "true" ]] && echo false || echo true)"
-  committed="$(jq -c 'if .sudo then true else false end' \
-    <<<"$(_controller_user_committed "$user")")"
+  # The effective and the committed sudo, unset counting as false.
+  current="$(_controller_user_effective "$user" \
+    | jq -r 'if .sudo then true else false end')"
+  committed="$(_controller_user_committed "$user" \
+    | jq -c 'if .sudo then true else false end')"
+  next=true
+  [[ "$current" == "true" ]] && next=false
   _controller_user_form_set_strict "$user" sudo "$next" "$committed"
   echo refresh
 }
@@ -383,6 +361,7 @@ _controller_cycle_user_shell() {
   if [[ "$next" == "$(_controller_user_committed_shell "$user")" ]]; then
     guided_userform_unset "$GUIDED_USERFORMS_FILE" "$user" shell
   else
+    # The shell as a JSON string.
     guided_userform_set "$GUIDED_USERFORMS_FILE" "$user" shell \
       "$(jq -n --arg x "$next" '$x')"
   fi
@@ -393,11 +372,11 @@ _controller_cycle_user_shell() {
 # session-created user from the install list and its held-aside form, then
 # return to the Users list.
 _controller_remove_session_user() {
-  local user="$1" navigation="$2"
+  local user="$1" navigation="$2" users
+  # The effective user names without this user.
+  users="$(_controller_effective_users | jq -c --arg u "$user" '. - [$u]')"
   _controller_write_state "$(config_state_set "$(_controller_state)" users \
-    "$(jq -c --arg u "$user" '(.users // []) - [$u]' \
-      <<<"$(_controller_effective "$(_controller_state)" \
-        "$(_controller_baseline)")")")"
+    "$users")"
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && guided_userform_clear "$GUIDED_USERFORMS_FILE" "$user"
   _controller_write_navigation "$(navigation_back "$navigation")"
@@ -425,7 +404,7 @@ _controller_enter_user_field() {
   text)
     if [[ "$field" == git.* ]]; then
       [[ -n "$query" ]] && _controller_user_field_set_git "$user" \
-        "${field#git.}" "$query"
+        "${field:4}" "$query"  # the key after "git."
       _controller_write_navigation \
         "$(navigation_to_user_edit "$cat" "$user")"; echo render; return
     fi
@@ -454,7 +433,7 @@ _controller_proceed_directive() {
   local state; state="$(_controller_state)"
   # A blank session presets no user (ADR 0157): never install a machine with
   # no login.
-  if [[ "$(jq '(.users // []) | length' <<<"$(_controller_live_effective)")" \
+  if [[ "$(_controller_live_effective | jq '(.users // []) | length')" \
         == 0 ]]; then
     echo "notice No user — add one on Users ▸ before Proceed"
     return

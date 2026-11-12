@@ -8,6 +8,9 @@
 # =============================================================================
 
 # ── per-screen header + prompt (so every screen says how to go back) ─────────
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _controller_navigation_header() {
   local keys
   case "$(navigation_screen "$1")" in
@@ -91,8 +94,9 @@ _controller_esp_budget_warn() {
   size="$(install_config_from_json "$effective" esp_size)"
   [[ "$size" == auto ]] && return 0
   # get: count the tokens, no validation abort mid-render
+  # get: count the tokens (one per line), no validation abort mid-render
   kernel_count="$(install_config_from_json "$effective" get kernels \
-    | awk 'END { print NR }')"
+    | grep -c '')"
   filesystem="$(install_config_from_json "$effective" filesystem)"
   bootloader="$(install_config_from_json "$effective" bootloader)"
   esp_budget_fits_size "$size" "$kernel_count" "$filesystem" "$bootloader" \
@@ -108,52 +112,44 @@ _controller_esp_budget_warn() {
 # instead of a static "choose preset". single → "single"; multi → "os <topo>
 # ×<n>" plus any storage / data pool counts.
 _controller_layout_label() {
-  jq -r '
-    if (.mode // "single") != "multi" then "single disk"
-    else
-      "OS: \(.os_pool.disk_count // "?") disks (\(.os_pool.topology // "?"))"
-      + ((.storage_groups // [])
-         | map(" + \(.name): \(.disk_count) disks (\(.topology))") | join(""))
-      + ((.data_pools // [])
-         | map(" + \(.name): \(.disk_count) disks (\(.topology))") | join(""))
-    end' <<<"$1"
+  printf '%s\n' "$1" \
+    | jq -r -f "${BASH_SOURCE[0]%/*}/controller-layout-label.jq"
 }
 
 # _controller_swap_on <effective-json> → "true"/"false": is swap enabled
-# (default true)? has("swap") so an explicit `swap:false` is not swallowed by
-# jq's `//` (which treats false like null) — see
-# [[dotfiles_jq_alternative_false]].
+# (default true)? config_state_get keeps an explicit `swap:false` (jq's `//`
+# would read false as unset — see [[dotfiles_jq_alternative_false]]).
 _controller_swap_on() {
-  jq -r '(.options // {}) as $o
-    | if ($o | has("swap")) then $o.swap else true end' <<<"$1"
+  local swap
+  swap="$(config_state_get "$1" options.swap)"
+  printf '%s\n' "${swap:-true}"
 }
 
 # _controller_zswap_on <effective-json> → "true"/"false": is zswap enabled
-# (default true)? has("enabled") so an explicit false is honoured, not read as
-# default.
+# (default true)? An explicit false is honoured, not read as default.
 _controller_zswap_on() {
-  jq -r '(.options.zswap // {}) as $z
-    | if ($z | has("enabled")) then $z.enabled else true end' <<<"$1"
+  local zswap
+  zswap="$(config_state_get "$1" options.zswap.enabled)"
+  printf '%s\n' "${zswap:-true}"
 }
 
 # _controller_swap_label <effective-json> → the one-line swap summary for the
 # Disks swap row: "off" when swap is disabled, else the size (default "auto")
 # plus a zswap suffix — "· zswap <compressor>" when zswap is on, "· no zswap"
-# when off (so a deviation from the zswap-on default is visible). NOTE: a stored
-# false must survive — jq's `//` treats false like null, so test membership with
-# has().
+# when off (so a deviation from the zswap-on default is visible).
 _controller_swap_label() {
-  jq -r '
-    (.options // {}) as $o
-    | (if ($o | has("swap")) then $o.swap else true end) as $on
-    | if $on == false then "off"
-      else
-        ($o.swap_size // "auto") as $sz
-        | ($o.zswap // {}) as $z
-        | (if ($z | has("enabled")) then $z.enabled else true end) as $zon
-        | if $zon == false then "\($sz) · no zswap"
-          else "\($sz) · zswap \($z.compressor // "zstd")" end
-      end' <<<"$1"
+  local size compressor
+  if [[ "$(_controller_swap_on "$1")" == false ]]; then
+    printf 'off\n'
+    return 0
+  fi
+  size="$(config_state_get "$1" options.swap_size)"
+  if [[ "$(_controller_zswap_on "$1")" == false ]]; then
+    printf '%s · no zswap\n' "${size:-auto}"
+  else
+    compressor="$(config_state_get "$1" options.zswap.compressor)"
+    printf '%s · zswap %s\n' "${size:-auto}" "${compressor:-zstd}"
+  fi
 }
 
 # _controller_encryption_label <effective-json> <tag> → the one-line summary for
@@ -175,46 +171,28 @@ _controller_encryption_label() {
 # preview
 # pane (a pool per line + its topology / disk count).
 _controller_layout_graph() {
-  jq -r '
-    def pool(name; role; topo; n):
-      "  ▸ \(name)  (\(role))\n      └─ "
-      + (if topo == null or topo == "none" then "\(n) disk(s)"
-         else "\(topo) · \(n) disk(s)" end);
-    if (.mode // "single") != "multi" then
-      "Single-disk ZFS\n\n" + pool("rpool"; "OS root"; null; 1)
-    else
-      "Multi-disk ZFS\n\n"
-      + pool(.os_pool.pool_name // "rpool"; "OS root";
-             .os_pool.topology; .os_pool.disk_count)
-      + ((.storage_groups // [])
-         | map("\n"
-               + pool(.name; "storage → \(.mount)"; .topology; .disk_count))
-         | join(""))
-      + ((.data_pools // [])
-         | map("\n" + pool(.name; "data pool"; .topology; .disk_count))
-         | join(""))
-    end' <<<"$1"
+  printf '%s\n' "$1" \
+    | jq -r -f "${BASH_SOURCE[0]%/*}/controller-layout-graph.jq"
 }
 
 # _controller_add_data_pool <state> → state with one more data pool appended
-# (auto-named
-# tank<N>, default single-disk stripe ×1), forcing multi mode + a default OS
-# pool.
-# A 1-disk stripe is the friendliest default: it is the smallest installable
-# pool
-# (so adding several tanks never balloons the disk requirement), matches the
-# data-pools preset, and the user cycles up to mirror/raidz for redundancy.
-# Shared
-# by the data-pools editor's "+ Add" and by picking "data-pools" in the layout.
+# (auto-named tank<N>, default single-disk stripe ×1), forcing multi mode + a
+# default OS pool. A 1-disk stripe is the friendliest default: it is the
+# smallest installable pool (so adding several tanks never balloons the disk
+# requirement), matches the data-pools preset, and the user cycles up to
+# mirror/raidz for redundancy. Shared by the data-pools editor's "+ Add" and by
+# picking "data-pools" in the layout.
 _controller_add_data_pool() {
-  jq '
-    (.data_pools // []) as $dp
-    | .data_pools = ($dp + [{name:("tank" + (($dp | length) | tostring)),
-                             topology:"stripe", disk_count:1}])
-    | .mode = "multi"
-    | (if .os_pool then . else
-        .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
-    ' <<<"$1"
+  local count pool state
+  local new_pool='{name: $name, topology: "stripe", disk_count: 1}'
+  local append='.data_pools = (.data_pools // []) + [$pool]'
+  # How many data pools there are.
+  count="$(printf '%s\n' "$1" | jq '(.data_pools // []) | length')"
+  # The new pool: tank<count>, a 1-disk stripe.
+  pool="$(jq -c -n --arg name "tank${count}" "$new_pool")"
+  # The state with the pool appended.
+  state="$(printf '%s\n' "$1" | jq --argjson pool "$pool" "$append")"
+  _controller_force_multi "$state"
 }
 
 # _controller_add_storage_group <state> → state with one more storage group
@@ -224,16 +202,30 @@ _controller_add_data_pool() {
 # preset. The first group is auto-named "data" at /data (preset parity), then
 # data1, … Shared by the data-pools editor's "+ Add storage group".
 _controller_add_storage_group() {
-  jq '
-    (.storage_groups // []) as $sg
-    | ($sg | length) as $n
-    | (if $n == 0 then "data" else "data" + ($n | tostring) end) as $nm
-    | .storage_groups = ($sg + [{name:$nm, mount:("/" + $nm),
-                                 topology:"mirror", disk_count:2}])
-    | .mode = "multi"
-    | (if .os_pool then . else
-        .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
-    ' <<<"$1"
+  local count name group state
+  local append='.storage_groups = (.storage_groups // []) + [$group]'
+  local new_group='{name: $name, mount: ("/" + $name),'
+  new_group+=' topology: "mirror", disk_count: 2}'
+  # How many storage groups there are.
+  count="$(printf '%s\n' "$1" | jq '(.storage_groups // []) | length')"
+  name=data
+  ((count > 0)) && name="data${count}"
+  # The new group: <name> at /<name>, a 2-disk mirror.
+  group="$(jq -c -n --arg name "$name" "$new_group")"
+  # The state with the group appended.
+  state="$(printf '%s\n' "$1" | jq --argjson group "$group" "$append")"
+  _controller_force_multi "$state"
+}
+
+# _controller_force_multi <state> → <state> in multi mode, with the default OS
+# pool (rpool, one disk) when it has none.
+_controller_force_multi() {
+  local state
+  local os_pool='{"pool_name":"rpool","topology":"none","disk_count":1}'
+  state="$(config_state_set "$1" mode '"multi"')"
+  config_state_is_overridden "$state" os_pool \
+    || state="$(config_state_set "$state" os_pool "$os_pool")"
+  printf '%s\n' "$state"
 }
 
 # ── pool-group reference (kind, index) ───────────────────────────────────────
@@ -249,37 +241,43 @@ _controller_pool_kind() {
   local kind; kind="$(navigation_get "$1" kind)"; printf '%s' "${kind:-data}"
 }
 
+# _controller_pool_path <kind> — the jq path of a group of that kind, indexed
+# by $i for the array kinds.
+_controller_pool_path() {
+  case "$1" in
+  os)      printf '%s\n' '.os_pool' ;;
+  storage) printf '%s\n' '.storage_groups[$i]' ;;
+  *)       printf '%s\n' '.data_pools[$i]' ;;
+  esac
+}
+
 # _controller_pool_get <state> <kind> <index> — the group object at (kind,
 # index), or {} when absent.
 _controller_pool_get() {
-  case "$2" in
-  os)      jq -c '.os_pool // {}' <<<"$1" ;;
-  storage) jq -c --argjson i "$3" '.storage_groups[$i] // {}' <<<"$1" ;;
-  *)       jq -c --argjson i "$3" '.data_pools[$i] // {}' <<<"$1" ;;
-  esac
+  local path
+  path="$(_controller_pool_path "$2")"
+  # The group, empty when absent.
+  printf '%s\n' "$1" | jq -c --argjson i "${3:-0}" "${path} // {}"
 }
 
 # _controller_pool_set <state> <kind> <index> <group> — state with the group at
 # (kind, index) replaced by <group>.
 _controller_pool_set() {
-  case "$2" in
-  os)      jq -c --argjson g "$4" '.os_pool = $g' <<<"$1" ;;
-  storage) jq -c --argjson i "$3" --argjson g "$4" \
-             '.storage_groups[$i] = $g' <<<"$1" ;;
-  *)       jq -c --argjson i "$3" --argjson g "$4" \
-             '.data_pools[$i] = $g' <<<"$1" ;;
-  esac
+  local path
+  path="$(_controller_pool_path "$2")"
+  # The state with the group replaced.
+  printf '%s\n' "$1" \
+    | jq -c --argjson i "${3:-0}" --argjson g "$4" "${path} = \$g"
 }
 
 # _controller_pool_delete <state> <kind> <index> — state with the group at
 # (kind, index) removed. The OS pool is structural, not removable — a del on os
 # is a no-op.
 _controller_pool_delete() {
-  case "$2" in
-  os)      jq -c '.' <<<"$1" ;;
-  storage) jq -c --argjson i "$3" 'del(.storage_groups[$i])' <<<"$1" ;;
-  *)       jq -c --argjson i "$3" 'del(.data_pools[$i])' <<<"$1" ;;
-  esac
+  local path='.'
+  [[ "$2" == os ]] || path="del($(_controller_pool_path "$2"))"
+  # The state without the group.
+  printf '%s\n' "$1" | jq -c --argjson i "${3:-0}" "$path"
 }
 
 # ── In-Menu Disk Binding: device-mode, Free Set, bind toggle (ADR 0047) ──────
@@ -317,8 +315,10 @@ _controller_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
 # is ≥ 0.62 (any major > 0 qualifies). Pure: the first token's first two dotted
 # fields, base-10 to dodge a leading-zero octal read.
 _controller_fzf_rich_for_version() {
-  local version="${1%% *}" major minor
-  major="${version%%.*}"; version="${version#*.}"; minor="${version%%.*}"
+  local version major minor _rest
+  # The first token's first two dotted fields.
+  version="$(first_word "$1")"
+  IFS=. read -r major minor _rest < <(printf '%s\n' "$version")
   [[ "$major" =~ ^[0-9]+$ ]] || major=0
   [[ "$minor" =~ ^[0-9]+$ ]] || minor=0
   (( 10#$major > 0 || 10#$minor >= 62 ))
@@ -329,8 +329,11 @@ _controller_fzf_rich_for_version() {
 # guided.sh calls this once at launch; the pure result drives the cached flag.
 _controller_detect_rich_chrome() {
   local version; version="$(fzf --version 2>/dev/null)"
-  [[ -n "$version" ]] && _controller_fzf_rich_for_version "$version" \
-    && echo 1 || echo 0
+  if [[ -n "$version" ]] && _controller_fzf_rich_for_version "$version"; then
+    echo 1
+  else
+    echo 0
+  fi
 }
 
 # _controller_rich_chrome — rc 0 when the rich chrome is active (the cached
@@ -363,10 +366,12 @@ _controller_breadcrumb() {
   datapools)   printf ' Guided ▸ %s ▸ layout ' "$cat" ;;
   rootdisk)    printf ' Guided ▸ %s ▸ root disk ' "$cat" ;;
   pooledit | pooldisks)
-    pool="$(jq -r '.name // .pool_name // "pool"' <<<"$(_controller_pool_get \
-      "$(_controller_live_effective)" \
+    local group
+    group="$(_controller_pool_get "$(_controller_live_effective)" \
       "$(_controller_pool_kind "$navigation")" \
-      "$(navigation_get "$navigation" index)")")"
+      "$(navigation_get "$navigation" index)")"
+    # The pool's name, "pool" when unnamed.
+    pool="$(printf '%s\n' "$group" | jq -r '.name // .pool_name // "pool"')"
     printf ' Guided ▸ %s ▸ layout ▸ %s ' "$cat" "$pool" ;;
   *) printf ' Guided ' ;;
   esac
@@ -376,19 +381,18 @@ _controller_breadcrumb() {
 # On a pool screen it describes THAT pool ("tank0 · mirror · 2 bound");
 # elsewhere it is the whole-layout label. Pure: reads state.
 _controller_footer_summary() {
-  local navigation="$1" effective
+  local navigation="$1" group
+  local summary='"\(.name // .pool_name // "pool") · \(.topology // "?") · "'
+  summary+=' + (if (.devices // null) != null'
+  summary+=' then "\(.devices | length) bound"'
+  summary+=' else "\(.disk_count // "?") disks" end)'
   case "$(navigation_screen "$navigation")" in
   pooledit | pooldisks)
-    effective="$(_controller_live_effective)"
-    jq -r --arg k "$(_controller_pool_kind "$navigation")" \
-      '. as $g
-       | "\($g.name // $g.pool_name // "pool") · \($g.topology // "?") · "
-       + (if ($g.devices // null) != null
-          then "\($g.devices | length) bound"
-          else "\($g.disk_count // "?") disks" end)' \
-      <<<"$(_controller_pool_get "$effective" \
-        "$(_controller_pool_kind "$navigation")" \
-            "$(navigation_get "$navigation" index)")" ;;
+    group="$(_controller_pool_get "$(_controller_live_effective)" \
+      "$(_controller_pool_kind "$navigation")" \
+      "$(navigation_get "$navigation" index)")"
+    # "name · topology · bound disks (or the disk count)".
+    printf '%s\n' "$group" | jq -r "$summary" ;;
   *)
     # The OS layout label belongs to the Disks context only — printed on every
     # screen's footer it read as a stray "single disk" on Locales/Kernels/etc.

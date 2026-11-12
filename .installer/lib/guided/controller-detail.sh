@@ -12,6 +12,9 @@
 # parent column (the siblings, current item marked "▶", the rest dimmed) above
 # the highlighted item's detail. Pure: reads state + nav from files like
 # guided_controller_list, so it is asserted headless (tests/guided/detail.bats).
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _CONTROLLER_DIM=$'\033[2m'; _CONTROLLER_BOLD=$'\033[1m'; \
   _CONTROLLER_RESET=$'\033[0m'
 
@@ -38,11 +41,13 @@ _controller_detail_column() {
 # (enumerable) or a free-text hint (a text field). Pure.
 _controller_detail_leaf() {
   local field="$1" state="$2" base="$3" row label value overridden dot options
-  row="$(menu_rows "$state" "$base" \
-    | jq -c --arg p "$field" 'first(.[] | select(.field == $p)) // {}')"
-  label="$(jq -r '.label // ""' <<<"$row")"
-  value="$(jq -r '.value // ""' <<<"$row")"
-  overridden="$(jq -r '.overridden // false' <<<"$row")"
+  local field_row='first(.[] | select(.field == $p)) // {}'
+  # The menu row of the field.
+  row="$(menu_rows "$state" "$base" | jq -c --arg p "$field" "$field_row")"
+  # The row's label, value and override flag.
+  label="$(printf '%s\n' "$row" | jq -r '.label // ""')"
+  value="$(printf '%s\n' "$row" | jq -r '.value // ""')"
+  overridden="$(printf '%s\n' "$row" | jq -r '.overridden // false')"
   dot=""; [[ "$overridden" == true ]] && dot="  ●"
   printf '%s%s%s\n  %s: %s%s\n' "$_CONTROLLER_BOLD" "$label" \
     "$_CONTROLLER_RESET" \
@@ -66,7 +71,13 @@ _controller_detail_leaf() {
   options="$(menu_enum_options "$field")"
   [[ -n "$options" ]] || return 0
   printf '%sOptions:%s\n' "$_CONTROLLER_DIM" "$_CONTROLLER_RESET"
-  printf '%s\n' "  ${options//$'\n'/$'\n'  }"
+  printf '%s\n' "$options" | _controller_indent
+}
+
+# _controller_indent — stdin's lines, each indented by two spaces.
+_controller_indent() {
+  local line
+  while IFS= read -r line; do printf '  %s\n' "$line"; done
 }
 
 # _controller_detail_reflector_note <category> — the reflector consumer line,
@@ -104,15 +115,17 @@ _controller_detail_user_table() {
 # previews nothing.
 _controller_detail_top() {
   local line="$1" state="$2" base="$3" current rows
-  current="${line%% — *}"
+  current="$(text_before "$line" " — ")"
   if [[ "$current" == "Users" ]]; then
     _controller_detail_user_table "$state" "$base"; return 0
   fi
   rows="$(menu_category_rows "$current" "$state" "$base" 2>/dev/null)"
   [[ -n "$rows" && "$rows" != "[]" ]] || return 0
   printf '%s%s%s\n' "$_CONTROLLER_BOLD" "$current" "$_CONTROLLER_RESET"
-  jq -r '.[] | "  \(.label): \(.value // "")"
-               + (if .overridden then "  ●" else "" end)' <<<"$rows"
+  local field_line='.[] | "  \(.label): \(.value // "")"'
+  field_line+=' + (if .overridden then "  ●" else "" end)'
+  # One "label: value" line per field, ● on overrides.
+  printf '%s\n' "$rows" | jq -r "$field_line"
   _controller_detail_reflector_note "$current"
 }
 
@@ -122,14 +135,19 @@ _controller_detail_top() {
 _controller_detail_category() {
   local line="$1" state="$2" base="$3" cat="$4" label rows current_field \
     current_label
-  label="${line%%:*}"; label="${label%% ▸*}"
+  label="$(text_before "$line" ":")"; label="$(text_before "$label" " ▸")"
   current_field="$(_controller_field_for_label "$cat" "$label")"
   rows="$(menu_category_rows "$cat" "$state" "$base")"
   current_label=""
-  [[ -n "$current_field" ]] && current_label="$(jq -r --arg p "$current_field" \
-    'first(.[] | select(.field == $p) | .label) // ""' <<<"$rows")"
+  local field_label='first(.[] | select(.field == $p) | .label) // ""'
+  if [[ -n "$current_field" ]]; then
+    # The label of the highlighted field.
+    current_label="$(printf '%s\n' "$rows" \
+      | jq -r --arg p "$current_field" "$field_label")"
+  fi
   printf '%s%s%s\n' "$_CONTROLLER_BOLD" "$cat" "$_CONTROLLER_RESET"
-  jq -r '.[] | "\(.label)\t\(.overridden)"' <<<"$rows" \
+  # One "label<TAB>overridden" line per field.
+  printf '%s\n' "$rows" | jq -r '.[] | "\(.label)\t\(.overridden)"' \
     | _controller_detail_column "$current_label"
   _controller_detail_reflector_note "$cat"
   # The Disks Layout row is a synthetic leaf: preview the live ZFS pool tree,
@@ -211,7 +229,7 @@ _controller_preview_profile() {
 _controller_preview_package() {
   local line="$1" navigation="$2" package
   [[ "$line" == "← Back" || "${line:0:1}" != "[" ]] && return 0
-  package="${line:4}"; package="${package%%  *}"
+  package="$(text_before "${line:4}" "  ")"
   [[ -n "$package" ]] || return 0
   if [[ "$(navigation_get "$navigation" slot)" == "aur" ]]; then
     _controller_aur_preview "$package"
@@ -238,12 +256,15 @@ _controller_preview_value() {
   system.keymap)
     # multi: the selected keymap array (+ the highlighted candidate, mark
     # stripped)
-    local selected; selected="$(jq -r \
-      '.system.keymap // [] | if type == "array" then . else [.] end | .[]' \
-      <<<"$(_controller_effective "$(_controller_state)" \
-        "$(_controller_baseline)")")"
+    local selected effective
+    local keymaps='.system.keymap // []'
+    keymaps+=' | if type == "array" then . else [.] end | .[]'
+    effective="$(_controller_effective "$(_controller_state)" \
+      "$(_controller_baseline)")"
+    # The selected keymaps, one per line (a lone keymap counts as one).
+    selected="$(printf '%s\n' "$effective" | jq -r "$keymaps")"
     printf 'Selected keymaps:\n'
-    if [[ -n "$selected" ]]; then printf '%s\n' "  ${selected//$'\n'/$'\n'  }"
+    if [[ -n "$selected" ]]; then printf '%s\n' "$selected" | _controller_indent
     else printf '  (none)\n'; fi
     printf '\nHighlighted:\n  %s\n' "${line:4}" ;;
   system.locale | system.timezone)
@@ -270,7 +291,7 @@ _controller_preview_account() {
     return 0
   fi
   # "name — shell · pw tag" (enabled) or "name — disabled": name before " — ".
-  user="${line%% — *}"
+  user="$(text_before "$line" " — ")"
   [[ -n "$user" ]] && _controller_user_panel "$user"
 }
 

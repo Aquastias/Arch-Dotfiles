@@ -21,6 +21,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/userforms.sh"
   source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
+  # No colour codes, so assertions test content.
+  _CONTROLLER_DIM=''; _CONTROLLER_BOLD=''; _CONTROLLER_RESET=''
 
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
   printf '%s\n' '{}' > "$GUIDED_BASELINE_FILE"
@@ -29,8 +31,6 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
-# strip ANSI so assertions test content, not colour codes.
-plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
 
 # ── top screen: the highlighted category's field summary only (ADR 0082) ────
 # The parent-column preview is gone — the current selection is the fzf triangle
@@ -41,17 +41,17 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
   # the highlighted category's own fields show
-  echo "$output" | plain | grep -qE 'hostname:'
+  echo "$output" | grep -qE 'hostname:'
   # ...but sibling categories are NOT listed (parent column removed)
-  ! echo "$output" | plain | grep -q "Locales"
-  ! echo "$output" | plain | grep -q "Mirrors & Repositories"
+  ! echo "$output" | grep -q "Locales"
+  ! echo "$output" | grep -q "Mirrors & Repositories"
 }
 
 @test "detail(top): a category previews its fields as key: value" {
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE '^ *timezone:'   # autodetected (ADR 0118)
+  echo "$output" | grep -qE '^ *timezone:'   # autodetected (ADR 0118)
 }
 
 @test "detail(top): an overridden field carries a ● in the summary" {
@@ -59,15 +59,15 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'hostname: +myhost.*●'
+  echo "$output" | grep -qE 'hostname: +myhost.*●'
 }
 
 @test "detail(top): Mirrors & Repositories notes the reflector consumer" {
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "Mirrors & Repositories — countries, multilib"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -q "reflector"
-  echo "$output" | plain | grep -q -- "--sort rate"
+  echo "$output" | grep -q "reflector"
+  echo "$output" | grep -q -- "--sort rate"
 }
 
 @test "detail(top): a non-category row (Proceed) previews nothing" {
@@ -75,15 +75,15 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   run guided_controller_preview "Proceed ▸ review & install"
   [ "$status" -eq 0 ]
   # no parent column and no bogus "Proceed" field summary (ADR 0082)
-  ! echo "$output" | plain | grep -q "Locales"
-  ! echo "$output" | plain | grep -qE 'hostname:|Proceed:'
+  ! echo "$output" | grep -q "Locales"
+  ! echo "$output" | grep -qE 'hostname:|Proceed:'
 }
 
 @test "detail(top): a bucket header previews nothing" {
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "── GENERAL ──"
   [ "$status" -eq 0 ]
-  ! echo "$output" | plain | grep -qE 'hostname:|Locales'
+  ! echo "$output" | grep -qE 'hostname:|Locales'
 }
 
 # ── category screen: parent column of sibling fields + the leaf's detail ─────
@@ -92,24 +92,24 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation "$(navigation_to_category Kernels)"
   run guided_controller_preview "Kernel: lts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE '▶ +kernel'
+  echo "$output" | grep -qE '▶ +kernel'
 }
 
 @test "detail(category): a leaf shows its current value and its option set" {
   set_navigation "$(navigation_to_category Kernels)"
   run guided_controller_preview "Kernel: lts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'kernel: +lts'
+  echo "$output" | grep -qE 'kernel: +lts'
   # the enumerable field lists its options
-  echo "$output" | plain | grep -q "hardened"
-  echo "$output" | plain | grep -q "zen"
+  echo "$output" | grep -q "hardened"
+  echo "$output" | grep -q "zen"
 }
 
 @test "detail(category): the Back row previews the sibling column, no leaf" {
   set_navigation "$(navigation_to_category Kernels)"
   run guided_controller_preview "← Back"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'kernel'
+  echo "$output" | grep -qE 'kernel'
 }
 
 @test "detail(category): an overridden field carries a ● in the pane" {
@@ -117,7 +117,7 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation "$(navigation_to_category Kernels)"
   run guided_controller_preview "Kernel: zen"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'kernel.*●'          # parent column + leaf
+  echo "$output" | grep -qE 'kernel.*●'          # parent column + leaf
 }
 
 # ── every field screen is populated (ADR 0071): values + text editors ───────
@@ -126,8 +126,8 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation "$(navigation_to_values Bootloader options.bootloader bootloader)"
   run guided_controller_preview "[x] systemd-boot"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'bootloader: +systemd-boot'
-  echo "$output" | plain | grep -q "grub"                # its option set
+  echo "$output" | grep -qE 'bootloader: +systemd-boot'
+  echo "$output" | grep -q "grub"                # its option set
 }
 
 @test "detail(text): a free-text field screen shows value + a free-text hint" {
@@ -135,8 +135,8 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation "$(navigation_to_text System system.hostname hostname)"
   run guided_controller_preview "eterniox"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -qE 'hostname: +eterniox'
-  echo "$output" | plain | grep -q "free text"
+  echo "$output" | grep -qE 'hostname: +eterniox'
+  echo "$output" | grep -q "free text"
 }
 
 # ── the pane is empty on screens that own their own preview (unchanged) ──────
@@ -146,7 +146,7 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   run guided_controller_preview "single"
   [ "$status" -eq 0 ]
   # no category parent-column header leaks onto the layout screen
-  ! echo "$output" | plain | grep -qE '▶ +(kernel|System)'
+  ! echo "$output" | grep -qE '▶ +(kernel|System)'
 }
 
 # ── ticket 03: rich leaf detail — Users account table + Disks pool tree ──────
@@ -155,9 +155,9 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "Users — primary user, extra accounts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -q "Accounts"
-  echo "$output" | plain | grep -qE '^root — '            # the root account row
-  ! echo "$output" | plain | grep -qE '^ +users:'         # not the raw field
+  echo "$output" | grep -q "Accounts"
+  echo "$output" | grep -qE '^root — '            # the root account row
+  ! echo "$output" | grep -qE '^ +users:'         # not the raw field
 }
 
 @test "detail(top Users): an enabled user shows its shell/sudo/groups panel" {
@@ -168,10 +168,10 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation '{"screen":"top"}'
   run guided_controller_preview "Users — primary user, extra accounts"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -q "alice"
-  echo "$output" | plain | grep -qE 'shell: +/bin/fish'
-  echo "$output" | plain | grep -qE 'sudo: +on'
-  echo "$output" | plain | grep -qE 'groups: +wheel'
+  echo "$output" | grep -q "alice"
+  echo "$output" | grep -qE 'shell: +/bin/fish'
+  echo "$output" | grep -qE 'sudo: +on'
+  echo "$output" | grep -qE 'groups: +wheel'
 }
 
 @test "detail(category Disks): the Layout row previews the ZFS pool tree" {
@@ -181,5 +181,5 @@ plain() { awk '{ gsub(/\033\[[0-9;]*m/, ""); print }'; }
   set_navigation "$(navigation_to_category Disks)"
   run guided_controller_preview "Layout: custom"
   [ "$status" -eq 0 ]
-  echo "$output" | plain | grep -q "tank9"                 # reused layout graph
+  echo "$output" | grep -q "tank9"                 # reused layout graph
 }

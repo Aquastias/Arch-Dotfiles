@@ -7,6 +7,9 @@
 # Used by: lib/guided/controller.sh (sources it).
 # =============================================================================
 
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _controller_enter_top() {
   local line="$1" cat
   case "$line" in
@@ -22,12 +25,13 @@ _controller_enter_top() {
     # category names (e.g. "Mirrors & Repositories") survive whole (ADR 0071).
     # Validity is read from menu_categories (the single source of truth), so a
     # new category needs no edit here.
-    cat="${line%% — *}"
+    cat="$(text_before "$line" " — ")"
     if [[ "$cat" == "Users" ]]; then
       # Flatten (slice 01): Users opens its list directly, skipping the
       # single-row category screen. navigation_back from here returns to top.
       _controller_write_navigation \
         "$(navigation_to_values Users users users)"; echo render
+    # A category of that name exists.
     elif menu_categories "$(_controller_state)" "$(_controller_baseline)" \
          | jq -e --arg c "$cat" 'any(.[]; .name == $c)' >/dev/null 2>&1; then
       _controller_write_navigation \
@@ -79,6 +83,7 @@ _controller_session_stash() {
   [[ -s "${GUIDED_USERFORMS_FILE:-}" ]] \
     && userforms="$(<"$GUIDED_USERFORMS_FILE")"
   [[ -s "${GUIDED_SECRETS_FILE:-}" ]] && secrets="$(<"$GUIDED_SECRETS_FILE")"
+  # The stash: the three session files in one object.
   jq -n --argjson b "$(_controller_baseline)" --argjson u "$userforms" \
     --argjson s "$secrets" '{baseline:$b, userforms:$u, secrets:$s}' \
     >"$GUIDED_SESSION_UNDO_FILE"
@@ -90,13 +95,20 @@ _controller_session_stash() {
 _controller_session_unstash() {
   [[ -s "${GUIDED_SESSION_UNDO_FILE:-/nonexistent}" ]] || return 0
   local stash; stash="$(<"$GUIDED_SESSION_UNDO_FILE")"
-  [[ -n "${GUIDED_BASELINE_FILE:-}" ]] && jq -e 'has("baseline")' \
-    <<<"$stash" >/dev/null && config_store_write_baseline \
-    "$(jq -c '.baseline' <<<"$stash")"
-  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
-    && jq -c '.userforms // {}' <<<"$stash" >"$GUIDED_USERFORMS_FILE"
-  [[ -n "${GUIDED_SECRETS_FILE:-}" ]] \
-    && jq -c '.secrets // {}' <<<"$stash" >"$GUIDED_SECRETS_FILE"
+  # The stash holds a baseline.
+  if [[ -n "${GUIDED_BASELINE_FILE:-}" ]] \
+    && printf '%s\n' "$stash" | jq -e 'has("baseline")' >/dev/null; then
+    # The stashed baseline.
+    config_store_write_baseline "$(printf '%s\n' "$stash" | jq -c '.baseline')"
+  fi
+  if [[ -n "${GUIDED_USERFORMS_FILE:-}" ]]; then
+    # The stashed userforms, empty by default.
+    printf '%s\n' "$stash" | jq -c '.userforms // {}' >"$GUIDED_USERFORMS_FILE"
+  fi
+  if [[ -n "${GUIDED_SECRETS_FILE:-}" ]]; then
+    # The stashed secrets, empty by default.
+    printf '%s\n' "$stash" | jq -c '.secrets // {}' >"$GUIDED_SECRETS_FILE"
+  fi
   rm -f "$GUIDED_SESSION_UNDO_FILE"
 }
 
@@ -146,10 +158,10 @@ _controller_manual_set() {
 # _controller_manual_field <state> <device> <field> → the current value of
 # <field> on the partition <device> (empty when unset).
 _controller_manual_field() {
-  jq -r --arg d "$2" --arg f "$3" '
-    (.disk_config.partitions // [])[]
-    | select(.device == $d) | (.[$f] // "")
-  ' <<< "$1"
+  local field_value='(.disk_config.partitions // [])[]'
+  field_value+=' | select(.device == $d) | (.[$f] // "")'
+  # The field's value on the partition with that device.
+  printf '%s\n' "$1" | jq -r --arg d "$2" --arg f "$3" "$field_value"
 }
 
 # _controller_enter_manual_partitions <line> — the assignment table: the cfdisk
@@ -167,7 +179,7 @@ _controller_enter_manual_partitions() {
            return; }
     echo cfdisk; return ;;
   "/dev/"*)
-    local dev="${line%%  *}"
+    local dev; dev="$(text_before "$line" "  ")"
     _controller_write_navigation \
       "$(navigation_to_partition_edit "$cat" "$dev")"; echo render; return ;;
   *) echo noop ;;
@@ -261,7 +273,7 @@ _controller_enter_category() {
   navigation="$(_controller_navigation)"
   category="$(navigation_get "$navigation" category)"
   _controller_enter_category_row "$line" "$navigation" "$category" && return
-  label="${line%%:*}"
+  label="$(text_before "$line" ":")"
   path="$(_controller_field_for_label "$category" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
   if _controller_is_cycle_field "$path"; then
@@ -317,7 +329,8 @@ _controller_enter_category_row() {
       && { echo render; return 0; }
     target="$(navigation_to_impermanence "$category")" ;;
   "repo ▸"* | "aur ▸"*)
-    target="$(navigation_to_package_category "$category" "${line%% *}")" ;;
+    target="$(navigation_to_package_category "$category" \
+      "$(first_word "$line")")" ;;
   "derived ▸"*)
     target="$(navigation_to_package_derived "$category")" ;;
   *) return 1 ;;

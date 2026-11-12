@@ -2,6 +2,7 @@
 # Tests: text screen and users (split from controller.bats;
 # shared setup in controller-helpers.bash)
 
+load ../lib/json-helpers
 load controller-helpers
 
 
@@ -11,7 +12,7 @@ load controller-helpers
   set_navigation "$(navigation_to_text System system.hostname hostname)"
   run guided_controller_enter "current: (unset)" "myhost"
   [ "$output" = "render" ]
-  [ "$(jq -r '.system.hostname' "$GUIDED_STATE_FILE")" = "myhost" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.system.hostname == "myhost"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
@@ -19,19 +20,19 @@ load controller-helpers
   set_navigation "$(navigation_to_text System system.hostname hostname)"
   run guided_controller_enter "current: (unset)" ""
   [ "$output" = "render" ]
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
 }
 
 @test "enter(text): sysctl parses key=value from the query" {
   set_navigation "$(navigation_to_text Security sysctl sysctl)"
   run guided_controller_enter "current: (unset)" "vm.swappiness=20"
-  [ "$(jq -c '.sysctl["vm.swappiness"]' "$GUIDED_STATE_FILE")" = "20" ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.sysctl["vm.swappiness"]) == 20'
 }
 
 @test "enter(text __persist__): a typed path appends to persist.directories" {
   set_navigation "$(navigation_to_text Disks __persist__ "persist dir")"
   run guided_controller_enter "current: (unset)" "/var/lib/foo"
-  [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/var/lib/foo"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.persist.directories == ["/var/lib/foo"]'
 }
 
 
@@ -65,7 +66,7 @@ load controller-helpers
 @test "enter(text sysctl): adding a pair returns to the sysctl list screen" {
   set_navigation "$(navigation_to_text Security sysctl sysctl)"
   run guided_controller_enter "+ Add sysctl (key=value)" "vm.dirty_ratio=20"
-  [ "$(jq -c '.sysctl["vm.dirty_ratio"]' "$GUIDED_STATE_FILE")" = "20" ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.sysctl["vm.dirty_ratio"]) == 20'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
 }
@@ -212,21 +213,21 @@ load controller-helpers
   set_navigation "$(navigation_to_root_editor Users)"
   run guided_controller_enter "shell: bash   (Enter cycles)"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/zsh" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.root_shell == "/bin/zsh"'
 }
 
 @test "enter(rooteditor): shell cycles zsh→fish" {
   printf '%s\n' '{"options":{"root_shell":"/bin/zsh"}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_root_editor Users)"
   guided_controller_enter "shell: zsh   (Enter cycles)" >/dev/null
-  [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/fish" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.root_shell == "/bin/fish"'
 }
 
 @test "enter(rooteditor): cycling shell to default (bash) drops the override" {
   printf '%s\n' '{"options":{"root_shell":"/bin/fish"}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_root_editor Users)"
   guided_controller_enter "shell: fish   (Enter cycles)" >/dev/null
-  [ "$(jq -r '.options.root_shell // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.options.root_shell // "unset") == "unset"'
 }
 
 @test "enter(rooteditor): password falls back to execute() without rich chrome" {
@@ -420,7 +421,7 @@ load controller-helpers
   run guided_controller_list
   ! echo "$output" | grep -qE '^Disks — .*pw needed'   # no gate while off
   # retain-silently: the stored passphrase survives the toggle-off
-  [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
+  file_satisfies "$GUIDED_SECRETS_FILE" '.enc_passphrase == "corrhorse"'
 }
 
 @test "enter(values users): a disabled user row also opens its editor" {

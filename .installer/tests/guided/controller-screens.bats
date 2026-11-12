@@ -2,6 +2,8 @@
 # Tests: top, category and toggle screens (split from controller.bats;
 # shared setup in controller-helpers.bash)
 
+load ../lib/text-helpers
+load ../lib/json-helpers
 load controller-helpers
 
 
@@ -183,7 +185,7 @@ load controller-helpers
   [ "$status" -eq 0 ]
   for program in cups bluetooth power-profiles-daemon tuned grub firewalld ufw \
            clamav rkhunter apparmor borg zfs-auto-snapshot sops reflector; do
-    grep -qx "$program" <<<"$output" || { echo "missing owned: $program"; false; }
+    text_has_line "$output" "$program" || { echo "missing owned: $program"; false; }
   done
 }
 
@@ -217,9 +219,9 @@ load controller-helpers
   run _controller_host_program_names
   [ "$status" -eq 0 ]
   for program in cups bluetooth power-profiles-daemon tuned grub sops; do
-    ! grep -qx "$program" <<<"$output"      # Menu-Owned, filtered out
+    ! text_has_line "$output" "$program"      # Menu-Owned, filtered out
   done
-  grep -qx myhostprog <<<"$output"    # free-standing host program stays
+  text_has_line "$output" myhostprog    # free-standing host program stays
 }
 
 # The User Editor's programs picker drops Menu-Owned user programs (clamav,
@@ -244,11 +246,11 @@ load controller-helpers
 
   run _controller_user_program_names
   [ "$status" -eq 0 ]
-  ! grep -qx clamav <<<"$output"      # Security-owned
-  ! grep -qx firewalld <<<"$output"   # Security-owned
-  ! grep -qx borg <<<"$output"        # Backup-owned
-  grep -qx docker <<<"$output"        # free-standing user program stays
-  grep -qx teamspeak3 <<<"$output"
+  ! text_has_line "$output" clamav      # Security-owned
+  ! text_has_line "$output" firewalld   # Security-owned
+  ! text_has_line "$output" borg        # Backup-owned
+  text_has_line "$output" docker        # free-standing user program stays
+  text_has_line "$output" teamspeak3
 }
 
 # Empty host picker (all host programs owned) is a clean success, not grep rc 1.
@@ -268,7 +270,7 @@ load controller-helpers
   run guided_controller_enter "SSH: false"
   [ "$output" = "refresh" ]                                   # stays on category
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]   # no values submenu
-  [ "$(jq -c '.options.ssh.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.ssh.enabled == true'
 }
 
 @test "enter(category): flipping a default-true bool reads it true and turns it off" {
@@ -276,7 +278,7 @@ load controller-helpers
   set_navigation "$(navigation_to_category Pacman)"
   run guided_controller_enter "Color: true"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.options.pacman.color' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.pacman.color == false'
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.pacman.color
 }
 
@@ -297,7 +299,7 @@ load controller-helpers
   set_navigation "$(navigation_to_category Environment)"
   run guided_controller_enter "Stock: true"         # default true → false, override kept
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.environment.stock' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.environment.stock == false'
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
   set_navigation "$(navigation_to_category Environment)"
   guided_controller_enter "Stock: false" >/dev/null # false → back to default true, drop
@@ -351,7 +353,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Kernels options.kernel kernel)"
   run guided_controller_enter "[ ] lts"
   [ "$output" = "refresh" ]   # reload-sync in place (no flicker, query kept)
-  [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.kernel == ["lts"]'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
 }
 
@@ -364,28 +366,28 @@ load controller-helpers
   printf '%s\n' '{"options":{"kernel":["lts","zen"]}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Kernels options.kernel kernel)"
   run guided_controller_enter "[x] zen"
-  [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.kernel == ["lts"]'
 }
 
 @test "enter(values toggle): the last option toggled off unsets the override" {
   printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Kernels options.kernel kernel)"
   run guided_controller_enter "[x] lts"
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
 }
 
 @test "enter(values toggle gpu): auto is mutually exclusive → scalar auto" {
   printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Environment environment.gpu gpu)"
   run guided_controller_enter "[ ] auto"
-  [ "$(jq -r '.environment.gpu' "$GUIDED_STATE_FILE")" = "auto" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.environment.gpu == "auto"'
 }
 
 @test "enter(values toggle gpu): picking a vendor clears auto" {
   printf '%s\n' '{"environment":{"gpu":"auto"}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Environment environment.gpu gpu)"
   run guided_controller_enter "[ ] nvidia"
-  [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["nvidia"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.environment.gpu == ["nvidia"]'
 }
 
 @test "enter(values toggle gpu): AMD + NVIDIA select together (hybrid Legion)" {
@@ -394,9 +396,9 @@ load controller-helpers
   printf '%s\n' '{"environment":{"gpu":"auto"}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Environment environment.gpu gpu)"
   guided_controller_enter "[ ] AMD" >/dev/null       # clears auto, adds amd
-  [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.environment.gpu == ["amd"]'
   guided_controller_enter "[ ] NVIDIA" >/dev/null    # adds the second vendor
-  [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd","nvidia"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.environment.gpu == ["amd","nvidia"]'
 }
 
 # Default Session (ADR 0159): desktop[0] is where a fresh login lands, so the
@@ -423,5 +425,5 @@ load controller-helpers
   set_navigation "$(navigation_to_category Environment)"
   run guided_controller_enter "Desktop: niri (default), KDE  ●"
   [ "$output" = "render" ]
-  [ "$(jq -r '.field' "$GUIDED_NAV_FILE")" = "environment.desktop" ]
+  file_satisfies "$GUIDED_NAV_FILE" '.field == "environment.desktop"'
 }

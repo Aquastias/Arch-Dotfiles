@@ -28,6 +28,9 @@
 # shellcheck source=../globals.sh
 [[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
   || source "${BASH_SOURCE[0]%/*}/../globals.sh"
+# shellcheck source=../common.sh
+declare -F text_before >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
 # shellcheck source=../config/config-state.sh
 declare -F config_state_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/config-state.sh"
@@ -162,8 +165,8 @@ _controller_password_missing() {
   local secrets_file="${GUIDED_SECRETS_FILE:-}"
   [[ -n "$secrets_file" ]] || { printf '0'; return; }
   local users
-  users="$(jq -c '.users // []' \
-    <<<"$(_controller_live_effective)")"
+  # The effective user names.
+  users="$(_controller_live_effective | jq -c '.users // []')"
   guided_secrets_file_missing "$secrets_file" "$users" | grep -c .
 }
 
@@ -209,7 +212,8 @@ _controller_display_value_string() {
   # once a second desktop makes the order matter.
   [[ "$field" == environment.desktop ]] && marker=" (default)"
   while [[ "$value" == *", "* ]]; do
-    part="${value%%, *}"; value="${value#*, }"
+    part="$(text_before "$value" ", ")"
+    value="$(text_after "$value" ", ")"
     out+="${out:+, }$(display_label "$part")${marker}"
     marker=""
   done
@@ -238,6 +242,8 @@ _controller_live_effective() {
 }
 
 # The controller's parts, in their original order.
+# shellcheck source=controller-lists.sh
+source "${BASH_SOURCE[0]%/*}/controller-lists.sh"
 # shellcheck source=controller-fields.sh
 source "${BASH_SOURCE[0]%/*}/controller-fields.sh"
 # shellcheck source=controller-user-fields.sh
@@ -252,6 +258,8 @@ source "${BASH_SOURCE[0]%/*}/controller-detail.sh"
 source "${BASH_SOURCE[0]%/*}/controller-list.sh"
 # shellcheck source=controller-list-editors.sh
 source "${BASH_SOURCE[0]%/*}/controller-list-editors.sh"
+# shellcheck source=controller-packages.sh
+source "${BASH_SOURCE[0]%/*}/controller-packages.sh"
 # shellcheck source=controller-enter-users.sh
 source "${BASH_SOURCE[0]%/*}/controller-enter-users.sh"
 # shellcheck source=controller-enter-host.sh

@@ -54,19 +54,21 @@ _controller_list_swap_edit() {
 _controller_list_manual_partitions() {
   # Manual Partitioning assignment table (ADR 0073): a validity line, the
   # cfdisk hand-off, then one row per partition (device → mountpoint · fs).
-  local partitions_json problems
-  partitions_json="$(config_state_get "$state" disk_config.partitions)"; \
-    partitions_json="${partitions_json:-[]}"
+  local partitions_json problems first_problem partition
+  partitions_json="$(config_state_get "$state" disk_config.partitions)"
+  partitions_json="${partitions_json:-[]}"
   if problems="$(layout_manual_partition_problems "$partitions_json")"; then
     printf '✓ layout is valid — ready to Proceed\n'
   else
-    printf '⚠ not installable: %s\n' \
-      "$(awk 'NR == 1 { sub(/^• /, ""); print; exit }' <<<"$problems")"
+    # The first problem, without its "• " bullet.
+    first_problem="$(printf '%s\n' "$problems" | head -n 1)"
+    printf '⚠ not installable: %s\n' "$(text_after "$first_problem" "• ")"
   fi
   _controller_action_row "⟳ Run cfdisk (edit the partition table)"
-  jq -c '.[]' <<< "$partitions_json" | while IFS= read -r partition; do
+  while IFS= read -r partition; do
     manual_partition_row_label "$partition"; printf '\n'
-  done
+  # One partition per line.
+  done < <(printf '%s\n' "$partitions_json" | jq -c '.[]')
   _controller_action_row "← Back"
 }
 
@@ -122,7 +124,9 @@ _controller_list_impermanence() {
     local persist_directory
     while IFS= read -r persist_directory; do
       [[ -n "$persist_directory" ]] && printf '%s\n' "$persist_directory"
-    done < <(jq -r '(.persist.directories // [])[]' <<<"$effective")
+    # The persisted directories, one per line.
+    done < <(printf '%s\n' "$effective" \
+      | jq -r '(.persist.directories // [])[]')
     printf 'curated defaults: %s paths always persisted (read-only)\n' \
       "$(_controller_curated_persist_count)"
     _controller_action_row "Add persist directory ▸ extend the curated defaults"
@@ -138,14 +142,19 @@ _controller_list_data_pools() {
   # dispatch unambiguous: "OS pool:" (singleton), "<name> (storage):", and the
   # bare "<name>:" data-pool rows.
   local effective; effective="$(_controller_effective "$state" "$base")"
-  jq -e '.os_pool' <<<"$effective" >/dev/null 2>&1 \
-    && jq -r '"OS pool: \(.os_pool.topology // "?") "
-              + "×\(.os_pool.disk_count // "?")"' \
-      <<<"$effective"
-  jq -r '(.storage_groups // [])[]
-           | "\(.name) (storage): \(.topology) ×\(.disk_count)"' <<<"$effective"
-  jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
-    <<<"$effective"
+  local os_row='"OS pool: \(.os_pool.topology // "?")'
+  os_row+=' ×\(.os_pool.disk_count // "?")"'
+  local storage_rows='(.storage_groups // [])[]'
+  storage_rows+=' | "\(.name) (storage): \(.topology) ×\(.disk_count)"'
+  local data_rows='(.data_pools // [])[]'
+  data_rows+=' | "\(.name): \(.topology) ×\(.disk_count)"'
+  # The OS pool row, when there is an OS pool.
+  if printf '%s\n' "$effective" | jq -e '.os_pool' >/dev/null 2>&1; then
+    printf '%s\n' "$effective" | jq -r "$os_row"
+  fi
+  # One row per storage group, then one per data pool.
+  printf '%s\n' "$effective" | jq -r "$storage_rows"
+  printf '%s\n' "$effective" | jq -r "$data_rows"
   # The "+ Add …" rows stay visible in BOTH chromes: building the layout is
   # this
   # screen's primary action, and a footer-only ^A hint proved undiscoverable
@@ -173,28 +182,32 @@ _controller_list_pool_edit() {
   # A group with no explicit filesystem inherits the root's (ADR 0043), so the
   # displayed value matches what the topology/disks cycles use.
   root_filesystem="$(install_config_from_json "$effective" filesystem)"
-  printf 'name: %s\n' "$(jq -r '.name // .pool_name // "?"' <<<"$pool")"
+  local name topology filesystem encryption mount
+  local default_mount='.mount // ("/" + (.name // "pool"))'
+  # The pool's settings, each with its default.
+  name="$(printf '%s\n' "$pool" | jq -r '.name // .pool_name // "?"')"
+  topology="$(printf '%s\n' "$pool" | jq -r '.topology // "?"')"
+  filesystem="$(printf '%s\n' "$pool" \
+    | jq -r --arg r "$root_filesystem" '.filesystem // $r')"
+  encryption="$(printf '%s\n' "$pool" | jq -r '.encryption // false')"
+  mount="$(printf '%s\n' "$pool" | jq -r "$default_mount")"
+  printf 'name: %s\n' "$name"
   case "$kind" in
   os)
     # OS pool: topology + disks only. Root filesystem/encryption live at their
     # top-level rows (ADR 0047), never duplicated here.
-    printf 'topology: %s   (Enter cycles)\n' \
-      "$(jq -r '.topology // "?"' <<<"$pool")"
+    printf 'topology: %s   (Enter cycles)\n' "$topology"
     _controller_disks_row "$pool" 1
     _controller_action_row "← Back" ;;
   storage)
     _controller_list_storage_group_rows ;;
   *)
-    printf 'filesystem: %s   (Enter cycles)\n' \
-      "$(jq -r --arg r "$root_filesystem" '.filesystem // $r' <<<"$pool")"
-    printf 'topology: %s   (Enter cycles)\n' \
-      "$(jq -r '.topology // "?"' <<<"$pool")"
+    printf 'filesystem: %s   (Enter cycles)\n' "$filesystem"
+    printf 'topology: %s   (Enter cycles)\n' "$topology"
     _controller_disks_row "$pool" 1
-    printf 'encryption: %s   (Enter toggles)\n' \
-      "$(jq -r '.encryption // false' <<<"$pool")"
+    printf 'encryption: %s   (Enter toggles)\n' "$encryption"
     # mount defaults to /<name> (blank keeps the default); editable free-text.
-    printf 'mount: %s   (Enter to edit)\n' \
-      "$(jq -r '.mount // ("/" + (.name // "pool"))' <<<"$pool")"
+    printf 'mount: %s   (Enter to edit)\n' "$mount"
     _controller_action_row "✗ remove this pool" "← Back" ;;
   esac
 }
@@ -208,11 +221,14 @@ _controller_list_storage_group_rows() {
   # the mount is display-only (defaults to /<name>). It inherits the root
   # filesystem — no per-group fs/encryption rows (that is the data-pool
   # path).
-  printf 'topology: %s   (Enter cycles)\n' \
-    "$(jq -r '.topology // "?"' <<<"$pool")"
+  local topology mount
+  local default_mount='.mount // ("/" + (.name // "data"))'
+  # The group's topology and mount, each with its default.
+  topology="$(printf '%s\n' "$pool" | jq -r '.topology // "?"')"
+  mount="$(printf '%s\n' "$pool" | jq -r "$default_mount")"
+  printf 'topology: %s   (Enter cycles)\n' "$topology"
   _controller_disks_row "$pool" 1
-  printf 'mount: %s\n' \
-    "$(jq -r '.mount // ("/" + (.name // "data"))' <<<"$pool")"
+  printf 'mount: %s\n' "$mount"
   # Storage groups share dpool's encryption (the disk-wide setting) — shown
   # read-only, since they have no independent key (that is the data-pool
   # path). `get`: the authored setting (storage groups never exist on manual).
@@ -235,7 +251,7 @@ _controller_list_pool_disks() {
   # Enter-toggle multi-select; an exhausted Free Set simply shows no [ ] rows.
   while IFS= read -r disk; do
     [[ -n "$disk" ]] && printf '[x] %s\n' "$(_controller_disk_label "$disk")"
-  done < <(jq -r '(.devices // [])[]' <<<"$pool")
+  done < <(printf '%s\n' "$pool" | jq -r '(.devices // [])[]')
   while IFS= read -r disk; do
     [[ -n "$disk" ]] && printf '[ ] %s\n' "$(_controller_disk_label "$disk")"
   done < <(_controller_free_disks "$state")
@@ -250,8 +266,9 @@ _controller_list_root_disk() {
   # the Free Set excludes it — add it back), then every free candidate ( ).
   # Picking one replaces the prior choice.
   local root_disk disk
-  root_disk="$(jq -r '.root_disk // ""' \
-    <<<"$(_controller_effective "$state" "$base")")"
+  # The picked root disk, empty when none.
+  root_disk="$(_controller_effective "$state" "$base" \
+    | jq -r '.root_disk // ""')"
   [[ -n "$root_disk" ]] \
     && printf '(*) %s\n' "$(_controller_disk_label "$root_disk")"
   while IFS= read -r disk; do
@@ -286,28 +303,32 @@ _controller_list_user_edit() {
   local user user_effective; user="$(navigation_get "$navigation" user)"
   user_effective="$(_controller_user_effective "$user")"
   if _controller_user_is_committed "$user"; then
-    local enabled; enabled="$(jq -r --arg u "$user" \
-      'if ((.users // []) | any(. == $u)) then "on" else "off" end' \
-      <<<"$(_controller_effective "$state" "$base")")"
+    local enabled=off users
+    # The effective user names.
+    users="$(_controller_effective "$state" "$base" | jq -c '.users // []')"
+    _controller_json_has "$users" "$user" && enabled=on
     printf 'enabled: %s   (Enter toggles)\n' "$enabled"
   fi
+  local sudo groups git_name git_email keys programs
+  local sudo_onoff='if .sudo then "on" else "off" end'
+  # The user's settings, each with its default.
+  sudo="$(printf '%s\n' "$user_effective" | jq -r "$sudo_onoff")"
+  groups="$(printf '%s\n' "$user_effective" \
+    | jq -r '(.groups // []) | join(", ")')"
+  git_name="$(printf '%s\n' "$user_effective" | jq -r '.git.name // "(unset)"')"
+  git_email="$(printf '%s\n' "$user_effective" \
+    | jq -r '.git.email // "(unset)"')"
+  keys="$(printf '%s\n' "$user_effective" \
+    | jq -r '(.ssh_authorized_keys // []) | length')"
+  programs="$(printf '%s\n' "$user_effective" \
+    | jq -r '(.programs // []) | join(", ")')"
   printf 'shell: %s   (Enter cycles)\n' "$(_controller_user_shell "$user")"
-  printf 'sudo: %s   (Enter toggles)\n' \
-    "$(jq -r 'if .sudo then "on" else "off" end' <<<"$user_effective")"
-  printf 'groups: %s   (Enter edits)\n' \
-    "$(jq -r '(.groups // []) | join(", ")
-              | if . == "" then "(none)" else . end' \
-      <<<"$user_effective")"
-  printf 'git name: %s   (Enter edits)\n' \
-    "$(jq -r '.git.name // "(unset)"' <<<"$user_effective")"
-  printf 'git email: %s   (Enter edits)\n' \
-    "$(jq -r '.git.email // "(unset)"' <<<"$user_effective")"
-  printf 'ssh keys: %s   (Enter edits)\n' \
-    "$(jq -r '(.ssh_authorized_keys // []) | length' <<<"$user_effective")"
-  printf 'programs: %s   (Enter edits)\n' \
-    "$(jq -r '(.programs // []) | join(", ")
-              | if . == "" then "(none)" else . end' \
-      <<<"$user_effective")"
+  printf 'sudo: %s   (Enter toggles)\n' "$sudo"
+  printf 'groups: %s   (Enter edits)\n' "${groups:-(none)}"
+  printf 'git name: %s   (Enter edits)\n' "$git_name"
+  printf 'git email: %s   (Enter edits)\n' "$git_email"
+  printf 'ssh keys: %s   (Enter edits)\n' "$keys"
+  printf 'programs: %s   (Enter edits)\n' "${programs:-(none)}"
   printf '%s\n' "⧉ Clone this user"
   _controller_user_is_committed "$user" || printf '%s\n' "✗ remove user"
   _controller_action_row "← Back"
@@ -324,28 +345,34 @@ _controller_list_user_field() {
     field="$(navigation_get "$navigation" field)"
   case "$(_controller_user_field_kind "$field")" in
   multi)
-    local selected option
-    selected="$(jq -c --arg f "$field" '.[$f] // []' \
-      <<<"$(_controller_user_effective "$user")")"
+    local option value
+    local -A selected=()
+    # The field's selected values, one per line.
+    while IFS= read -r value; do
+      [[ -n "$value" ]] && selected["$value"]=1
+    done < <(_controller_user_effective "$user" \
+      | jq -r --arg f "$field" '(.[$f] // [])[]')
     while IFS= read -r option; do
-      if jq -ne --argjson s "$selected" --arg o "$option" 'any($s[]; . == $o)' \
-          >/dev/null 2>&1; then printf '[x] %s\n' "$option"
+      if [[ -n "$option" && -n "${selected["$option"]:-}" ]]; then
+        printf '[x] %s\n' "$option"
       else printf '[ ] %s\n' "$option"; fi
     done < <(_controller_user_field_options "$field")
     _controller_action_row "← Back" ;;
   text)
     local current
     if [[ "$field" == git.* ]]; then
-      current="$(jq -r --arg k "${field#git.}" '.git[$k] // ""' \
-        <<<"$(_controller_user_effective "$user")")"
+      # The git setting (the key after "git."), empty when unset.
+      current="$(_controller_user_effective "$user" \
+        | jq -r --arg k "${field:4}" '.git[$k] // ""')"
       printf 'current: %s\n' "${current:-(unset)}"
     fi
     printf '%s\n' "(type above, Enter saves · Esc cancels)" ;;
   list)
     local key
-    while IFS= read -r key; do [[ -n "$key" ]] && printf '%s\n' "$key"; done \
-      < <(jq -r '(.ssh_authorized_keys // [])[]' \
-        <<<"$(_controller_user_effective "$user")")
+    while IFS= read -r key; do [[ -n "$key" ]] && printf '%s\n' "$key"
+    # The user's SSH keys, one per line.
+    done < <(_controller_user_effective "$user" \
+      | jq -r '(.ssh_authorized_keys // [])[]')
     _controller_action_row "+ Add SSH key" ;;
   esac
 }

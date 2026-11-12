@@ -36,6 +36,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 _seed_baseline() {
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
+  # The seeded defaults, with alice as the one user.
   config_state_seed_defaults "$(config_state_new)" \
     | jq -c '.users = ["alice"]' > "$GUIDED_BASELINE_FILE"
 }
@@ -56,7 +57,7 @@ mixed_programs_setup() {
   local spec cat name knd
   for spec in "bootloader/grub/host" "printing/cups/host" \
               "virtualization/docker/user" "security/borg/user"; do
-    IFS=/ read -r cat name knd <<<"$spec"
+    IFS=/ read -r cat name knd < <(printf '%s\n' "$spec")
     mkdir -p "$INSTALLER_DIR/programs/$cat/$name"
     printf '{"name":"%s","kind":"%s"}\n' "$name" "$knd" \
       > "$INSTALLER_DIR/programs/$cat/$name/config.jsonc"

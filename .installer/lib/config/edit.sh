@@ -45,6 +45,17 @@ edit_set_bool() {
   config_state_set "$state" "$path" "$value"
 }
 
+# edit_flip_bool <state> <path> <default> — the JSON bool at a dotted path
+# flipped; an unset bool flips from <default>. An explicit false stays false
+# until flipped (no jq `//`, which reads false as unset).
+edit_flip_bool() {
+  local state="$1" path="$2" current
+  current="$(config_state_get "$state" "$path")"
+  current="${current:-$3}"
+  if [[ "$current" == true ]]; then config_state_set "$state" "$path" false
+  else config_state_set "$state" "$path" true; fi
+}
+
 # edit_set_array <state> <path> <val...> — a JSON string array at a dotted path
 # (pick order preserved). rc 1 (unchanged) when nothing is passed.
 edit_set_array() {

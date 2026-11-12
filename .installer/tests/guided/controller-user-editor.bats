@@ -2,6 +2,7 @@
 # Tests: User Editor (split from controller.bats;
 # shared setup in controller-helpers.bash)
 
+load ../lib/json-helpers
 load controller-helpers
 
 
@@ -49,7 +50,7 @@ load controller-helpers
   set_navigation "$(navigation_to_user_edit Users alice)"
   run guided_controller_enter "enabled: on   (Enter toggles)"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.users == []'
 }
 
 @test "enter(useredit): shell cycles into an install-scoped override" {
@@ -62,7 +63,7 @@ load controller-helpers
   set_navigation "$(navigation_to_user_edit Users alice)"
   run guided_controller_enter "shell: bash   (Enter cycles)"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.alice.shell' "$GUIDED_USERFORMS_FILE")" = "/bin/zsh" ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" '.alice.shell == "/bin/zsh"'
   run guided_controller_list
   echo "$output" | grep -q "shell: zsh"        # display reflects the override
 }
@@ -77,7 +78,7 @@ load controller-helpers
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_user_edit Users alice)"
   run guided_controller_enter "shell: fish   (Enter cycles)"   # fish → wrap bash = committed
-  [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]     # strict delta: override gone
+  file_satisfies "$GUIDED_USERFORMS_FILE" '. == {}'     # strict delta: override gone
 }
 
 @test "enter(useredit): remove drops an ad-hoc user + returns to the list" {
@@ -88,8 +89,8 @@ load controller-helpers
   set_navigation "$(navigation_to_user_edit Users dave)"
   run guided_controller_enter "✗ remove user"
   [ "$output" = "render" ]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]
-  [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]     # its form cleared too
+  file_satisfies "$GUIDED_STATE_FILE" '.users == []'
+  file_satisfies "$GUIDED_USERFORMS_FILE" '. == {}'     # its form cleared too
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
 }
 
@@ -112,12 +113,12 @@ load controller-helpers
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_text Users __newuser__ "new user")"
   run guided_controller_enter "+ Create user (name)" "carol"
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","carol"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice","carol"]'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "carol" ]
   # seeded with the create defaults: User Core shell / sudo on / wheel
-  [ "$(jq -c '.carol' "$GUIDED_USERFORMS_FILE")" \
-    = '{"shell":"/bin/zsh","sudo":true,"groups":["wheel"]}' ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" \
+    '.carol == {"shell":"/bin/zsh","sudo":true,"groups":["wheel"]}'
 }
 
 @test "enter(text __newuser__): a duplicate name is refused with a notice" {
@@ -127,7 +128,7 @@ load controller-helpers
   set_navigation "$(navigation_to_text Users __newuser__ "new user")"
   run guided_controller_enter "+ Create user (name)" "alice"
   [[ "$output" == notice* ]]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice"]'   # unchanged
 }
 
 
@@ -175,7 +176,7 @@ load controller-helpers
   set_navigation "$(navigation_to_clone Users alice)"
   run guided_controller_enter "clone" "bob"
   [ "$output" = "render" ]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","bob"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice","bob"]'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
   # account-shape copied from the source's effective view
@@ -195,7 +196,7 @@ load controller-helpers
   set_navigation "$(navigation_to_clone Users alice)"
   run guided_controller_enter "clone" "alice"
   [[ "$output" == notice* ]]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice"]'   # unchanged
 }
 
 @test "enter(text __cloneuser__): a blank name backs out to the Users list" {
@@ -204,7 +205,7 @@ load controller-helpers
   run guided_controller_enter "clone" ""
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice"]'   # unchanged
 }
 
 
@@ -309,7 +310,7 @@ load controller-helpers
   set_navigation "$(navigation_to_user_edit Users dave)"
   run guided_controller_enter "sudo: off   (Enter toggles)"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.dave.sudo' "$GUIDED_USERFORMS_FILE")" = "true" ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" '.dave.sudo == true'
 }
 
 @test "enter(useredit): groups opens a userfield multi-select" {
@@ -328,7 +329,7 @@ load controller-helpers
   echo "$output" | grep -q "\[ \] docker"
   run guided_controller_enter "[ ] docker"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.dave.groups' "$GUIDED_USERFORMS_FILE")" = '["docker"]' ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" '.dave.groups == ["docker"]'
 }
 
 @test "enter(userfield git.name): a typed value commits + backs to the editor" {
@@ -336,7 +337,7 @@ load controller-helpers
   set_navigation "$(navigation_to_user_field Users dave git.name "git name")"
   run guided_controller_enter "" "Dave D"
   [ "$output" = "render" ]
-  [ "$(jq -r '.dave.git.name' "$GUIDED_USERFORMS_FILE")" = "Dave D" ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" '.dave.git.name == "Dave D"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
 }
 
@@ -346,8 +347,8 @@ load controller-helpers
   run guided_controller_enter "+ Add SSH key"
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "ssh.add" ]
   run guided_controller_enter "" "ssh-ed25519 AAAA"
-  [ "$(jq -c '.dave.ssh_authorized_keys' "$GUIDED_USERFORMS_FILE")" \
-    = '["ssh-ed25519 AAAA"]' ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" \
+    '.dave.ssh_authorized_keys == ["ssh-ed25519 AAAA"]'
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "ssh" ]   # back to the key list
 }
 
@@ -358,7 +359,7 @@ load controller-helpers
   set_navigation "$(navigation_to_user_field Users dave programs programs)"
   run guided_controller_enter "[ ] git"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.dave.programs' "$GUIDED_USERFORMS_FILE")" = '["git"]' ]
+  file_satisfies "$GUIDED_USERFORMS_FILE" '.dave.programs == ["git"]'
 }
 
 
@@ -372,7 +373,7 @@ load controller-helpers
   set_navigation "$(navigation_to_text Packages packages.repo.extra "extra packages")"
   run guided_controller_enter "" "htop"
   [ "$status" -eq 0 ]
-  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.repo.extra == ["htop"]'
 }
 
 @test "extra packages: a Menu-Owned name is not added, just informed" {
@@ -381,8 +382,8 @@ load controller-helpers
   run guided_controller_enter "" "cups"
   [ "$status" -eq 0 ]
   # cups is Menu-Owned (Services → printing): not promoted, not left a package.
-  [ "$(jq -c '.host_programs // []' "$GUIDED_STATE_FILE")" = '[]' ]
-  [ "$(jq -c '.packages.repo.extra // []' "$GUIDED_STATE_FILE")" = '[]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.host_programs // []) == []'
+  file_satisfies "$GUIDED_STATE_FILE" '(.packages.repo.extra // []) == []'
 }
 
 @test "extra packages: a mixed entry keeps the Menu-Owned name out of state" {
@@ -390,8 +391,8 @@ load controller-helpers
   set_navigation "$(navigation_to_text Packages packages.repo.extra "extra packages")"
   run guided_controller_enter "" "htop cups"
   [ "$status" -eq 0 ]
-  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
-  [ "$(jq -c '.host_programs // []' "$GUIDED_STATE_FILE")" = '[]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.repo.extra == ["htop"]'
+  file_satisfies "$GUIDED_STATE_FILE" '(.host_programs // []) == []'
 }
 
 @test "extra packages: routing reports where a Menu-Owned name went" {
@@ -443,5 +444,5 @@ load controller-helpers
   # committed has docker; toggling it off then on again lands back on committed
   guided_controller_enter "[x] docker" >/dev/null    # remove → override []
   run guided_controller_enter "[ ] docker"           # add back → equals committed
-  [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]   # strict delta: no override
+  file_satisfies "$GUIDED_USERFORMS_FILE" '. == {}'   # strict delta: no override
 }

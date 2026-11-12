@@ -7,6 +7,9 @@
 # Used by: lib/guided/controller.sh (sources it).
 # =============================================================================
 
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _controller_enter_swap_edit() {
   local line="$1" navigation cat; navigation="$(_controller_navigation)"; \
     cat="$(navigation_get "$navigation" category)"
@@ -15,41 +18,57 @@ _controller_enter_swap_edit() {
     _controller_write_navigation \
       "$(navigation_back "$navigation")"; echo render; return ;;
   "enabled:"*)
-    # flip options.swap; has("swap") keeps an explicit false from being read as
-    # the default true (jq `//` false-swallow gotcha).
-    _controller_write_state "$(jq '
-      (if (.options // {} | has("swap")) then .options.swap else true end) as $c
-      | .options.swap = ($c | not)' <<<"$(_controller_state)")"
+    # flip options.swap (default on)
+    _controller_write_state \
+      "$(edit_flip_bool "$(_controller_state)" options.swap true)"
     echo refresh; return ;;
   "size:"*)
     _controller_write_navigation \
       "$(navigation_to_text "$cat" options.swap_size "swap size")"
     echo render; return ;;
   "zswap:"*)
-    _controller_write_state "$(jq '
-      (if (.options.zswap // {} | has("enabled")) then .options.zswap.enabled
-       else true end) as $c
-      | .options.zswap.enabled = ($c | not)' <<<"$(_controller_state)")"
+    # flip options.zswap.enabled (default on)
+    _controller_write_state \
+      "$(edit_flip_bool "$(_controller_state)" options.zswap.enabled true)"
     echo refresh; return ;;
   "compressor:"*)
-    _controller_write_state "$(jq --arg default "$(install_config_default \
-        zswap_compressor)" '
-      (.options.zswap.compressor // $default) as $c
-      | .options.zswap.compressor =
-          ({"zstd":"lz4","lz4":"lzo","lzo":"zstd"}[$c] // $default)' \
-      <<<"$(_controller_state)")"
+    _controller_cycle_zswap compressor zstd lz4 lzo
     echo refresh; return ;;
   "max pool %:"*)
-    _controller_write_state "$(jq --argjson default "$(install_config_default \
-        zswap_max_pool_percent)" '
-      (.options.zswap.max_pool_percent // $default) as $p
-      | .options.zswap.max_pool_percent =
-          ({"5":10,"10":20,"20":40,"40":60,"60":5}[($p | tostring)]
-           // $default)' \
-      <<<"$(_controller_state)")"
+    _controller_cycle_zswap max_pool_percent 5 10 20 40 60
     echo refresh; return ;;
   esac
   echo refresh
+}
+
+# _controller_cycle_zswap <setting> <value>… — step options.zswap.<setting> to
+# the next value of the cycle, wrapping. An unset setting steps from its
+# install default; a value outside the cycle resets to that default.
+_controller_cycle_zswap() {
+  local setting="$1" state default current next
+  shift
+  state="$(_controller_state)"
+  default="$(install_config_default "zswap_${setting}")"
+  current="$(config_state_get "$state" "options.zswap.${setting}")"
+  current="${current:-$default}"
+  next="$default"
+  local value
+  for value in "$@"; do
+    [[ "$value" == "$current" ]] \
+      && next="$(_controller_cycle_next "$current" "$@")"
+  done
+  # The cycle's text values are JSON strings; its numbers stay numbers.
+  [[ "$setting" == compressor ]] && next="$(jq -n --arg v "$next" '$v')"
+  _controller_write_state \
+    "$(config_state_set "$state" "options.zswap.${setting}" "$next")"
+}
+
+# _controller_group_index <state> <list> <name> — the index of the group named
+# <name> in the state's <list> (data_pools or storage_groups); -1 if absent.
+_controller_group_index() {
+  local index_of='[(.[$list] // [])[] | .name] | (index($n) // -1)'
+  # The name's position among the list's group names.
+  printf '%s\n' "$1" | jq -r --arg list "$2" --arg n "$3" "$index_of"
 }
 
 # _controller_enter_data_pools <line> — the data-pools list editor: add a
@@ -76,10 +95,9 @@ _controller_enter_data_pools() {
       "$(navigation_to_pool_edit "$cat" 0 os)"; echo render; return ;;
   *" (storage):"*)
     # a preset storage group (binding-only): parse its name, resolve its index.
-    name="${line%% (storage):*}"
-    index="$(jq -r --arg n "$name" \
-      '[(.storage_groups // [])[] | .name] | (index($n) // -1)' \
-      <<<"$(_controller_state)")"
+    name="$(text_before "$line" " (storage):")"
+    index="$(_controller_group_index "$(_controller_state)" storage_groups \
+      "$name")"
     if [[ "$index" =~ ^[0-9]+$ ]]; then
       _controller_write_navigation \
         "$(navigation_to_pool_edit "$cat" "$index" storage)"
@@ -87,10 +105,8 @@ _controller_enter_data_pools() {
     fi
     echo refresh; return ;;
   esac
-  name="${line%%:*}"
-  index="$(jq -r --arg n "$name" \
-    '[(.data_pools // [])[] | .name] | (index($n) // -1)' \
-    <<<"$(_controller_state)")"
+  name="$(text_before "$line" ":")"
+  index="$(_controller_group_index "$(_controller_state)" data_pools "$name")"
   if [[ "$index" =~ ^[0-9]+$ ]]; then
     _controller_write_navigation \
       "$(navigation_to_pool_edit "$cat" "$index" data)"; echo render; return
@@ -143,12 +159,14 @@ _controller_enter_pool_edit() {
 _controller_cycle_pool_topology() {
   local kind="$1" index="$2" root_filesystem="$3" pool filesystem current next
   pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
-  filesystem="$(jq -r --arg r "$root_filesystem" '.filesystem // $r' \
-    <<<"$pool")"
-  current="$(jq -r '.topology // ""' <<<"$pool")"
+  # The group's own filesystem, else the root's.
+  filesystem="$(printf '%s\n' "$pool" \
+    | jq -r --arg r "$root_filesystem" '.filesystem // $r')"
+  # The group's topology, empty when unset.
+  current="$(printf '%s\n' "$pool" | jq -r '.topology // ""')"
   next="$(_controller_cycle_topology "$filesystem" "$current")"
   _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
-    "$kind" "$index" "$(jq -c --arg t "$next" '.topology = $t' <<<"$pool")")"
+    "$kind" "$index" "$(edit_set_scalar "$pool" topology "$next")")"
   echo refresh
 }
 
@@ -161,7 +179,9 @@ _controller_cycle_pool_topology() {
 _controller_cycle_pool_filesystem() {
   local kind="$1" index="$2" pool current next
   pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
-  current="$(jq -r '.filesystem // "zfs"' <<<"$pool")"  # raw-config-ok: a pool
+  # The group's filesystem, zfs by default.
+  current="$(printf '%s\n' "$pool" \
+    | jq -r '.filesystem // "zfs"')"  # raw-config-ok: a pool
   # shellcheck disable=SC2046 # word-split the built-fs list into cycle args
   next="$(_controller_cycle_next "$current" \
     $(_controller_built_root_filesystems))"
@@ -177,8 +197,7 @@ _controller_toggle_pool_encryption() {
   [[ "$kind" == "storage" ]] && { echo refresh; return; }
   pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
   _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
-    "$kind" "$index" \
-    "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$pool")")"
+    "$kind" "$index" "$(edit_flip_bool "$pool" encryption false)")"
   echo refresh
 }
 
@@ -187,19 +206,24 @@ _controller_toggle_pool_encryption() {
 # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
 # so the cycle is a no-op there; other filesystems cycle 1-8.
 _controller_cycle_pool_disks() {
-  local kind="$1" index="$2" category="$3" root_filesystem="$4" pool
+  local kind="$1" index="$2" category="$3" root_filesystem="$4"
+  local pool filesystem count
   if _controller_device_mode; then
     _controller_write_navigation \
       "$(navigation_to_pool_disks "$category" "$index" "$kind")"
     echo render; return
   fi
   pool="$(_controller_pool_get "$(_controller_state)" "$kind" "$index")"
+  # The group's own filesystem, else the root's.
+  filesystem="$(printf '%s\n' "$pool" \
+    | jq -r --arg r "$root_filesystem" '.filesystem // $r')"
+  # The group's disk count, 0 when unset.
+  count="$(printf '%s\n' "$pool" | jq -r '.disk_count // 0')"
+  if [[ "$filesystem" == ext4 || "$filesystem" == xfs ]]; then count=1
+  elif ((count >= 8)); then count=1
+  else count=$((count + 1)); fi
   _controller_write_state "$(_controller_pool_set "$(_controller_state)" \
-    "$kind" "$index" "$(jq -c --arg r "$root_filesystem" '
-      (.filesystem // $r) as $fs
-      | if ($fs == "ext4" or $fs == "xfs") then .disk_count = 1
-        else .disk_count |= (if . >= 8 then 1 else . + 1 end) end' \
-      <<<"$pool")")"
+    "$kind" "$index" "$(config_state_set "$pool" disk_count "$count")")"
   echo refresh
 }
 
@@ -207,8 +231,13 @@ _controller_cycle_pool_disks() {
 # matches the label tail (enumeration includes bound disks — they are still
 # physically present — so this resolves both a bind and an unbind).
 _controller_pool_disks_resolve() {
-  picker_enum_disks "$(_controller_live_set)" | awk -v t="$1" '
-    { n = $0; sub(/.*\//, "", n); if (n == t) { print; exit } }'
+  local path
+  while IFS= read -r path; do
+    if [[ "$(basename "$path")" == "$1" ]]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  done < <(picker_enum_disks "$(_controller_live_set)")
 }
 
 # _controller_line_to_disk <line> — the full by-id path a picked disk row
@@ -216,7 +245,9 @@ _controller_pool_disks_resolve() {
 # by-id tail (the segment after the last " · "), and resolve it. Empty when it
 # doesn't resolve.
 _controller_line_to_disk() {
-  local tail="${1:4}"; tail="${tail##* · }"
+  local tail
+  # The by-id tail: after the 4-char mark, the text after the last " · ".
+  tail="$(text_after_last "${1:4}" " · ")"
   _controller_pool_disks_resolve "$tail"
 }
 
@@ -281,14 +312,12 @@ _controller_data_pools_line_reference() {
   case "$line" in
   "OS pool:"* | "+ Add"* | "← Back") return 0 ;;
   *" (storage):"*)
-    name="${line%% (storage):*}"
-    index="$(jq -r --arg n "$name" \
-      '[(.storage_groups // [])[] | .name] | (index($n) // -1)' <<<"$state")"
+    name="$(text_before "$line" " (storage):")"
+    index="$(_controller_group_index "$state" storage_groups "$name")"
     [[ "$index" =~ ^[0-9]+$ ]] && printf 'storage %s' "$index" ;;
   *)
-    name="${line%%:*}"
-    index="$(jq -r --arg n "$name" \
-      '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$state")"
+    name="$(text_before "$line" ":")"
+    index="$(_controller_group_index "$state" data_pools "$name")"
     [[ "$index" =~ ^[0-9]+$ ]] && printf 'data %s' "$index" ;;
   esac
 }
@@ -375,7 +404,7 @@ _controller_remove_action() {
     # non-pool row (OS pool / + Add / ← Back) resolves to nothing → noop.
     reference="$(_controller_data_pools_line_reference "$line")"
     [[ -n "$reference" ]] || { echo noop; return; }
-    pool_kind="${reference%% *}"; index="${reference##* }"
+    read -r pool_kind index < <(printf '%s\n' "$reference")
     _controller_write_state "$(_controller_pool_delete "$(_controller_state)" \
       "$pool_kind" "$index")"
     echo refresh ;;

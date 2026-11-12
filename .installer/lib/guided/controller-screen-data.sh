@@ -23,15 +23,15 @@
 # offerable in one category: everything the effective view carries plus
 # everything the baseline declares there plus anything currently excluded (so
 # it can be re-checked).
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _controller_package_union() {
   local effective="$1" slot="$2" cat="$3" baseline
   baseline="$(_controller_baseline)"
-  jq -rn --argjson e "$effective" --argjson b "$baseline" \
-     --arg s "$slot" --arg k "$cat" '
-    (($e.packages[$s][$k] // []) + ($b.packages[$s][$k] // [])
-     + [($e.packages.exclude // [])[]
-        | select(. as $x | ($b.packages[$s][$k] // []) | index($x))])
-    | unique | .[]'
+  jq -r -n --argjson e "$effective" --argjson b "$baseline" \
+    --arg s "$slot" --arg k "$cat" \
+    -f "${BASH_SOURCE[0]%/*}/controller-package-union.jq"
 }
 
 # _controller_package_categories <effective> <slot> — the categories to list,
@@ -39,33 +39,38 @@ _controller_package_union() {
 # category still shows.
 _controller_package_categories() {
   local effective="$1" slot="$2" baseline
+  local categories='($e.packages[$s] // {}) + ($b.packages[$s] // {})'
+  categories+=' | keys | .[]'
   baseline="$(_controller_baseline)"
-  jq -rn --argjson e "$effective" --argjson b "$baseline" --arg s "$slot" '
-    (($e.packages[$s] // {}) + ($b.packages[$s] // {}))
-    | keys_unsorted | sort | .[]'
+  # The category names of both configs' slot, sorted, each once.
+  jq -r -n --argjson e "$effective" --argjson b "$baseline" --arg s "$slot" \
+    "$categories"
 }
 
 # _controller_package_slot_count <effective> <slot> — how many packages the slot
 # resolves to right now (post-exclusion), for the category row summary.
 _controller_package_slot_count() {
-  jq -rn --argjson e "$1" --arg s "$2" \
-    '[($e.packages[$s] // {}) | to_entries[]
-      | select(.value | type == "array") | .value[]] | unique | length'
+  local slot_count='[(.packages[$s] // {})[] | select(type == "array")'
+  slot_count+=' | .[]]'
+  slot_count+=' | unique | length'
+  # The number of distinct packages across the slot's category lists.
+  printf '%s\n' "$1" | jq -r --arg s "$2" "$slot_count"
 }
 
 # _controller_package_excluded <state> <pkg> — rc 0 when <pkg> is in
 # packages.exclude.
 _controller_package_excluded() {
-  jq -e --arg p "$2" '(.packages.exclude // []) | index($p)' \
-    <<<"$1" >/dev/null 2>&1
+  # The package's position in the exclude list (null when absent).
+  printf '%s\n' "$1" \
+    | jq -e --arg p "$2" '(.packages.exclude // []) | index($p)' >/dev/null 2>&1
 }
 
 # _controller_package_in_baseline <slot> <cat> <pkg> — rc 0 when the session
 # baseline declares it there.
 _controller_package_in_baseline() {
-  jq -e --arg s "$1" --arg k "$2" --arg p "$3" \
-    '(.packages[$s][$k] // []) | index($p)' \
-    <<<"$(_controller_baseline)" >/dev/null 2>&1
+  # The package's position in the baseline's category (null when absent).
+  _controller_baseline | jq -e --arg s "$1" --arg k "$2" --arg p "$3" \
+    '(.packages[$s][$k] // []) | index($p)' >/dev/null 2>&1
 }
 
 # _controller_package_derived <effective> — the Package Resolver's derived rows
@@ -73,14 +78,29 @@ _controller_package_in_baseline() {
 # inspector calls, so the menu's derived section and `explain-packages` cannot
 # drift.
 _controller_package_derived() {
-  package_resolver_resolve "$1" 2>/dev/null | awk -F'\t' '$2 == "derived"'
+  local source_name layer package
+  while IFS=$'\t' read -r source_name layer package; do
+    if [[ "$layer" == derived ]]; then
+      printf '%s\t%s\t%s\n' "$source_name" "$layer" "$package"
+    fi
+  done < <(package_resolver_resolve "$1" 2>/dev/null)
+}
+
+# _controller_derived_packages_of <rows> <source> — the packages <source>
+# derives, each once, from _controller_package_derived's rows.
+_controller_derived_packages_of() {
+  local source_name layer package
+  while IFS=$'\t' read -r source_name layer package; do
+    if [[ "$source_name" == "$2" ]]; then printf '%s\n' "$package"; fi
+  done < <(printf '%s\n' "$1") | sort -u
 }
 
 # _controller_package_derived_total <effective> — unique derived package count.
 _controller_package_derived_total() {
-  local total
-  total="$(_controller_package_derived "$1" | awk -F'\t' '{ print $3 }' \
-    | sort -u | grep -c .)"
+  local names total
+  # The derived package names, each once.
+  names="$(_controller_package_derived "$1" | cut -f3 | sort -u)"
+  total="$(printf '%s\n' "$names" | grep -c .)"
   printf '%s' "${total:-0}"
 }
 
@@ -91,18 +111,20 @@ _controller_package_derived_total() {
 # derivation change (GPU/DE/kernel/…) misses and recomputes. Falls back to a
 # live resolve when no cache file is wired (tests, non-menu callers).
 _controller_package_derived_names() {
-  local effective="$1" key cache_file names
+  local effective="$1" key cache_file names unbrowsed
   cache_file="${GUIDED_PKGDERIV_FILE:-}"
-  key="$(jq -cS 'del(.packages.repo.extra, .packages.aur.extra)' \
-    <<<"$effective" \
-    | cksum | awk '{ print $1 }')"
+  local without_added='del(.packages.repo.extra, .packages.aur.extra)'
+  # The config without the browse-add buckets.
+  unbrowsed="$(printf '%s\n' "$effective" | jq -c "$without_added")"
+  # The cache key: that config's checksum.
+  key="$(printf '%s\n' "$unbrowsed" | cksum | cut -d' ' -f1)"
   if [[ -n "$cache_file" && -s "$cache_file" \
-        && "$(awk 'NR == 1 { print; exit }' "$cache_file" 2>/dev/null)" \
-          == "$key" ]]; then
-    awk 'NR > 1' "$cache_file"; return 0
+        && "$(head -n 1 "$cache_file" 2>/dev/null)" == "$key" ]]; then
+    # The cached names, after the key line.
+    tail -n +2 "$cache_file"; return 0
   fi
-  names="$(_controller_package_derived "$effective" \
-    | awk -F'\t' '{ print $3 }' | sort -u)"
+  # The derived package names, each once.
+  names="$(_controller_package_derived "$effective" | cut -f3 | sort -u)"
   [[ -n "$cache_file" ]] \
     && { printf '%s\n' "$key"; printf '%s' "$names"; } >"$cache_file"
   printf '%s\n' "$names"
@@ -119,6 +141,7 @@ _controller_aur_list() {
   local list_file="${GUIDED_AURLIST_FILE:-}" list
   if [[ -n "$list_file" \
     && -s "$list_file" ]]; then cat "$list_file"; return 0; fi
+  # Every AUR package name: the published list, unpacked, comments dropped.
   list="$(curl -fsSL --connect-timeout 2 --max-time 8 \
     https://aur.archlinux.org/packages.gz 2>/dev/null \
     | gunzip 2>/dev/null | grep -v '^#')"
@@ -134,25 +157,19 @@ _controller_aur_list() {
 # is cached, so a transient timeout retries next hover. curl -g keeps the
 # literal arg[] query.
 _controller_aur_preview() {
-  local package="$1" cache_directory="${GUIDED_AURINFO_DIR:-}" cache_file \
-    json out
+  local package="$1" cache_directory="${GUIDED_AURINFO_DIR:-}" cache_file
+  local json out=""
   if [[ -n "$cache_directory" ]]; then
-    cache_file="$cache_directory/${package//\//_}"
+    # One cache file per package; a / in the name becomes _.
+    cache_file="$cache_directory/$(printf '%s' "$package" | tr / _)"
     [[ -s "$cache_file" ]] && { cat "$cache_file"; return 0; }
   fi
   json="$(curl -fsSL -g --connect-timeout 2 --max-time 2 \
     "https://aur.archlinux.org/rpc/v5/info?arg[]=${package}" 2>/dev/null)"
-  [[ -n "$json" ]] && out="$(jq -r '
-    .results[0] // empty
-    | "Name:        \(.Name)",
-      "Version:     \(.Version)",
-      "Description: \(.Description // "-")",
-      "Maintainer:  \(.Maintainer // "(orphaned)")",
-      "Votes:       \(.NumVotes)   Popularity: \(.Popularity)",
-      (if .OutOfDate then "⚠ OUT OF DATE" else empty end),
-      "URL:         \(.URL // "-")",
-      "AUR:         https://aur.archlinux.org/packages/\(.Name)"
-    ' <<<"$json" 2>/dev/null)"
+  if [[ -n "$json" ]]; then
+    out="$(printf '%s\n' "$json" \
+      | jq -r -f "${BASH_SOURCE[0]%/*}/controller-aur-info.jq" 2>/dev/null)"
+  fi
   if [[ -n "$out" ]]; then
     [[ -n "$cache_directory" ]] && printf '%s\n' "$out" >"$cache_file"
     printf '%s\n' "$out"
@@ -169,20 +186,25 @@ _controller_aur_preview() {
 # (os + storage + data pools, plus the single-disk root), one per line, so a
 # disk lives in exactly one place ("disappears everywhere" — ADR 0047).
 _controller_bound_disks() {
-  jq -r '[ (.os_pool.devices // [])[],
-           ((.storage_groups // [])[].devices // [])[],
-           ((.data_pools // [])[].devices // [])[],
-           (.root_disk // empty) ] | .[]' <<<"$1"
+  local bound='(.os_pool.devices // [])[],'
+  bound+=' ((.storage_groups // [])[].devices // [])[],'
+  bound+=' ((.data_pools // [])[].devices // [])[],'
+  bound+=' (.root_disk // empty)'
+  # Each pool's bound devices, then the root disk.
+  printf '%s\n' "$1" | jq -r "$bound"
 }
 
 # _controller_free_disks <state> — the Free Set: enumerated candidates (live
 # medium excluded) minus every already-bound disk, one per line.
 _controller_free_disks() {
-  local bound; bound="$(_controller_bound_disks "$1")"
-  picker_enum_disks "$(_controller_live_set)" | awk -v b="$bound" '
-    BEGIN { n = split(b, a, "\n"); for (i = 1; i <= n; i++)
-              if (a[i] != "") seen[a[i]] = 1 }
-    !seen[$0]'
+  local -A is_bound=()
+  local disk
+  while IFS= read -r disk; do
+    [[ -n "$disk" ]] && is_bound["$disk"]=1
+  done < <(_controller_bound_disks "$1")
+  while IFS= read -r disk; do
+    [[ -n "${is_bound["$disk"]:-}" ]] || printf '%s\n' "$disk"
+  done < <(picker_enum_disks "$(_controller_live_set)")
 }
 
 # _controller_disk_label <by-id-path> — the disk row label; delegates to the
@@ -193,11 +215,14 @@ _controller_disk_label() { picker_disk_label "$1"; }
 # _controller_pool_toggle_disk <group> <by-id-path> — flip the disk's membership
 # in the group's devices[], then re-derive disk_count as the number bound.
 _controller_pool_toggle_disk() {
-  jq -c --arg d "$2" '
-    (.devices // []) as $cur
-    | (if any($cur[]; . == $d) then ($cur - [$d])
-       else ($cur + [$d]) end) as $new
-    | .devices = $new | .disk_count = ($new | length)' <<<"$1"
+  local group="$1" disk="$2" devices
+  local toggled='(.devices // []) | if index($d)'
+  toggled+=' then . - [$d] else . + [$d] end'
+  local with_devices='.devices = $new | .disk_count = ($new | length)'
+  # The group's devices, the disk removed when bound and added when not.
+  devices="$(printf '%s\n' "$group" | jq -c --arg d "$disk" "$toggled")"
+  # The group with those devices and their count.
+  printf '%s\n' "$group" | jq -c --argjson new "$devices" "$with_devices"
 }
 
 # _controller_disks_row <group-json> <count-editable 0|1> — the pooledit
@@ -205,15 +230,16 @@ _controller_pool_toggle_disk() {
 # count-mode shows the 1-8 cycle when editable (OS pool, data pool, storage
 # group) or a plain count when not.
 _controller_disks_row() {
-  local pool="$1" editable="$2"
+  local pool="$1" editable="$2" bound count
+  # The number of bound devices, and the declared disk count ("?" if unset).
+  bound="$(printf '%s\n' "$pool" | jq -r '(.devices // []) | length')"
+  count="$(printf '%s\n' "$pool" | jq -r '.disk_count // "?"')"
   if _controller_device_mode; then
-    printf 'disks: %s bound   (Enter to edit)\n' \
-      "$(jq -r '(.devices // []) | length' <<<"$pool")"
+    printf 'disks: %s bound   (Enter to edit)\n' "$bound"
   elif [[ "$editable" == "1" ]]; then
-    printf 'disks: %s   (Enter cycles 1-8)\n' \
-      "$(jq -r '.disk_count // "?"' <<<"$pool")"
+    printf 'disks: %s   (Enter cycles 1-8)\n' "$count"
   else
-    printf 'disks: %s\n' "$(jq -r '.disk_count // "?"' <<<"$pool")"
+    printf 'disks: %s\n' "$count"
   fi
 }
 
@@ -223,25 +249,32 @@ _controller_disks_row() {
 # _controller_user_effective folds the userforms file. Pure over the effective
 # view.
 _controller_user_panel() {
-  local user="$1" effective git_name git_email
+  local user="$1" effective shell sudo groups programs git_name git_email keys
   effective="$(_controller_user_effective "$user")"
+  local sudo_onoff='if .sudo then "on" else "off" end'
+  local groups_text='(.groups // []) | join(", ")'
+  local programs_text='(.programs // [])'
+  programs_text+=' | if length == 0 then ""'
+  programs_text+=' else "\(length) · \(join(", "))" end'
+  # The panel's values, each with its default.
+  shell="$(printf '%s\n' "$effective" | jq -r '.shell // "/bin/zsh"')"
+  sudo="$(printf '%s\n' "$effective" | jq -r "$sudo_onoff")"
+  groups="$(printf '%s\n' "$effective" | jq -r "$groups_text")"
+  programs="$(printf '%s\n' "$effective" | jq -r "$programs_text")"
+  git_name="$(printf '%s\n' "$effective" | jq -r '.git.name // ""')"
+  git_email="$(printf '%s\n' "$effective" | jq -r '.git.email // ""')"
+  keys="$(printf '%s\n' "$effective" \
+    | jq -r '(.ssh_authorized_keys // []) | length')"
   printf '%s\n' "$user"
-  printf '  shell:    %s\n' "$(jq -r '.shell // "/bin/zsh"' <<<"$effective")"
-  printf '  sudo:     %s\n' \
-    "$(jq -r 'if .sudo then "on" else "off" end' <<<"$effective")"
-  printf '  groups:   %s\n' "$(jq -r \
-    '(.groups // []) | join(", ") | if . == "" then "(none)" else . end' \
-    <<<"$effective")"
-  printf '  programs: %s\n' "$(jq -r \
-    '(.programs // []) | if length == 0 then "(none)"
-       else "\(length) · \(join(", "))" end' <<<"$effective")"
-  git_name="$(jq -r '.git.name // ""' <<<"$effective")"
-  git_email="$(jq -r '.git.email // ""' <<<"$effective")"
+  printf '  shell:    %s\n' "$shell"
+  printf '  sudo:     %s\n' "$sudo"
+  printf '  groups:   %s\n' "${groups:-(none)}"
+  printf '  programs: %s\n' "${programs:-(none)}"
   [[ -n "$git_name" || -n "$git_email" ]] \
     && printf '  git:      %s <%s>\n' "$git_name" "$git_email"
-  printf '  ssh keys: %s\n' \
-    "$(jq -r '(.ssh_authorized_keys // []) | length' <<<"$effective")"
+  printf '  ssh keys: %s\n' "$keys"
 }
+
 
 # _controller_profile_tree <resolved-profile-json> — a deep ASCII tree of a
 # machine for the Profiles preview (ADR 0063): hostname; users expanded to
@@ -252,52 +285,34 @@ _controller_user_panel() {
 # the same ▸ / └─ tree style as _controller_layout_graph so previews feel
 # consistent.
 _controller_profile_tree() {
-  local prof="$1" user up sh grp
-  jq -r '.system.hostname // "(unnamed host)"' <<<"$prof"  # raw-config-ok
+  local profile="$1" user user_profile shell groups defaults any_zfs
+  # The host name.
+  printf '%s\n' "$profile" \
+    | jq -r '.system.hostname // "(unnamed host)"'  # raw-config-ok
   printf '  ▸ users\n'
   while IFS= read -r user; do
     [[ -n "$user" ]] || continue
-    up="$(profile_loader_load_user "$user" 2>/dev/null || printf '{}')"
-    [[ -n "$up" ]] || up='{}'
-    sh="$(jq -r '.shell // "/bin/zsh"' <<<"$up")"
-    grp="$(jq -r '(.groups // []) | join(", ")' <<<"$up")"
-    [[ -n "$grp" ]] || grp="-"
-    printf '      └─ %s  (%s · %s)\n' "$user" "$sh" "$grp"
-  done < <(jq -r '(.users // [])[]' <<<"$prof")
-  jq -r --argjson defaults "$(install_config_default_object kernels bootloader \
-    swap_size gpu)" \
-    --argjson any_zfs "$(install_config_from_json "$prof" any_zfs)" '
-    def onoff(v): if v == true then "on" else "off" end;
-    "  ▸ options",
-    "      └─ kernel: \((.options.kernel // $defaults.options.kernel)
-       | if type == "array" then join(", ") else . end)",
-    "      └─ bootloader: \(.options.bootloader
-       // $defaults.options.bootloader)",
-    "      └─ encryption: \(onoff(.options.encryption))",
-    "      └─ impermanence: \(onoff(.options.impermanence.enabled))",
-    "      └─ swap: \(if .options.swap == false then "off"
-       else (.options.swap_size // $defaults.options.swap_size) end)",
-    "      └─ ssh: \(onoff(.options.ssh.enabled))",
-    "  ▸ environment",
-    "      └─ desktop: \((.environment.desktop // [])
-       | if type == "array"
-         then (if length == 0 then "(none)" elif length == 1 then .[0]
-               else ([.[0] + " (default)"] + .[1:] | join(", ")) end)
-         else . end)",
-    "      └─ gpu: \(.environment.gpu // $defaults.environment.gpu
-       | if type == "array" then join(", ") else . end)",
-    "  ▸ security",
-    "      └─ firewall: \(.post_install.security.firewall // "none")",
-    "      └─ antivirus: \(onoff(.post_install.security.antivirus))",
-    "      └─ rootkit: \(onoff(.post_install.security.rootkit))",
-    "      └─ apparmor: \(onoff(.post_install.security.apparmor))",
-    "  ▸ backup",
-    "      └─ snapshots: \(if $any_zfs
-       then onoff(.post_install.backup.zfs_auto_snapshot)
-       else "off (no ZFS)" end)",
-    "      └─ borg: \(onoff(.post_install.backup.borg))"
-  ' <<<"$prof"
+    user_profile="$(profile_loader_load_user "$user" 2>/dev/null \
+      || printf '{}')"
+    [[ -n "$user_profile" ]] || user_profile='{}'
+    # The user's shell and groups.
+    shell="$(printf '%s\n' "$user_profile" | jq -r '.shell // "/bin/zsh"')"
+    groups="$(printf '%s\n' "$user_profile" \
+      | jq -r '(.groups // []) | join(", ")')"
+    printf '      └─ %s  (%s · %s)\n' "$user" "$shell" "${groups:--}"
+  # The profile's users, one per line.
+  done < <(printf '%s\n' "$profile" | jq -r '(.users // [])[]')
+  defaults="$(install_config_default_object kernels bootloader swap_size gpu)"
+  any_zfs="$(install_config_from_json "$profile" any_zfs)"
+  printf '%s\n' "$profile" \
+    | jq -r --argjson defaults "$defaults" --argjson any_zfs "$any_zfs" \
+      -f "${BASH_SOURCE[0]%/*}/controller-profile-tree.jq"
   printf '  ▸ disks\n'
-  _controller_layout_graph "$prof" \
-    | while IFS= read -r _l; do printf '      %s\n' "$_l"; done
+  _controller_layout_graph "$profile" | _controller_tree_indent
+}
+
+# _controller_tree_indent — stdin's lines, each indented under a tree branch.
+_controller_tree_indent() {
+  local line
+  while IFS= read -r line; do printf '      %s\n' "$line"; done
 }

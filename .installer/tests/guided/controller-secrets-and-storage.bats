@@ -2,6 +2,7 @@
 # Tests: secrets, encryption, mirrors (split from controller.bats;
 # shared setup in controller-helpers.bash)
 
+load ../lib/json-helpers
 load controller-helpers
 
 
@@ -42,7 +43,7 @@ load controller-helpers
   set_navigation "$(navigation_to_secret Users root "" confirm)"
   run guided_controller_enter ""
   [ "$output" = "render" ]
-  [ "$(jq -r '.root_password' "$GUIDED_SECRETS_FILE")" = "hunter2" ]
+  file_satisfies "$GUIDED_SECRETS_FILE" '.root_password == "hunter2"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ -z "$(cat "$GUIDED_PWBUF_FILE")" ]
 }
@@ -55,7 +56,7 @@ load controller-helpers
   run guided_controller_enter ""
   [ "$output" = "secret-mismatch" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
-  [ "$(jq -r '.root_password // "unset"' "$GUIDED_SECRETS_FILE")" = "unset" ]
+  file_satisfies "$GUIDED_SECRETS_FILE" '(.root_password // "unset") == "unset"'
 }
 
 @test "enter(secret entry): an empty password is refused" {
@@ -78,7 +79,7 @@ load controller-helpers
   guided_controller_enter "" >/dev/null                 # entry → confirm
   printf 'davepw' > "$GUIDED_PWBUF_FILE"
   guided_controller_enter "" >/dev/null                 # confirm → save
-  [ "$(jq -r '.users.dave.password' "$GUIDED_SECRETS_FILE")" = "davepw" ]
+  file_satisfies "$GUIDED_SECRETS_FILE" '.users.dave.password == "davepw"'
 }
 
 
@@ -151,12 +152,12 @@ load controller-helpers
   set_navigation "$(navigation_to_encryption Disks)"           # has the default to compare to
   run guided_controller_enter "enabled: off"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.encryption == true'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
   # toggling back to the baseline drops the override (strict delta)
   run guided_controller_enter "enabled: on"
   [ "$output" = "refresh" ]
-  [ "$(jq 'getpath(["options","encryption"]) == null' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" 'getpath(["options","encryption"]) == null'
 }
 
 @test "enter(encryption): password opens the inline capture (rich chrome)" {
@@ -206,7 +207,7 @@ load controller-helpers
   guided_controller_enter "" >/dev/null                  # entry → confirm
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
   guided_controller_enter "" >/dev/null                  # confirm → save
-  [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
+  file_satisfies "$GUIDED_SECRETS_FILE" '.enc_passphrase == "corrhorse"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
 }
 
@@ -217,7 +218,7 @@ load controller-helpers
   guided_controller_enter "password: default 12345678" >/dev/null
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_controller_enter "" >/dev/null
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_controller_enter "" >/dev/null
-  [ "$(jq -r '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.encryption == true'
 }
 
 @test "encryption editor: a stored passphrase survives an off→on toggle" {
@@ -306,7 +307,7 @@ load controller-helpers
   set_navigation "$(navigation_to_impermanence Disks)"
   run guided_controller_enter "enabled: off"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.options.impermanence.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.impermanence.enabled == true'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
 }
 
@@ -336,7 +337,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_text Disks __persist__ "persist dir")"
   run guided_controller_enter "" "/srv/x"
-  [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/srv/x"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.persist.directories == ["/srv/x"]'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
 }
 
@@ -354,9 +355,9 @@ load controller-helpers
   set_navigation "$(navigation_to_impermanence Disks)"
   run guided_controller_enter "/srv/a"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/srv/b"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.persist.directories == ["/srv/b"]'
   # the enabled flag is left untouched
-  [ "$(jq -c '.options.impermanence.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.impermanence.enabled == true'
 }
 
 
@@ -396,8 +397,8 @@ load controller-helpers
   set_navigation "$(navigation_to_text "Mirrors & Repositories" options.mirror_servers \
     "custom servers")"
   run guided_controller_enter "+ Add server" "https://mirror.example/repo"
-  [ "$(jq -r '.options.mirror_servers[0]' "$GUIDED_STATE_FILE")" \
-    = "https://mirror.example/repo" ]
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.options.mirror_servers[0] == "https://mirror.example/repo"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
 }
 
@@ -416,13 +417,13 @@ load controller-helpers
   set_navigation "$(navigation_to_text "Mirrors & Repositories" options.custom_repositories \
     "custom repositories")"
   run guided_controller_enter "+ Add repository" "myrepo https://r Optional TrustAll"
-  [ "$(jq -r '.options.custom_repositories[0].name' "$GUIDED_STATE_FILE")" \
-    = "myrepo" ]
-  [ "$(jq -r '.options.custom_repositories[0].url' "$GUIDED_STATE_FILE")" \
-    = "https://r" ]
-  [ "$(jq -r '.options.custom_repositories[0].sign_check' "$GUIDED_STATE_FILE")" \
-    = "Optional" ]
-  [ "$(jq -r '.options.custom_repositories[0].sign_option' "$GUIDED_STATE_FILE")" \
-    = "TrustAll" ]
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.options.custom_repositories[0].name == "myrepo"'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.options.custom_repositories[0].url == "https://r"'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.options.custom_repositories[0].sign_check == "Optional"'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.options.custom_repositories[0].sign_option == "TrustAll"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
 }

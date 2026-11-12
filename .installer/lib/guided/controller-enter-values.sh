@@ -81,7 +81,10 @@ _controller_enter_users_value() {
   # inline masked screen (ADR 0051); on an older fzf fall back to the
   # execute() masked prompt (ADR 0049).
   if [[ "$line" == *"password ("* ]]; then
-    local user="${line#*password (}"; user="${user%%)*}"
+    local user
+    # The user name between "password (" and ")".
+    user="$(text_after "$line" "password (")"
+    user="$(text_before "$user" ")")"
     if _controller_rich_chrome; then _controller_open_secret user "$user"
     else echo "secret-user $user"; fi
     return
@@ -96,7 +99,7 @@ _controller_enter_users_value() {
   # "name — shell · pw …" (enabled) or "name — disabled", so the name is the
   # text before the " — " separator.
   _controller_write_navigation \
-    "$(navigation_to_user_edit "$category" "${line%% — *}")"
+    "$(navigation_to_user_edit "$category" "$(text_before "$line" " — ")")"
   echo render
 }
 
@@ -132,7 +135,7 @@ _controller_enter_layout_value() {
     # "data-pools" is the door to the editor (the pools live under layout, not
     # a separate row): seed one pool if there are none yet, then open the
     # editor.
-    [[ "$(jq '(.data_pools // []) | length' <<<"$(_controller_state)")" \
+    [[ "$(_controller_state | jq '(.data_pools // []) | length')" \
         == "0" ]] \
       && _controller_write_state "$(_controller_add_data_pool \
         "$(_controller_state)")"
@@ -152,7 +155,7 @@ _controller_enter_layout_value() {
   fi
   # A multi preset drops into the unified editor to bind disks / tweak pools;
   # single applies and backs out to the category (ADR 0047).
-  if [[ "$(jq -r '.mode // "single"' <<<"$(_controller_state)")" \
+  if [[ "$(_controller_state | jq -r '.mode // "single"')" \
         == "multi" ]]; then
     _controller_write_navigation "$(navigation_to_data_pools "$category")"
   else
@@ -234,9 +237,11 @@ _controller_text_return() {
 _controller_enter_pool_mount() {
   local query="$1" navigation="$2" category="$3" index
   index="$(navigation_get "$navigation" index)"
-  [[ -n "$query" ]] \
-    && _controller_write_state "$(jq --argjson i "$index" --arg m "$query" \
-      '.data_pools[$i].mount = $m' <<<"$(_controller_state)")"
+  if [[ -n "$query" ]]; then
+    # The state with the typed mount on that data pool.
+    _controller_write_state "$(_controller_state \
+      | jq --argjson i "$index" --arg m "$query" '.data_pools[$i].mount = $m')"
+  fi
   _controller_write_navigation \
     "$(navigation_to_pool_edit "$category" "$index" data)"
   echo render
@@ -252,8 +257,9 @@ _controller_enter_new_user() {
   _controller_accept_new_user_name "$name" "$category" || return 0
   _controller_append_user "$name"
   if [[ -n "${GUIDED_USERFORMS_FILE:-}" ]]; then
+    # The default shell as a JSON string.
     guided_userform_set "$GUIDED_USERFORMS_FILE" "$name" shell \
-      "$(jq -Rn --arg s "$(_controller_default_user_shell)" '$s')"
+      "$(jq -n --arg s "$(_controller_default_user_shell)" '$s')"
     guided_userform_set "$GUIDED_USERFORMS_FILE" "$name" sudo 'true'
     guided_userform_set "$GUIDED_USERFORMS_FILE" "$name" groups '["wheel"]'
   fi
@@ -289,20 +295,31 @@ _controller_accept_new_user_name() {
     echo "notice ⚠ ${problem}"
     return 1
   fi
-  if _controller_user_is_committed "$name" || jq -e --arg v "$name" \
-      '(.users // []) | any(. == $v)' \
-      <<<"$(_controller_effective "$(_controller_state)" \
-        "$(_controller_baseline)")" >/dev/null; then
+  local users
+  users="$(_controller_effective_users)"
+  # The name is already in the effective user list.
+  if _controller_user_is_committed "$name" \
+    || printf '%s\n' "$users" \
+      | jq -e --arg v "$name" 'any(.[]; . == $v)' >/dev/null; then
     echo "notice ⚠ user '${name}' already exists — pick another name"
     return 1
   fi
 }
 
+# _controller_effective_users — the effective user names, a JSON array.
+_controller_effective_users() {
+  local effective
+  effective="$(_controller_effective "$(_controller_state)" \
+    "$(_controller_baseline)")"
+  # The users, none by default.
+  printf '%s\n' "$effective" | jq -c '.users // []'
+}
+
 # _controller_append_user <name> — add <name> to the effective users list.
 _controller_append_user() {
   local users_json
-  users_json="$(jq -c '.users // []' <<<"$(_controller_effective \
-    "$(_controller_state)" "$(_controller_baseline)")")"
+  users_json="$(_controller_effective_users)"
+  # The user list with the name added at the end.
   _controller_write_state "$(config_state_set "$(_controller_state)" users \
     "$(jq -cn --arg v "$1" --argjson a "$users_json" '$a + [$v]')")"
 }
@@ -325,14 +342,10 @@ _controller_enter_encryption() {
     _controller_write_navigation \
       "$(navigation_back "$navigation")"; echo render; return ;;
   "enabled:"*)
-    # flip options.encryption; has() keeps an explicit value from being read as
-    # the default (false). Normalise so toggling back to the baseline (off)
-    # leaves no override, exactly like the values-screen edit.
+    # flip options.encryption (default off). Normalise so toggling back to the
+    # baseline (off) leaves no override, exactly like the values-screen edit.
     local _flipped
-    _flipped="$(jq '
-      (if (.options // {} | has("encryption")) then .options.encryption
-       else false end) as $c
-      | .options.encryption = ($c | not)' <<<"$(_controller_state)")"
+    _flipped="$(edit_flip_bool "$(_controller_state)" options.encryption false)"
     _controller_write_state \
       "$(_controller_normalise_default "$_flipped" options.encryption)"
     echo refresh; return ;;
@@ -358,10 +371,8 @@ _controller_enter_impermanence() {
       "$(navigation_back "$navigation")"; echo render; return ;;
   "enabled:"*)
     local _flipped
-    _flipped="$(jq '
-      (if (.options.impermanence // {} | has("enabled"))
-       then .options.impermanence.enabled else false end) as $c
-      | .options.impermanence.enabled = ($c | not)' <<<"$(_controller_state)")"
+    _flipped="$(edit_flip_bool "$(_controller_state)" \
+      options.impermanence.enabled false)"
     _controller_write_state \
       "$(_controller_normalise_default "$_flipped" \
         options.impermanence.enabled)"

@@ -10,9 +10,13 @@
 # _controller_sysctl_lines <state> <base> → the current sysctl pairs
 # ("key=value"), one per line, from the effective view (so the seeded
 # vm.swappiness=10 shows up).
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _controller_sysctl_lines() {
-  jq -r '(.sysctl // {}) | to_entries[] | "\(.key)=\(.value)"' \
-    <<<"$(_controller_effective "$1" "$2")"
+  local pairs='(.sysctl // {}) | to_entries[] | "\(.key)=\(.value)"'
+  # One "key=value" line per sysctl.
+  _controller_effective "$1" "$2" | jq -r "$pairs"
 }
 
 # _controller_user_names → committed user names (users/<name>/profile.jsonc,
@@ -23,8 +27,7 @@ _controller_user_names() {
   local user_directory user
   for user_directory in "${INSTALLER_DIR:-.}"/users/*/; do
     [[ -d "$user_directory" ]] || continue
-    user="${user_directory%/}"
-    user="${user##*/}"
+    user="$(basename "$user_directory")"
     [[ "$user" == "core" || "$user" == vm-* ]] && continue
     [[ -f "${user_directory}profile.jsonc" ]] && printf '%s\n' "$user"
   done
@@ -36,24 +39,25 @@ _controller_user_names() {
 # so a name typed into the menu lands in the same shell a declared user would.
 _controller_default_user_shell() {
   local shell="" core_profile="${INSTALLER_DIR:-}/users/core/profile.jsonc"
-  [[ -n "${INSTALLER_DIR:-}" && -f "$core_profile" ]] \
-    && shell="$(_program_registry_parse "$core_profile" 2>/dev/null \
-          | jq -r '.shell // empty' 2>/dev/null)"
+  if [[ -n "${INSTALLER_DIR:-}" && -f "$core_profile" ]]; then
+    # User Core's shell, empty when it declares none.
+    shell="$(_program_registry_parse "$core_profile" 2>/dev/null \
+      | jq -r '.shell // empty' 2>/dev/null)"
+  fi
   printf '%s' "${shell:-/bin/zsh}"
 }
 
 # _controller_user_shell_full <name> — the effective login shell PATH: the User
-# Editor's
-# install-scoped override (userforms file) if set, else the committed User
-# Profile's shell merged over User Core, else the User Core default (an ad-hoc
-# name with no committed profile). The single source of truth the list display,
-# the editor row, and the shell cycle all read.
+# Editor's install-scoped override (userforms file) if set, else the committed
+# User Profile's shell merged over User Core, else the User Core default (an
+# ad-hoc name with no committed profile). The single source of truth the list
+# display, the editor row, and the shell cycle all read.
 _controller_user_shell_full() {
   local user="$1" shell=""
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && shell="$(guided_userform_field "$GUIDED_USERFORMS_FILE" "$user" shell)"
-  if [[ -z "$shell" && -n "${INSTALLER_DIR:-}" \
-     && -f "${INSTALLER_DIR}/users/${user}/profile.jsonc" ]]; then
+  if [[ -z "$shell" ]] && _controller_user_is_committed "$user"; then
+    # The committed profile's shell, empty when it sets none.
     shell="$(profile_loader_load_user "$user" 2>/dev/null \
       | jq -r '.shell // empty' 2>/dev/null)"
   fi
@@ -65,7 +69,7 @@ _controller_user_shell_full() {
 # row.
 _controller_user_shell() {
   local shell; shell="$(_controller_user_shell_full "$1")"
-  printf '%s' "${shell##*/}"
+  printf '%s' "$(text_after_last "$shell" "/")"
 }
 
 # _controller_root_shell_full — root's effective login shell PATH (ADR 0054):
@@ -82,7 +86,7 @@ _controller_root_shell_full() {
 # row.
 _controller_root_shell() {
   local shell; shell="$(_controller_root_shell_full)"; printf '%s' \
-    "${shell##*/}"
+    "$(text_after_last "$shell" "/")"
 }
 
 # _controller_root_shell_committed — the baseline (launch-state) root shell, or
@@ -118,6 +122,7 @@ _controller_user_effective() {
   committed="$(_controller_user_committed "$user")"
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && form="$(guided_userform_get "$GUIDED_USERFORMS_FILE" "$user")"
+  # The committed profile with the override merged over it.
   jq -n --argjson c "$committed" --argjson f "$form" '$c * $f'
 }
 
@@ -149,7 +154,9 @@ _controller_user_field_options() {
 _controller_user_form_set_strict() {
   local user="$1" key="$2" new="$3" committed="$4"
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || return 0
-  if [[ "$(jq -cS . <<<"$new")" == "$(jq -cS . <<<"$committed")" ]]; then
+  # The new value equals the committed one (jq's == ignores key order).
+  if printf '%s\n' "$new" \
+    | jq -e --argjson c "$committed" '. == $c' >/dev/null; then
     guided_userform_unset "$GUIDED_USERFORMS_FILE" "$user" "$key"
   else
     guided_userform_set "$GUIDED_USERFORMS_FILE" "$user" "$key" "$new"
@@ -165,17 +172,19 @@ _controller_user_form_set_strict() {
 # without a userforms file (non-persistent contexts): the name is still created,
 # just without a delta.
 _controller_clone_seed() {
-  local source_user="$1" new="$2" effective
+  local source_user="$1" new="$2" effective shell sudo groups programs
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || return 0
   effective="$(_controller_user_effective "$source_user")"
-  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" shell \
-    "$(jq -Rn --arg s "$(_controller_user_shell_full "$source_user")" '$s')"
-  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" sudo \
-    "$(jq -c 'if .sudo then true else false end' <<<"$effective")"
-  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" groups \
-    "$(jq -c '.groups // []' <<<"$effective")"
-  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" programs \
-    "$(jq -c '.programs // []' <<<"$effective")"
+  # The source's account-shape as JSON: shell, sudo, groups, programs.
+  shell="$(jq -n --arg s "$(_controller_user_shell_full "$source_user")" '$s')"
+  sudo="$(printf '%s\n' "$effective" \
+    | jq -c 'if .sudo then true else false end')"
+  groups="$(printf '%s\n' "$effective" | jq -c '.groups // []')"
+  programs="$(printf '%s\n' "$effective" | jq -c '.programs // []')"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" shell "$shell"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" sudo "$sudo"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" groups "$groups"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" programs "$programs"
 }
 
 # _controller_user_field_toggle_multi <user> <field> <value> — flip <value> in
@@ -184,11 +193,11 @@ _controller_clone_seed() {
 _controller_user_field_toggle_multi() {
   local user="$1" field="$2" value="$3" effective current new committed
   effective="$(_controller_user_effective "$user")"
-  current="$(jq -c --arg f "$field" '.[$f] // []' <<<"$effective")"
-  new="$(jq -cn --argjson a "$current" --arg v "$value" \
-    'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
-  committed="$(jq -c --arg f "$field" '.[$f] // []' \
-    <<<"$(_controller_user_committed "$user")")"
+  # The field's effective and committed arrays.
+  current="$(printf '%s\n' "$effective" | jq -c --arg f "$field" '.[$f] // []')"
+  committed="$(_controller_user_committed "$user" \
+    | jq -c --arg f "$field" '.[$f] // []')"
+  new="$(_controller_json_toggled "$current" "$value")"
   _controller_user_form_set_strict "$user" "$field" "$new" "$committed"
 }
 
@@ -197,10 +206,13 @@ _controller_user_field_toggle_multi() {
 # git). An empty value drops that sub-key.
 _controller_user_field_set_git() {
   local user="$1" sub="$2" value="$3" current committed new
-  current="$(jq -c '.git // {}' <<<"$(_controller_user_effective "$user")")"
-  committed="$(jq -c '.git // {}' <<<"$(_controller_user_committed "$user")")"
-  new="$(jq -c --arg k "$sub" --arg v "$value" \
-    'if $v == "" then del(.[$k]) else .[$k] = $v end' <<<"$current")"
+  local set_or_drop='if $v == "" then del(.[$k]) else .[$k] = $v end'
+  # The effective and committed git objects.
+  current="$(_controller_user_effective "$user" | jq -c '.git // {}')"
+  committed="$(_controller_user_committed "$user" | jq -c '.git // {}')"
+  # The git object with the sub-key set, or dropped when the value is empty.
+  new="$(printf '%s\n' "$current" \
+    | jq -c --arg k "$sub" --arg v "$value" "$set_or_drop")"
   _controller_user_form_set_strict "$user" git "$new" "$committed"
 }
 
@@ -210,11 +222,12 @@ _controller_user_field_set_git() {
 _controller_user_field_add_ssh() {
   local user="$1" key="$2" current committed new
   [[ -n "$key" ]] || return 0
-  current="$(jq -c '.ssh_authorized_keys // []' \
-    <<<"$(_controller_user_effective "$user")")"
-  new="$(jq -c --arg k "$key" '. + [$k]' <<<"$current")"
-  committed="$(jq -c '.ssh_authorized_keys // []' \
-    <<<"$(_controller_user_committed "$user")")"
+  # The effective and committed key lists, then the effective with the key.
+  current="$(_controller_user_effective "$user" \
+    | jq -c '.ssh_authorized_keys // []')"
+  committed="$(_controller_user_committed "$user" \
+    | jq -c '.ssh_authorized_keys // []')"
+  new="$(printf '%s\n' "$current" | jq -c --arg k "$key" '. + [$k]')"
   _controller_user_form_set_strict "$user" ssh_authorized_keys "$new" \
     "$committed"
 }
@@ -223,17 +236,22 @@ _controller_user_field_add_ssh() {
 # user UNION the currently-selected names (so a just-created name shows), each
 # marked [x]/[ ] by membership in the effective .users.
 _controller_user_marked() {
-  local selected option
-  selected="$(jq -c '.users // []' <<<"$(_controller_effective "$1" "$2")")"
-  { _controller_user_names; jq -r '.[]' <<<"$selected"; } | awk '!seen[$0]++' \
-  | while IFS= read -r option; do
-      if jq -ne --argjson s "$selected" --arg o "$option" 'any($s[]; . == $o)' \
-          >/dev/null 2>&1; then
-        printf '[x] %s\n' "$option"
-      else
-        printf '[ ] %s\n' "$option"
-      fi
-    done
+  local name
+  local -a selected=()
+  local -A is_selected=() seen=()
+  # The effective user names, one per line.
+  mapfile -t selected < <(_controller_effective "$1" "$2" \
+    | jq -r '(.users // [])[]')
+  for name in "${selected[@]}"; do
+    [[ -n "$name" ]] && is_selected["$name"]=1
+  done
+  # The committed names, then the selected ones, each once.
+  while IFS= read -r name; do
+    [[ -z "$name" || -n "${seen["$name"]:-}" ]] && continue
+    seen["$name"]=1
+    if [[ -n "${is_selected["$name"]:-}" ]]; then printf '[x] %s\n' "$name"
+    else printf '[ ] %s\n' "$name"; fi
+  done < <(_controller_user_names; printf '%s\n' "${selected[@]}")
 }
 
 # _controller_toggle_users <state> <base> <name> — flip <name> in the effective
@@ -241,12 +259,11 @@ _controller_user_marked() {
 # and never unset, so toggling the last user off truly yields an empty user
 # list.
 _controller_toggle_users() {
-  local state="$1" base="$2" name="$3" current new
-  current="$(jq -c '.users // []' \
-    <<<"$(_controller_effective "$state" "$base")")"
-  new="$(jq -cn --argjson a "$current" --arg v "$name" \
-    'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
-  config_state_set "$state" users "$new"
+  local state="$1" base="$2" name="$3" current
+  # The effective user names.
+  current="$(_controller_effective "$state" "$base" | jq -c '.users // []')"
+  config_state_set "$state" users \
+    "$(_controller_json_toggled "$current" "$name")"
 }
 
 # _controller_field_for_label <category> <label> → the dotted path of the row
@@ -258,15 +275,16 @@ _controller_field_for_label() {
   while IFS=$'\t' read -r field label; do
     [[ "$(display_label "$label")" == "$want" ]] \
       && { printf '%s' "$field"; return; }
+  # One "field<TAB>label" line per row of the category.
   done < <(menu_category_rows "$cat" "$(_controller_state)" \
-    "$(_controller_baseline)" \
-    | jq -r '.[] | [.field, .label] | @tsv')
+    "$(_controller_baseline)" | jq -r '.[] | "\(.field)\t\(.label)"')
 }
 
 # _controller_field_display <path> <state> <base> → the field's menu-displayed
 # value (effective value, else its menu default), so the text screen's
 # "current:" hint reflects a defaulted field (e.g. 2G) instead of "(unset)".
 _controller_field_display() {
-  menu_rows "$2" "$3" \
-    | jq -r --arg p "$1" 'first(.[] | select(.field == $p) | .value) // ""'
+  local field_value='first(.[] | select(.field == $p) | .value) // ""'
+  # The displayed value of the field's row.
+  menu_rows "$2" "$3" | jq -r --arg p "$1" "$field_value"
 }

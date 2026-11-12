@@ -2,6 +2,7 @@
 # Tests: pools, swap and big lists (split from controller.bats;
 # shared setup in controller-helpers.bash)
 
+load ../lib/json-helpers
 load controller-helpers
 
 
@@ -18,8 +19,8 @@ load controller-helpers
   run guided_controller_enter "data-pools"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
-  [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
-  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].name == "tank0"'
+  file_satisfies "$GUIDED_STATE_FILE" '.mode == "multi"'
 }
 
 @test "enter(values __layout__): re-entering data-pools adds no second pool" {
@@ -28,18 +29,18 @@ load controller-helpers
   set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_enter "data-pools"
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
-  [ "$(jq '.data_pools | length' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.data_pools | length) == 1'
 }
 
 @test "enter(datapools): + Add appends tank0 (single-disk stripe ×1) and forces multi" {
   set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "+ Add data pool"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
-  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "stripe" ]
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
-  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
-  [ -n "$(jq -r '.os_pool.pool_name' "$GUIDED_STATE_FILE")" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].name == "tank0"'
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].topology == "stripe"'
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].disk_count == 1'
+  file_satisfies "$GUIDED_STATE_FILE" '.mode == "multi"'
+  file_satisfies "$GUIDED_STATE_FILE" '(.os_pool.pool_name | length) > 0'
 }
 
 @test "enter(datapools): a second Add auto-names it tank1" {
@@ -48,7 +49,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "+ Add data pool"
-  [ "$(jq -r '.data_pools[1].name' "$GUIDED_STATE_FILE")" = "tank1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[1].name == "tank1"'
 }
 
 @test "list(datapools): lists each pool as name: topology ×n" {
@@ -77,11 +78,11 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "topology: stripe   (Enter cycles)"
-  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].topology == "mirror"'
   run guided_controller_enter "disks: 2   (Enter cycles 1-8)"
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].disk_count == 3'
   run guided_controller_enter "✗ remove this pool"
-  [ "$(jq -c '.data_pools' "$GUIDED_STATE_FILE")" = "[]" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools == []'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
@@ -93,7 +94,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "topology: single   (Enter cycles)"
-  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "raid0" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].topology == "raid0"'
 }
 
 @test "enter(pooledit): an ext4 pool topology stays single (single-disk only)" {
@@ -102,7 +103,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "topology: single   (Enter cycles)"
-  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].topology == "single"'
 }
 
 # issue 09: the pool editor authors a per-group filesystem + encryption.
@@ -112,7 +113,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "filesystem: zfs   (Enter cycles)"
-  [ "$(jq -r '.data_pools[0].filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].filesystem == "btrfs"'
 }
 
 @test "enter(pooledit): cycling a group to ext4 pins it single-disk" {
@@ -121,9 +122,9 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "filesystem: btrfs   (Enter cycles)"
-  [ "$(jq -r '.data_pools[0].filesystem' "$GUIDED_STATE_FILE")" = "ext4" ]
-  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].filesystem == "ext4"'
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].topology == "single"'
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].disk_count == 1'
 }
 
 @test "enter(pooledit): the encryption row toggles the pool's encryption" {
@@ -132,9 +133,9 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "encryption: false   (Enter toggles)"
-  [ "$(jq -r '.data_pools[0].encryption' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].encryption == true'
   run guided_controller_enter "encryption: true   (Enter toggles)"
-  [ "$(jq -r '.data_pools[0].encryption' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].encryption == false'
 }
 
 @test "enter(pooledit): an ext4 pool's disk count stays pinned at 1" {
@@ -143,7 +144,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "disks: 1   (Enter cycles 1-8)"
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].disk_count == 1'
 }
 
 @test "list(pooledit): shows the filesystem and encryption rows" {
@@ -191,7 +192,7 @@ load controller-helpers
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_enter "enabled: on"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.options.swap' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.swap == false'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
 }
 
@@ -199,7 +200,7 @@ load controller-helpers
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_enter "enabled: off"
-  [ "$(jq -c '.options.swap' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.swap == true'
 }
 
 @test "list(swapedit): swap off hides the size row" {
@@ -217,7 +218,7 @@ load controller-helpers
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.swap_size" ]
   run guided_controller_enter "" "8G"                 # text screen: query is the value
-  [ "$(jq -r '.options.swap_size' "$GUIDED_STATE_FILE")" = "8G" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.swap_size == "8G"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
 }
 
@@ -293,34 +294,34 @@ load controller-helpers
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_enter "zswap: on"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.options.zswap.enabled' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.enabled == false'
 }
 
 @test "enter(swapedit): an explicit zswap:false toggles back to true (jq guard)" {
   printf '%s\n' '{"options":{"zswap":{"enabled":false}}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_enter "zswap: off"
-  [ "$(jq -c '.options.zswap.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.enabled == true'
 }
 
 @test "enter(swapedit): compressor cycles zstd → lz4 → lzo → zstd" {
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_enter "compressor: zstd   (Enter cycles)"
-  [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "lz4" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.compressor == "lz4"'
   run guided_controller_enter "compressor: lz4   (Enter cycles)"
-  [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "lzo" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.compressor == "lzo"'
   run guided_controller_enter "compressor: lzo   (Enter cycles)"
-  [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "zstd" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.compressor == "zstd"'
 }
 
 @test "enter(swapedit): max pool % cycles 20 → 40 → 60 → 5" {
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_enter "max pool %: 20   (Enter cycles)"
-  [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "40" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.max_pool_percent == 40'
   run guided_controller_enter "max pool %: 40   (Enter cycles)"
-  [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "60" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.max_pool_percent == 60'
   run guided_controller_enter "max pool %: 60   (Enter cycles)"
-  [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "5" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.zswap.max_pool_percent == 5'
 }
 
 
@@ -346,7 +347,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Locales system.keymap keymap)"
   run guided_controller_enter "[ ] de"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.system.keymap' "$GUIDED_STATE_FILE")" = '["us","de"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.system.keymap == ["us","de"]'
 }
 
 @test "list(values timezone): includes region/city entries" {
@@ -366,7 +367,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Locales __language__ language)"
   run guided_controller_enter "de_DE"
   [ "$output" = "render" ]
-  [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.UTF-8" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.system.locale == "de_DE.UTF-8"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
@@ -383,7 +384,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Locales __encoding__ encoding)"
   run guided_controller_enter "ISO-8859-1"
   [ "$output" = "render" ]
-  [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.ISO-8859-1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.system.locale == "de_DE.ISO-8859-1"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
@@ -392,8 +393,8 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Locales __language__ language)"
   run guided_controller_enter "de_DE"
-  [ "$(jq -c '.system.locale' "$GUIDED_STATE_FILE")" \
-    = '["de_DE.UTF-8","fr_FR.UTF-8"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.system.locale == ["de_DE.UTF-8","fr_FR.UTF-8"]'
 }
 
 @test "list(values console font): includes the always-present default8x16" {
@@ -406,7 +407,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Locales system.console_font "console font")"
   run guided_controller_enter "default8x16"
   [ "$output" = "render" ]
-  [ "$(jq -r '.system.console_font' "$GUIDED_STATE_FILE")" = "default8x16" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.system.console_font == "default8x16"'
 }
 
 @test "enter(values console font): an off-list font is rejected (no change)" {
@@ -414,7 +415,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Locales system.console_font "console font")"
   run guided_controller_enter "no-such-font-xyz"
   [ "$output" = "noop" ]
-  [ "$(jq -r '.system.console_font // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.system.console_font // "unset") == "unset"'
 }
 
 @test "preview(keymap): the side panel lists the selected keymaps" {

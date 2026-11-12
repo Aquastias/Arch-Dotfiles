@@ -55,6 +55,21 @@ setup() {
   [ "$output" = "false" ]
 }
 
+@test "config_state_get_json: the value at a path as compact JSON" {
+  state='{"options":{"kernel":["lts","zen"],"swap":false}}'
+  run config_state_get_json "$state" options.kernel
+  [ "$status" -eq 0 ]
+  [ "$output" = '["lts","zen"]' ]
+  run config_state_get_json "$state" options.swap
+  [ "$output" = 'false' ]
+}
+
+@test "config_state_get_json: an unset path is null" {
+  run config_state_get_json '{}' environment.gpu
+  [ "$status" -eq 0 ]
+  [ "$output" = 'null' ]
+}
+
 # ── unset: drop one override, leave the rest ───────────────────────────────
 
 @test "config_state_unset: clears one override and keeps the others" {

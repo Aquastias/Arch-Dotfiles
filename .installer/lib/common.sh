@@ -198,6 +198,34 @@ join_words() {
   printf '%s\n' "${words[*]}"
 }
 
+# text_before <text> <separator> — the text before the first separator; the
+# whole text when the separator is absent.
+# shellcheck disable=SC2016 # a jq program, not shell
+text_before() {
+  local first_piece='$text | split($separator)[0] // ""'
+  # The first piece of the text split on the separator.
+  jq -r -n --arg text "$1" --arg separator "$2" "$first_piece"
+}
+
+# text_after <text> <separator> — the text after the first separator; the
+# whole text when the separator is absent.
+# shellcheck disable=SC2016 # a jq program, not shell
+text_after() {
+  local after_first='$text | split($separator)'
+  after_first+=' | if length > 1 then .[1:] else . end | join($separator)'
+  # Every piece but the first, joined back with the separator.
+  jq -r -n --arg text "$1" --arg separator "$2" "$after_first"
+}
+
+# text_after_last <text> <separator> — the text after the last separator; the
+# whole text when the separator is absent.
+# shellcheck disable=SC2016 # a jq program, not shell
+text_after_last() {
+  local last_piece='$text | split($separator)[-1] // ""'
+  # The last piece of the text split on the separator.
+  jq -r -n --arg text "$1" --arg separator "$2" "$last_piece"
+}
+
 # json_string_array <text>… — the arguments as a compact JSON array of
 # strings, in order: json_string_array a 'b c' → ["a","b c"].
 json_string_array() {

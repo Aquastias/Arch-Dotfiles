@@ -2,6 +2,7 @@
 # Tests: history, values and disks (split from controller.bats;
 # shared setup in controller-helpers.bash)
 
+load ../lib/json-helpers
 load controller-helpers
 
 
@@ -13,8 +14,8 @@ load controller-helpers
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_category Disks)"
   guided_controller_list >/dev/null     # the single choke point commits the change
-  [ "$(history_present "$(<"$GUIDED_HIST_FILE")" | jq -c '.options.encryption')" \
-    = "true" ]
+  json_satisfies "$(history_present "$(<"$GUIDED_HIST_FILE")")" \
+    '.options.encryption == true'
 }
 
 @test "key ctrl-z: undoes the last edit, restoring the prior state" {
@@ -24,7 +25,7 @@ load controller-helpers
   guided_controller_list >/dev/null     # autocommit the change
   run guided_controller_key ctrl-z
   [ "$output" = "render" ]
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
 }
 
 @test "key ctrl-y: redoes an undone edit" {
@@ -35,7 +36,7 @@ load controller-helpers
   guided_controller_key ctrl-z >/dev/null
   run guided_controller_key ctrl-y
   [ "$output" = "render" ]
-  [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.a == 1'
 }
 
 @test "key ctrl-r: resets every override, and is itself undoable" {
@@ -44,9 +45,9 @@ load controller-helpers
   history_new '{"a":1}' > "$GUIDED_HIST_FILE"
   run guided_controller_key ctrl-r
   [ "$output" = "render" ]
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
   guided_controller_key ctrl-z >/dev/null              # undo the reset
-  [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.a == 1'
 }
 
 @test "key ctrl-r: from inside a pool editor backs out to the category (no ?)" {
@@ -58,7 +59,7 @@ load controller-helpers
   set_navigation "$(navigation_to_pool_edit Disks 0 data)"
   run guided_controller_key ctrl-r
   [ "$output" = "render" ]
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
   run guided_controller_list
   ! echo "$output" | grep -q '?'
@@ -72,7 +73,7 @@ load controller-helpers
   history_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
   set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_key ctrl-r
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
@@ -105,7 +106,9 @@ load controller-helpers
   local base='{"mode":"multi","data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}'
   printf '%s\n' "$base" > "$GUIDED_STATE_FILE"
   history_new "$base" > "$GUIDED_HIST_FILE"
-  printf '%s\n' "$(jq -c '.data_pools[0].disk_count=2' <<<"$base")" > "$GUIDED_STATE_FILE"
+  # The base with two disks in tank0.
+  printf '%s\n' "$base" | jq -c '.data_pools[0].disk_count = 2' \
+    > "$GUIDED_STATE_FILE"
   guided_controller_list >/dev/null          # autocommit the count change
   set_navigation "$(navigation_to_pool_edit Disks 0 data)"
   run guided_controller_key ctrl-z           # undo the change; the pool still exists
@@ -163,14 +166,14 @@ load controller-helpers
   set_navigation \
     "$(navigation_to_values Environment environment.display_manager 'display manager')"
   run guided_controller_enter "SDDM"
-  [ "$(jq -r '.environment.display_manager' "$GUIDED_STATE_FILE")" = "sddm" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.environment.display_manager == "sddm"'
 }
 
 @test "enter(values): picking a bool commits it and returns to the category" {
   set_navigation "$(navigation_to_values Disks options.encryption encryption)"
   run guided_controller_enter "true"
   [ "$output" = "render" ]
-  [ "$(jq -c '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.encryption == true'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
 }
@@ -178,7 +181,7 @@ load controller-helpers
 @test "enter(values): zfs commits the filesystem" {
   set_navigation "$(navigation_to_values Disks filesystem filesystem)"
   run guided_controller_enter "zfs"
-  [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "zfs" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.filesystem == "zfs"'
 }
 
 
@@ -199,21 +202,21 @@ load controller-helpers
   set_navigation "$(navigation_to_values Disks filesystem filesystem)"
   run guided_controller_enter "btrfs"
   [ "$output" = "render" ]
-  [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.filesystem == "btrfs"'
 }
 
 @test "enter(values): an unbuilt filesystem is a no-op (defensive)" {
   set_navigation "$(navigation_to_values Disks filesystem filesystem)"
   run guided_controller_enter "bcachefs"
   [ "$output" = "render" ]
-  [ "$(jq -c '.filesystem // "unset"' "$GUIDED_STATE_FILE")" = '"unset"' ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.filesystem // "unset") == "unset"'
 }
 
 @test "enter(values): Back leaves the value unchanged" {
   set_navigation "$(navigation_to_values Disks options.encryption encryption)"
   run guided_controller_enter "← Back"
   [ "$output" = "render" ]
-  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
 }
 
 
@@ -225,7 +228,7 @@ load controller-helpers
   run guided_controller_enter "zfs"
   [ "$status" -eq 0 ]
   # zfs == the seeded default → normalised away → no override key, no ●
-  [ "$(jq -c 'has("filesystem")' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" 'has("filesystem") | not'
   ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
 }
 
@@ -233,7 +236,7 @@ load controller-helpers
   _seed_baseline
   set_navigation "$(navigation_to_values Disks filesystem filesystem)"
   run guided_controller_enter "btrfs"
-  [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.filesystem == "btrfs"'
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
 }
 
@@ -244,8 +247,7 @@ load controller-helpers
   config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
   set_navigation "$(navigation_to_values Disks options.encryption encryption)"
   guided_controller_enter "false" >/dev/null   # back to default false → normalised away
-  [ "$(jq -c 'getpath(["options","encryption"]) == null' \
-      "$GUIDED_STATE_FILE")" = "true" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.options.encryption == null'
   ! config_state_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
 }
 
@@ -265,7 +267,7 @@ load controller-helpers
   set_navigation "$(navigation_to_values Disks __layout__ "layout")"
   run guided_controller_enter "os-mirror"
   [ "$output" = "render" ]
-  [ "$(jq -c '. != {}' "$GUIDED_STATE_FILE")" = "true" ]   # a skeleton landed
+  file_satisfies "$GUIDED_STATE_FILE" '. != {}'   # a skeleton landed
   # ADR 0047: a multi preset now drops into the unified editor, not back-out.
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }

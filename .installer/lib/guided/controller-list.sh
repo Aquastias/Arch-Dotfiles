@@ -9,6 +9,9 @@
 
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
 # guided_controller_list — the current screen's item list on stdout.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 guided_controller_list() {
   _controller_autocommit \
       # snapshot any edit for undo/redo (single choke point)
@@ -128,30 +131,38 @@ _controller_list_disk_rows() {
     # are replaced by a single Partitions row that launches cfdisk and shows
     # how many partitions the operator has assigned so far.
     local partition_count
-    partition_count="$(jq '(.disk_config.partitions // []) | length' \
-      <<<"$state")"
+    # The number of assigned partitions.
+    partition_count="$(printf '%s\n' "$state" \
+      | jq '(.disk_config.partitions // []) | length')"
     printf 'Partitions ▸ %s assigned (run cfdisk)\n' "$partition_count"
     return 0
   fi
-  local effective override_mark=""
+  local effective override_mark="" mode
   effective="$(_controller_effective "$state" "$base")"
-  jq -e '.os_pool or .mode or .storage_groups or .data_pools' \
-    <<<"$state" >/dev/null 2>&1 && override_mark="  ●"
+  local layout_set='.os_pool or .mode or .storage_groups or .data_pools'
+  # The session overrides the layout.
+  printf '%s\n' "$state" | jq -e "$layout_set" >/dev/null 2>&1 \
+    && override_mark="  ●"
   printf '%s: %s%s\n' "$(display_label layout)" \
     "$(_controller_layout_label "$effective")" "$override_mark"
   # Single-disk root binds in-menu on-target: a device-mode single-disk
   # layout gets a root disk row (ADR 0047). Multi layouts bind per pool;
   # off-target (count-mode) the single disk is resolved post-menu as before.
-  if _controller_device_mode \
-    && [[ "$(jq -r '.mode // "single"' <<<"$effective")" != "multi" ]]; then
-    local root_disk; root_disk="$(jq -r '.root_disk // ""' <<<"$effective")"
+  # The layout mode, single by default.
+  mode="$(printf '%s\n' "$effective" | jq -r '.mode // "single"')"
+  if _controller_device_mode && [[ "$mode" != "multi" ]]; then
+    local root_disk
+    # The picked root disk, empty when none.
+    root_disk="$(printf '%s\n' "$effective" | jq -r '.root_disk // ""')"
     printf '%s: %s   (Enter to pick)\n' "$(display_label "root disk")" \
       "$([[ -n "$root_disk" ]] && _controller_disk_label "$root_disk" \
         || echo "(none)")"
   fi
   override_mark=""
-  jq -e '.options.swap != null or .options.swap_size != null' \
-    <<<"$state" >/dev/null 2>&1 && override_mark="  ●"
+  local swap_set='.options.swap != null or .options.swap_size != null'
+  # The session overrides swap.
+  printf '%s\n' "$state" | jq -e "$swap_set" >/dev/null 2>&1 \
+    && override_mark="  ●"
   printf '%s: %s%s\n' "$(display_label swap)" \
     "$(_controller_swap_label "$effective")" "$override_mark"
 }
@@ -163,13 +174,14 @@ _controller_list_disk_rows() {
 # reports what the Environment, Security and Backup choices pull in.
 _controller_list_package_slot_rows() {
   local effective slot count override_mark derived_total
+  local slot_set='(.packages[$s] != null) or (.packages.exclude != null)'
   effective="$(_controller_effective "$state" "$base")"
   for slot in repo aur; do
     count="$(_controller_package_slot_count "$effective" "$slot")"
     override_mark=""
-    jq -e --arg s "$slot" \
-      '(.packages[$s] != null) or (.packages.exclude != null)' \
-      <<<"$state" >/dev/null 2>&1 && override_mark="  ●"
+    # The session overrides the slot's packages.
+    printf '%s\n' "$state" | jq -e --arg s "$slot" "$slot_set" >/dev/null 2>&1 \
+      && override_mark="  ●"
     printf '%s ▸ %s package%s%s\n' "$slot" "$count" \
       "$([[ "$count" == 1 ]] || echo s)" "$override_mark"
   done
@@ -184,15 +196,17 @@ _controller_list_package_slot_rows() {
 # non-whitespace, so empty fields are preserved.
 _controller_list_field_rows() {
   local category="$1" field label value overridden locked
+  local row_fields='.[] | [.field, .label, (.value // ""),'
+  row_fields+=' (.overridden // false | tostring),'
+  row_fields+=' (.locked // false | tostring)] | join("\u001f")'
   while IFS=$'\x1f' read -r field label value overridden locked; do
     _controller_list_special_field_row && continue
     printf '%s: %s%s\n' "$(display_label "$label")" \
       "$(_controller_display_value_string "$field" "$value")" \
       "$([[ "$overridden" == "true" ]] && printf '  ●')"
-  done < <(menu_category_rows "$category" "$state" "$base" | jq -r \
-    '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring),
-             (.locked // false | tostring)]
-           | join("\u001f")')
+  # One \x1f-joined line per field: field, label, value, overridden, locked.
+  done < <(menu_category_rows "$category" "$state" "$base" \
+    | jq -r "$row_fields")
 }
 
 # _controller_list_special_field_row — print the row for a field that does not
@@ -346,28 +360,21 @@ _controller_list_package_browse() {
     # Mark the ~15k rows in one awk pass off precomputed sets (a per-row jq
     # would fork per package). `●` flags a session/profile-touched row; `⟲`
     # a package another choice already pulls in (derived, read-only here).
-    local effective _bbase _bextra _bexcl _bderiv
+    local effective in_base in_extra excluded derived
     effective="$(_controller_effective "$state" "$base")"
-    _bbase="$(jq -rn --argjson c "$(_controller_baseline)" --arg s "$slot" \
-      '($c.packages[$s] // {}) | [ .[] | .[]? ] | unique | .[]')"
-    _bextra="$(jq -rn --argjson e "$effective" --arg s "$slot" \
-      '($e.packages[$s].extra // []) | .[]')"
-    _bexcl="$(jq -rn --argjson e "$effective" \
-      '($e.packages.exclude // [])|.[]')"
-    _bderiv="$(_controller_package_derived_names "$effective")"
-    awk -v base="$_bbase" -v extra="$_bextra" -v excl="$_bexcl" \
-        -v deriv="$_bderiv" -v dot='  ●' -v der='  ⟲ derived' '
-      BEGIN{ n=split(base,a,"\n"); for(i=1;i<=n;i++) if(a[i]!="") C[a[i]]=1
-             n=split(extra,b,"\n"); for(i=1;i<=n;i++) if(b[i]!="") X[b[i]]=1
-             n=split(excl,d,"\n"); for(i=1;i<=n;i++) if(d[i]!="") E[d[i]]=1
-             n=split(deriv,g,"\n"); for(i=1;i<=n;i++) if(g[i]!="") D[g[i]]=1 }
-      { p=$0
-        if      (E[p]) print "[ ] " p dot   # baseline, excluded here
-        else if (C[p]) print "[x] " p       # inherited from the baseline
-        else if (X[p]) print "[x] " p dot   # added here
-        else if (D[p]) print "[x] " p der   # derived by another choice
-        else           print "[ ] " p }     # available to add
-    ' <<<"$package_list"
+    local slot_packages='(.packages[$s] // {}) | [.[] | .[]?] | unique | .[]'
+    # The baseline's packages in the slot, each once.
+    in_base="$(_controller_baseline | jq -r --arg s "$slot" "$slot_packages")"
+    # The slot's session-added packages.
+    in_extra="$(printf '%s\n' "$effective" \
+      | jq -r --arg s "$slot" '(.packages[$s].extra // [])[]')"
+    # The excluded packages.
+    excluded="$(printf '%s\n' "$effective" \
+      | jq -r '(.packages.exclude // [])[]')"
+    derived="$(_controller_package_derived_names "$effective")"
+    printf '%s\n' "$package_list" \
+      | awk -v base="$in_base" -v extra="$in_extra" -v excl="$excluded" \
+        -v deriv="$derived" -f "${BASH_SOURCE[0]%/*}/controller-browse-rows.awk"
   fi
 }
 
@@ -385,9 +392,8 @@ _controller_list_package_derived() {
   local source_name derived_count
   while IFS= read -r source_name; do
     [[ -n "$source_name" ]] || continue
-    derived_count="$(awk -F'\t' -v s="$source_name" '$1 == s { print $3 }' \
-      <<<"$derived_rows" \
-      | sort -u | grep -c .)"
+    derived_count="$(_controller_derived_packages_of "$derived_rows" \
+      "$source_name" | grep -c .)"
     [[ "$derived_count" -gt 0 ]] || continue
     printf '%s ▸ %s   (from %s)\n' "$source_name" "$derived_count" \
       "$(package_resolver_source_origin "$source_name")"
@@ -400,9 +406,13 @@ _controller_list_package_derived() {
 _controller_list_package_derived_source() {
   # One derived source's package list. Not toggleable — these are
   # consequences of choices made elsewhere in the menu.
-  local _dsrc2; _dsrc2="$(navigation_get "$navigation" source)"
-  _controller_package_derived "$(_controller_effective "$state" "$base")" \
-    | awk -F'\t' -v s="$_dsrc2" '$1 == s { print "    " $3 }' | sort -u
+  local source_name derived_rows package
+  source_name="$(navigation_get "$navigation" source)"
+  derived_rows="$(_controller_package_derived \
+    "$(_controller_effective "$state" "$base")")"
+  while IFS= read -r package; do
+    printf '    %s\n' "$package"
+  done < <(_controller_derived_packages_of "$derived_rows" "$source_name")
   _controller_action_row "← Back"
 }
 
@@ -415,16 +425,17 @@ _controller_list_values() {
     _controller_action_row "+ Add sysctl (key=value)"
   elif [[ "$field" == "options.mirror_servers" ]]; then
     # Custom mirror Server= URLs (ADR 0072): one per line + an Add action.
-    jq -r '(.options.mirror_servers // [])[]' \
-      <<<"$(_controller_effective "$state" "$base")"
+    _controller_effective "$state" "$base" \
+        | jq -r '(.options.mirror_servers // [])[]'
     _controller_action_row "+ Add server (URL)"
   elif [[ "$field" == "options.custom_repositories" ]]; then
     # Custom repositories (ADR 0072): "name — url · <SigLevel>" + an Add
     # action.
-    jq -r '(.options.custom_repositories // [])[]
-      | "\(.name) — \(.url) · "
-        + "\(.sign_check // "Required") \(.sign_option // "TrustedOnly")"' \
-      <<<"$(_controller_effective "$state" "$base")"
+    local repository_row='(.options.custom_repositories // [])[]'
+    repository_row+=' | "\(.name) — \(.url) · \(.sign_check // "Required")'
+    repository_row+=' \(.sign_option // "TrustedOnly")"'
+    # One "name — url · check trust" row per custom repository.
+    _controller_effective "$state" "$base" | jq -r "$repository_row"
     _controller_action_row "+ Add repository (name url [check] [trust])"
   elif [[ "$field" == "users" ]]; then
     _controller_list_user_rows

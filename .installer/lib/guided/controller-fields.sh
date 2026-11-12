@@ -11,6 +11,9 @@
 # _controller_field_kind <path> → text | enum | multi. text → native query-line
 # editor; enum → native value picker; multi → one-shot (slice 03). Everything
 # not text/multi is an enum (filesystem, bootloader, firewall, and every bool).
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _controller_field_kind() {
   case "$1" in
   system.hostname) echo text ;;
@@ -98,24 +101,28 @@ _controller_cycle_topology() {
 # still-valid one is kept). Keeps the editor from authoring a group validation
 # would reject.
 _controller_pool_normalise_filesystem() {
-  local state="$1" i="$2" filesystem="$3" valid first
-  valid="$(_controller_topologies_for_filesystem "$filesystem" \
-    | awk '{ printf "%s ", $0 }')"
-  first="$(_controller_topologies_for_filesystem "$filesystem" \
-    | awk 'NR == 1 { print; exit }')"
-  jq --argjson i "$i" --arg fs "$filesystem" --arg valid "$valid" \
-    --arg first "$first" '
-    ($valid | split(" ") | map(select(length > 0))) as $v
-    | (.data_pools[$i].topology) as $topo
-    | .data_pools[$i].filesystem = $fs
-    | if ($fs == "ext4" or $fs == "xfs")
-      then .data_pools[$i].topology = "single" | .data_pools[$i].disk_count = 1
-           | (if (.data_pools[$i] | has("devices"))
-              then .data_pools[$i].devices |= .[0:1] else . end)
-      elif ($v | index($topo)) == null
-      then .data_pools[$i].topology = $first
-      else . end
-  ' <<<"$state"
+  local state="$1" i="$2" filesystem="$3" pool topology first valid=0
+  local -a topologies=()
+  mapfile -t topologies < <(_controller_topologies_for_filesystem "$filesystem")
+  first="${topologies[0]:-}"
+  pool="$(_controller_pool_get "$state" data "$i")"
+  # The pool's topology, empty when unset.
+  topology="$(printf '%s\n' "$pool" | jq -r '.topology // ""')"
+  pool="$(edit_set_scalar "$pool" filesystem "$filesystem")"
+  if [[ "$filesystem" == ext4 || "$filesystem" == xfs ]]; then
+    pool="$(edit_set_scalar "$pool" topology single)"
+    pool="$(config_state_set "$pool" disk_count 1)"
+    # Only the first bound device stays.
+    config_state_is_overridden "$pool" devices \
+      && pool="$(printf '%s\n' "$pool" | jq '.devices |= .[0:1]')"
+  else
+    local each
+    for each in "${topologies[@]}"; do
+      [[ "$each" == "$topology" ]] && valid=1
+    done
+    ((valid)) || pool="$(edit_set_scalar "$pool" topology "$first")"
+  fi
+  _controller_pool_set "$state" data "$i" "$pool"
 }
 
 # _controller_enum_options <path> → the value-picker lines for an enum field (or
@@ -161,6 +168,7 @@ _controller_big_list_options() {
     out="$(locale_source_keymaps)" ;;
   system.timezone)
     out="$(timedatectl list-timezones 2>/dev/null)"
+    # The zone names under the zoneinfo tree, region-qualified, sorted.
     [[ -n "$out" ]] || out="$(find /usr/share/zoneinfo -type f -printf '%P\n' \
       2>/dev/null | grep -E '^[A-Z][A-Za-z_]+/' | sort)" ;;
   __language__)
@@ -179,10 +187,12 @@ _controller_big_list_options() {
 # element 0), en_US.UTF-8 when unset. The basis the language/encoding
 # projections read.
 _controller_locale_current() {
-  local loc
-  loc="$(jq -r '(.system.locale) as $l
-    | if ($l | type) == "array" then ($l[0] // "") else ($l // "") end' \
-    <<<"$(_controller_live_effective)")"
+  local loc locale
+  local first='if type == "array" then .[0] // "" else . // "" end'
+  locale="$(config_state_get_json "$(_controller_live_effective)" \
+    system.locale)"
+  # The first locale of a list, or the lone one.
+  loc="$(printf '%s\n' "$locale" | jq -r "$first")"
   [[ -n "$loc" ]] || loc="en_US.UTF-8"
   printf '%s\n' "$loc"
 }
@@ -202,11 +212,14 @@ _controller_apply_locale_part() {
   __encoding__) encoding="$value" ;;
   esac
   newloc="$(locale_parts_compose "$lang" "$encoding")"
-  locjson="$(jq -c --arg n "$newloc" '
-    (.system.locale) as $l
-    | if ($l | type) == "array" and ($l | length) > 1 then ([$n] + $l[1:])
-      else $n end' \
-      <<<"$(_controller_effective "$state" "$(_controller_baseline)")")"
+  local locales
+  local replaced='if type == "array" and length > 1'
+  replaced+=' then [$n] + .[1:] else $n end'
+  locales="$(config_state_get_json \
+    "$(_controller_effective "$state" "$(_controller_baseline)")" \
+    system.locale)"
+  # The new locale in place of the first, a list's tail kept.
+  locjson="$(printf '%s\n' "$locales" | jq -c --arg n "$newloc" "$replaced")"
   config_state_set "$state" system.locale "$locjson"
 }
 
@@ -227,9 +240,8 @@ _controller_apply_enum() {
     edit_set_scalar "$state" disk_config.kind "$value" ;;
   filesystem)
     # Commit only a BUILT root filesystem (issue 09); an unbuilt/unknown value
-    # is
-    # a no-op (rc 1, unchanged) so the picker can never author an uninstallable
-    # fs.
+    # is a no-op (rc 1, unchanged) so the picker can never author an
+    # uninstallable fs.
     _controller_built_root_filesystems | grep -qxF "$value" \
       || { printf '%s' "$state"; return 1; }
     edit_set_scalar "$state" filesystem "$value" ;;
@@ -238,11 +250,12 @@ _controller_apply_enum() {
     edit_set_scalar "$state" "$path" "$value" ;;
   options.power.profile)
     # Power Profile enum (ADR 0080): a 3-value scalar, NOT a bool — commit only
-    # a
-    # known backend so the picker can never author an invalid daemon; an unknown
-    # value is a no-op (rc 1, unchanged).
-    case "$value" in none | power-profiles-daemon | tuned) ;;
-      *) printf '%s' "$state"; return 1 ;; esac
+    # a known backend so the picker can never author an invalid daemon; an
+    # unknown value is a no-op (rc 1, unchanged).
+    case "$value" in
+    none | power-profiles-daemon | tuned) ;;
+    *) printf '%s' "$state"; return 1 ;;
+    esac
     edit_set_scalar "$state" options.power.profile "$value" ;;
   *) edit_set_bool "$state" "$path" "$value" ;;
   esac
@@ -263,11 +276,13 @@ _controller_apply_text() {
     # create: add the typed name to the user list (dedup); a default profile is
     # materialized at Proceed/Save for any name without a committed profile.
     [[ -n "$value" ]] || { printf '%s' "$state"; return 1; }
-    local current; current="$(jq -c '.users // []' \
-      <<<"$(_controller_effective "$state" "$(_controller_baseline)")")"
-    config_state_set "$state" users "$(jq -cn --argjson a "$current" \
-      --arg v "$value" \
-      'if any($a[]; . == $v) then $a else ($a + [$v]) end')" ;;
+    local current
+    # The effective user names.
+    current="$(_controller_effective "$state" "$(_controller_baseline)" \
+      | jq -c '.users // []')"
+    # The user names, the typed one added unless listed.
+    config_state_set "$state" users \
+      "$(_controller_json_with "$current" "$value")" ;;
   # sysctl / custom mirror Server / custom repository — the routing-heavy adds
   # share one implementation with the replay helpers via edit.sh (ADR 0072).
   sysctl)                      edit_add_sysctl_pair "$state" "$value" ;;
@@ -315,8 +330,7 @@ _controller_route_package_entry() {
   fi
   if ((${#usr[@]})); then
     local primary
-    primary="$(jq -r '.users[0] // empty' \
-      <<<"$(_controller_effective "$state" "$(_controller_baseline)")")"
+    primary="$(_controller_primary_user "$state")"
     if [[ -n "$primary" ]]; then
       state="$(_controller_append_primary_user_programs "$state" "${usr[@]}")"
       printf 'routed to Users → %s: %s\n' "$primary" "${usr[*]}" >&2
@@ -339,21 +353,30 @@ _controller_route_package_entry() {
 _controller_append_primary_user_programs() {
   local state="$1"; shift
   local primary
-  primary="$(jq -r '.users[0] // empty' \
-    <<<"$(_controller_effective "$state" "$(_controller_baseline)")")"
+  primary="$(_controller_primary_user "$state")"
   if [[ -z "$primary" || -z "${GUIDED_USERFORMS_FILE:-}" ]]; then
     edit_append_packages "$state" "$*"
     return 0
   fi
-  local current add
-  current="$(guided_userform_get "$GUIDED_USERFORMS_FILE" "$primary" \
-    | jq -c '.programs // []')"
-  add="$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
-  guided_userform_set "$GUIDED_USERFORMS_FILE" "$primary" programs \
-    "$(jq -cn --argjson a "$current" --argjson b "$add" \
-      'reduce ($a + $b)[] as $x ([];
-         if any(.[]; . == $x) then . else . + [$x] end)')"
+  local programs='[]' name
+  local -a names=()
+  # The primary user's programs override, one per line.
+  mapfile -t names < <(guided_userform_get "$GUIDED_USERFORMS_FILE" \
+    "$primary" | jq -r '(.programs // [])[]')
+  # Those, then the new names, each kept once in first-seen order.
+  for name in "${names[@]}" "$@"; do
+    programs="$(_controller_json_with "$programs" "$name")"
+  done
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$primary" programs "$programs"
   printf '%s' "$state"
+}
+
+# _controller_primary_user <state> — the Primary User (users[0] of the
+# effective view), empty when there are no users.
+_controller_primary_user() {
+  # The first user name.
+  _controller_effective "$1" "$(_controller_baseline)" \
+    | jq -r '.users[0] // empty'
 }
 
 # _controller_normalise_default <state> <path> → <state> with the override at
@@ -389,13 +412,12 @@ _controller_curated_persist_count() {
 # governs has that control as its sole home. Unconditional base host programs
 # (ADR 0089) install via the Fleet Layer's host_programs, never picker-chosen
 # either — the host row itself was dropped (ADR 0086), so
-# _controller_host_program_names is not reached. (`|| :` keeps an empty result a
-# success, not grep's rc 1.)
+# _controller_host_program_names is not reached.
 _controller_host_program_names() {
-  program_registry_names_of_kind host | grep -vxF -f <(menu_owned_programs) || :
+  program_registry_names_of_kind host | _controller_without_menu_owned
 }
 _controller_user_program_names() {
-  program_registry_names_of_kind user | grep -vxF -f <(menu_owned_programs) || :
+  program_registry_names_of_kind user | _controller_without_menu_owned
 }
 
 # _controller_toggle_options <field> → the raw option lines for a toggle (multi)
@@ -427,15 +449,15 @@ _controller_field_has_preview() {
 # ] by whether it is currently selected (gpu's scalar "auto" counts as an
 # array).
 _controller_marked_options() {
-  local field="$1" state="$2" base="$3" sel option
-  sel="$(jq -c --arg p "$field" \
-    'getpath($p | split(".")) // [] | if type == "array" then . else [.] end' \
-    <<<"$(_controller_effective "$state" "$base")")"
+  local field="$1" state="$2" base="$3" option value
+  local -A selected=()
+  # The field's selected values, one per line (a lone value counts as one).
+  while IFS= read -r value; do
+    [[ -n "$value" ]] && selected["$value"]=1
+  done < <(_controller_selected_values "$field" \
+    "$(_controller_effective "$state" "$base")" | jq -r '.[]')
   while IFS= read -r option; do
-    # jq -n (null input) so it does NOT consume the loop's stdin (the option
-    # list)
-    if jq -ne --argjson s "$sel" --arg o "$option" 'any($s[]; . == $o)' \
-        >/dev/null 2>&1; then
+    if [[ -n "$option" && -n "${selected["$option"]:-}" ]]; then
       printf '[x] %s\n' "$option"
     else
       printf '[ ] %s\n' "$option"
@@ -451,16 +473,16 @@ _controller_marked_options() {
 _controller_toggle_multi() {
   local state="$1" base="$2" field="$3" value="$4" effective current new
   effective="$(_controller_effective "$state" "$base")"
+  current="$(_controller_selected_values "$field" "$effective")"
   if [[ "$field" == "environment.gpu" ]]; then
-    current="$(jq -c '.environment.gpu // []
-      | if type == "array" then . else [.] end' \
-      <<<"$effective")"
-    new="$(jq -cn --argjson a "$current" --arg v "$value" '
-      if $v == "auto"
-        then (if any($a[]; . == "auto") then [] else ["auto"] end)
-        else (($a - ["auto"]) as $c
-              | if any($c[]; . == $v) then ($c - [$v]) else ($c + [$v]) end)
-      end')"
+    if [[ "$value" == auto ]]; then
+      new='["auto"]'
+      _controller_json_has "$current" auto && new='[]'
+    else
+      # The vendors without "auto", the value flipped in or out.
+      current="$(printf '%s\n' "$current" | jq -c '. - ["auto"]')"
+      new="$(_controller_json_toggled "$current" "$value")"
+    fi
     case "$new" in
     '["auto"]') config_state_set   "$state" environment.gpu '"auto"' ;;
     '[]')       config_state_unset "$state" environment.gpu ;;
@@ -468,11 +490,7 @@ _controller_toggle_multi() {
     esac
     return
   fi
-  current="$(jq -c --arg p "$field" \
-    'getpath($p | split(".")) // [] | if type == "array" then . else [.] end' \
-    <<<"$effective")"
-  new="$(jq -cn --argjson a "$current" --arg v "$value" \
-    'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
+  new="$(_controller_json_toggled "$current" "$value")"
   if [[ "$new" == '[]' ]]; then
     config_state_unset "$state" "$field"
   else
