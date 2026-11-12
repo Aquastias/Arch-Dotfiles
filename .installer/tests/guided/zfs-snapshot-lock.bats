@@ -3,6 +3,8 @@
 # Config State puts no ZFS anywhere (ADR 0041): the install skips
 # zfs-auto-snapshot there, so the menu must not offer it either.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -23,7 +25,6 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 SNAP=post_install.backup.zfs_auto_snapshot
-snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
 
 @test "any_zfs: default (zfs root) is true" {
   menu_state_any_zfs '{}'
@@ -49,23 +50,22 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
 @test "menu_rows: zfs snapshots is unlocked on a zfs install" {
   run menu_rows '{}'
   [ "$status" -eq 0 ]
-  echo "$output" | snap_locked | grep -qx false
+  row_satisfies "$SNAP" '.locked == false'
 }
 
 @test "menu_rows: zfs snapshots is locked on an ext4 install" {
   run menu_rows '{"filesystem":"ext4"}'
-  echo "$output" | snap_locked | grep -qx true
+  row_satisfies "$SNAP" '.locked == true'
 }
 
 @test "menu_rows: the baseline filesystem counts (merged state)" {
   run menu_rows '{}' '{"filesystem":"xfs"}'
-  echo "$output" | snap_locked | grep -qx true
+  row_satisfies "$SNAP" '.locked == true'
 }
 
 @test "menu_rows: borg is never zfs-locked" {
   run menu_rows '{"filesystem":"ext4"}'
-  echo "$output" | jq -e '.[] | select(.field == "post_install.backup.borg")
-    | .locked == false'
+  row_satisfies post_install.backup.borg '.locked == false'
 }
 
 @test "apply: toggling zfs snapshots is a no-op without ZFS" {
@@ -78,7 +78,7 @@ snap_locked() { jq -e ".[] | select(.field == \"$SNAP\") | .locked"; }
 @test "apply: toggling zfs snapshots works on a zfs install" {
   run _controller_apply_enum '{}' "$SNAP" false
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.post_install.backup.zfs_auto_snapshot == false'
+  output_satisfies '.post_install.backup.zfs_auto_snapshot == false'
 }
 
 @test "Backup screen: renders off (no ZFS) on an ext4 install" {

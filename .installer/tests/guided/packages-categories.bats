@@ -2,6 +2,7 @@
 # Tests: package categories (split from packages.bats;
 # shared setup in packages-helpers.bash)
 
+load ../lib/json-helpers
 load packages-helpers
 
 
@@ -67,7 +68,7 @@ load packages-helpers
   set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_enter "[x] htop"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.packages.exclude' "$GUIDED_STATE_FILE")" = '["htop"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.exclude == ["htop"]'
 }
 
 @test "an excluded package renders unchecked WITH a dot" {
@@ -83,7 +84,8 @@ load packages-helpers
   set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_enter "[ ] htop  ●"
   [ "$output" = "refresh" ]
-  jq -e '(.packages.exclude // []) | index("htop") | not' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '(.packages.exclude // []) | index("htop") | not'
 }
 
 @test "unchecking a session-added package just drops it (no exclude)" {
@@ -92,9 +94,9 @@ load packages-helpers
   set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_enter "[x] ripgrep  ●"
   [ "$output" = "refresh" ]
-  jq -e '.packages.repo.shell == []' "$GUIDED_STATE_FILE"
-  jq -e 'has("packages") and (.packages | has("exclude") | not)' \
-    "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.repo.shell == []'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    'has("packages") and (.packages | has("exclude") | not)'
 }
 
 
@@ -165,7 +167,7 @@ load packages-helpers
   set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "[ ] cowsay"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["cowsay"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.repo.extra == ["cowsay"]'
 }
 
 @test "browser Enter on a checked core package excludes it" {
@@ -174,7 +176,7 @@ load packages-helpers
   set_navigation "$(navigation_to_package_browse Packages repo)"
   run guided_controller_enter "[x] htop"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.packages.exclude' "$GUIDED_STATE_FILE")" = '["htop"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.exclude == ["htop"]'
 }
 
 @test "browser Back returns to the slot's category list" {
@@ -212,12 +214,12 @@ load packages-helpers
   set_navigation "$(navigation_to_package_browse Packages repo)"
   guided_controller_list >/dev/null                        # first render → populate
   [ -s "$GUIDED_PKGDERIV_FILE" ]
-  key1="$(awk 'NR == 1 { print; exit }' "$GUIDED_PKGDERIV_FILE")"
-  awk 'NR > 1' "$GUIDED_PKGDERIV_FILE" | grep -qx git # git cached as derived
+  key1="$(head -n 1 "$GUIDED_PKGDERIV_FILE")"
+  tail -n +2 "$GUIDED_PKGDERIV_FILE" | grep -qx git   # git cached as derived
   # adding an extra must NOT change the key (an add never re-derives)
   echo '{"packages":{"repo":{"extra":["cowsay"]}}}' > "$GUIDED_STATE_FILE"
   guided_controller_list >/dev/null
-  [ "$(awk 'NR == 1 { print; exit }' "$GUIDED_PKGDERIV_FILE")" = "$key1" ]
+  [ "$(head -n 1 "$GUIDED_PKGDERIV_FILE")" = "$key1" ]
 }
 
 @test "aur ＋Add drills to the in-place browser (same as repo)" {
@@ -245,7 +247,7 @@ load packages-helpers
   set_navigation "$(navigation_to_package_browse Packages aur)"
   run guided_controller_enter "" "some-aur-pkg"          # no row match, typed query
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.packages.aur.extra' "$GUIDED_STATE_FILE")" = '["some-aur-pkg"]' ]
+  file_satisfies "$GUIDED_STATE_FILE" '.packages.aur.extra == ["some-aur-pkg"]'
 }
 
 @test "repo browser does NOT query-as-add an unmatched name" {
@@ -277,15 +279,15 @@ load packages-helpers
 @test "guard: a Menu-Owned host name (grub) is not added; informs Bootloader" {
   guard_registry
   out="$(_controller_route_package_entry '{}' grub repo 2>"$TEST_DIR/msg")"
-  [ "$(jq -c . <<<"$out")" = '{}' ]           # state untouched
-  ! jq -e '.host_programs' <<<"$out" >/dev/null 2>&1
+  json_satisfies "$out" '. == {}'           # state untouched
+  ! json_satisfies "$out" '.host_programs' >/dev/null 2>&1
   grep -qi "Bootloader" "$TEST_DIR/msg"
 }
 
 @test "guard: a Menu-Owned user name (clamav) is not added; informs Security" {
   guard_registry
   out="$(_controller_route_package_entry '{}' clamav repo 2>"$TEST_DIR/msg")"
-  [ "$(jq -c . <<<"$out")" = '{}' ]
+  json_satisfies "$out" '. == {}'
   grep -qi "Security" "$TEST_DIR/msg"
 }
 
@@ -295,9 +297,9 @@ load packages-helpers
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   out="$(_controller_route_package_entry '{"users":["dave"]}' docker repo \
     2>"$TEST_DIR/msg")"
-  ! jq -e '.packages' <<<"$out" >/dev/null 2>&1     # not a package
-  guided_userform_get "$GUIDED_USERFORMS_FILE" dave \
-    | jq -e '.programs | index("docker")'           # on dave's programs
+  ! json_satisfies "$out" '.packages' >/dev/null 2>&1     # not a package
+  json_satisfies "$(guided_userform_get "$GUIDED_USERFORMS_FILE" dave)" \
+    '.programs | index("docker")'                   # on dave's programs
   grep -qi "Users" "$TEST_DIR/msg"
 }
 
@@ -306,17 +308,17 @@ load packages-helpers
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   out="$(_controller_route_package_entry '{"users":[]}' docker repo 2>"$TEST_DIR/msg")"
-  [ "$(jq -c . <<<"$out")" = '{"users":[]}' ]       # untouched
-  ! jq -e '.packages' <<<"$out" >/dev/null 2>&1
+  json_satisfies "$out" '. == {"users":[]}'       # untouched
+  ! json_satisfies "$out" '.packages' >/dev/null 2>&1
   grep -qi "add a user first" "$TEST_DIR/msg"
 }
 
 @test "guard: an ordinary name lands in packages.<slot>.extra" {
   guard_registry
   out="$(_controller_route_package_entry '{}' ripgrep repo 2>/dev/null)"
-  [ "$(jq -c '.packages.repo.extra' <<<"$out")" = '["ripgrep"]' ]
+  json_satisfies "$out" '.packages.repo.extra == ["ripgrep"]'
   out="$(_controller_route_package_entry '{}' some-aur-pkg aur 2>/dev/null)"
-  [ "$(jq -c '.packages.aur.extra' <<<"$out")" = '["some-aur-pkg"]' ]
+  json_satisfies "$out" '.packages.aur.extra == ["some-aur-pkg"]'
 }
 
 @test "guard: a mixed entry keeps Program names out of packages.*" {
@@ -325,8 +327,8 @@ load packages-helpers
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   out="$(_controller_route_package_entry '{"users":["dave"]}' "grub docker ripgrep" \
     repo 2>/dev/null)"
-  [ "$(jq -c '.packages.repo.extra' <<<"$out")" = '["ripgrep"]' ]
-  ! jq -e '.host_programs' <<<"$out" >/dev/null 2>&1   # grub not promoted
+  json_satisfies "$out" '.packages.repo.extra == ["ripgrep"]'
+  ! json_satisfies "$out" '.host_programs' >/dev/null 2>&1   # grub not promoted
 }
 
 
@@ -359,7 +361,7 @@ load packages-helpers
 @test "edits commit on Enter and not on Esc" {
   set_navigation "$(navigation_to_packages Packages repo shell)"
   run guided_controller_back
-  [ "$(jq -c '.' "$GUIDED_STATE_FILE")" = '{}' ]
+  file_satisfies "$GUIDED_STATE_FILE" '. == {}'
 }
 
 # ── provenance is the session baseline, not Host Core (ADR 0157) ────────────

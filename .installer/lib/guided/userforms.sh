@@ -22,11 +22,15 @@
 # =============================================================================
 
 # guided_userforms_init <file> — ensure <file> exists as an empty object.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 guided_userforms_init() { [[ -s "$1" ]] || printf '{}\n' > "$1"; }
 
 # guided_userform_get <file> <name> — the delta object for <name> ({} if none).
 guided_userform_get() {
   [[ -s "$1" ]] || { printf '{}'; return; }
+  # The user's delta, empty by default.
   jq -c --arg n "$2" '.[$n] // {}' "$1" 2>/dev/null || printf '{}'
 }
 
@@ -34,6 +38,7 @@ guided_userform_get() {
 # .[name][key], or empty when unset. For scalar fields (shell); callers default.
 guided_userform_field() {
   [[ -s "$1" ]] || return 0
+  # The user's field, nothing when unset.
   jq -r --arg n "$2" --arg k "$3" '.[$n][$k] // empty' "$1" 2>/dev/null
 }
 
@@ -43,6 +48,7 @@ guided_userform_field() {
 guided_userform_set() {
   local forms_file="$1" user="$2" key="$3" value="$4" updated_json
   guided_userforms_init "$forms_file"
+  # The forms with the user's field set.
   updated_json="$(jq --arg n "$user" --arg k "$key" --argjson v "$value" \
     '.[$n][$k] = $v' "$forms_file")" \
     && printf '%s\n' "$updated_json" > "$forms_file"
@@ -55,10 +61,11 @@ guided_userform_set() {
 guided_userform_unset() {
   local forms_file="$1" user="$2" key="$3" updated_json
   [[ -s "$forms_file" ]] || return 0
+  local drop_field='if .[$n] then .[$n] |= del(.[$k]) else . end'
+  local drop_empty='if .[$n] == {} then del(.[$n]) else . end'
+  # The forms without the field, and without the user once nothing is left.
   updated_json="$(jq --arg n "$user" --arg k "$key" \
-    'if .[$n] then (.[$n] |= del(.[$k])
-       | if (.[$n] == {}) then del(.[$n]) else . end) else . end' \
-    "$forms_file")" \
+    "$drop_field | $drop_empty" "$forms_file")" \
     && printf '%s\n' "$updated_json" > "$forms_file"
 }
 
@@ -67,6 +74,7 @@ guided_userform_unset() {
 guided_userform_clear() {
   local forms_file="$1" user="$2" updated_json
   [[ -s "$forms_file" ]] || return 0
+  # The forms without the user.
   updated_json="$(jq --arg n "$user" 'del(.[$n])' "$forms_file")" \
     && printf '%s\n' "$updated_json" > "$forms_file"
 }
@@ -75,5 +83,7 @@ guided_userform_clear() {
 # per line. Drives the Save-warn predicate (slice 04) and the Proceed merge.
 guided_userform_names() {
   [[ -s "$1" ]] || return 0
-  jq -r 'to_entries[] | select(.value != {}) | .key' "$1" 2>/dev/null
+  local with_delta='to_entries[] | select(.value != {}) | .key'
+  # The names whose delta is not empty.
+  jq -r "$with_delta" "$1" 2>/dev/null
 }

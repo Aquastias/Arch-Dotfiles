@@ -93,3 +93,8 @@
 .installer/tests/guided/chrome.bats
 .installer/tests/guided/detail.bats
 .installer/tests/commons-text-split.bats
+
+# Ticket 13 — the guided shell and the remaining guided modules, with all the
+# guided tests.
+.installer/lib/guided/**
+.installer/tests/guided/*

@@ -78,7 +78,8 @@ load controller-helpers
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_user_edit Users alice)"
   run guided_controller_enter "shell: fish   (Enter cycles)"   # fish → wrap bash = committed
-  file_satisfies "$GUIDED_USERFORMS_FILE" '. == {}'     # strict delta: override gone
+  file_satisfies "$GUIDED_USERFORMS_FILE" \
+    '. == {}'     # strict delta: override gone
 }
 
 @test "enter(useredit): remove drops an ad-hoc user + returns to the list" {
@@ -180,13 +181,13 @@ load controller-helpers
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(navigation_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
   # account-shape copied from the source's effective view
-  [ "$(jq -r '.bob.shell' "$uf")" = "/bin/fish" ]
-  [ "$(jq -c '.bob.sudo' "$uf")" = "true" ]
-  [ "$(jq -c '.bob.groups' "$uf")" = '["wheel","docker"]' ]
-  [ "$(jq -c '.bob.programs' "$uf")" = '["git"]' ]
+  file_satisfies "$uf" '.bob.shell == "/bin/fish"'
+  file_satisfies "$uf" '.bob.sudo == true'
+  file_satisfies "$uf" '.bob.groups == ["wheel","docker"]'
+  file_satisfies "$uf" '.bob.programs == ["git"]'
   # identity fields are NOT carried across
-  [ "$(jq -r '.bob.git // "none"' "$uf")" = "none" ]
-  [ "$(jq -r '.bob.ssh_authorized_keys // "none"' "$uf")" = "none" ]
+  file_satisfies "$uf" '(.bob.git // "none") == "none"'
+  file_satisfies "$uf" '(.bob.ssh_authorized_keys // "none") == "none"'
 }
 
 @test "enter(text __cloneuser__): a duplicate name is refused with a notice" {
@@ -444,5 +445,6 @@ load controller-helpers
   # committed has docker; toggling it off then on again lands back on committed
   guided_controller_enter "[x] docker" >/dev/null    # remove → override []
   run guided_controller_enter "[ ] docker"           # add back → equals committed
-  file_satisfies "$GUIDED_USERFORMS_FILE" '. == {}'   # strict delta: no override
+  file_satisfies "$GUIDED_USERFORMS_FILE" \
+    '. == {}'   # strict delta: no override
 }

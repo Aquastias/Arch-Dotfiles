@@ -74,7 +74,6 @@ guided_export_config() {
     return 1
     ;;
   esac
-  local parent="${absolute_path%/*}"
-  mkdir -p "${parent:-/}"
+  mkdir -p "$(dirname "$absolute_path")"
   printf '%s\n' "$effective" > "$absolute_path"
 }

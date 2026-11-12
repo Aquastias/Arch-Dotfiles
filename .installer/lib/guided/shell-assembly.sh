@@ -17,6 +17,9 @@
 #   _GUIDED_STATE — the operator's sparse OVERRIDE map (empty at launch); every
 #     edit writes here, so the ● flag reflects operator intent only.
 # Effective config = BASELINE * STATE, read via _guided_shell_effective.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _GUIDED_BASELINE=""
 _GUIDED_STATE=""
 _GUIDED_DISK=""
@@ -46,6 +49,7 @@ _guided_shell_set_identity() {
 # user — and deep-merges objects). Emit, Save and the seeded-value reads use
 # this.
 _guided_shell_effective() {
+  # The overrides merged over the baseline.
   jq -n --argjson b "${_GUIDED_BASELINE:-{\}}" \
     --argjson o "${_GUIDED_STATE:-{\}}" '$b * $o'
 }
@@ -166,25 +170,19 @@ _guided_shell_author_groups() {
 # the in-menu bind (ADR 0047). kind is os_pool (singleton) | storage | data.
 # Mutates _GUIDED_STATE. Shared by the headless replay device-binding form.
 _guided_shell_inject_devices() {
-  local kind="$1" index="$2" list="$3" devices_json
+  local kind="$1" index="$2" list="$3" devices_json path
   # shellcheck disable=SC2086 # the list is a whitespace-separated by-id set
-  devices_json="$(printf '%s\n' $list | jq -R . \
-    | jq -s -c 'map(select(length > 0))')"
+  devices_json="$(json_string_array $list)"
   case "$kind" in
-  os_pool) _GUIDED_STATE="$(jq -c --argjson d "$devices_json" \
-    '.os_pool.devices = $d | .os_pool.disk_count = ($d | length)' \
-    <<<"$_GUIDED_STATE")" ;;
-  storage) _GUIDED_STATE="$(jq -c --argjson i "$index" \
-    --argjson d "$devices_json" \
-    '.storage_groups[$i].devices = $d
-     | .storage_groups[$i].disk_count = ($d | length)' \
-    <<<"$_GUIDED_STATE")" ;;
-  data)    _GUIDED_STATE="$(jq -c --argjson i "$index" \
-    --argjson d "$devices_json" \
-    '.data_pools[$i].devices = $d
-     | .data_pools[$i].disk_count = ($d | length)' \
-    <<<"$_GUIDED_STATE")" ;;
+  os_pool) path='.os_pool' ;;
+  storage) path='.storage_groups[$i]' ;;
+  data)    path='.data_pools[$i]' ;;
+  *)       return 0 ;;
   esac
+  local bind="${path}.devices = \$d | ${path}.disk_count = (\$d | length)"
+  # The state with the group's devices and their count.
+  _GUIDED_STATE="$(printf '%s\n' "$_GUIDED_STATE" \
+    | jq -c --argjson i "${index:-0}" --argjson d "$devices_json" "$bind")"
 }
 
 # _guided_shell_edit_bound_devices — the headless-replay In-Menu Disk Binding
@@ -200,15 +198,13 @@ _guided_shell_edit_bound_devices() {
   [[ -n "${_GUIDED_ANSWERS[os_pool_devices]-}" ]] \
     && _guided_shell_inject_devices os_pool 0 \
       "${_GUIDED_ANSWERS[os_pool_devices]}"
-  local key
+  local key kind index
   for key in "${!_GUIDED_ANSWERS[@]}"; do
-    if [[ "$key" =~ ^storage_([0-9]+)_devices$ ]]; then
-      _guided_shell_inject_devices storage "${BASH_REMATCH[1]}" \
-        "${_GUIDED_ANSWERS[$key]}"
-    elif [[ "$key" =~ ^data_([0-9]+)_devices$ ]]; then
-      _guided_shell_inject_devices data "${BASH_REMATCH[1]}" \
-        "${_GUIDED_ANSWERS[$key]}"
-    fi
+    [[ "$key" =~ ^(storage|data)_[0-9]+_devices$ ]] || continue
+    # storage_<N>_devices / data_<N>_devices: the kind and the index N.
+    kind="$(text_before "$key" _)"
+    index="$(text_before "$(text_after "$key" _)" _)"
+    _guided_shell_inject_devices "$kind" "$index" "${_GUIDED_ANSWERS[$key]}"
   done
 }
 
@@ -232,6 +228,7 @@ guided_pick_disks() {
   # Readable labels (field 1) over the by-id paths (hidden field 2); emit the
   # picked paths, one per line.
   local path
+  # The picked disks' paths, from "label<TAB>path" rows.
   for path in "${candidates[@]}"; do
     printf '%s\t%s\n' "$(picker_disk_label "$path")" "$path"
   done | fzf --reverse --multi --prompt="pick ${count} disks (TAB to mark)> " \
@@ -266,9 +263,10 @@ _guided_shell_edit_filesystem() {
   local pick token filesystem
   pick="$(guided_select filesystem "Filesystem" "${options[@]}")"
   [[ -n "$pick" ]] || return 0
-  token="${pick%% *}"
+  token="$(first_word "$pick")"
   for filesystem in "${_GUIDED_FS_ACTIVE[@]}"; do
     if [[ "$token" == "$filesystem" ]]; then
+      # The filesystem as a JSON string.
       _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" filesystem \
         "$(jq -n --arg x "$token" '$x')")"
       return 0

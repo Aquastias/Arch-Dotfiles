@@ -20,11 +20,6 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
 }
 
-# row_satisfies <field> <jq-test> — the row for <field> in $output makes
-# <jq-test> true.
-row_satisfies() {
-  output_satisfies ".[] | select(.field == \"$1\") | ($2)"
-}
 # menu_categories is the top-level contract: the ordered categories the operator
 # drills into, in install-flow order under six buckets. Each carries a summary,
 # a bucket, and an aggregated ● (any descendant field overridden). The list is

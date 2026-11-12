@@ -157,7 +157,8 @@ load controller-helpers
   # toggling back to the baseline drops the override (strict delta)
   run guided_controller_enter "enabled: on"
   [ "$output" = "refresh" ]
-  file_satisfies "$GUIDED_STATE_FILE" 'getpath(["options","encryption"]) == null'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    'getpath(["options","encryption"]) == null'
 }
 
 @test "enter(encryption): password opens the inline capture (rich chrome)" {

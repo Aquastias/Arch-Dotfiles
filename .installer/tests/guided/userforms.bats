@@ -6,6 +6,8 @@
 # never the Config State, never a committed repo file — and merged onto the
 # install clone at Proceed.
 
+load ../lib/json-helpers
+
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/guided/userforms.sh"
   UF="$(mktemp)"; printf '{}\n' > "$UF"
@@ -26,27 +28,27 @@ teardown() { rm -f "$UF"; }
 @test "set: multiple fields accumulate under one user" {
   guided_userform_set "$UF" alice shell '"/bin/zsh"'
   guided_userform_set "$UF" alice sudo 'true'
-  [ "$(jq -c '.alice' "$UF")" = '{"shell":"/bin/zsh","sudo":true}' ]
+  file_satisfies "$UF" '.alice == {"shell":"/bin/zsh","sudo":true}'
 }
 
 @test "unset: drops one field but keeps the rest" {
   guided_userform_set "$UF" alice shell '"/bin/zsh"'
   guided_userform_set "$UF" alice sudo 'true'
   guided_userform_unset "$UF" alice shell
-  [ "$(jq -c '.alice' "$UF")" = '{"sudo":true}' ]
+  file_satisfies "$UF" '.alice == {"sudo":true}'
 }
 
 @test "unset: removes the user entirely once its delta is empty" {
   guided_userform_set "$UF" alice shell '"/bin/zsh"'
   guided_userform_unset "$UF" alice shell
-  [ "$(jq -c '.' "$UF")" = '{}' ]
+  file_satisfies "$UF" '. == {}'
 }
 
 @test "clear: drops a whole user's delta" {
   guided_userform_set "$UF" alice shell '"/bin/zsh"'
   guided_userform_set "$UF" bob sudo 'true'
   guided_userform_clear "$UF" alice
-  [ "$(jq -c '.' "$UF")" = '{"bob":{"sudo":true}}' ]
+  file_satisfies "$UF" '. == {"bob":{"sudo":true}}'
 }
 
 @test "names: only users with a non-empty delta are listed" {

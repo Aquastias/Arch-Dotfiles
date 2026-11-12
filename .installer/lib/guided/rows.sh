@@ -23,7 +23,7 @@
 # (── the divider and the bucket headers both do) are inert.
 guided_row_inert() {
   local line="$1"
-  [[ -z "${line//[[:space:]]/}" ]] && return 0
+  [[ "$line" =~ ^[[:space:]]*$ ]] && return 0
   [[ "$line" == ─* ]] && return 0
   return 1
 }

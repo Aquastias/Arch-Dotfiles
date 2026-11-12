@@ -16,6 +16,9 @@
 # users/<name>/profile.jsonc at Proceed; passwords (root + per-user) are held
 # aside too and injected via the no-SOPS seam (secrets.sh) — they never
 # enter the Config State, so Save/Export never carry them.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _GUIDED_USERS_COMMITTED=()
 _GUIDED_ADHOC_ORDER=()
 declare -gA _GUIDED_ADHOC_FORM=()
@@ -52,8 +55,7 @@ _guided_shell_user_names() {
   local user_directory name
   for user_directory in "${INSTALLER_DIR}/users"/*/; do
     [[ -d "$user_directory" ]] || continue
-    name="${user_directory%/}"
-    name="${name##*/}"
+    name="$(basename "$user_directory")"
     [[ "$name" == "core" || "$name" == "vm" ]] && continue
     [[ -f "${user_directory}profile.jsonc" ]] && printf '%s\n' "$name"
   done
@@ -101,8 +103,7 @@ _guided_shell_create_user() {
   local -a program_names
   mapfile -t program_names < <(_guided_shell_program_names)
   mapfile -t programs < <(_guided_shell_collect_multi new_user_programs \
-    "Programs" \
-    "${program_names[@]}")
+    "Programs" "${program_names[@]}")
   # ADR 0134: bareness (drop User Core's programs wholesale) + config_exclude
   # (install a program's package but skip its config). Inherit defaults ON (the
   # first option under replay), config_exclude offers the user's own programs.
@@ -129,7 +130,7 @@ _guided_shell_create_user() {
   # re-attach it explicitly when bareness was chosen (true is the omitted
   # default). See ADR 0134.
   [[ "$inherit" == "false" ]] \
-    && profile="$(jq -c '. + {programs_inherit:false}' <<<"$profile")"
+    && profile="$(config_state_set "$profile" programs_inherit false)"
   _GUIDED_ADHOC_FORM["$name"]="$profile"
   _GUIDED_ADHOC_ORDER+=("$name")
   _GUIDED_USER_PASSWORDS["$name"]="$password"
@@ -139,6 +140,11 @@ _guided_shell_create_user() {
 # _guided_shell_user_form — the create form as User Profile JSON, from the
 # caller's collected fields (dynamic scope).
 _guided_shell_user_form() {
+  local form='{shell: $shell, sudo: $sudo, groups: $groups,'
+  form+=' programs: $programs, config_exclude: $config_exclude,'
+  form+=' git: ({name: $gn, email: $ge} | with_entries(select(.value != ""))),'
+  form+=' ssh_authorized_keys: $keys}'
+  # The User Profile; an empty git name or email is left out.
   jq -n \
     --arg shell "$shell" \
     --argjson sudo "$([[ "$sudo" == "true" ]] && echo true || echo false)" \
@@ -148,10 +154,7 @@ _guided_shell_user_form() {
       "${config_excluded[@]+"${config_excluded[@]}"}")" \
     --arg gn "$git_name" --arg ge "$git_email" \
     --argjson keys "$(_emit_json_array "${ssh_keys[@]}")" \
-    '{shell:$shell, sudo:$sudo, groups:$groups, programs:$programs,
-      config_exclude:$config_exclude,
-      git: ({name:$gn, email:$ge} | with_entries(select(.value != ""))),
-      ssh_authorized_keys:$keys}'
+    "$form"
 }
 
 # The committed user names snapshotted at the start of materialize (before any
@@ -168,8 +171,7 @@ _GUIDED_COMMITTED_AT_START=""
 # instead.
 _guided_shell_materialize_users() {
   local mode="${1:-proceed}" name user_directory
-  _GUIDED_COMMITTED_AT_START=" $(_guided_shell_user_names \
-    | awk '{ printf "%s ", $0 }')"
+  _GUIDED_COMMITTED_AT_START=" $(_guided_shell_user_names | paste -sd' ' -) "
   for name in "${_GUIDED_ADHOC_ORDER[@]+"${_GUIDED_ADHOC_ORDER[@]}"}"; do
     user_directory="${INSTALLER_DIR}/users/${name}"
     mkdir -p "$user_directory"
@@ -189,7 +191,8 @@ _guided_shell_materialize_users() {
       '{"shell":"/bin/bash","sudo":true,"groups":["wheel"],
         "programs":["searxng"]}' \
       > "${user_directory}/profile.jsonc"
-  done < <(jq -r '(.users // [])[]' <<<"$(_guided_shell_effective)")
+  # The effective user names, one per line.
+  done < <(_guided_shell_effective | jq -r '(.users // [])[]')
 
   # Install-scoped User Editor deltas (ADR 0051): merge each held-aside per-user
   # delta onto that user's profile ON THE CLONE — the committed source in the
@@ -216,7 +219,9 @@ _guided_shell_apply_userforms() {
        && "$_GUIDED_COMMITTED_AT_START" == *" $name "* ]]; then
       continue
     fi
-    delta="$(jq -c --arg n "$name" '.[$n] // {}' <<<"$_GUIDED_USERFORMS_JSON")"
+    # The user's delta, empty by default.
+    delta="$(printf '%s\n' "$_GUIDED_USERFORMS_JSON" \
+      | jq -c --arg n "$name" '.[$n] // {}')"
     [[ "$delta" == "{}" || -z "$delta" ]] && continue
     directory="${INSTALLER_DIR}/users/${name}"
     profile_file="${directory}/profile.jsonc"
@@ -225,8 +230,10 @@ _guided_shell_apply_userforms() {
     if [[ -f "$profile_file" ]]; then
       base="$(_program_registry_parse "$profile_file")"
     fi
+    # The profile with the delta merged over it.
     jq -n --argjson b "$base" --argjson d "$delta" '$b * $d' > "$profile_file"
-  done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
+  # The names with a delta, one per line.
+  done < <(printf '%s\n' "$_GUIDED_USERFORMS_JSON" | jq -r 'keys[]')
 }
 
 # _guided_shell_committed_userform_edits — the committed users carrying an
@@ -241,7 +248,8 @@ _guided_shell_committed_userform_edits() {
     [[ -n "$user" ]] || continue
     [[ -f "${INSTALLER_DIR}/users/${user}/profile.jsonc" ]] \
       && printf '%s\n' "$user"
-  done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
+  # The names with a delta, one per line.
+  done < <(printf '%s\n' "$_GUIDED_USERFORMS_JSON" | jq -r 'keys[]')
 }
 
 # Credentials are captured in the menu (ticket 03) — the persistent-fzf
@@ -277,15 +285,21 @@ _guided_shell_set_root_password() {
 # into install-state. Pure: reads the side state, emits JSON.
 _guided_shell_secrets_manifest() {
   local manifest='{}' name
-  [[ -n "$_GUIDED_ROOT_PASSWORD" ]] \
-    && manifest="$(jq --arg pw "$_GUIDED_ROOT_PASSWORD" \
-    '.root_password = $pw' <<<"$manifest")"
-  [[ -n "$_GUIDED_ENCRYPTION_PASSPHRASE" ]] && manifest="$(jq \
-    --arg pw "$_GUIDED_ENCRYPTION_PASSPHRASE" '.enc_passphrase = $pw' \
-    <<<"$manifest")"
+  if [[ -n "$_GUIDED_ROOT_PASSWORD" ]]; then
+    # The manifest with the root password.
+    manifest="$(printf '%s\n' "$manifest" \
+      | jq --arg pw "$_GUIDED_ROOT_PASSWORD" '.root_password = $pw')"
+  fi
+  if [[ -n "$_GUIDED_ENCRYPTION_PASSPHRASE" ]]; then
+    # The manifest with the encryption passphrase.
+    manifest="$(printf '%s\n' "$manifest" \
+      | jq --arg pw "$_GUIDED_ENCRYPTION_PASSPHRASE" '.enc_passphrase = $pw')"
+  fi
   for name in "${!_GUIDED_USER_PASSWORDS[@]}"; do
-    manifest="$(jq --arg n "$name" --arg pw "${_GUIDED_USER_PASSWORDS[$name]}" \
-      '.users[$n] = {password: $pw}' <<<"$manifest")"
+    # The manifest with this user's password.
+    manifest="$(printf '%s\n' "$manifest" \
+      | jq --arg n "$name" --arg pw "${_GUIDED_USER_PASSWORDS[$name]}" \
+        '.users[$n] = {password: $pw}')"
   done
   # Default posture (ADR 0055): fill any secret the operator left unset with
   # 12345 — root, every effective user, and (when encryption is on) the
@@ -293,7 +307,8 @@ _guided_shell_secrets_manifest() {
   # already won; this only backfills the gaps.
   local effective_json users encryption
   effective_json="$(_guided_shell_effective)"
-  users="$(jq -c '.users // []' <<<"$effective_json")"
+  # The effective user names.
+  users="$(printf '%s\n' "$effective_json" | jq -c '.users // []')"
   [[ "$(config_state_get "$effective_json" options.encryption)" == "true" ]] \
     && encryption=true || encryption=false
   guided_default_missing_secrets "$manifest" "$users" "$encryption"

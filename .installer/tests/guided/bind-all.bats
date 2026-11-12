@@ -7,6 +7,8 @@
 # PICKER_BY_ID_DIR;
 # GUIDED_LIVE_SET="" means no live exclusion. No fzf, no real disks.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -59,7 +61,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_pool_edit Disks 0 os)"
   run guided_controller_enter "topology: stripe   (Enter cycles)"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.os_pool.topology' "$GUIDED_STATE_FILE")" = "mirror" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.os_pool.topology == "mirror"'
 }
 
 @test "enter(pooledit os): device-mode disks opens the sub-screen for os" {
@@ -78,9 +80,10 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_pool_disks Disks 0 os)"
   run guided_controller_enter "[ ] nvme-Disk_One"
   [ "$output" = "refresh" ]
+  # The OS pool's first bound device.
   [ "$(jq -r '.os_pool.devices[0]' "$GUIDED_STATE_FILE")" \
     = "$BY_ID/nvme-Disk_One" ]
-  [ "$(jq -r '.os_pool.disk_count' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.os_pool.disk_count == 1'
 }
 
 # ── Storage group editor: topology/disks editable, mount fixed (AC2) ─────────
@@ -106,7 +109,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   run guided_controller_enter "topology: raidz1   (Enter cycles)"
-  [ "$(jq -r '.storage_groups[0].topology' "$GUIDED_STATE_FILE")" = "raidz2" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].topology == "raidz2"'
 }
 
 @test "enter(pooledit storage): device-mode disks opens the sub-screen" {
@@ -124,14 +127,14 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   run guided_controller_enter "disks: 3   (Enter cycles 1-8)"
-  [ "$(jq -r '.storage_groups[0].disk_count' "$GUIDED_STATE_FILE")" = "4" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].disk_count == 4'
 }
 
 @test "enter(pooledit storage): remove deletes the group, returns to the list" {
   printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   run guided_controller_enter "✗ remove this group"
-  [ "$(jq -c '.storage_groups' "$GUIDED_STATE_FILE")" = "[]" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups == []'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
@@ -153,7 +156,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   run guided_controller_enter "encryption: on   (disk-wide, shared)"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.storage_groups[0] | has("encryption")' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.storage_groups[0] | has("encryption") | not'
 }
 
 # ── single-disk root row + picker (AC3) ──────────────────────────────────────
@@ -199,6 +203,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_root_disk Disks)"
   run guided_controller_enter "( ) nvme-Disk_Two"
   [ "$output" = "render" ]
+  # The picked root disk.
   [ "$(jq -r '.root_disk' "$GUIDED_STATE_FILE")" = "$BY_ID/nvme-Disk_Two" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
@@ -207,6 +212,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '{"root_disk":"%s/nvme-Disk_One"}\n' "$BY_ID" > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_root_disk Disks)"
   run guided_controller_enter "( ) ata-Disk_Three"
+  # The picked root disk.
   [ "$(jq -r '.root_disk' "$GUIDED_STATE_FILE")" = "$BY_ID/ata-Disk_Three" ]
 }
 

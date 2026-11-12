@@ -2,6 +2,7 @@
 # Tests: session replay (split from shell.bats;
 # shared setup in shell-helpers.bash)
 
+load ../lib/json-helpers
 load shell-helpers
 
 
@@ -16,15 +17,14 @@ load shell-helpers
   # stdout is the Effective Config; the review screen goes to stderr.
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.system.hostname == "eterniox"'
-  echo "$effective" | jq -e '.mode == "single"'
-  echo "$effective" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
+  json_satisfies "$effective" '.system.hostname == "eterniox"'
+  json_satisfies "$effective" '.mode == "single"'
+  json_satisfies "$effective" '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
   # Seeded defaults derive the section System Programs (ADR 0079/0080/0089):
   # cups (printing), bluetooth, power-profiles-daemon (power), reflector
   # (mirrors), in inject order.
-  echo "$effective" \
-    | jq -e '.host_programs
-        == ["cups","bluetooth","power-profiles-daemon","reflector"]'
+  json_satisfies "$effective" \
+    '.host_programs == ["cups","bluetooth","power-profiles-daemon","reflector"]'
 }
 
 
@@ -36,7 +36,7 @@ load shell-helpers
     'filesystem=btrfs' \
     'confirm=INSTALL')"
   effective="$(guided_build 2>/dev/null)"
-  echo "$effective" | jq -e '.filesystem == "btrfs"'
+  json_satisfies "$effective" '.filesystem == "btrfs"'
 }
 
 
@@ -49,13 +49,15 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.system.hostname == "archlinux"'   # neutral (ADR 0157)
-  echo "$effective" | jq -e '.users == ["tester"]'   # the helper's user
-  echo "$effective" | jq -e '.mode == "single"'
-  echo "$effective" | jq -e '.system.locale == "en_US.UTF-8"'
-  echo "$effective" | jq -e '.system.timezone == null'   # autodetected (ADR 0118)
+  json_satisfies "$effective" \
+    '.system.hostname == "archlinux"'   # neutral (ADR 0157)
+  json_satisfies "$effective" '.users == ["tester"]'   # the helper's user
+  json_satisfies "$effective" '.mode == "single"'
+  json_satisfies "$effective" '.system.locale == "en_US.UTF-8"'
+  json_satisfies "$effective" \
+    '.system.timezone == null'   # autodetected (ADR 0118)
   assert_extras_off "$effective"   # extras off
-  echo "$effective" | jq -e '.system.keymap == "us"'
+  json_satisfies "$effective" '.system.keymap == "us"'
 }
 
 
@@ -67,9 +69,10 @@ load shell-helpers
 
   run guided_build
   [ "$status" -eq 64 ]
-  jq -e '.users == ["tester"]' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
-  jq -e '.system.hostname == "archlinux"' \
-    "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
+  file_satisfies "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" \
+    '.users == ["tester"]'
+  file_satisfies "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" \
+    '.system.hostname == "archlinux"'
 }
 
 
@@ -83,7 +86,7 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.system.locale == "de_DE.UTF-8"'
+  json_satisfies "$effective" '.system.locale == "de_DE.UTF-8"'
 }
 
 
@@ -101,10 +104,10 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.filesystem == "zfs"'
-  echo "$effective" | jq -e '.options.encryption == true'
-  echo "$effective" | jq -e '.options.impermanence.enabled == true'
-  echo "$effective" | jq -e '.persist.directories == ["/etc/wireguard"]'
+  json_satisfies "$effective" '.filesystem == "zfs"'
+  json_satisfies "$effective" '.options.encryption == true'
+  json_satisfies "$effective" '.options.impermanence.enabled == true'
+  json_satisfies "$effective" '.persist.directories == ["/etc/wireguard"]'
 }
 
 
@@ -127,15 +130,16 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.options.kernel == ["zen","lts"]'
-  echo "$effective" | jq -e '.options.bootloader == "grub"'
-  echo "$effective" | jq -e '.options.swap == false'
-  echo "$effective" | jq -e '.options.swap_size == "8G"'
-  echo "$effective" | jq -e '.options.esp_size == "4G"'
-  echo "$effective" | jq -e '.options.ssh.enabled == true'
-  echo "$effective" | jq -e '.options.age_key_url == "https://example.test/key.age"'
-  echo "$effective" | jq -e '.environment.desktop == ["kde"]'
-  echo "$effective" | jq -e '.environment.gpu == ["amd","nvidia"]'
+  json_satisfies "$effective" '.options.kernel == ["zen","lts"]'
+  json_satisfies "$effective" '.options.bootloader == "grub"'
+  json_satisfies "$effective" '.options.swap == false'
+  json_satisfies "$effective" '.options.swap_size == "8G"'
+  json_satisfies "$effective" '.options.esp_size == "4G"'
+  json_satisfies "$effective" '.options.ssh.enabled == true'
+  json_satisfies "$effective" \
+    '.options.age_key_url == "https://example.test/key.age"'
+  json_satisfies "$effective" '.environment.desktop == ["kde"]'
+  json_satisfies "$effective" '.environment.gpu == ["amd","nvidia"]'
 }
 
 
@@ -157,19 +161,20 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
-  echo "$effective" | jq -e '.options.optional_repos == ["core-testing"]'
-  echo "$effective" | jq -e '.packages.repo.extra == ["htop","tmux"]'
-  echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
+  json_satisfies "$effective" \
+    '.options.mirror_countries == ["Japan","Australia"]'
+  json_satisfies "$effective" '.options.optional_repos == ["core-testing"]'
+  json_satisfies "$effective" '.packages.repo.extra == ["htop","tmux"]'
+  json_satisfies "$effective" '.sysctl["vm.swappiness"] == 20'
   # Structured Security/Backup object: only the answered fields are set — a
   # blank session pre-ticks no extra (ADR 0157).
-  echo "$effective" | jq -e '.post_install.security.firewall == "ufw"'
-  echo "$effective" | jq -e '.post_install.security.antivirus == false'
-  echo "$effective" | jq -e '.post_install.security.rootkit == false'
-  echo "$effective" | jq -e '.post_install.backup.borg == false'
-  echo "$effective" | jq -e '.post_install.backup.zfs_auto_snapshot == false'
+  json_satisfies "$effective" '.post_install.security.firewall == "ufw"'
+  json_satisfies "$effective" '.post_install.security.antivirus == false'
+  json_satisfies "$effective" '.post_install.security.rootkit == false'
+  json_satisfies "$effective" '.post_install.backup.borg == false'
+  json_satisfies "$effective" '.post_install.backup.zfs_auto_snapshot == false'
   # dotfiles_repo is removed entirely — never emitted
-  echo "$effective" | jq -e 'has("dotfiles_repo") | not'
+  json_satisfies "$effective" 'has("dotfiles_repo") | not'
 }
 
 
@@ -187,7 +192,7 @@ load shell-helpers
   # guided_build under `set -Eeuo pipefail`. An abort empties effective.
   effective="$(set -Eeuo pipefail; guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.system.hostname == "eterniox"'
+  json_satisfies "$effective" '.system.hostname == "eterniox"'
   assert_extras_off "$effective"   # extras off (ADR 0157)
 }
 
@@ -218,8 +223,10 @@ load shell-helpers
   run guided_build
   [ "$status" -eq 64 ]                       # action done — no back-end install
   [ -f "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" ]
-  jq -e 'has("disk") | not' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"   # device-less
-  jq -e '.options.bootloader == "grub"' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
+  file_satisfies "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" \
+    'has("disk") | not'   # device-less
+  file_satisfies "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" \
+    '.options.bootloader == "grub"'
 }
 
 @test "guided_build: a replayed Save refuses an ad-hoc user that already exists" {
@@ -247,8 +254,8 @@ load shell-helpers
   run guided_build
   [ "$status" -eq 64 ]
   [ -f "$TEST_DIR/out/eterniox.effective.jsonc" ]
-  jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"' \
-    "$TEST_DIR/out/eterniox.effective.jsonc"   # device-baked
+  file_satisfies "$TEST_DIR/out/eterniox.effective.jsonc" \
+    '.disk == "/dev/disk/by-id/wwn-0xDEAD"'   # device-baked
 }
 
 
@@ -269,16 +276,17 @@ load shell-helpers
   [ -n "$effective" ]
   # the ad-hoc user is the host's only user (a blank session presets none,
   # ADR 0157); its User Profile is materialized.
-  echo "$effective" | jq -e '.users == ["carol"]'
+  json_satisfies "$effective" '.users == ["carol"]'
   [ -f "$INSTALLER_DIR/users/carol/profile.jsonc" ]
-  jq -e '.shell == "/bin/zsh" and .sudo == true' \
-    "$INSTALLER_DIR/users/carol/profile.jsonc"
+  file_satisfies "$INSTALLER_DIR/users/carol/profile.jsonc" \
+    '.shell == "/bin/zsh" and .sudo == true'
   # passwords land ONLY in the side manifest — never in the Effective Config
-  echo "$effective" | jq -e 'has("root_password") | not'
-  echo "$effective" | jq -e '(.. | objects | has("password")) // false | not' \
+  json_satisfies "$effective" 'has("root_password") | not'
+  json_satisfies "$effective" \
+    '(.. | objects | has("password")) // false | not' \
     2>/dev/null || true
-  jq -e '.root_password == "r00t"' "$GUIDED_SECRETS_MANIFEST"
-  jq -e '.users.carol.password == "hunter2"' "$GUIDED_SECRETS_MANIFEST"
+  file_satisfies "$GUIDED_SECRETS_MANIFEST" '.root_password == "r00t"'
+  file_satisfies "$GUIDED_SECRETS_MANIFEST" '.users.carol.password == "hunter2"'
 }
 
 
@@ -291,14 +299,14 @@ load shell-helpers
   _guided_shell_load_secrets_file "$secrets_file"
   [ "$_GUIDED_ENCRYPTION_PASSPHRASE" = "corrhorse" ]
   run _guided_shell_secrets_manifest
-  echo "$output" | jq -e '.enc_passphrase == "corrhorse"'
-  echo "$output" | jq -e '.root_password == "r00t"'
+  output_satisfies '.enc_passphrase == "corrhorse"'
+  output_satisfies '.root_password == "r00t"'
 }
 
 @test "secrets: no enc_passphrase key when none was captured" {
   _guided_shell_users_reset
   run _guided_shell_secrets_manifest
-  echo "$output" | jq -e 'has("enc_passphrase") | not'
+  output_satisfies 'has("enc_passphrase") | not'
 }
 
 
@@ -313,10 +321,10 @@ load shell-helpers
   _GUIDED_STATE="$(config_state_new)"
 
   _guided_shell_author_skeleton
-  echo "$_GUIDED_STATE" | jq -e '.mode == "multi"'
-  echo "$_GUIDED_STATE" | jq -e '.os_pool.topology == "mirror"'
-  echo "$_GUIDED_STATE" | jq -e '.storage_groups[0].name == "data"'
-  echo "$_GUIDED_STATE" | jq -e '.storage_groups[0].disk_count == 3'
+  json_satisfies "$_GUIDED_STATE" '.mode == "multi"'
+  json_satisfies "$_GUIDED_STATE" '.os_pool.topology == "mirror"'
+  json_satisfies "$_GUIDED_STATE" '.storage_groups[0].name == "data"'
+  json_satisfies "$_GUIDED_STATE" '.storage_groups[0].disk_count == 3'
 }
 
 @test "guided_build: a replayed Advanced session bakes the authored skeleton" {
@@ -333,10 +341,10 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.os_pool.topology == "mirror"'
-  echo "$effective" | jq -e '(.os_pool.disks | length) == 2'
-  echo "$effective" | jq -e '.storage_groups[0].topology == "raidz1"'
-  echo "$effective" | jq -e '(.storage_groups[0].disks | length) == 3'
+  json_satisfies "$effective" '.os_pool.topology == "mirror"'
+  json_satisfies "$effective" '(.os_pool.disks | length) == 2'
+  json_satisfies "$effective" '.storage_groups[0].topology == "raidz1"'
+  json_satisfies "$effective" '(.storage_groups[0].disks | length) == 3'
 }
 
 
@@ -352,9 +360,9 @@ load shell-helpers
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.mode == "multi"'
-  echo "$effective" | jq -e '.os_pool.topology == "mirror"'
-  echo "$effective" | jq -e \
+  json_satisfies "$effective" '.mode == "multi"'
+  json_satisfies "$effective" '.os_pool.topology == "mirror"'
+  json_satisfies "$effective" \
     '.os_pool.disks == ["/dev/disk/by-id/wwn-A","/dev/disk/by-id/wwn-B"]'
 }
 
@@ -382,8 +390,9 @@ load shell-helpers
     'confirm=INSTALL')"
 
   effective="$(guided_build 2>/dev/null)"
-  echo "$effective" | jq -e '.system.locale'   # timezone: autodetected at install
-  echo "$effective" | jq -e '.system.keymap'
+  json_satisfies "$effective" \
+    '.system.locale'   # timezone: autodetected at install
+  json_satisfies "$effective" '.system.keymap'
 }
 
 
@@ -434,7 +443,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_encryption
-  echo "$_GUIDED_STATE" | jq -e '.options.encryption == true'
+  json_satisfies "$_GUIDED_STATE" '.options.encryption == true'
 }
 
 @test "_guided_shell_edit_impermanence: selecting true enables impermanence" {
@@ -444,5 +453,5 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_impermanence
-  echo "$_GUIDED_STATE" | jq -e '.options.impermanence.enabled == true'
+  json_satisfies "$_GUIDED_STATE" '.options.impermanence.enabled == true'
 }

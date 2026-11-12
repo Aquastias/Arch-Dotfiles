@@ -5,6 +5,8 @@
 # machine facts as sorted JSON, the Package Resolver set), so an explicit
 # default and an absent one read the same and disks never enter the compare.
 
+load ../lib/json-helpers
+
 setup() {
   export INSTALLER_DIR; INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   info() { :; }; warn() { :; }; section() { :; }
@@ -19,26 +21,27 @@ setup() {
 
 # assert_extras_off <config> — no Security & Backup Extra is on (absent or off).
 assert_extras_off() {
-  jq -e '(.post_install.security.firewall // "none") == "none"
-    and ([.post_install // {} | .. | booleans | select(.)] | length) == 0' \
-    <<<"$1" >/dev/null
+  local no_firewall='(.post_install.security.firewall // "none") == "none"'
+  local no_flag='[.post_install // {} | .. | booleans | select(.)] == []'
+  # No firewall, and no true flag anywhere under post_install.
+  json_satisfies "$1" "$no_firewall and $no_flag"
 }
 
-# equivalence_snapshot <config-json> — the normalised install of a config.
-equivalence_snapshot() {
+# equivalence_text <config-json> — every accessor's value (lines joined with
+# commas), then the resolved packages, as sorted "source<TAB>package" lines.
+equivalence_text() {
   local config="$1" name values
   for name in $(install_config_schema_names); do
-    values="$(install_config_from_json "$config" "$name")"
-    printf '%s=%s\n' "$name" "${values//$'\n'/,}"
+    values="$(install_config_from_json "$config" "$name" | paste -sd, -)"
+    printf '%s=%s\n' "$name" "$values"
   done
-  # console_font is a schema field the Guided baseline seeds explicitly; its
-  # accessor above already compares it, defaults applied.
-  jq -S '{system: (.system // {} | del(.console_font)), users, post_install, sysctl, persist, mode, ashift,
-    os_pool: (.os_pool | del(.devices)?),
-    storage_groups: ((.storage_groups // []) | map(del(.devices))),
-    data_pools: ((.data_pools // []) | map(del(.devices)))}' <<<"$config"
-  package_resolver_resolve "$config" | awk -F '\t' '{ print $1 "\t" $3 }' \
-    | sort -u
+  # Each package with its source, each once.
+  package_resolver_resolve "$config" | cut -f1,3 | sort -u
+}
+
+# equivalence_fields <config-json> — the normalised config fields, as JSON.
+equivalence_fields() {
+  printf '%s\n' "$1" | jq -c -f "$BATS_TEST_DIRNAME/equivalence-fields.jq"
 }
 
 # guided_pick <name> [answer…] — the headless replay's pre-disk config after
@@ -61,9 +64,19 @@ cli_profile() {
     "$(bash "$INSTALLER_DIR/install.sh" --profile "$1" --print-config 2>/dev/null)"
 }
 
+# assert_equivalent <name> — `--profile <name>` and a Guided pick of <name>
+# install the same: identical accessors and packages, equal fields.
 assert_equivalent() {
-  diff <(equivalence_snapshot "$(cli_profile "$1")") \
-       <(equivalence_snapshot "$(guided_pick "$1")")
+  local cli guided cli_fields guided_fields
+  cli="$(cli_profile "$1")"
+  guided="$(guided_pick "$1")"
+  diff <(equivalence_text "$cli") <(equivalence_text "$guided") || return 1
+  cli_fields="$(equivalence_fields "$cli")"
+  guided_fields="$(equivalence_fields "$guided")"
+  # The fields are equal (jq's == ignores key order).
+  json_satisfies "$cli_fields" ". == $guided_fields" \
+    || { diff <(printf '%s\n' "$cli_fields") <(printf '%s\n' "$guided_fields")
+         return 1; }
 }
 
 @test "Guided pick ≡ --profile: desktop"       { assert_equivalent desktop; }
@@ -79,15 +92,17 @@ assert_equivalent() {
 @test "Guided pick ≡ --profile: every VM fixture" {
   local directory name
   for directory in "$INSTALLER_DIR"/hosts/vm/*/; do
-    name="${directory%/}"; name="${name##*/}"
+    name="$(basename "$directory")"
     assert_equivalent "$name" || { echo "differs: $name"; return 1; }
   done
 }
 
 @test "picking minimal carries no Host Core packages and no extras" {
   local config; config="$(guided_pick minimal)"
-  package_resolver_resolve "$config" | grep -qP '^(repo|aur)\t' && return 1
-  jq -e '.post_install == null' <<<"$config"
+  # No package row comes from the repo or aur layers.
+  package_resolver_resolve "$config" | cut -f1 | grep -qxE 'repo|aur' \
+    && return 1
+  json_satisfies "$config" '.post_install == null'
 }
 
 # ── a blank session installs nothing personal (ADR 0157) ─────────────────────
@@ -107,10 +122,13 @@ guided_blank() {
 
 # personal_names — every package and program of the Fleet Layer and aquastias.
 personal_names() {
+  local fleet_names='([.packages.repo // {}, .packages.aur // {}]'
+  fleet_names+=' | .[] | .[] | .[]), (.host_programs // [])[]'
   {
-    jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" | jq -r '
-      ([.packages.repo // {}, .packages.aur // {}] | .[] | .[] | .[]),
-      (.host_programs // [])[]'
+    # The Fleet Layer's packages and host programs.
+    jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
+      | jq -r "$fleet_names"
+    # aquastias's programs.
     jsonc_strip "$INSTALLER_DIR/users/aquastias/profile.jsonc" \
       | jq -r '(.programs // [])[]'
   } | sort -u
@@ -118,21 +136,29 @@ personal_names() {
 
 @test "a blank session presets nothing personal" {
   local config; config="$(guided_blank new_user_name=guest)"
-  jq -e '.system.hostname == "archlinux"' <<<"$config"
-  jq -e '.users == ["guest"]' <<<"$config"
-  jq -e '(.environment.desktop // []) == []' <<<"$config"
+  json_satisfies "$config" '.system.hostname == "archlinux"'
+  json_satisfies "$config" '.users == ["guest"]'
+  json_satisfies "$config" '(.environment.desktop // []) == []'
   assert_extras_off "$config"
-  jq -e '.system.timezone == null' <<<"$config"     # autodetected (ADR 0118)
+  json_satisfies "$config" \
+    '.system.timezone == null'     # autodetected (ADR 0118)
   [ -z "$(install_config_from_json "$config" mirror_countries)" ]
 }
 
 @test "a blank session installs no Fleet Layer or aquastias software" {
-  local config leaked
+  local config leaked="" source_name layer package
+  local -A personal=()
   config="$(guided_blank new_user_name=guest)"
-  leaked="$(package_resolver_resolve "$config" \
-    | awk -F '\t' '$1 ~ /^(repo|aur|host-programs|user-programs)$/ {
-        print $3 }' | sort -u | grep -xF -f <(personal_names) || true)"
-  [ -z "$leaked" ] || { echo "leaks: $leaked"; return 1; }
+  while IFS= read -r package; do personal["$package"]=1
+  done < <(personal_names)
+  # Each package a personal layer would bring, when it is a personal name.
+  while IFS=$'\t' read -r source_name layer package; do
+    case "$source_name" in
+    repo | aur | host-programs | user-programs)
+      [[ -n "${personal["$package"]:-}" ]] && leaked+=" $package" ;;
+    esac
+  done < <(package_resolver_resolve "$config")
+  [ -z "$leaked" ] || { echo "leaks:$leaked"; return 1; }
 }
 
 @test "a blank session with one desktop lands it stock" {

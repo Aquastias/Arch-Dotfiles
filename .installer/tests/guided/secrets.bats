@@ -9,6 +9,8 @@
 #
 # Behaviour under test: the files written + the install-state seam.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   info()  { :; }
@@ -33,11 +35,11 @@ teardown() { rm -rf "$TEST_DIR"; }
   guided_write_passwords '{"root_password":"hunter2"}' "$dir" "$state"
 
   # the decrypted file carries the root_password the chroot's password.sh reads
-  [ "$(jq -r '.root_password' "$dir/host-secrets.json")" = "hunter2" ]
+  file_satisfies "$dir/host-secrets.json" '.root_password == "hunter2"'
   # install-state points the back-end at it via the NO-SOPS key
   [ "$(jq -r '.guided_passwords.host' "$state")" = "$dir/host-secrets.json" ]
   # the SOPS gate (.secrets.*) stays untouched, so no SOPS program is activated
-  jq -e '.secrets == null' "$state"
+  file_satisfies "$state" '.secrets == null'
 }
 
 # ── per-user secrets carry the keys create-user.sh consumes ─────────────────
@@ -50,11 +52,12 @@ teardown() { rm -rf "$TEST_DIR"; }
 
   guided_write_passwords "$secrets" "$dir" "$state"
 
-  [ "$(jq -r '.password' "$dir/alice-secrets.json")" = "12345" ]
-  [ "$(jq -r '.ssh_identity_private_key' "$dir/alice-secrets.json")" = "KEYDATA" ]
-  [ "$(jq -r '.ssh_identity_key_type' "$dir/alice-secrets.json")" = "ed25519" ]
-  [ "$(jq -r '.guided_passwords.users.alice' "$state")" \
-    = "$dir/alice-secrets.json" ]
+  file_satisfies "$dir/alice-secrets.json" '.password == "12345"'
+  file_satisfies "$dir/alice-secrets.json" \
+    '.ssh_identity_private_key == "KEYDATA"'
+  file_satisfies "$dir/alice-secrets.json" '.ssh_identity_key_type == "ed25519"'
+  file_satisfies "$state" \
+    ".guided_passwords.users.alice == \"$dir/alice-secrets.json\""
 }
 
 # ── empty input: no files, the seam object still initialised ────────────────
@@ -66,8 +69,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   guided_write_passwords '{}' "$dir" "$state"
 
   [ ! -f "$dir/host-secrets.json" ]
-  jq -e '.guided_passwords == {}' "$state"
-  jq -e '(.guided_passwords.users // {}) == {}' "$state"
+  file_satisfies "$state" '.guided_passwords == {}'
+  file_satisfies "$state" '(.guided_passwords.users // {}) == {}'
 }
 
 # ── default-12345 posture (ADR 0055): fill any unset secret with 12345 ───────
@@ -75,24 +78,24 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "guided_default_missing_secrets: unset root + users default to 12345" {
   run guided_default_missing_secrets '{}' '["aquastias","bob"]' false
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.root_password == "12345"'
-  echo "$output" | jq -e '.users.aquastias.password == "12345"'
-  echo "$output" | jq -e '.users.bob.password == "12345"'
+  output_satisfies '.root_password == "12345"'
+  output_satisfies '.users.aquastias.password == "12345"'
+  output_satisfies '.users.bob.password == "12345"'
 }
 
 @test "guided_default_missing_secrets: a set secret is left untouched (override wins)" {
   manifest='{"root_password":"real","users":{"aquastias":{"password":"mine"}}}'
   run guided_default_missing_secrets "$manifest" '["aquastias","bob"]' false
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.root_password == "real"'          # override kept
-  echo "$output" | jq -e '.users.aquastias.password == "mine"'
-  echo "$output" | jq -e '.users.bob.password == "12345"'    # gap backfilled
+  output_satisfies '.root_password == "real"'          # override kept
+  output_satisfies '.users.aquastias.password == "mine"'
+  output_satisfies '.users.bob.password == "12345"'    # gap backfilled
 }
 
 @test "guided_default_missing_secrets: an empty-string secret counts as unset" {
   run guided_default_missing_secrets '{"root_password":""}' '[]' false
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.root_password == "12345"'
+  output_satisfies '.root_password == "12345"'
 }
 
 @test "guided_default_missing_secrets: passphrase defaults only when encryption on" {
@@ -100,12 +103,12 @@ teardown() { rm -rf "$TEST_DIR"; }
   # 5-char account default — ZFS rejects a 5-char passphrase at pool creation.
   run guided_default_missing_secrets '{}' '[]' true
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.enc_passphrase == "12345678"'
-  echo "$output" | jq -e '(.enc_passphrase | length) >= 8'
+  output_satisfies '.enc_passphrase == "12345678"'
+  output_satisfies '(.enc_passphrase | length) >= 8'
 
   run guided_default_missing_secrets '{}' '[]' false
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'has("enc_passphrase") | not'
+  output_satisfies 'has("enc_passphrase") | not'
 }
 
 @test "guided_default_missing_secrets: accounts keep 12345 while disk gets 12345678" {
@@ -113,13 +116,13 @@ teardown() { rm -rf "$TEST_DIR"; }
   # the account default up to the disk default would trip here.
   run guided_default_missing_secrets '{}' '["aquastias"]' true
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.root_password == "12345"'
-  echo "$output" | jq -e '.users.aquastias.password == "12345"'
-  echo "$output" | jq -e '.enc_passphrase == "12345678"'
+  output_satisfies '.root_password == "12345"'
+  output_satisfies '.users.aquastias.password == "12345"'
+  output_satisfies '.enc_passphrase == "12345678"'
 }
 
 @test "guided_default_missing_secrets: an operator passphrase override wins" {
   run guided_default_missing_secrets '{"enc_passphrase":"correcthorse"}' '[]' true
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.enc_passphrase == "correcthorse"'
+  output_satisfies '.enc_passphrase == "correcthorse"'
 }

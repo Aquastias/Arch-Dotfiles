@@ -7,6 +7,8 @@
 # strips disks (0036's invariant: device paths are never repo source of truth);
 # only Export carries them.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export INSTALLER_DIR="$TEST_DIR"
@@ -43,11 +45,11 @@ teardown() { rm -rf "$TEST_DIR"; }
 
   run emit_profile_delta "$config"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'has("disk") | not'              # single .disk dropped
-  echo "$output" | jq -e '.os_pool | has("disks") | not'  # pool .disks[] dropped
-  echo "$output" | jq -e '.os_pool.topology == "mirror"'  # skeleton kept
-  echo "$output" | jq -e '.os_pool.disk_count == 2'
-  echo "$output" | jq -e '.mode == "single"'
+  output_satisfies 'has("disk") | not'              # single .disk dropped
+  output_satisfies '.os_pool | has("disks") | not'  # pool .disks[] dropped
+  output_satisfies '.os_pool.topology == "mirror"'  # skeleton kept
+  output_satisfies '.os_pool.disk_count == 2'
+  output_satisfies '.mode == "single"'
 }
 
 # ── Save writes a device-less, schema-valid profile that profile_loader_load reads ──
@@ -64,8 +66,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   run jq -e 'has("disk") | not' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
   [ "$status" -eq 0 ]
   loaded="$(profile_loader_load eterniox)"
-  echo "$loaded" | jq -e '.options.bootloader == "grub"'   # delta applied
-  echo "$loaded" | jq -e '.host_programs == ["cups"]'    # over Host Core
+  json_satisfies "$loaded" '.options.bootloader == "grub"'   # delta applied
+  json_satisfies "$loaded" '.host_programs == ["cups"]'    # over Host Core
   run profile_loader_validate_schema host "$loaded"
   [ "$status" -eq 0 ]
 }
@@ -87,10 +89,12 @@ teardown() { rm -rf "$TEST_DIR"; }
   run guided_save_host_profile "$state" "newbox"
   [ "$status" -eq 0 ]
   local saved="$INSTALLER_DIR/hosts/newbox/profile.jsonc"
-  jq -e '.fleet == true' "$saved"
-  jq -e '.packages.repo == {"cli":["htop"]}' "$saved"   # only the delta
-  jq -e '(.host_programs // []) == []' "$saved"
-  profile_loader_load newbox | jq -e '.packages.repo.games == ["steam"]'
+  file_satisfies "$saved" '.fleet == true'
+  file_satisfies "$saved" \
+    '.packages.repo == {"cli":["htop"]}'   # only the delta
+  file_satisfies "$saved" '(.host_programs // []) == []'
+  json_satisfies "$(profile_loader_load newbox)" \
+    '.packages.repo.games == ["steam"]'
 }
 
 # ── Save never overwrites — an existing profile forces a new name ────────────
@@ -114,7 +118,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   run guided_export_config "$effective" "$out"
   [ "$status" -eq 0 ]
   [ -f "$out" ]
-  jq -e '.disk == "/dev/sda"' "$out"   # device paths ARE carried (re-installable)
+  file_satisfies "$out" \
+    '.disk == "/dev/sda"'   # device paths ARE carried (re-installable)
 }
 
 # ── Export refuses to write into the repo's hosts/ tree ─────────────────────

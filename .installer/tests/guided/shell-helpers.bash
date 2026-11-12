@@ -59,7 +59,8 @@ write_answers() {
 
 # assert_extras_off <config> — no Security & Backup Extra is on (absent or off).
 assert_extras_off() {
-  jq -e '(.post_install.security.firewall // "none") == "none"
-    and ([.post_install // {} | .. | booleans | select(.)] | length) == 0' \
-    <<<"$1" >/dev/null
+  local no_firewall='(.post_install.security.firewall // "none") == "none"'
+  local no_flag='[.post_install // {} | .. | booleans | select(.)] == []'
+  # No firewall, and no true flag anywhere under post_install.
+  json_satisfies "$1" "$no_firewall and $no_flag"
 }

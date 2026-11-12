@@ -29,7 +29,7 @@ _guided_shell_multi_array() {
   local -a picks=()
   mapfile -t picks < <(_guided_shell_collect_multi "$@")
   ((${#picks[@]})) || return 1
-  printf '%s\n' "${picks[@]}" | jq -R . | jq -s -c .
+  json_string_array "${picks[@]}"
 }
 
 # _guided_shell_edit_scalar <key> <prompt> <path> — a typed free-text value
@@ -59,6 +59,7 @@ _guided_shell_edit_choice() {
   local -a options; mapfile -t options < <(menu_enum_options "$path")
   value="$(guided_select "$key" "$label" "${options[@]}")"
   [[ -n "$value" ]] || return 1
+  # The value as a JSON string.
   _GUIDED_STATE="$(config_state_set "$_GUIDED_STATE" "$path" \
     "$(jq -n --arg x "$value" '$x')")"
 }
@@ -215,7 +216,7 @@ _guided_shell_add_package() {
 _guided_shell_program_names() {
   local program_directory
   for program_directory in "${INSTALLER_DIR}/programs"/*/*; do
-    [[ -d "$program_directory" ]] && printf '%s\n' "${program_directory##*/}"
+    [[ -d "$program_directory" ]] && basename "$program_directory"
   done
 }
 

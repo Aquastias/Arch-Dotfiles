@@ -5,6 +5,8 @@
 # blank multi skeleton; and every multi preset now OPENS the editor instead of
 # backing out. Controller + skeleton seams, no fzf, no real disks.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -38,11 +40,11 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "skeleton_custom_seed: blank multi with a single-disk none OS pool" {
   run skeleton_custom_seed
   [ "$status" -eq 0 ]
-  [ "$(jq -r '.mode' <<<"$output")" = "multi" ]
-  [ "$(jq -r '.os_pool.pool_name' <<<"$output")" = "rpool" ]
-  [ "$(jq -r '.os_pool.topology' <<<"$output")" = "none" ]
-  [ "$(jq -r '.os_pool.disk_count' <<<"$output")" = "1" ]
-  [ "$(jq -r '.data_pools // "absent"' <<<"$output")" = "absent" ]
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.pool_name == "rpool"'
+  output_satisfies '.os_pool.topology == "none"'
+  output_satisfies '.os_pool.disk_count == 1'
+  output_satisfies 'has("data_pools") | not'
 }
 
 # ── unified editor list (AC1) ────────────────────────────────────────────────
@@ -70,11 +72,11 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "+ Add storage group"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.storage_groups[0].name' "$GUIDED_STATE_FILE")" = "data" ]
-  [ "$(jq -r '.storage_groups[0].mount' "$GUIDED_STATE_FILE")" = "/data" ]
-  [ "$(jq -r '.storage_groups[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
-  [ "$(jq -r '.storage_groups[0].disk_count' "$GUIDED_STATE_FILE")" = "2" ]
-  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].name == "data"'
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].mount == "/data"'
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].topology == "mirror"'
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].disk_count == 2'
+  file_satisfies "$GUIDED_STATE_FILE" '.mode == "multi"'
 }
 
 @test "enter(datapools): a second + Add storage group auto-names it data1" {
@@ -83,8 +85,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_data_pools Disks)"
   run guided_controller_enter "+ Add storage group"
-  [ "$(jq -r '.storage_groups[1].name' "$GUIDED_STATE_FILE")" = "data1" ]
-  [ "$(jq -r '.storage_groups[1].mount' "$GUIDED_STATE_FILE")" = "/data1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[1].name == "data1"'
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[1].mount == "/data1"'
 }
 
 # End-to-end: Custom seed → OS mirror ×2 + a raidz1 ×3 storage group is byte-
@@ -102,10 +104,10 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   guided_controller_enter "topology: mirror   (Enter cycles)" >/dev/null
   guided_controller_enter "disks: 2   (Enter cycles 1-8)" >/dev/null
 
-  local authored preset
-  authored="$(jq -S '{mode,os_pool,storage_groups}' "$GUIDED_STATE_FILE")"
-  preset="$(skeleton_preset os-mirror-raidz1 | jq -S '{mode,os_pool,storage_groups}')"
-  [ "$authored" = "$preset" ]
+  local preset shape='{mode, os_pool, storage_groups}'
+  preset="$(skeleton_preset os-mirror-raidz1)"
+  # The authored layout equals the preset's (jq's == ignores key order).
+  file_satisfies "$GUIDED_STATE_FILE" "$shape == ($preset | $shape)"
 }
 
 @test "enter(datapools): the OS pool row opens the os pool editor" {
@@ -172,7 +174,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_pool_mount Disks 0)"
   run guided_controller_enter "" "/srv/media"
   [ "$output" = "render" ]
-  [ "$(jq -r '.data_pools[0].mount' "$GUIDED_STATE_FILE")" = "/srv/media" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].mount == "/srv/media"'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
 }
 
@@ -182,7 +184,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_pool_mount Disks 0)"
   run guided_controller_enter "" ""
   [ "$output" = "render" ]
-  [ "$(jq -r '.data_pools[0] | has("mount")' "$GUIDED_STATE_FILE")" = "false" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0] | has("mount") | not'
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
 }
 
@@ -192,7 +194,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation "$(navigation_to_pool_edit Disks 0 storage)"
   run guided_controller_enter "mount: /data"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.storage_groups[0].mount' "$GUIDED_STATE_FILE")" = "/data" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].mount == "/data"'
 }
 
 # ── Custom… + preset entry flow (AC3, AC4) ───────────────────────────────────
@@ -208,8 +210,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter "custom…"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
-  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
-  [ "$(jq -r '.os_pool.topology' "$GUIDED_STATE_FILE")" = "none" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.mode == "multi"'
+  file_satisfies "$GUIDED_STATE_FILE" '.os_pool.topology == "none"'
 }
 
 @test "enter(values __layout__): a multi preset opens the editor, not back-out" {
@@ -217,7 +219,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter "os-mirror"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
-  [ "$(jq -r '.os_pool.topology' "$GUIDED_STATE_FILE")" = "mirror" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.os_pool.topology == "mirror"'
 }
 
 @test "enter(values __layout__): os-mirror-raidz1 opens the editor" {
@@ -225,7 +227,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter "os-mirror-raidz1"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
-  [ "$(jq -r '.storage_groups[0].name' "$GUIDED_STATE_FILE")" = "data" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.storage_groups[0].name == "data"'
 }
 
 @test "enter(values __layout__): single applies and backs out to the category" {
@@ -233,5 +235,5 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter "single"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
-  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "single" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.mode == "single"'
 }

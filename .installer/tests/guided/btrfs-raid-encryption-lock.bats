@@ -4,6 +4,8 @@
 # menu must not offer what the install refuses (found by the Combination
 # Matrix, 20261022). Menu model + controller seams, no fzf, no real disks.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -52,11 +54,13 @@ RAID='{"filesystem":"btrfs","mode":"multi","os_pool":{"topology":"raid1"}}'
   printf '%s\n' "$RAID" > "$GUIDED_STATE_FILE"
   run _controller_enter_category "Encryption ▸ off (btrfs raid)"
   [ "$output" = render ]
-  jq -e '.screen == "category"' "$GUIDED_NAV_FILE"
+  file_satisfies "$GUIDED_NAV_FILE" '.screen == "category"'
 }
 
 @test "proceed: blocked while encryption is on over a btrfs raid root" {
-  jq -c '.options.encryption = true' <<<"$RAID" > "$GUIDED_STATE_FILE"
+  # The raid layout with encryption on.
+  printf '%s\n' "$RAID" | jq -c '.options.encryption = true' \
+    > "$GUIDED_STATE_FILE"
   run _controller_proceed_directive
   [[ "$output" == notice* ]]
   [[ "$output" == *"Encryption"* ]]

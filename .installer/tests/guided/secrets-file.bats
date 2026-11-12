@@ -4,6 +4,8 @@
 # (ticket 03). Pure file mutation + queries: the masked tty prompt is glue and
 # not covered here. Shape: { root_password?, users?: { <name>: { password } } }.
 
+load ../lib/json-helpers
+
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/guided/secrets-file.sh"
   FILE="$(mktemp)"
@@ -17,12 +19,12 @@ teardown() { rm -f "$FILE"; }
 
 @test "set_root records the root password" {
   guided_secrets_file_set_root "$FILE" "s3cret"
-  [ "$(jq -r '.root_password' "$FILE")" = "s3cret" ]
+  file_satisfies "$FILE" '.root_password == "s3cret"'
 }
 
 @test "set_user records a per-user password under users.<name>.password" {
   guided_secrets_file_set_user "$FILE" alex "pw1"
-  [ "$(jq -r '.users.alex.password' "$FILE")" = "pw1" ]
+  file_satisfies "$FILE" '.users.alex.password == "pw1"'
 }
 
 @test "has_root / has_user reflect what is set" {

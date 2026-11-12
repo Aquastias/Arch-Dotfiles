@@ -4,6 +4,8 @@
 # and the seed-on-pick. Pure: state/nav files in, rows / directives / state out,
 # no fzf. Behaviour under test only. Prior art: guided-controller.bats.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -175,7 +177,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter "← Back"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "profiles" ]
-  jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"      # untouched
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice"]'      # untouched
 }
 
 @test "enter(newhost): confirm resets Config State + clears session side-state" {
@@ -197,9 +199,12 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter "Yes — discard session work and start blank"
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
-  jq -e '. == {}' "$GUIDED_STATE_FILE"                  # Config State → baseline
-  jq -e '. == {}' "$GUIDED_USERFORMS_FILE"              # editor forms cleared
-  jq -e '. == {}' "$GUIDED_SECRETS_FILE"                # secret overrides cleared
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '. == {}'                  # Config State → baseline
+  file_satisfies "$GUIDED_USERFORMS_FILE" \
+    '. == {}'              # editor forms cleared
+  file_satisfies "$GUIDED_SECRETS_FILE" \
+    '. == {}'                # secret overrides cleared
 }
 
 @test "enter(newhost): the reset is undoable — a single undo restores it" {
@@ -219,9 +224,12 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
   run guided_controller_key ctrl-z
   [ "$output" = "render" ]
-  jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"      # Config State restored
-  jq -e '.alice.shell == "/bin/fish"' "$GUIDED_USERFORMS_FILE"  # forms restored
-  jq -e '.users.alice.password == "p"' "$GUIDED_SECRETS_FILE"   # secrets restored
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.users == ["alice"]'      # Config State restored
+  file_satisfies "$GUIDED_USERFORMS_FILE" \
+    '.alice.shell == "/bin/fish"'  # forms restored
+  file_satisfies "$GUIDED_SECRETS_FILE" \
+    '.users.alice.password == "p"'   # secrets restored
 }
 
 # ── pick re-baselines: the chosen profile IS the session (ADR 0157) ──────────
@@ -232,10 +240,11 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_enter desktop
   [ "$output" = "render" ]
   [ "$(navigation_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
-  jq -e '.system.hostname == "eterniox"' "$GUIDED_BASELINE_FILE"
-  jq -e '.options.encryption == true' "$GUIDED_BASELINE_FILE"
-  jq -e '.filesystem == "zfs"' "$GUIDED_BASELINE_FILE"
-  jq -e '. == {}' "$GUIDED_STATE_FILE"         # no ● — earlier edit dropped
+  file_satisfies "$GUIDED_BASELINE_FILE" '.system.hostname == "eterniox"'
+  file_satisfies "$GUIDED_BASELINE_FILE" '.options.encryption == true'
+  file_satisfies "$GUIDED_BASELINE_FILE" '.filesystem == "zfs"'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '. == {}'         # no ● — earlier edit dropped
 }
 
 @test "enter(profiles): a profile with no hostname is named after itself" {
@@ -243,7 +252,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$INSTALLER_DIR/hosts/laptop/profile.jsonc"
   set_navigation '{"screen":"profiles"}'
   guided_controller_enter laptop >/dev/null
-  jq -e '.system.hostname == "laptop"' "$GUIDED_BASELINE_FILE"
+  file_satisfies "$GUIDED_BASELINE_FILE" '.system.hostname == "laptop"'
 }
 
 @test "enter(profiles): a later pick leaves no residue of an earlier one" {
@@ -251,8 +260,9 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   guided_controller_enter desktop >/dev/null
   set_navigation '{"screen":"profiles"}'
   guided_controller_enter laptop >/dev/null
-  jq -e '.system.hostname == "chronos"' "$GUIDED_BASELINE_FILE"
-  jq -e '.options.encryption == false' "$GUIDED_BASELINE_FILE" # default, not desktop's
+  file_satisfies "$GUIDED_BASELINE_FILE" '.system.hostname == "chronos"'
+  file_satisfies "$GUIDED_BASELINE_FILE" \
+    '.options.encryption == false' # default, not desktop's
 }
 
 @test "enter(profiles): the pick is undoable — undo restores the baseline" {
@@ -266,8 +276,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   guided_controller_enter desktop >/dev/null
 
   guided_controller_key ctrl-z >/dev/null
-  jq -e '. == {"marker":1}' "$GUIDED_BASELINE_FILE"
-  jq -e '.users == ["alice"]' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_BASELINE_FILE" '. == {"marker":1}'
+  file_satisfies "$GUIDED_STATE_FILE" '.users == ["alice"]'
 }
 
 @test "enter(profiles): an unreadable profile warns without touching state" {
@@ -275,7 +285,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_navigation '{"screen":"profiles"}'
   run guided_controller_enter ghost
   [[ "$output" == notice* ]]
-  jq -e '.seed == "me"' "$GUIDED_STATE_FILE"                 # untouched
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.seed == "me"'                 # untouched
 }
 
 # The baseline a pick installs is the profile resolved by the Profile Loader
@@ -295,12 +306,11 @@ JSON
   guided_controller_enter "desktop" >/dev/null
 
   source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
-  local picked resolved
-  picked="$(jq -cS '{host_programs, packages, kernel: .options.kernel}' \
-    "$GUIDED_BASELINE_FILE")"
-  resolved="$(profile_loader_load desktop \
-    | jq -cS '{host_programs, packages, kernel: .options.kernel}')"
-  [ "$picked" = "$resolved" ]
+  local resolved
+  local shape='{host_programs, packages, kernel: .options.kernel}'
+  resolved="$(profile_loader_load desktop)"
+  # The baseline matches the resolved profile (jq's == ignores key order).
+  file_satisfies "$GUIDED_BASELINE_FILE" "$shape == ($resolved | $shape)"
 }
 
 @test "a profile opting out of Host Core packages carries none" {
@@ -316,7 +326,7 @@ JSON
 
   set_navigation "$(navigation_to_profiles)"
   guided_controller_enter "bare" >/dev/null
-  jq -e '.packages == null' "$GUIDED_BASELINE_FILE"
+  file_satisfies "$GUIDED_BASELINE_FILE" '.packages == null'
 }
 
 # ── Proceed needs a user: a blank session presets none (ADR 0157) ───────────

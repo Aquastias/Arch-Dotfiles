@@ -8,6 +8,8 @@
 # invocation of these binds — and the interactive `oneshot` path — stay for the
 # slice-01 VM/HITL gate.
 
+load ../lib/json-helpers
+
 setup() {
   ENTRY="$BATS_TEST_DIRNAME/../../lib/guided/fzf-entry.sh"
   TEST_DIR="$(mktemp -d)"
@@ -34,8 +36,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   run bash "$ENTRY" dispatch enter "Disks — layout, data pools, filesystem, encryption, swap"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "reload(bash"
-  [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "category" ]
-  [ "$(jq -r '.category' "$GUIDED_NAV_FILE")" = "Disks" ]
+  file_satisfies "$GUIDED_NAV_FILE" '.screen == "category"'
+  file_satisfies "$GUIDED_NAV_FILE" '.category == "Disks"'
 }
 
 @test "entry dispatch enter: a terminal row writes the result + accepts" {
@@ -49,8 +51,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
   run bash "$ENTRY" dispatch enter "Filesystem: ZFS"
   [ "$status" -eq 0 ]
-  [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "values" ]
-  [ "$(jq -r '.field' "$GUIDED_NAV_FILE")" = "filesystem" ]
+  file_satisfies "$GUIDED_NAV_FILE" '.screen == "values"'
+  file_satisfies "$GUIDED_NAV_FILE" '.field == "filesystem"'
 }
 
 @test "entry dispatch enter: a credential row executes the masked capture" {
@@ -78,7 +80,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   # action must NOT inline pos (it would target the pre-reload list).
   [ "$(cat "$GUIDED_POS_FILE")" = "10" ]
   echo "$output" | grep -vq "pos("
-  [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "top" ]
+  file_satisfies "$GUIDED_NAV_FILE" '.screen == "top"'
 }
 
 @test "entry dispatch back: values→category stashes the exited field's line" {
@@ -89,7 +91,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   # "Filesystem: ZFS" is the 4th row of the Disks category screen.
   [ "$(cat "$GUIDED_POS_FILE")" = "4" ]
-  [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "category" ]
+  file_satisfies "$GUIDED_NAV_FILE" '.screen == "category"'
 }
 
 @test "entry poshint: emits the stashed pos once, then clears it" {

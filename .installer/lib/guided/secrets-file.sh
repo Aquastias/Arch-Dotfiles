@@ -25,6 +25,7 @@ guided_secrets_file_init() { [[ -s "$1" ]] || printf '{}\n' > "$1"; }
 guided_secrets_file_set_root() {
   local secrets_file="$1" password="$2" updated_json
   guided_secrets_file_init "$secrets_file"
+  # The secrets with the root password set.
   updated_json="$(jq --arg pw "$password" '.root_password = $pw' \
     "$secrets_file")" \
     && printf '%s\n' "$updated_json" > "$secrets_file"
@@ -34,6 +35,7 @@ guided_secrets_file_set_root() {
 guided_secrets_file_set_user() {
   local secrets_file="$1" user="$2" password="$3" updated_json
   guided_secrets_file_init "$secrets_file"
+  # The secrets with the user's password set.
   updated_json="$(jq --arg n "$user" --arg pw "$password" \
     '.users[$n] = {password: $pw}' "$secrets_file")" \
     && printf '%s\n' "$updated_json" > "$secrets_file"
@@ -46,6 +48,7 @@ guided_secrets_file_set_user() {
 guided_secrets_file_set_encryption() {
   local secrets_file="$1" password="$2" updated_json
   guided_secrets_file_init "$secrets_file"
+  # The secrets with the passphrase set.
   updated_json="$(jq --arg pw "$password" '.enc_passphrase = $pw' \
     "$secrets_file")" \
     && printf '%s\n' "$updated_json" > "$secrets_file"
@@ -84,5 +87,6 @@ guided_secrets_file_missing() {
     [[ -n "$user" ]] || continue
     guided_secrets_file_has_user "$secrets_file" "$user" \
       || printf '%s\n' "$user"
-  done < <(jq -r '(. // []) | .[]' <<<"$users" 2>/dev/null)
+  # The user names, one per line.
+  done < <(printf '%s\n' "$users" | jq -r '(. // []) | .[]' 2>/dev/null)
 }

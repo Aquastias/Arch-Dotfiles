@@ -5,6 +5,8 @@
 # while manual is on; toggling off is non-destructive. Menu model + controller
 # seams, no fzf, no real disks.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -26,7 +28,6 @@ setup() {
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
-row() { jq -e ".[] | select(.field == \"$1\")"; }
 manual_state() { config_state_set "$(config_state_new)" disk_config.kind '"manual"'; }
 
 # ── the toggle row ──────────────────────────────────────────────────────────
@@ -34,8 +35,8 @@ manual_state() { config_state_set "$(config_state_new)" disk_config.kind '"manua
 @test "menu_rows: a manual-partitioning row sits under Disks, default auto" {
   run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row disk_config.kind | jq -e '.section == "Disks"'
-  echo "$output" | row disk_config.kind | jq -e '.value == "auto"'
+  row_satisfies disk_config.kind '.section == "Disks"'
+  row_satisfies disk_config.kind '.value == "auto"'
 }
 
 @test "enum options: the manual toggle offers auto and manual" {
@@ -50,28 +51,28 @@ manual" ]
 @test "menu_rows: nothing is locked while auto (the default)" {
   run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .locked == false)'
+  output_satisfies 'all(.[]; .locked == false)'
 }
 
 @test "menu_rows: manual locks the pool-dependent Disks fields" {
   run menu_rows "$(manual_state)"
   [ "$status" -eq 0 ]
-  echo "$output" | row filesystem                   | jq -e '.locked == true'
-  echo "$output" | row options.encryption           | jq -e '.locked == true'
-  echo "$output" | row options.impermanence.enabled | jq -e '.locked == true'
-  echo "$output" | row options.esp_size             | jq -e '.locked == true'
+  row_satisfies filesystem '.locked == true'
+  row_satisfies options.encryption '.locked == true'
+  row_satisfies options.impermanence.enabled '.locked == true'
+  row_satisfies options.esp_size '.locked == true'
 }
 
 @test "menu_rows: the manual toggle itself is never locked" {
   run menu_rows "$(manual_state)"
   [ "$status" -eq 0 ]
-  echo "$output" | row disk_config.kind | jq -e '.locked == false'
+  row_satisfies disk_config.kind '.locked == false'
 }
 
 @test "menu_rows: a non-Disks field is never locked by manual" {
   run menu_rows "$(manual_state)"
   [ "$status" -eq 0 ]
-  echo "$output" | row system.hostname | jq -e '.locked == false'
+  row_satisfies system.hostname '.locked == false'
 }
 
 # ── the notice ──────────────────────────────────────────────────────────────
@@ -93,27 +94,27 @@ manual" ]
   # apply stays a clean pure state transform.
   local state
   state="$(_controller_apply_enum "$(config_state_new)" disk_config.kind manual)"
-  echo "$state" | jq -e '.disk_config.kind == "manual"'
+  json_satisfies "$state" '.disk_config.kind == "manual"'
 }
 
 @test "apply: a locked field (encryption) is a no-op while manual" {
   local state; state="$(manual_state)"
   run _controller_apply_enum "$state" options.encryption true
   [ "$status" -ne 0 ]
-  echo "$output" | jq -e '.options.encryption == null'
+  output_satisfies '.options.encryption == null'
 }
 
 @test "apply: the locked esp-size text field is a no-op while manual" {
   local state; state="$(manual_state)"
   run _controller_apply_text "$state" options.esp_size 4G
   [ "$status" -ne 0 ]
-  echo "$output" | jq -e '(.options.esp_size // null) == null'
+  output_satisfies '(.options.esp_size // null) == null'
 }
 
 @test "apply: encryption is editable again once manual is off" {
   run _controller_apply_enum "$(config_state_new)" options.encryption true
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.options.encryption == true'
+  output_satisfies '.options.encryption == true'
 }
 
 @test "toggle: turning manual on emits the manual-on directive" {
@@ -122,7 +123,7 @@ manual" ]
   run _controller_enter_category "Manual partitioning: off"
   [ "$status" -eq 0 ]
   [ "$output" = "manual-on" ]
-  jq -e '.disk_config.kind == "manual"' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" '.disk_config.kind == "manual"'
 }
 
 @test "toggle: turning manual off emits a plain refresh" {
@@ -131,7 +132,7 @@ manual" ]
   run _controller_enter_category "Manual partitioning: on"
   [ "$status" -eq 0 ]
   [ "$output" = "refresh" ]
-  jq -e '.disk_config.kind == "auto"' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" '.disk_config.kind == "auto"'
 }
 
 navigate_to_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"; }
@@ -141,7 +142,7 @@ navigate_to_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' >
   printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
   run _controller_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
   [ "$status" -eq 0 ] && [ "$output" = "render" ]
-  jq -e '.screen == "manualparts"' "$GUIDED_NAV_FILE"
+  file_satisfies "$GUIDED_NAV_FILE" '.screen == "manualparts"'
 }
 
 @test "editor: a partition row opens its per-partition editor" {
@@ -149,7 +150,8 @@ navigate_to_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' >
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
   run _controller_enter_manual_partitions "/dev/sda3  →  (unassigned)  [format]"
   [ "$status" -eq 0 ] && [ "$output" = "render" ]
-  jq -e '.screen == "partedit" and .device == "/dev/sda3"' "$GUIDED_NAV_FILE"
+  file_satisfies "$GUIDED_NAV_FILE" \
+    '.screen == "partedit" and .device == "/dev/sda3"'
 }
 
 @test "editor: cfdisk action is gated in --debug, launches otherwise" {
@@ -175,7 +177,8 @@ partition_navigation() {
     > "$GUIDED_STATE_FILE"
   run _controller_enter_partition_edit "mountpoint: (unassigned)   (Enter cycles)"
   [ "$status" -eq 0 ]
-  jq -e '.disk_config.partitions[0].mountpoint == "/"' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.disk_config.partitions[0].mountpoint == "/"'
 }
 
 @test "partedit: Enter cycles the filesystem through supported values only" {
@@ -184,7 +187,7 @@ partition_navigation() {
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
   run _controller_enter_partition_edit "filesystem: ext4   (Enter cycles)"
-  jq -e '.disk_config.partitions[0].fs == "xfs"' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" '.disk_config.partitions[0].fs == "xfs"'
 }
 
 @test "partedit: Enter toggles format" {
@@ -193,7 +196,8 @@ partition_navigation() {
     '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
     > "$GUIDED_STATE_FILE"
   run _controller_enter_partition_edit "format: on   (Enter toggles)"
-  jq -e '.disk_config.partitions[0].format == false' "$GUIDED_STATE_FILE"
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '.disk_config.partitions[0].format == false'
 }
 
 @test "proceed: blocked with a notice when the manual layout is invalid" {
@@ -231,6 +235,6 @@ partition_navigation() {
   state="$(config_state_set "$(config_state_new)" filesystem '"btrfs"')"
   state="$(_controller_apply_enum "$state" disk_config.kind manual)"
   state="$(_controller_apply_enum "$state" disk_config.kind auto)"
-  echo "$state" | jq -e '.filesystem == "btrfs"'
-  echo "$state" | jq -e '.disk_config.kind == "auto"'
+  json_satisfies "$state" '.filesystem == "btrfs"'
+  json_satisfies "$state" '.disk_config.kind == "auto"'
 }

@@ -25,3 +25,9 @@ file_satisfies() {
   # Whether the file's JSON makes the test true.
   jq -e "$2" "$1" >/dev/null
 }
+
+# row_satisfies <field> <jq-test> — the menu row for <field> in $output makes
+# <jq-test> true.
+row_satisfies() {
+  output_satisfies ".[] | select(.field == \"$1\") | ($2)"
+}

@@ -18,6 +18,9 @@
 # =============================================================================
 
 # shellcheck source=../install-state.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F install_state_update >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../install-state.sh"
 # INSTALL_DEFAULT_ENC_PASSPHRASE (ADR 0059) — the 8-char passphrase default.
@@ -40,12 +43,15 @@ guided_write_passwords() {
   install_state_update "$state" '.guided_passwords' '{}'
 
   local root_password
-  root_password="$(jq -r '.root_password // empty' <<<"$secrets")"
+  # The root password, empty when unset.
+  root_password="$(printf '%s\n' "$secrets" | jq -r '.root_password // empty')"
   if [[ -n "$root_password" ]]; then
     local host_secrets_file="${directory}/host-secrets.json"
+    # The host secrets file: the root password alone.
     jq -n --arg pw "$root_password" '{root_password: $pw}' \
       > "$host_secrets_file"
-    path_json="$(jq -nR --arg v "$host_secrets_file" '$v')"
+    # The file's path as a JSON string.
+    path_json="$(jq -n --arg v "$host_secrets_file" '$v')"
     install_state_update "$state" '.guided_passwords.host' "$path_json"
   fi
 
@@ -53,11 +59,15 @@ guided_write_passwords() {
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     user_secrets_file="${directory}/${name}-secrets.json"
-    jq -c --arg n "$name" '.users[$n]' <<<"$secrets" > "$user_secrets_file"
-    path_json="$(jq -nR --arg v "$user_secrets_file" '$v')"
+    # The user's secrets object.
+    printf '%s\n' "$secrets" | jq -c --arg n "$name" '.users[$n]' \
+      > "$user_secrets_file"
+    # The file's path as a JSON string.
+    path_json="$(jq -n --arg v "$user_secrets_file" '$v')"
     install_state_update "$state" ".guided_passwords.users[\"${name}\"]" \
       "$path_json"
-  done < <(jq -r '(.users // {}) | keys[]' <<<"$secrets")
+  # The user names, one per line.
+  done < <(printf '%s\n' "$secrets" | jq -r '(.users // {}) | keys[]')
 }
 
 # guided_default_missing_secrets <manifest> <users-json> <encryption-bool>
@@ -69,18 +79,27 @@ guided_write_passwords() {
 # non-empty value is left untouched, so an operator override (or an age-decrypted
 # secret merged in earlier) always wins over the default. Pure: JSON in, JSON out.
 guided_default_missing_secrets() {
-  local manifest="$1" users="${2:-[]}" encryption="${3:-false}"
-  manifest="$(jq --argjson u "$users" '
-    def dflt: if (. // "") == "" then "12345" else . end;
-    .root_password = (.root_password | dflt)
-    | reduce $u[] as $n (.; .users[$n].password = (.users[$n].password | dflt))
-  ' <<<"$manifest")"
+  local manifest="$1" users="${2:-[]}" encryption="${3:-false}" name
+  manifest="$(_secrets_default "$manifest" .root_password 12345)"
+  while IFS= read -r name; do
+    manifest="$(_secrets_default "$manifest" '.users[$n].password' \
+      12345 "$name")"
+  # The user names, one per line.
+  done < <(printf '%s\n' "$users" | jq -r '.[]')
   if [[ "$encryption" == "true" ]]; then
-    manifest="$(jq --arg d "$INSTALL_DEFAULT_ENC_PASSPHRASE" '
-      .enc_passphrase = (if (.enc_passphrase // "") == "" then $d
-                         else .enc_passphrase end)' <<<"$manifest")"
+    manifest="$(_secrets_default "$manifest" .enc_passphrase \
+      "$INSTALL_DEFAULT_ENC_PASSPHRASE")"
   fi
   printf '%s\n' "$manifest"
+}
+
+# _secrets_default <manifest> <jq-path> <default> [<name>] — <manifest>
+# with <default> at <jq-path> when that is unset or empty; $n in the path is
+# <name>.
+_secrets_default() {
+  local filled="if ($2 // \"\") == \"\" then $2 = \$d else . end"
+  # The manifest, the default filled in at the path.
+  printf '%s\n' "$1" | jq --arg d "$3" --arg n "${4:-}" "$filled"
 }
 
 # tmpfs dir owned by this module, holding the decrypted guided password files

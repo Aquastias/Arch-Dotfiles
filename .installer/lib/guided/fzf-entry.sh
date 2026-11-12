@@ -60,9 +60,11 @@ if [[ "${1:-}" == "mask" ]]; then
   source "${_entry_dir}/mask.sh"
   _q="${2:-}"
   _buf="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
-  _res="$(guided_mask_apply "$_buf" "$_q")"
-  printf '%s' "${_res%%$'\n'*}" > "${GUIDED_PWBUF_FILE:-/dev/null}"
-  printf '%s' "${_res##*$'\n'}"     # the bullet display → transform-query sets it
+  # The reconstructed buffer (line one) and its bullet display (line two).
+  { IFS= read -r _new_buf; IFS= read -r _display; } \
+    < <(guided_mask_apply "$_buf" "$_q")
+  printf '%s' "$_new_buf" > "${GUIDED_PWBUF_FILE:-/dev/null}"
+  printf '%s' "$_display"     # the bullet display → transform-query sets it
   exit 0
 fi
 

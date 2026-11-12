@@ -5,6 +5,8 @@
 # index. Pure resolvers: state JSON + kind + index in, group JSON / new state
 # out. No fzf, no tty.
 
+load ../lib/json-helpers
+
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/navigation.sh"
@@ -40,16 +42,17 @@ setup() {
 # ── _controller_pool_get: resolve the group object for a (kind, index) ──────────────
 
 @test "_controller_pool_get: os resolves the singleton os_pool" {
-  [ "$(_controller_pool_get "$STATE" os 0 | jq -r '.pool_name')" = "rpool" ]
+  json_satisfies "$(_controller_pool_get "$STATE" os 0)" '.pool_name == "rpool"'
 }
 
 @test "_controller_pool_get: storage resolves storage_groups[i]" {
-  [ "$(_controller_pool_get "$STATE" storage 0 | jq -r '.name')" = "data" ]
-  [ "$(_controller_pool_get "$STATE" storage 0 | jq -r '.topology')" = "raidz1" ]
+  json_satisfies "$(_controller_pool_get "$STATE" storage 0)" '.name == "data"'
+  json_satisfies "$(_controller_pool_get "$STATE" storage 0)" \
+    '.topology == "raidz1"'
 }
 
 @test "_controller_pool_get: data resolves data_pools[i]" {
-  [ "$(_controller_pool_get "$STATE" data 1 | jq -r '.name')" = "tank1" ]
+  json_satisfies "$(_controller_pool_get "$STATE" data 1)" '.name == "tank1"'
 }
 
 # ── _controller_pool_set: replace the group, leaving siblings untouched ─────────────
@@ -57,31 +60,31 @@ setup() {
 @test "_controller_pool_set: os replaces the os_pool" {
   local pool='{"pool_name":"rpool","topology":"raidz1","disk_count":3}'
   local state; state="$(_controller_pool_set "$STATE" os 0 "$pool")"
-  [ "$(jq -r '.os_pool.topology' <<<"$state")" = "raidz1" ]
-  [ "$(jq -r '.data_pools[0].name' <<<"$state")" = "tank0" ]
+  json_satisfies "$state" '.os_pool.topology == "raidz1"'
+  json_satisfies "$state" '.data_pools[0].name == "tank0"'
 }
 
 @test "_controller_pool_set: data replaces one pool, siblings intact" {
   local pool='{"name":"tank0","topology":"stripe","disk_count":5}'
   local state; state="$(_controller_pool_set "$STATE" data 0 "$pool")"
-  [ "$(jq -r '.data_pools[0].topology' <<<"$state")" = "stripe" ]
-  [ "$(jq -r '.data_pools[1].name' <<<"$state")" = "tank1" ]
+  json_satisfies "$state" '.data_pools[0].topology == "stripe"'
+  json_satisfies "$state" '.data_pools[1].name == "tank1"'
 }
 
 # ── _controller_pool_delete: remove data/storage; os is not removable ─────────────────
 
 @test "_controller_pool_delete: data removes the pool" {
   local state; state="$(_controller_pool_delete "$STATE" data 0)"
-  [ "$(jq '.data_pools | length' <<<"$state")" = "1" ]
-  [ "$(jq -r '.data_pools[0].name' <<<"$state")" = "tank1" ]
+  json_satisfies "$state" '(.data_pools | length) == 1'
+  json_satisfies "$state" '.data_pools[0].name == "tank1"'
 }
 
 @test "_controller_pool_delete: storage removes the group" {
   local state; state="$(_controller_pool_delete "$STATE" storage 0)"
-  [ "$(jq '.storage_groups | length' <<<"$state")" = "0" ]
+  json_satisfies "$state" '(.storage_groups | length) == 0'
 }
 
 @test "_controller_pool_delete: os pool is not removable (no-op)" {
   local state; state="$(_controller_pool_delete "$STATE" os 0)"
-  [ "$(jq -r '.os_pool.pool_name' <<<"$state")" = "rpool" ]
+  json_satisfies "$state" '.os_pool.pool_name == "rpool"'
 }

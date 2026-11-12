@@ -2,6 +2,7 @@
 # Tests: edits (split from shell.bats;
 # shared setup in shell-helpers.bash)
 
+load ../lib/json-helpers
 load shell-helpers
 
 
@@ -14,7 +15,7 @@ load shell-helpers
   export -f guided_prompt
 
   _guided_shell_add_persist
-  echo "$_GUIDED_STATE" | jq -e '.persist.directories == ["/etc/wireguard"]'
+  json_satisfies "$_GUIDED_STATE" '.persist.directories == ["/etc/wireguard"]'
 }
 
 @test "_guided_shell_add_persist: empty input adds nothing" {
@@ -25,7 +26,7 @@ load shell-helpers
 
   run _guided_shell_add_persist
   [ "$status" -ne 0 ]
-  echo "$_GUIDED_STATE" | jq -e '.persist == null'
+  json_satisfies "$_GUIDED_STATE" '.persist == null'
 }
 
 
@@ -41,7 +42,8 @@ load shell-helpers
   export -f guided_prompt
 
   _guided_shell_edit_locale
-  echo "$_GUIDED_STATE" | jq -e '.system.locale == "de_DE.UTF-8"'   # in override
+  json_satisfies "$_GUIDED_STATE" \
+    '.system.locale == "de_DE.UTF-8"'   # in override
   config_state_is_overridden "$_GUIDED_STATE" system.locale             # flips ●
   [ "$(config_state_get "$(_guided_shell_effective)" system.locale)" = "de_DE.UTF-8" ]
 }
@@ -60,8 +62,8 @@ load shell-helpers
 
   _guided_shell_edit_timezone
   _guided_shell_edit_keymap
-  echo "$_GUIDED_STATE" | jq -e '.system.timezone == "America/New_York"'
-  echo "$_GUIDED_STATE" | jq -e '.system.keymap == "de"'
+  json_satisfies "$_GUIDED_STATE" '.system.timezone == "America/New_York"'
+  json_satisfies "$_GUIDED_STATE" '.system.keymap == "de"'
 }
 
 
@@ -89,26 +91,30 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_edit_mirror_countries
-  echo "$_GUIDED_STATE" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
+  json_satisfies "$_GUIDED_STATE" \
+    '.options.mirror_countries == ["Japan","Australia"]'
 }
 
 @test "_guided_shell_edit_optional_repos: a replay set selects the optional repos" {
   _GUIDED_STATE="$(config_state_new)"
   guided_load_replay "$(write_answers 'optional_repos=multilib core-testing')"
   _guided_shell_edit_optional_repos
-  echo "$_GUIDED_STATE" \
-    | jq -e '.options.optional_repos == ["multilib","core-testing"]'
+  json_satisfies "$_GUIDED_STATE" \
+    '.options.optional_repos == ["multilib","core-testing"]'
 }
 
 @test "_guided_shell_add_custom_repository: a replayed repo appends an object" {
   _GUIDED_STATE="$(config_state_new)"
   guided_load_replay "$(write_answers 'custom_repository=cool https://x Never')"
   _guided_shell_add_custom_repository
-  echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].name == "cool"'
-  echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].url == "https://x"'
-  echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].sign_check == "Never"'
-  echo "$_GUIDED_STATE" \
-    | jq -e '.options.custom_repositories[0].sign_option == "TrustedOnly"'
+  json_satisfies "$_GUIDED_STATE" \
+    '.options.custom_repositories[0].name == "cool"'
+  json_satisfies "$_GUIDED_STATE" \
+    '.options.custom_repositories[0].url == "https://x"'
+  json_satisfies "$_GUIDED_STATE" \
+    '.options.custom_repositories[0].sign_check == "Never"'
+  json_satisfies "$_GUIDED_STATE" \
+    '.options.custom_repositories[0].sign_option == "TrustedOnly"'
 }
 
 @test "_guided_shell_edit_firewall: picking ufw sets the firewall to ufw" {
@@ -118,7 +124,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_firewall
-  echo "$_GUIDED_STATE" | jq -e '.post_install.security.firewall == "ufw"'
+  json_satisfies "$_GUIDED_STATE" '.post_install.security.firewall == "ufw"'
 }
 
 @test "_guided_shell_edit_firewall: picking none disables the firewall" {
@@ -128,7 +134,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_firewall
-  echo "$_GUIDED_STATE" | jq -e '.post_install.security.firewall == "none"'
+  json_satisfies "$_GUIDED_STATE" '.post_install.security.firewall == "none"'
 }
 
 @test "_guided_shell_edit_antivirus: selecting false drops clamav from the selection" {
@@ -138,7 +144,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_antivirus
-  echo "$_GUIDED_STATE" | jq -e '.post_install.security.antivirus == false'
+  json_satisfies "$_GUIDED_STATE" '.post_install.security.antivirus == false'
 }
 
 @test "_guided_shell_edit_borg: selecting false drops borg from the selection" {
@@ -148,7 +154,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_borg
-  echo "$_GUIDED_STATE" | jq -e '.post_install.backup.borg == false'
+  json_satisfies "$_GUIDED_STATE" '.post_install.backup.borg == false'
 }
 
 
@@ -156,6 +162,7 @@ load shell-helpers
 # are selected (the tools install via that user's paru pass) ────────────────
 
 @test "_guided_shell_guard_post_install: passes with selections and a seeded user" {
+  # A baseline with one user and the default extras.
   _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
     '{users:["aquastias"], post_install:$pi}')"
   _GUIDED_STATE="$(config_state_new)"
@@ -192,7 +199,7 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_pick_users
-  echo "$_GUIDED_STATE" | jq -e '.users == ["alice","bob"]'
+  json_satisfies "$_GUIDED_STATE" '.users == ["alice","bob"]'
 }
 
 @test "_guided_shell_create_user: ad-hoc form authors a User Profile + adds the user" {
@@ -210,12 +217,15 @@ load shell-helpers
   _guided_shell_users_reset
 
   _guided_shell_create_user
-  echo "$_GUIDED_STATE" | jq -e '.users == ["carol"]'                 # in the list
-  echo "${_GUIDED_ADHOC_FORM[carol]}" \
-    | jq -e '.shell == "/bin/zsh" and .sudo == true'
-  echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e '.groups == ["docker","libvirt"]'
-  echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e '.git.name == "Carol"'
-  echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e 'has("name") | not'    # username = dir
+  json_satisfies "$_GUIDED_STATE" \
+    '.users == ["carol"]'                 # in the list
+  json_satisfies "${_GUIDED_ADHOC_FORM[carol]}" \
+    '.shell == "/bin/zsh" and .sudo == true'
+  json_satisfies "${_GUIDED_ADHOC_FORM[carol]}" \
+    '.groups == ["docker","libvirt"]'
+  json_satisfies "${_GUIDED_ADHOC_FORM[carol]}" '.git.name == "Carol"'
+  json_satisfies "${_GUIDED_ADHOC_FORM[carol]}" \
+    'has("name") | not'    # username = dir
   [ "${_GUIDED_USER_PASSWORDS[carol]}" = "hunter2" ]
 }
 
@@ -249,8 +259,8 @@ load shell-helpers
 
   run _guided_shell_secrets_manifest
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.root_password == "r00t"'
-  echo "$output" | jq -e '.users.carol.password == "hunter2"'
+  output_satisfies '.root_password == "r00t"'
+  output_satisfies '.users.carol.password == "hunter2"'
 }
 
 @test "_guided_shell_secrets_manifest: an unset root password defaults to 12345 (ADR 0055)" {
@@ -258,7 +268,7 @@ load shell-helpers
 
   run _guided_shell_secrets_manifest
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.root_password == "12345"'
+  output_satisfies '.root_password == "12345"'
 }
 
 @test "_guided_shell_user_names: lists committed users, excludes core + users/vm fixtures" {
@@ -288,7 +298,7 @@ load shell-helpers
   export -f guided_prompt
 
   _guided_shell_add_package
-  echo "$_GUIDED_STATE" | jq -e '.packages.repo.extra == ["htop","tmux"]'
+  json_satisfies "$_GUIDED_STATE" '.packages.repo.extra == ["htop","tmux"]'
 }
 
 @test "_guided_shell_add_package: empty input adds nothing" {
@@ -299,7 +309,7 @@ load shell-helpers
 
   run _guided_shell_add_package
   [ "$status" -ne 0 ]
-  echo "$_GUIDED_STATE" | jq -e '.packages == null'
+  json_satisfies "$_GUIDED_STATE" '.packages == null'
 }
 
 @test "_guided_shell_add_host_program: picked names append, deduped" {
@@ -309,9 +319,9 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_add_host_program
-  echo "$_GUIDED_STATE" | jq -e '.host_programs | index("docker")'
-  echo "$_GUIDED_STATE" \
-    | jq -e '([.host_programs[] | select(. == "cups")] | length) == 1'
+  json_satisfies "$_GUIDED_STATE" '.host_programs | index("docker")'
+  json_satisfies "$_GUIDED_STATE" \
+    '([.host_programs[] | select(. == "cups")] | length) == 1'
 }
 
 @test "_guided_shell_add_sysctl: a key=value sets a literal (dotted) sysctl key" {
@@ -322,7 +332,7 @@ load shell-helpers
 
   _guided_shell_add_sysctl
   # the dotted key is a literal object key, value stored as a number
-  echo "$_GUIDED_STATE" | jq -e '.sysctl["vm.swappiness"] == 10'
+  json_satisfies "$_GUIDED_STATE" '.sysctl["vm.swappiness"] == 10'
 }
 
 @test "_guided_shell_add_sysctl: a malformed entry (no =) commits nothing" {
@@ -333,7 +343,7 @@ load shell-helpers
 
   run _guided_shell_add_sysctl
   [ "$status" -ne 0 ]
-  echo "$_GUIDED_STATE" | jq -e '.sysctl == null'
+  json_satisfies "$_GUIDED_STATE" '.sysctl == null'
 }
 
 
@@ -343,8 +353,8 @@ load shell-helpers
   guided_load_replay "$(write_answers 'kernel=zen lts')"
   run guided_multi kernel "Kernels" lts default hardened zen
   [ "$status" -eq 0 ]
-  [ "$(awk 'NR == 1' <<<"$output")" = "zen" ]
-  [ "$(awk 'NR == 2' <<<"$output")" = "lts" ]
+  [ "${lines[0]}" = "zen" ]
+  [ "${lines[1]}" = "lts" ]
 }
 
 
@@ -357,7 +367,7 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_edit_kernel
-  echo "$_GUIDED_STATE" | jq -e '.options.kernel == ["zen","lts"]'
+  json_satisfies "$_GUIDED_STATE" '.options.kernel == ["zen","lts"]'
 }
 
 @test "_guided_shell_edit_kernel: no pick leaves the kernel untouched" {
@@ -368,7 +378,7 @@ load shell-helpers
 
   run _guided_shell_edit_kernel
   [ "$status" -ne 0 ]
-  echo "$_GUIDED_STATE" | jq -e '.options.kernel == null'
+  json_satisfies "$_GUIDED_STATE" '.options.kernel == null'
 }
 
 
@@ -381,7 +391,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_bootloader
-  echo "$_GUIDED_STATE" | jq -e '.options.bootloader == "grub"'
+  json_satisfies "$_GUIDED_STATE" '.options.bootloader == "grub"'
 }
 
 @test "_guided_shell_edit_swap_size: a typed size commits options.swap_size" {
@@ -391,7 +401,7 @@ load shell-helpers
   export -f guided_prompt
 
   _guided_shell_edit_swap_size
-  echo "$_GUIDED_STATE" | jq -e '.options.swap_size == "8G"'
+  json_satisfies "$_GUIDED_STATE" '.options.swap_size == "8G"'
 }
 
 @test "_guided_shell_edit_swap_size: empty input commits nothing" {
@@ -402,7 +412,7 @@ load shell-helpers
 
   run _guided_shell_edit_swap_size
   [ "$status" -ne 0 ]
-  echo "$_GUIDED_STATE" | jq -e '.options.swap_size == null'
+  json_satisfies "$_GUIDED_STATE" '.options.swap_size == null'
 }
 
 @test "_guided_shell_edit_ssh: selecting true enables ssh" {
@@ -412,7 +422,7 @@ load shell-helpers
   export -f guided_select
 
   _guided_shell_edit_ssh
-  echo "$_GUIDED_STATE" | jq -e '.options.ssh.enabled == true'
+  json_satisfies "$_GUIDED_STATE" '.options.ssh.enabled == true'
 }
 
 
@@ -425,7 +435,7 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_edit_desktop
-  echo "$_GUIDED_STATE" | jq -e '.environment.desktop == ["kde"]'
+  json_satisfies "$_GUIDED_STATE" '.environment.desktop == ["kde"]'
 }
 
 @test "_guided_shell_edit_gpu: vendors store an array" {
@@ -435,7 +445,7 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_edit_gpu
-  echo "$_GUIDED_STATE" | jq -e '.environment.gpu == ["amd","nvidia"]'
+  json_satisfies "$_GUIDED_STATE" '.environment.gpu == ["amd","nvidia"]'
 }
 
 @test "_guided_shell_edit_gpu: auto stores the scalar and clears any vendors" {
@@ -445,5 +455,5 @@ load shell-helpers
   export -f guided_multi
 
   _guided_shell_edit_gpu
-  echo "$_GUIDED_STATE" | jq -e '.environment.gpu == "auto"'
+  json_satisfies "$_GUIDED_STATE" '.environment.gpu == "auto"'
 }

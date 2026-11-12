@@ -6,6 +6,8 @@
 # and that a replayed bound layout bakes those exact disks WITHOUT a summed flat
 # pick or an ACCEPT gate (assembly seam). No fzf, no real disks.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export INSTALLER_DIR="$TEST_DIR"
@@ -50,9 +52,9 @@ write_answers() {
     [os_pool_devices]="/dev/disk/by-id/wwn-A /dev/disk/by-id/wwn-B")
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"mirror","disk_count":2}}'
   _guided_shell_edit_bound_devices
-  [ "$(jq -c '.os_pool.devices' <<<"$_GUIDED_STATE")" \
-    = '["/dev/disk/by-id/wwn-A","/dev/disk/by-id/wwn-B"]' ]
-  [ "$(jq -r '.os_pool.disk_count' <<<"$_GUIDED_STATE")" = "2" ]
+  json_satisfies "$_GUIDED_STATE" \
+    '.os_pool.devices == ["/dev/disk/by-id/wwn-A","/dev/disk/by-id/wwn-B"]'
+  json_satisfies "$_GUIDED_STATE" '.os_pool.disk_count == 2'
 }
 
 @test "_guided_shell_edit_bound_devices: injects a data pool's devices by index" {
@@ -61,9 +63,9 @@ write_answers() {
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"none","disk_count":1},
                   "data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}'
   _guided_shell_edit_bound_devices
-  [ "$(jq -c '.data_pools[0].devices' <<<"$_GUIDED_STATE")" \
-    = '["/dev/disk/by-id/wwn-X"]' ]
-  [ "$(jq -r '.data_pools[0].disk_count' <<<"$_GUIDED_STATE")" = "1" ]
+  json_satisfies "$_GUIDED_STATE" \
+    '.data_pools[0].devices == ["/dev/disk/by-id/wwn-X"]'
+  json_satisfies "$_GUIDED_STATE" '.data_pools[0].disk_count == 1'
 }
 
 @test "_guided_shell_edit_bound_devices: no key leaves a group device-less" {
@@ -71,7 +73,8 @@ write_answers() {
   declare -gA _GUIDED_ANSWERS=()
   _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"mirror","disk_count":2}}'
   _guided_shell_edit_bound_devices
-  [ "$(jq -r '.os_pool | has("devices")' <<<"$_GUIDED_STATE")" = "false" ]
+  json_satisfies "$_GUIDED_STATE" \
+    '.os_pool | has("devices") | not'
 }
 
 # ── replayed bound layout bakes the disks via the slice-04 path (AC2) ─────────
@@ -87,12 +90,12 @@ write_answers() {
   # pick (picker_enum_disks fails loudly) and without the ACCEPT prompt.
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.mode == "multi"'
-  echo "$effective" | jq -e '.os_pool.topology == "mirror"'
-  echo "$effective" | jq -e \
+  json_satisfies "$effective" '.mode == "multi"'
+  json_satisfies "$effective" '.os_pool.topology == "mirror"'
+  json_satisfies "$effective" \
     '.os_pool.disks == ["/dev/disk/by-id/wwn-A","/dev/disk/by-id/wwn-B"]'
   # devices[] is transient — flattened out of the Effective Config.
-  echo "$effective" | jq -e '(.os_pool | has("devices")) == false'
+  json_satisfies "$effective" '(.os_pool | has("devices")) == false'
 }
 
 @test "guided_build: a bound data-pool layout bakes OS + data disks" {
@@ -105,6 +108,7 @@ write_answers() {
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.os_pool.disks == ["/dev/disk/by-id/wwn-OS"]'
-  echo "$effective" | jq -e '.data_pools[0].disks == ["/dev/disk/by-id/wwn-D0"]'
+  json_satisfies "$effective" '.os_pool.disks == ["/dev/disk/by-id/wwn-OS"]'
+  json_satisfies "$effective" \
+    '.data_pools[0].disks == ["/dev/disk/by-id/wwn-D0"]'
 }

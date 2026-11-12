@@ -227,7 +227,8 @@ load controller-helpers
   printf '%s\n' '{"options":{"root_shell":"/bin/fish"}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_root_editor Users)"
   guided_controller_enter "shell: fish   (Enter cycles)" >/dev/null
-  file_satisfies "$GUIDED_STATE_FILE" '(.options.root_shell // "unset") == "unset"'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '(.options.root_shell // "unset") == "unset"'
 }
 
 @test "enter(rooteditor): password falls back to execute() without rich chrome" {

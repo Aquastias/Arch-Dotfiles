@@ -415,7 +415,8 @@ load controller-helpers
   set_navigation "$(navigation_to_values Locales system.console_font "console font")"
   run guided_controller_enter "no-such-font-xyz"
   [ "$output" = "noop" ]
-  file_satisfies "$GUIDED_STATE_FILE" '(.system.console_font // "unset") == "unset"'
+  file_satisfies "$GUIDED_STATE_FILE" \
+    '(.system.console_font // "unset") == "unset"'
 }
 
 @test "preview(keymap): the side panel lists the selected keymaps" {

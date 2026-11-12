@@ -2,6 +2,7 @@
 # Tests: derived section (split from packages.bats;
 # shared setup in packages-helpers.bash)
 
+load ../lib/json-helpers
 load packages-helpers
 
 
@@ -43,7 +44,7 @@ load packages-helpers
   set_navigation "$(navigation_to_package_derived_source Packages gpu)"
   run guided_controller_enter "    vulkan-radeon"
   [ "$output" = "noop" ]
-  [ "$(jq -c '.packages // "none"' "$GUIDED_STATE_FILE")" = '"none"' ]
+  file_satisfies "$GUIDED_STATE_FILE" '(.packages // "none") == "none"'
 }
 
 @test "changing the GPU vendor updates the derived section" {
@@ -92,11 +93,21 @@ load packages-helpers
 
   local effective; effective="$(_controller_effective "$(state)" "$(cat "$GUIDED_BASELINE_FILE")")"
   local direct menu
-  direct="$(package_resolver_resolve "$effective" \
-    | awk -F'\t' '$2 == "derived" && $1 == "gpu" { print $3 }' | sort -u)"
+  local source_name layer package
+  direct=""
+  # The resolver's gpu-derived packages.
+  while IFS=$'\t' read -r source_name layer package; do
+    if [[ "$layer" == derived && "$source_name" == gpu ]]; then
+      direct+="${package}"$'\n'
+    fi
+  done < <(package_resolver_resolve "$effective")
+  direct="$(printf '%s' "$direct" | sort -u)"
   set_navigation "$(navigation_to_package_derived_source Packages gpu)"
-  menu="$(guided_controller_list \
-    | awk '{ sub(/^ */, ""); sub(/ *$/, ""); print }' \
-    | grep -vE '^(← Back)?$' | sort -u)"
-  [ "$direct" = "$menu" ]
+  local row
+  menu=""
+  # Each listed package, its indent trimmed; the Back row skipped.
+  while read -r row; do
+    [[ -z "$row" || "$row" == "← Back" ]] || menu+="${row}"$'\n'
+  done < <(guided_controller_list)
+  [ "$direct" = "$(printf '%s' "$menu" | sort -u)" ]
 }

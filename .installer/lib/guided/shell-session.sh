@@ -229,16 +229,20 @@ page-down" \
 _guided_shell_load_secrets_file() {
   local secrets_file="$1" root_password encryption_passphrase user password
   [[ -s "$secrets_file" ]] || return 0
+  # The root password, empty when unset.
   root_password="$(jq -r '.root_password // ""' "$secrets_file")"
   [[ -n "$root_password" ]] && _GUIDED_ROOT_PASSWORD="$root_password"
+  # The encryption passphrase, empty when unset.
   encryption_passphrase="$(jq -r '.enc_passphrase // ""' "$secrets_file")"
   [[ -n "$encryption_passphrase" ]] \
     && _GUIDED_ENCRYPTION_PASSPHRASE="$encryption_passphrase"
   while IFS= read -r user; do
     [[ -n "$user" ]] || continue
+    # The user's password, empty when unset.
     password="$(jq -r --arg n "$user" '.users[$n].password // ""' \
       "$secrets_file")"
     [[ -n "$password" ]] && _GUIDED_USER_PASSWORDS["$user"]="$password"
+  # The user names, one per line.
   done < <(jq -r '(.users // {}) | keys[]' "$secrets_file")
 }
 
@@ -251,8 +255,10 @@ _guided_shell_load_secrets_file() {
 _guided_shell_guard_post_install() {
   local effective_json post_install_json count
   effective_json="$(_guided_shell_effective)"
-  post_install_json="$(jq -c '.post_install // {}' <<<"$effective_json")"
-  count="$(jq '(.users // []) | length' <<<"$effective_json")"
+  # The extras selection and the number of users.
+  post_install_json="$(printf '%s\n' "$effective_json" \
+    | jq -c '.post_install // {}')"
+  count="$(printf '%s\n' "$effective_json" | jq '(.users // []) | length')"
   post_install_guard_users "$post_install_json" "$count"
 }
 
@@ -270,7 +276,8 @@ _guided_shell_guard_terminal() {
 _guided_shell_guard_users() {
   [[ "$1" == save ]] && return 0
   local count
-  count="$(jq '(.users // []) | length' <<<"$(_guided_shell_effective)")"
+  # The number of users.
+  count="$(_guided_shell_effective | jq '(.users // []) | length')"
   ((count > 0)) && return 0
   error "guided: no user — pick or create one before Proceed."
 }
@@ -340,11 +347,14 @@ _guided_shell_pick_layout_disks() {
 # the post-menu / replay _GUIDED_DISK path (the persistent menu has no
 # install-disk row; replay sets _GUIDED_DISK via _guided_shell_edit_disk).
 _guided_shell_resolve_single_disk() {
-  local disk; disk="$(jq -r '.root_disk // ""' <<<"$_GUIDED_STATE")"
+  local disk
+  # The in-menu root disk pick, empty when none.
+  disk="$(printf '%s\n' "$_GUIDED_STATE" | jq -r '.root_disk // ""')"
   if [[ -z "$disk" ]]; then
     [[ -n "$_GUIDED_DISK" ]] || _guided_shell_edit_disk
     disk="$_GUIDED_DISK"
   fi
   [[ -n "$disk" ]] || { error "guided: no disk selected"; return 1; }
+  # The single-disk assignment.
   jq -n --arg d "$disk" '{mode: "single", disk: $d}'
 }

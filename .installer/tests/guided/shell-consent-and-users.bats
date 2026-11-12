@@ -2,6 +2,7 @@
 # Tests: consent and users (split from shell.bats;
 # shared setup in shell-helpers.bash)
 
+load ../lib/json-helpers
 load shell-helpers
 
 
@@ -49,8 +50,8 @@ load shell-helpers
   printf '%s\n' '{"root_password":"r","users":{"alex":{"password":"a"}}}' > "$secrets_file"
   _guided_shell_load_secrets_file "$secrets_file"; rm -f "$secrets_file"
   run _guided_shell_secrets_manifest
-  [ "$(jq -r '.root_password' <<<"$output")" = "r" ]
-  [ "$(jq -r '.users.alex.password' <<<"$output")" = "a" ]
+  output_satisfies '.root_password == "r"'
+  output_satisfies '.users.alex.password == "a"'
 }
 
 
@@ -62,9 +63,9 @@ load shell-helpers
   _GUIDED_ADHOC_ORDER=()
   _guided_shell_materialize_users
   [ -f "$INSTALLER_DIR/users/newbie/profile.jsonc" ]
-  jq -e '.sudo == true and (.groups | index("wheel"))
-    and (.programs | index("searxng"))' \
-    "$INSTALLER_DIR/users/newbie/profile.jsonc"
+  local seeded='.sudo == true and (.groups | index("wheel"))'
+  seeded+=' and (.programs | index("searxng"))'
+  file_satisfies "$INSTALLER_DIR/users/newbie/profile.jsonc" "$seeded"
 }
 
 
@@ -79,7 +80,7 @@ load shell-helpers
   run _guided_shell_resolve_assignment
   [ "$status" -eq 0 ]
   ! echo "$output" | grep -q CALLED
-  echo "$output" | jq -e '.os_pool == ["/dev/disk/by-id/a","/dev/disk/by-id/b"]'
+  output_satisfies '.os_pool == ["/dev/disk/by-id/a","/dev/disk/by-id/b"]'
 }
 
 @test "_guided_shell_resolve_assignment: single mode uses the in-menu root disk" {
@@ -88,7 +89,7 @@ load shell-helpers
   _GUIDED_DISK=""
   run _guided_shell_resolve_assignment
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "single" and .disk == "/dev/disk/by-id/root"'
+  output_satisfies '.mode == "single" and .disk == "/dev/disk/by-id/root"'
 }
 
 
@@ -102,8 +103,10 @@ load shell-helpers
     > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
   _guided_shell_apply_userforms
-  jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/alice/profile.jsonc"
-  jq -e '.groups == ["docker"]' "$INSTALLER_DIR/users/alice/profile.jsonc"  # delta kept
+  file_satisfies "$INSTALLER_DIR/users/alice/profile.jsonc" \
+    '.shell == "/bin/zsh"'
+  file_satisfies "$INSTALLER_DIR/users/alice/profile.jsonc" \
+    '.groups == ["docker"]'  # delta kept
 }
 
 @test "_guided_shell_apply_userforms: no-op when no deltas were held aside" {
@@ -111,7 +114,8 @@ load shell-helpers
   printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_USERFORMS_JSON=''
   _guided_shell_apply_userforms
-  jq -e '.shell == "/bin/bash"' "$INSTALLER_DIR/users/alice/profile.jsonc"   # untouched
+  file_satisfies "$INSTALLER_DIR/users/alice/profile.jsonc" \
+    '.shell == "/bin/bash"'   # untouched
 }
 
 
@@ -133,7 +137,8 @@ load shell-helpers
   _GUIDED_COMMITTED_AT_START=" alice "
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
   _guided_shell_apply_userforms save
-  jq -e '.shell == "/bin/bash"' "$INSTALLER_DIR/users/alice/profile.jsonc"   # untouched
+  file_satisfies "$INSTALLER_DIR/users/alice/profile.jsonc" \
+    '.shell == "/bin/bash"'   # untouched
 }
 
 @test "_guided_shell_apply_userforms save: still applies to a session-created user" {
@@ -142,7 +147,8 @@ load shell-helpers
   _GUIDED_COMMITTED_AT_START=" "     # dave was not committed at start
   _GUIDED_USERFORMS_JSON='{"dave":{"shell":"/bin/zsh"}}'
   _guided_shell_apply_userforms save
-  jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/dave/profile.jsonc"
+  file_satisfies "$INSTALLER_DIR/users/dave/profile.jsonc" \
+    '.shell == "/bin/zsh"'
 }
 
 @test "_guided_shell_apply_userforms proceed: DOES apply to a committed profile" {
@@ -151,7 +157,8 @@ load shell-helpers
   _GUIDED_COMMITTED_AT_START=" alice "
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
   _guided_shell_apply_userforms proceed
-  jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/alice/profile.jsonc"
+  file_satisfies "$INSTALLER_DIR/users/alice/profile.jsonc" \
+    '.shell == "/bin/zsh"'
 }
 
 
@@ -166,24 +173,24 @@ JSONC
   guided_load_replay "$(write_answers 'profile=desktop')"
   _GUIDED_STATE='{"marker":1}'
   _guided_shell_seed_from_profile
-  jq -e '.options.encryption == true' <<<"$_GUIDED_BASELINE"
-  jq -e '.filesystem == "zfs"' <<<"$_GUIDED_BASELINE"
-  jq -e '.system.hostname == "eterniox"' <<<"$_GUIDED_BASELINE"
-  jq -e '. == {}' <<<"$_GUIDED_STATE"       # earlier overrides dropped
+  json_satisfies "$_GUIDED_BASELINE" '.options.encryption == true'
+  json_satisfies "$_GUIDED_BASELINE" '.filesystem == "zfs"'
+  json_satisfies "$_GUIDED_BASELINE" '.system.hostname == "eterniox"'
+  json_satisfies "$_GUIDED_STATE" '. == {}'       # earlier overrides dropped
 }
 
 @test "_guided_shell_seed_from_profile: no 'profile=' key leaves the state untouched" {
   guided_load_replay "$(write_answers 'hostname=x')"
   _GUIDED_STATE='{"marker":1}'
   _guided_shell_seed_from_profile
-  jq -e '.marker == 1' <<<"$_GUIDED_STATE"
+  json_satisfies "$_GUIDED_STATE" '.marker == 1'
 }
 
 @test "_guided_shell_seed_from_profile: an unknown profile is a no-op" {
   guided_load_replay "$(write_answers 'profile=ghost')"
   _GUIDED_STATE='{"marker":1}'
   _guided_shell_seed_from_profile
-  jq -e '.marker == 1' <<<"$_GUIDED_STATE"
+  json_satisfies "$_GUIDED_STATE" '.marker == 1'
 }
 
 
@@ -209,13 +216,13 @@ JSONC
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  echo "$effective" | jq -e '.system.hostname == "chronos"'
-  echo "$effective" | jq -e '.filesystem == "zfs"'
-  echo "$effective" | jq -e '.options.encryption == true'
-  echo "$effective" | jq -e '.options.impermanence.enabled == true'
-  echo "$effective" | jq -e '.options.ssh.enabled == true'
-  echo "$effective" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
-  echo "$effective" | jq -e '.persist.directories == ["/home"]'
+  json_satisfies "$effective" '.system.hostname == "chronos"'
+  json_satisfies "$effective" '.filesystem == "zfs"'
+  json_satisfies "$effective" '.options.encryption == true'
+  json_satisfies "$effective" '.options.impermanence.enabled == true'
+  json_satisfies "$effective" '.options.ssh.enabled == true'
+  json_satisfies "$effective" '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
+  json_satisfies "$effective" '.persist.directories == ["/home"]'
 }
 
 @test "guided_build: a field answer overrides the seeded profile value" {
@@ -229,7 +236,7 @@ JSONC
     'confirm=INSTALL')"
 
   effective="$(guided_build 2>/dev/null)"
-  echo "$effective" | jq -e '.system.hostname == "override"'   # answer wins
+  json_satisfies "$effective" '.system.hostname == "override"'   # answer wins
 }
 
 
@@ -259,12 +266,19 @@ SH
     confirm=INSTALL)"
   run guided_build 2>/dev/null
   [ "$status" -eq 0 ]
-  local config; config="$(printf '%s\n' "$output" | awk '/^\{/ { found = 1 } found')"
-  [ "$(jq -r .disk_config.kind <<<"$config")" = "manual" ]
-  [ "$(jq -r '.disk_config.partitions[]
-    | select(.mountpoint == "/") | .device' <<<"$config")" = "/dev/vda3" ]
-  [ "$(jq -r '.disk_config.partitions[]
-    | select(.mountpoint == "/boot/efi") | .device' <<<"$config")" = "/dev/vda1" ]
+  local config="" row started=0
+  # The output from its first "{" line on: the printed config.
+  while IFS= read -r row; do
+    [[ "$row" == "{"* ]] && started=1
+    ((started)) && config+="${row}"$'\n'
+  done < <(printf '%s\n' "$output")
+  local device_at='.disk_config.partitions[] | select(.mountpoint == $m)'
+  device_at+=' | .device'
+  json_satisfies "$config" '.disk_config.kind == "manual"'
+  # The device mounted at / and at /boot/efi.
+  [ "$(printf '%s' "$config" | jq -r --arg m / "$device_at")" = "/dev/vda3" ]
+  [ "$(printf '%s' "$config" | jq -r --arg m /boot/efi "$device_at")" \
+    = "/dev/vda1" ]
 }
 
 @test "guided_build: the manual review says the table is kept, not erased" {

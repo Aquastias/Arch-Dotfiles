@@ -51,12 +51,10 @@ guided_mask_apply() {
 # guided_mask_buffer <buffer> <query> — just the reconstructed buffer (first line
 # of guided_mask_apply). Convenience for the fzf-entry glue's buffer file write.
 guided_mask_buffer() {
-  local masked; masked="$(guided_mask_apply "$1" "$2")"
-  printf '%s\n' "${masked%%$'\n'*}"
+  guided_mask_apply "$1" "$2" | head -n 1
 }
 
 # guided_mask_display <buffer> <query> — just the bullet display (second line).
 guided_mask_display() {
-  local masked; masked="$(guided_mask_apply "$1" "$2")"
-  printf '%s' "${masked##*$'\n'}"
+  printf '%s' "$(guided_mask_apply "$1" "$2" | tail -n 1)"
 }

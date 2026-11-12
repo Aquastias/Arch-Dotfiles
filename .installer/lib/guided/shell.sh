@@ -100,8 +100,9 @@ guided_load_replay() {
   declare -gA _GUIDED_ANSWERS=()
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" == *=* ]] || continue
-    key="${line%%=*}"
-    value="${line#*=}"
+    # The text before the first "=", and everything after it.
+    key="$(printf '%s\n' "$line" | cut -d= -f1)"
+    value="$(printf '%s\n' "$line" | cut -d= -f2-)"
     _GUIDED_ANSWERS["$key"]="$value"
   done <"$file"
   _GUIDED_REPLAY=1
@@ -173,7 +174,8 @@ guided_pick_disk() {
         picker_format_disk_preview {2}'" \
       --preview-window=right,60%
   )"
-  [[ -n "$pick" ]] && printf '%s' "${pick#*$'\t'}"
+  # The picked row's hidden by-id path (after the tab).
+  [[ -n "$pick" ]] && printf '%s' "$(printf '%s\n' "$pick" | cut -f2-)"
 }
 
 
@@ -190,8 +192,9 @@ _guided_shell_seed_from_profile() {
   baseline="$(profiles_baseline "$name")" || return 0
   _GUIDED_BASELINE="$baseline"
   _GUIDED_STATE="$(config_state_new)"
-  mapfile -t _GUIDED_USERS_COMMITTED < <(jq -r '(.users // [])[]' \
-    <<<"$baseline")
+  # The profile's user names, one per line.
+  mapfile -t _GUIDED_USERS_COMMITTED < <(printf '%s\n' "$baseline" \
+    | jq -r '(.users // [])[]')
 }
 
 guided_build() {
@@ -256,7 +259,8 @@ _guided_shell_replay_edits() {
   trap - ERR
   _guided_shell_apply_replay_answers
   ((had_errexit)) && set -e
-  eval "${error_trap:-:}"
+  # `trap -p` prints the trap as a command; running it restores the trap.
+  eval "${error_trap:-:}"  # readability-ok: the one way to restore trap -p
 }
 
 # _guided_shell_apply_replay_answers — every edit, in menu order; each reads
@@ -343,9 +347,8 @@ _guided_shell_save() {
   # so the drop is never silent. Computed before materialize (which writes
   # ad-hoc profiles) so only genuinely-committed users are reported.
   local edited_users
-  edited_users="$(_guided_shell_committed_userform_edits \
-    | awk 'NR > 1 { printf "%s", (NR % 2 == 0 ? "," : " ") }
-        { printf "%s", $0 }')"
+  # The edited users' names, comma-joined.
+  edited_users="$(_guided_shell_committed_userform_edits | paste -sd, -)"
   guided_save_host_profile \
     "$(skeleton_flatten_devices "$(_guided_shell_effective)")" "$name" \
     || return 1
@@ -374,21 +377,22 @@ _guided_shell_export() {
 # the caller captures. Credentials are captured IN the menu (ticket 03) or via
 # replay answers, so there is no post-menu credential prompt here.
 _guided_shell_review() {
-  local hostname="$1" assignment="$2" mode confirm
+  local hostname="$1" assignment="$2" mode confirm disk
   mode="$(config_state_get "$(_guided_shell_effective)" mode)"
+  # The assignment's disk, empty when none.
+  disk="$(printf '%s\n' "$assignment" | jq -r '.disk // ""')"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
   if manual_partition_kind_active "$_GUIDED_STATE"; then
     printf '  MANUAL:      your partitions on %s (no wipe)\n' \
-      "$(jq -r '.disk // ""' <<<"$assignment")" >&2
+      "$disk" >&2
   elif [[ "$mode" == "multi" ]]; then
     printf '  WILL ERASE:  the disks in the layout above\n' >&2
   else
     # Read the resolved disk from the assignment, not $_GUIDED_DISK: the
     # in-menu disk binding (ADR 0047) stores the pick as root_disk and leaves
     # _GUIDED_DISK empty, so the old var showed a blank WILL ERASE line.
-    printf '  WILL ERASE:  %s\n' \
-      "$(jq -r '.disk // ""' <<<"$assignment")" >&2
+    printf '  WILL ERASE:  %s\n' "$disk" >&2
   fi
   confirm="$(guided_prompt confirm "Type INSTALL to continue")"
   [[ "$confirm" == "INSTALL" ]] \

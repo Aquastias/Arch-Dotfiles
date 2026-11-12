@@ -5,6 +5,8 @@
 # editor (guided-controller.sh) to the validator — the editor's single-disk pin
 # for ext4/xfs is what keeps the authored config inside the passing set.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -15,7 +17,9 @@ setup() {
   # Validation harness stubs (mirror validation-group-filesystem.bats): the
   # accessors read CONFIG_FILE via config_optional; error() exits so `run` captures a reject.
   jsonc_strip() { cat "$1"; }
+  # A stub: the value at the path in the test config.
   config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  # A stub: the value at the path in the test config.
   config_required() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error() { echo "ERROR: $*" >&2; exit 1; }
   info() { :; }; section() { :; }; warn() { :; }
@@ -51,10 +55,10 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   cp "$GUIDED_STATE_FILE" "$CONFIG_FILE"
 
   # the editor pinned ext4 to single-disk and recorded the per-group choices
-  [ "$(jq -r '.data_pools[0].filesystem' "$CONFIG_FILE")" = "ext4" ]
-  [ "$(jq -r '.data_pools[0].topology'   "$CONFIG_FILE")" = "single" ]
-  [ "$(jq -r '.data_pools[0].disk_count' "$CONFIG_FILE")" = "1" ]
-  [ "$(jq -r '.data_pools[0].encryption' "$CONFIG_FILE")" = "true" ]
+  file_satisfies "$CONFIG_FILE" '.data_pools[0].filesystem == "ext4"'
+  file_satisfies "$CONFIG_FILE" '.data_pools[0].topology == "single"'
+  file_satisfies "$CONFIG_FILE" '.data_pools[0].disk_count == 1'
+  file_satisfies "$CONFIG_FILE" '.data_pools[0].encryption == true'
 
   run _validation_group_filesystems
   [ "$status" -eq 0 ]
@@ -72,8 +76,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   guided_controller_enter "topology: raid0   (Enter cycles)"  >/dev/null   # → raid1
 
   cp "$GUIDED_STATE_FILE" "$CONFIG_FILE"
-  [ "$(jq -r '.data_pools[0].filesystem' "$CONFIG_FILE")" = "btrfs" ]
-  [ "$(jq -r '.data_pools[0].topology'   "$CONFIG_FILE")" = "raid1" ]
+  file_satisfies "$CONFIG_FILE" '.data_pools[0].filesystem == "btrfs"'
+  file_satisfies "$CONFIG_FILE" '.data_pools[0].topology == "raid1"'
 
   run _validation_group_filesystems
   [ "$status" -eq 0 ]

@@ -6,6 +6,8 @@
 # via PICKER_BY_ID_DIR stands in for /dev/disk/by-id; GUIDED_LIVE_SET="" means
 # no live-medium exclusion. No fzf, no real disks.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
@@ -48,7 +50,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "_controller_free_disks: all enumerated disks when nothing bound" {
   run _controller_free_disks '{}'
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 3 ]
+  [ "${#lines[@]}" -eq 3 ]
 }
 
 @test "_controller_free_disks: excludes a disk bound to a data pool" {
@@ -63,22 +65,22 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   local state='{"os_pool":{"devices":["'"$BY_ID"'/ata-Disk_Three"]}}'
   run _controller_free_disks "$state"
   ! echo "$output" | grep -q "ata-Disk_Three"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 2 ]
+  [ "${#lines[@]}" -eq 2 ]
 }
 
 # ── bind toggle + derived disk_count (AC2) ───────────────────────────────────
 
 @test "_controller_pool_toggle_disk: binds a disk, disk_count derives to 1" {
   local pool; pool="$(_controller_pool_toggle_disk '{"name":"tank0"}' /dev/disk/by-id/x)"
-  [ "$(jq -r '.devices[0]' <<<"$pool")" = "/dev/disk/by-id/x" ]
-  [ "$(jq -r '.disk_count' <<<"$pool")" = "1" ]
+  json_satisfies "$pool" '.devices[0] == "/dev/disk/by-id/x"'
+  json_satisfies "$pool" '.disk_count == 1'
 }
 
 @test "_controller_pool_toggle_disk: toggling a bound disk unbinds it, count 0" {
   local pool='{"name":"tank0","devices":["/dev/disk/by-id/x"],"disk_count":1}'
   pool="$(_controller_pool_toggle_disk "$pool" /dev/disk/by-id/x)"
-  [ "$(jq -c '.devices' <<<"$pool")" = "[]" ]
-  [ "$(jq -r '.disk_count' <<<"$pool")" = "0" ]
+  json_satisfies "$pool" '.devices == []'
+  json_satisfies "$pool" '.disk_count == 0'
 }
 
 # ── filesystem-pin trim (AC5) ────────────────────────────────────────────────
@@ -87,8 +89,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   local state='{"data_pools":[{"name":"t","devices":["/d/a","/d/b","/d/c"],
             "disk_count":3}]}'
   run _controller_pool_normalise_filesystem "$state" 0 ext4
-  [ "$(jq -c '.data_pools[0].devices' <<<"$output")" = '["/d/a"]' ]
-  [ "$(jq -r '.data_pools[0].disk_count' <<<"$output")" = "1" ]
+  output_satisfies '.data_pools[0].devices == ["/d/a"]'
+  output_satisfies '.data_pools[0].disk_count == 1'
 }
 
 # ── disk label (AC4 — falls back to the by-id tail when lsblk can't read) ─────
@@ -131,9 +133,10 @@ STUB
   set_navigation "$(navigation_to_pool_disks Disks 0 data)"
   run guided_controller_enter "[ ] nvme-Disk_Two"
   [ "$output" = "refresh" ]
+  # The data pool's first bound device.
   [ "$(jq -r '.data_pools[0].devices[0]' "$GUIDED_STATE_FILE")" \
     = "$BY_ID/nvme-Disk_Two" ]
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].disk_count == 1'
 }
 
 @test "enter(pooldisks): a '<size> <model> · <tail>' label binds by its tail" {
@@ -141,6 +144,7 @@ STUB
   set_navigation "$(navigation_to_pool_disks Disks 0 data)"
   run guided_controller_enter "[ ] 512G Foo SSD 980 · nvme-Disk_Two"
   [ "$output" = "refresh" ]
+  # The data pool's first bound device.
   [ "$(jq -r '.data_pools[0].devices[0]' "$GUIDED_STATE_FILE")" \
     = "$BY_ID/nvme-Disk_Two" ]
 }
@@ -183,5 +187,5 @@ STUB
   set_navigation "$(navigation_to_pool_edit Disks 0)"
   run guided_controller_enter "disks: 2   (Enter cycles 1-8)"
   [ "$output" = "refresh" ]
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]
+  file_satisfies "$GUIDED_STATE_FILE" '.data_pools[0].disk_count == 3'
 }
