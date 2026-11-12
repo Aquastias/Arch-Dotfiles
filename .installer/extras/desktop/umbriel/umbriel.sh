@@ -110,9 +110,10 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
   for _gate in "$UMBRIEL_CURATED_DIR"/.config/systemd/user/*@autostart.service.d
   do
     [[ -d "$_gate" ]] || continue
-    install -d "${SEED_ROOT%/}/etc/skel/.config/systemd/user/${_gate##*/}"
+    _gate_name="$(basename "$_gate")"
+    install -d "$SEED_ROOT/etc/skel/.config/systemd/user/${_gate_name}"
     install -m644 "$_gate"/* \
-      "${SEED_ROOT%/}/etc/skel/.config/systemd/user/${_gate##*/}/"
+      "$SEED_ROOT/etc/skel/.config/systemd/user/${_gate_name}/"
   done
 fi
 

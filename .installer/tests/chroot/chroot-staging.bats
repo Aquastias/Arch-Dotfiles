@@ -24,30 +24,33 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# Echoes the dst basename for each entry in a named manifest array.
+# _staged_source / _staged_destination <entry> — the source or destination
+# path of one "src|dst" manifest entry.
+_staged_source() { printf '%s\n' "$1" | cut -d'|' -f1; }
+_staged_destination() { printf '%s\n' "$1" | cut -d'|' -f2; }
+
+# _staged_basenames <entry>… — the destination file name of each entry.
 _staged_basenames() {
-  local -n staged_entries="$1"
-  local entry source_path destination_path
-  for entry in "${staged_entries[@]}"; do
-    IFS='|' read -r source_path destination_path <<< "$entry"
-    printf '%s\n' "${destination_path##*/}"
+  local entry
+  for entry in "$@"; do
+    basename "$(_staged_destination "$entry")"
   done
 }
 
 # ── every manifest src exists (catches a moved/renamed lib file) ─────────────
 
 @test "every _CHROOT_STAGE_LIBCHROOT src exists in the repo" {
-  local entry source_path destination_path
+  local entry source_path
   for entry in "${_CHROOT_STAGE_LIBCHROOT[@]}"; do
-    IFS='|' read -r source_path destination_path <<< "$entry"
+    source_path="$(_staged_source "$entry")"
     [ -f "$INSTALLER_DIR/$source_path" ] || { echo "missing src: $source_path"; false; }
   done
 }
 
 @test "every _CHROOT_STAGE_EXTRAS_LIB src exists in the repo" {
-  local entry source_path destination_path
+  local entry source_path
   for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
-    IFS='|' read -r source_path destination_path <<< "$entry"
+    source_path="$(_staged_source "$entry")"
     [ -f "$INSTALLER_DIR/$source_path" ] || { echo "missing src: $source_path"; false; }
   done
 }
@@ -77,20 +80,27 @@ _staged_basenames() {
 
 @test "every \$_LIB_DIR sibling sourced by lib/chroot/* is in the manifest" {
   local staged
-  staged="$(_staged_basenames _CHROOT_STAGE_LIBCHROOT)"
+  staged="$(_staged_basenames "${_CHROOT_STAGE_LIBCHROOT[@]}")"
 
   local references name
-  references="$(grep -rhoE '_LIB_DIR[}]?/[a-z0-9][a-z0-9-]*\.sh' \
-    "$INSTALLER_DIR"/lib/chroot/*.sh | awk '{ sub(/.*\//, ""); print }' | sort -u)"
+  local reference
+  local -a sibling_references
+  # Each $_LIB_DIR/<name>.sh a chroot script sources.
+  mapfile -t sibling_references < <(cat "$INSTALLER_DIR"/lib/chroot/*.sh \
+    | grep -oE '_LIB_DIR[}]?/[a-z0-9][a-z0-9-]*\.sh')
+  # Their file names, each once.
+  references="$(for reference in "${sibling_references[@]}"; do
+      basename "$reference"
+    done | sort -u)"
 
   [ -n "$references" ]  # sanity: the grep found references
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     # A file that actually lives in lib/chroot/ is staged by the cp -r tree.
     [[ -f "$INSTALLER_DIR/lib/chroot/$name" ]] && continue
-    grep -qxF "$name" <<< "$staged" \
+    printf '%s\n' "$staged" | grep -qxF "$name" \
       || { echo "sourced sibling not staged: $name"; false; }
-  done <<< "$references"
+  done < <(printf '%s\n' "$references")
 }
 
 # ── lockstep: lib/ files sourced by extras/**/*.sh ⊆ the extras-lib manifest ──
@@ -102,24 +112,26 @@ _staged_basenames() {
 # gap that let the re-added hyprland.sh source lib/chroot/gpu.sh unstaged.
 
 @test "every lib/ file sourced by extras/**/*.sh is in _CHROOT_STAGE_EXTRAS_LIB" {
-  local staged_dsts entry source_path destination_path
+  local staged_dsts entry
   staged_dsts=""
   for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
-    IFS='|' read -r source_path destination_path <<< "$entry"
-    staged_dsts+="${destination_path}"$'\n'
+    staged_dsts+="$(_staged_destination "$entry")"$'\n'
   done
 
   local references path
-  references="$(grep -rhoE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh' "$INSTALLER_DIR"/extras \
-    2>/dev/null | awk '{ sub(/.*\.\.\/\.\.\/\.\.\/lib\//, ""); print }' | sort -u)"
+  # Each ../../../lib/<path>.sh an extras script sources.
+  references="$(find "$INSTALLER_DIR"/extras -name '*.sh' -exec cat {} + \
+    | grep -oE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh')"
+  # The <path> after its 13-character "../../../lib/" prefix, each once.
+  references="$(printf '%s\n' "$references" | cut -c14- | sort -u)"
 
   [ -n "$references" ]  # sanity: the grep found extras→lib sources
   while IFS= read -r path; do
     [[ -n "$path" ]] || continue
-    grep -qxF "$path" <<< "$staged_dsts" \
+    printf '%s\n' "$staged_dsts" | grep -qxF "$path" \
       || { echo "extras sources lib/$path — not in _CHROOT_STAGE_EXTRAS_LIB"; \
            false; }
-  done <<< "$references"
+  done < <(printf '%s\n' "$references")
 }
 
 # Transitive guard: the direct-reference check above missed common.sh's own
@@ -129,8 +141,9 @@ _staged_basenames() {
 @test "the staged /root/lib sources standalone (every adapter entry point)" {
   local root="$BATS_TEST_TMPDIR/root/lib" entry source_path destination_path
   for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
-    IFS='|' read -r source_path destination_path <<< "$entry"
-    mkdir -p "$root/$(parent_directory "$destination_path")"
+    source_path="$(_staged_source "$entry")"
+    destination_path="$(_staged_destination "$entry")"
+    mkdir -p "$root/$(dirname "$destination_path")"
     cp "$INSTALLER_DIR/$source_path" "$root/$destination_path"
   done
   run bash -c "set -Eeuo pipefail; DE_TAG=TEST

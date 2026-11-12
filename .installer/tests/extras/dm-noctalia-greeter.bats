@@ -121,7 +121,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "never forces the greeter's default session" {
   ENVIRONMENT_DESKTOP="niri kde" run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -rq '^default' "$ROOT/var/lib/noctalia-greeter"
+  ! find "$ROOT/var/lib/noctalia-greeter" -type f -exec cat {} + 2>/dev/null \
+    | grep -q '^default'
 }
 
 @test "no desktop: no Default Session seeded" {

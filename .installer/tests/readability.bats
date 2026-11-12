@@ -410,6 +410,15 @@ DOC
   [ "$status" -eq 0 ]
 }
 
+@test "flag-reference: a --flag=<value> bullet lists the flag" {
+  make_reference_repo
+  printf '\n### `bootctl`\n- `--esp-path=<dir>` — the ESP\n' \
+    >> docs/tool-reference.md
+  printf 'bootctl --esp-path=/efi install\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
 @test "tool-reference: adding the entry makes the command pass" {
   make_reference_repo
   printf 'wc /etc/passwd\n' > .installer/lib/a.sh
@@ -868,4 +877,20 @@ SH
   check_repo --list
   [[ "$output" != *"what-comment: .installer/lib/a.sh:4:"* ]]
   [[ "$output" == *"what-comment: .installer/lib/a.sh:7:"* ]]
+}
+
+@test "sed-form: a double-quoted program is checked too" {
+  shape_repo
+  cat > .installer/lib/a.sh <<'SH'
+# Set the server.
+sed -i "s|^Server = .*|Server = $url|" /etc/pacman.conf
+# Add a line after [options].
+sed -i "/^\[options\]/a NoExtract = $path" /etc/pacman.conf
+# An edit kept in a variable.
+sed -i "$edit" /etc/pacman.conf
+SH
+  check_repo --list
+  [[ "$output" != *"sed-form: .installer/lib/a.sh:2:"* ]]
+  [[ "$output" == *"sed-form: .installer/lib/a.sh:4:"* ]]
+  [[ "$output" != *"sed-form: .installer/lib/a.sh:6:"* ]]
 }

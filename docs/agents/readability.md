@@ -74,7 +74,7 @@ entry (meaning + a real example) before using something new. In short:
 - **`jq`** for all JSON, small feature set: one readable step per call.
   `reduce`, `foreach`, `walk`, `def`, `paths`, `getpath`/`setpath`, `inputs`
   become a bash loop over simple jq output, or a commented `.jq` file.
-- **`grep`** with `-q -E -F -v -x -c -o -l`; **`sed`** only as
+- **`grep`** with `-q -E -F -v -x -c -o -l -w`; **`sed`** only as
   `sed -i 's/old/new/'`.
 - **`awk`** never inline — only `.awk` files, with a header comment and a
   comment on each rule.

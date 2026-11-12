@@ -17,7 +17,7 @@ export SOPS_AGE_KEY_FILE="$AGE_KEY"
 
 shopt -s nullglob
 for secrets_file in "${SOPS_SECRETS_DIR}"/*.json; do
-  name="${secrets_file##*/}"; name="${name%.json}"
+  name="$(basename "$secrets_file" .json)"
   sops --decrypt "$secrets_file" > "${RUN_SECRETS}/${name}.json"
   chmod 600 "${RUN_SECRETS}/${name}.json"
 done

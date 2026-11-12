@@ -4,15 +4,16 @@
 # Early-KMS MODULES + modprobe.d. Running after the build would silently drop
 # Early KMS, so this ordering is asserted directly.
 
+load ../lib/text-helpers
+
 setup() {
   CONFIGURE="$BATS_TEST_DIRNAME/../../lib/chroot/configure.sh"
 }
 
 @test "configure.sh runs gpu.sh before initcpio.sh" {
   local gpu_ln initcpio_ln
-  gpu_ln="$(awk '/lib-chroot\/gpu.sh/ { print NR; exit }' "$CONFIGURE")"
-  initcpio_ln="$(awk '/lib-chroot\/initcpio.sh/ { print NR; exit }' \
-    "$CONFIGURE")"
+  gpu_ln="$(first_line_matching "$CONFIGURE" 'lib-chroot/gpu.sh')"
+  initcpio_ln="$(first_line_matching "$CONFIGURE" 'lib-chroot/initcpio.sh')"
   [ -n "$gpu_ln" ]
   [ -n "$initcpio_ln" ]
   [ "$gpu_ln" -lt "$initcpio_ln" ]

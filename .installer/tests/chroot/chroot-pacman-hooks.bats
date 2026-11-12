@@ -2,6 +2,8 @@
 # Tests for the pacman hooks lib/chroot.sh writes onto the target: the ESP
 # mirror (multi-ESP only) and the package-cache cleanup (every install).
 
+load ../lib/text-helpers
+
 setup() {
   error() { echo "ERROR: $*" >&2; exit 1; }
   info() { :; }; warn() { :; }; section() { :; }
@@ -24,7 +26,7 @@ setup() {
 }
 
 @test "chroot_configure_system writes the paccache hook unconditionally" {
-  awk '/^chroot_configure_system\(\) \{/, /^\}/' \
-    "$BATS_TEST_DIRNAME/../../lib/chroot.sh" \
+  function_body "$BATS_TEST_DIRNAME/../../lib/chroot.sh" \
+    chroot_configure_system \
     | grep -qx '  chroot_write_paccache_hook'
 }

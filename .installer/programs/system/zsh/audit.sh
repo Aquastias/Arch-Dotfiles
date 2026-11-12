@@ -4,7 +4,8 @@
 feature_audit_require_package zsh zsh || return 0
 export TERM=xterm-256color
 
-sh="$(getent passwd "$FA_USER" | awk -F: '{ print $7 }')"
+# The account's login shell (passwd field 7).
+sh="$(getent passwd "$FA_USER" | cut -d: -f7)"
 case "$sh" in
   */zsh) feature_audit_pass zsh-login-shell "$sh" ;;
   *)     feature_audit_fail zsh-login-shell "login shell is '$sh', not zsh" ;;
@@ -13,12 +14,13 @@ esac
 # _probe_zsh_interactive <cmd> — run <cmd> in an interactive zsh on a real pty
 # (zle and p10k need a terminal, as in kitty); prints its output.
 _probe_zsh_interactive() {
-  script -qec "zsh -i -c '$1'" /dev/null 2>&1 | awk '{ gsub(/\r/, ""); print }'
+  script -qec "zsh -i -c '$1'" /dev/null 2>&1 | tr -d '\r'
 }
 
 _probe_zsh_startup() {
-  ! _probe_zsh_interactive exit \
-    | grep -iE "error|not found|can.t|warning|no such"
+  # Any error-like line of a plain startup (matched in lower case).
+  ! _probe_zsh_interactive exit | tr '[:upper:]' '[:lower:]' \
+    | grep -E "error|not found|can.t|warning|no such"
 }
 feature_audit_check zsh-startup \
   "interactive zsh starts with no errors" _probe_zsh_startup
@@ -49,10 +51,14 @@ feature_audit_check zsh-emacs-keymap \
   "emacs keymap selected (bindkey -e)" _probe_zsh_emacs
 _probe_zsh_bound() { _probe_zsh_interactive "bindkey -M $1 \"$2\"" \
   | grep -qw "$3"; }
+# Each bind's key sequence, keymap and widget (the action's first two
+# words), tab-separated.
+# shellcheck disable=SC2016 # a jq program, not shell
+bind_fields='[.chord, (.action | split(" ") | .[0], .[1])] | @tsv'
 if [[ -s "$FA_DIR/binds-plan.jsonl" ]]; then
+  # Each planned bind, checked in an interactive zsh.
   while IFS=$'\t' read -r seq map widget; do
     feature_audit_check "bind-zsh-$seq" "$seq → $widget in $map" \
       _probe_zsh_bound "$map" "$seq" "$widget"
-  done < <(jq -r '[.chord, (.action | split(" ") | .[0], .[1])] | @tsv' \
-             "$FA_DIR/binds-plan.jsonl")
+  done < <(jq -r "$bind_fields" "$FA_DIR/binds-plan.jsonl")
 fi

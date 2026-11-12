@@ -28,6 +28,7 @@ teardown() {
 # Full minimum install-state body. Override fields via $1 (jq filter).
 _state() {
   local override="${1:-.}"
+  # The state with the override applied.
   jq -c "$override" <<'JSON'
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
  "keymap":"us","keymaps":["us"],"console_font":"default8x16",

@@ -7,4 +7,4 @@
 set -uo pipefail
 
 rkhunter --propupd -q 2>&1 \
-  | grep -v -e 'egrep: warning' -e 'grep: warning' || true
+  | grep -vF 'grep: warning' || true

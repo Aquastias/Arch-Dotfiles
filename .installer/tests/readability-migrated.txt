@@ -41,3 +41,12 @@
 # Ticket 07 — layout, with its tests.
 .installer/lib/layout/**
 .installer/tests/layout/*
+
+# Ticket 08 — chroot, programs and extras, with their tests.
+.installer/lib/chroot/**
+.installer/programs/**
+.installer/extras/**
+.installer/tests/chroot/*
+.installer/tests/extras/*
+.installer/tests/programs/*
+.installer/tests/nvim/*

@@ -39,7 +39,7 @@ chroot_error_trap() {
 ensure_login_shell_installed() {
   local shell="$1" bin package
   [[ -x "$shell" ]] && return 0
-  bin="$(base_name "$shell")"
+  bin="$(basename "$shell")"
   case "$bin" in
     bash|sh) return 0 ;;
     zsh)     package=zsh ;;
@@ -53,7 +53,7 @@ ensure_login_shell_installed() {
 # ── Path helpers (ADR 0153) — one copy per world, never shared ──
 
 # parent_directory <path> — the directory holding <path>, like dirname.
-parent_directory() {
+parent_directory() {  # readability-ok: removed with ticket 18 (ADR 0167)
   local path="$1"
   while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
   if [[ "$path" != */* ]]; then
@@ -66,7 +66,7 @@ parent_directory() {
 }
 
 # base_name <path> [suffix] — the last part of <path>, like basename.
-base_name() {
+base_name() {  # readability-ok: removed with ticket 18 (ADR 0167)
   local path="$1" suffix="${2:-}"
   while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
   [[ "$path" == / ]] || path="${path##*/}"

@@ -6,13 +6,15 @@ if [[ "$FA_SESSION" != Hyprland ]]; then
   feature_audit_skip hyprland-session "not the running session"; return 0
 fi
 if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+  # The first Hyprland instance's directory name.
   HYPRLAND_INSTANCE_SIGNATURE="$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 \
-    -maxdepth 1 -printf '%f\n' 2>/dev/null | awk 'NR == 1 { print; exit }')"
+    -maxdepth 1 -printf '%f\n' 2>/dev/null | head -n 1)"
   export HYPRLAND_INSTANCE_SIGNATURE
 fi
 feature_audit_check hyprland-ipc "hyprctl answers" hyprctl -j version
 _probe_hypr_errors() {
   local errors
+  # Each non-empty config error.
   errors="$(hyprctl -j configerrors 2>/dev/null \
     | jq -r '.[] | select(. != "")')"
   [[ -z "$errors" ]] || { printf '%s\n' "$errors"; return 1; }

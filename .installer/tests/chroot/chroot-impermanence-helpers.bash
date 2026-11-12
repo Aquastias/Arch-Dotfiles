@@ -54,8 +54,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 # byte_offset <text> <file> — the 0-based byte offset of <text>'s first
 # occurrence in <file>; nothing when absent.
 byte_offset() {
-  NEEDLE="$1" LC_ALL=C awk 'BEGIN { RS = "^$" }
-    { at = index($0, ENVIRON["NEEDLE"]); if (at) print at - 1 }' "$2"
+  NEEDLE="$1" LC_ALL=C awk -f "$BATS_TEST_DIRNAME/byte-offset.awk" "$2"
 }
 
 # Convenience: enable + run, return zfs/zpool call log.
@@ -67,7 +66,7 @@ run_enabled() {
 # Helper: seed source content under FAKEROOT for a curated path.
 seed_curated() {
   local path="$1" content="${2:-content}"
-  mkdir -p "$FAKEROOT${path%/*}"
+  mkdir -p "$(dirname "$FAKEROOT$path")"
   if [[ "$path" == */ ]] || [[ -d "$FAKEROOT$path" ]]; then
     mkdir -p "$FAKEROOT$path"
     printf '%s' "$content" > "$FAKEROOT$path/marker"

@@ -30,6 +30,7 @@ source "${SCRIPT_DIR}/../../../lib/config/categorized-list.sh"
 # Honor an explicit `false` (jq's `//` treats false as empty, so `.shell //
 # true` would wrongly resolve a disabled section back to true).
 _KDE_BOOL='if . == false then false else true end'
+# Whether the shell and the apps sections are on.
 do_shell="$(jsonc "$KDE_JSON" | jq -r ".shell | $_KDE_BOOL")"
 do_apps="$(jsonc "$KDE_JSON" | jq -r ".apps | $_KDE_BOOL")"
 
@@ -51,8 +52,8 @@ KDE_SKEL_SRC="${KDE_SKEL_SRC:-${SCRIPT_DIR}/skel}"
 # _kde_seed_write <relative-path> — write stdin to <SEED_ROOT>/<relative-path>,
 # creating parent dirs. One place owns the skel/xdg write mechanics.
 _kde_seed_write() {
-  local destination="${SEED_ROOT%/}/$1"
-  mkdir -p "${destination%/*}"
+  local destination="$SEED_ROOT/$1"
+  mkdir -p "$(dirname "$destination")"
   cat > "$destination"
 }
 
@@ -69,6 +70,7 @@ if [[ "$do_shell" == "true" ]]; then
   # documented in the jsonc. The sddm PACKAGE + enablement are the SDDM Display
   # Manager Adapter's (ADR 0069), not KDE's.
   shell_pkgs=()
+  # The shell package list ({} when absent).
   _shell_json="$(jsonc "$KDE_JSON" | jq -c '.shell_packages // {}')"
   if [[ "$_shell_json" != "{}" ]]; then
     mapfile -t shell_pkgs < <(categorized_list_parse "$_shell_json" bool \
@@ -91,6 +93,7 @@ if [[ "$do_shell" == "true" ]]; then
   # The curated look's shell extras (ADR 0157) — the weather widget the seeded
   # panel needs and the Papirus icons — stay out of a stock install.
   curated_shell_packages=()
+  # The curated shell package list ({} when absent).
   _curated_shell_json="$(jsonc "$KDE_JSON" \
     | jq -c '.curated_shell_packages // {}')"
   if [[ "$_curated_shell_json" != "{}" ]]; then
@@ -113,7 +116,7 @@ if [[ "$do_shell" == "true" ]]; then
   section "KDE Captured Plasma Settings"
 
   if [[ -d "${KDE_SKEL_SRC}/.config" ]]; then
-    _skel_dst="${SEED_ROOT%/}/etc/skel/.config"
+    _skel_dst="$SEED_ROOT/etc/skel/.config"
     mkdir -p "$_skel_dst"
     _seeded=0
     for _config_file in "${KDE_SKEL_SRC}/.config/"*; do
@@ -181,7 +184,8 @@ EOF
   # when its own LastSeenVersion is older than the installed version, so stamp
   # the INSTALLED version (pacman -Q, not a captured static one that goes stale
   # on upgrade). A no-op if the package is somehow absent.
-  _pw_ver="$(pacman -Q plasma-welcome 2>/dev/null | awk '{print $2}')"
+  # The installed version: word 2 of "plasma-welcome <version>".
+  _pw_ver="$(pacman -Q plasma-welcome 2>/dev/null | cut -d' ' -f2)"
   if [[ -n "$_pw_ver" ]]; then
     _kde_seed_write etc/skel/.config/plasma-welcomerc <<EOF
 [General]
@@ -245,7 +249,7 @@ for a in codium.desktop org.kde.kommit.desktop neovide.desktop \
   org.kde.kate.desktop kitty.desktop; do link "$a" "$DEV"; done
 mkdir -p "$(dirname "$stamp")"; : > "$stamp"
 EOF
-  chmod 0755 "${SEED_ROOT%/}/usr/local/bin/kde-seed-favorites"
+  chmod 0755 "$SEED_ROOT/usr/local/bin/kde-seed-favorites"
   _kde_seed_write etc/skel/.config/autostart/kde-seed-favorites.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -287,7 +291,7 @@ plasma-apply-colorscheme BreezeDark
 c=$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme)
 [ -n "$c" ] && gsettings set org.gnome.desktop.interface cursor-theme "$c"
 EOF
-    chmod 0755 "${SEED_ROOT%/}/usr/local/bin/kde-session-reset"
+    chmod 0755 "$SEED_ROOT/usr/local/bin/kde-session-reset"
     _kde_seed_write etc/skel/.config/autostart/kde-session-reset.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -372,12 +376,15 @@ if [[ "$do_apps" == "true" ]]; then
   # swallow it. An absent section contributes nothing.
   kde_apps=()
   for _section in apps_list apps_extra plugins; do
-    _section_json="$(jsonc "$KDE_JSON" | jq -c ".${_section} // {}")"
+    # This section's list ({} when absent).
+    _section_json="$(jsonc "$KDE_JSON" | jq -c --arg section "$_section" \
+      '.[$section] // {}')"
     [[ "$_section_json" == "{}" ]] && continue
     _section_output="$(categorized_list_parse "$_section_json" bool \
       "$_section")"
     [[ -n "$_section_output" ]] \
-      && mapfile -t -O "${#kde_apps[@]}" kde_apps <<< "$_section_output"
+      && mapfile -t -O "${#kde_apps[@]}" kde_apps \
+        < <(printf '%s\n' "$_section_output")
   done
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then

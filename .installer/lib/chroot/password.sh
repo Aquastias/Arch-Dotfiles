@@ -14,7 +14,9 @@ _LIB_DIR="${BASH_SOURCE[0]%/*}"
 source "$_LIB_DIR/chroot-common.sh"
 chroot_error_trap "password"
 
-sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+wheel_rule='s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/'
+# Uncomment the wheel group's sudo rule.
+sed -i "$wheel_rule" /etc/sudoers
 
 printf '%s:%s\n' "root" "$ROOT_PW" | chpasswd
 echo "Root password set."

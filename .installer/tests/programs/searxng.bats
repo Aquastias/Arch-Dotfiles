@@ -11,7 +11,7 @@ setup() {
 @test "private instance: no limiter, no valkey anywhere" {
   grep -qE '^\s*limiter: false' "$S/settings.yml"
   [ ! -e "$Q/valkey.container" ]
-  [ -z "$(grep -rl valkey "$S")" ]
+  ! find "$S" -type f -exec grep -l valkey {} + | grep -q .
 }
 
 @test "config mount reads as the image's searxng user (no chown)" {
@@ -26,8 +26,7 @@ setup() {
 @test "boot: waits for the network, allows a slow first pull, no warning" {
   # Audit Run 20261004: the masked network wait crash-looped searxng's
   # startup network check; the first pull outran the 90s start timeout.
-  [ -z "$(grep -n 'podman-user-wait-network-online' "$S/install.sh" \
-    | grep 'ln -s')" ]
+  ! grep 'podman-user-wait-network-online' "$S/install.sh" | grep -q 'ln -s'
   grep -qx 'TimeoutStartSec=900' "$Q/searxng.container"
   [ -f "$S/limiter.toml" ]
   grep -q 'limiter.toml' "$S/install.sh"

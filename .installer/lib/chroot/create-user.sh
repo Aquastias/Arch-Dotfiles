@@ -21,17 +21,18 @@ FULLNAME="${USER_FULLNAME:-}"
 # applied by runner_apply_user_groups after program installation.
 create_user_existing_groups() {
   local csv="$1" existing="" group
-  IFS=',' read -ra _ALL <<< "$csv"
-  for group in "${_ALL[@]}"; do
+  local -a groups
+  IFS=',' read -ra groups < <(printf '%s\n' "$csv")
+  for group in "${groups[@]}"; do
     [[ -z "$group" ]] && continue
     if getent group "$group" >/dev/null 2>&1; then
-      existing+="${group},"
+      existing+="${existing:+,}${group}"
     else
       echo "  [create-user] group '${group}' absent —" \
            "will reconcile after program install" >&2
     fi
   done
-  printf '%s' "${existing%,}"
+  printf '%s' "$existing"
 }
 
 # A login shell whose binary is absent is unusable — the shared guard installs
@@ -57,11 +58,14 @@ else
 fi
 
 if [[ -n "$SECRETS_FILE" && -f "$SECRETS_FILE" ]]; then
+  # The user's password from the secrets file ("" when none).
   sec_pw="$(jq -r '.password // empty' "$SECRETS_FILE")"
   [[ -n "$sec_pw" ]] && PASSWORD="$sec_pw"
 
+  # The user's SSH identity key ("" when none), and its type.
   sec_ssh_key="$(jq -r '.ssh_identity_private_key // empty' "$SECRETS_FILE")"
   if [[ -n "$sec_ssh_key" ]]; then
+    # Its key type (ed25519 by default).
     sec_key_type="$(jq -r \
       '.ssh_identity_key_type // "ed25519"' "$SECRETS_FILE")"
     _ssh_dir="${HOME_BASE:-/home}/$NAME/.ssh"

@@ -10,9 +10,11 @@ feature_audit_check codium-settings "seeded settings.json present" \
 # every declared extension is installed (offline: no marketplace fetch)
 _probe_codium_ext() {
   local have want missing=""
-  have="$(codium --list-extensions 2>/dev/null | awk '{ print tolower($0) }')"
+  # The installed extensions, in lower case.
+  have="$(codium --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')"
   while read -r want; do
-    grep -qx "${want,,}" <<<"$have" || missing+=" $want"
+    want="$(printf '%s\n' "$want" | tr '[:upper:]' '[:lower:]')"
+    printf '%s\n' "$have" | grep -qx "$want" || missing+=" $want"
   done < <(grep -vE '^\s*(#|$)' "$FA_DIR/audit-fixtures/extensions.txt")
   [[ -z "$missing" ]] || { echo "missing:$missing"; return 1; }
 }

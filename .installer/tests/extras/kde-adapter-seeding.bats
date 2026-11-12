@@ -2,6 +2,7 @@
 # Tests: look and settings seeding (split from kde-adapter.bats;
 # shared setup in kde-adapter-helpers.bash)
 
+load ../lib/text-helpers
 load kde-adapter-helpers
 
 
@@ -233,8 +234,14 @@ JSON
   # Default ordering carries a Default-only app; Dev ordering a Dev-only app
   grep -q "instance-3-061c3ccc-9512-4bf9-83d0-0e9d9a9daed7" "$statsrc_file"
   grep -q "instance-3-d71c2b09-8d5a-4ce1-aa4f-d868d82a0073" "$statsrc_file"
-  grep -A1 "061c3ccc" "$statsrc_file" | grep -q "applications:steam.desktop"
-  grep -A1 "d71c2b09" "$statsrc_file" | grep -q "applications:codium.desktop"
+  # The line after each ordering's instance line names its app.
+  local -a stats_lines
+  local default_line dev_line
+  mapfile -t stats_lines < "$statsrc_file"
+  default_line="$(line_number_of "$statsrc_file" 061c3ccc)"
+  dev_line="$(line_number_of "$statsrc_file" d71c2b09)"
+  [[ "${stats_lines[default_line]}" == *applications:steam.desktop* ]]
+  [[ "${stats_lines[dev_line]}" == *applications:codium.desktop* ]]
 }
 
 @test "panel weather widget targets Ramnicu Valcea via met.no (ADR 0120)" {

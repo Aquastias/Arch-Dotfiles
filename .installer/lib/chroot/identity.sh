@@ -51,6 +51,7 @@ for _loc in "${LOCALES[@]}"; do
     _enc="$(locale_parts_encoding "$_loc")"
     _enc="${_enc:-UTF-8}"
     if grep -q "^#${_loc} ${_enc}" /etc/locale.gen; then
+        # Uncomment the locale's line in locale.gen.
         sed -i "s/^#${_loc} ${_enc}/${_loc} ${_enc}/" /etc/locale.gen
     elif ! grep -q "^${_loc} ${_enc}" /etc/locale.gen; then
         echo "${_loc} ${_enc}" >> /etc/locale.gen
@@ -74,7 +75,7 @@ echo "LANG=${LOCALE}"   > /etc/locale.conf
 if [[ -n "${ENVIRONMENT_DESKTOP:-}" ]]; then
     _layouts=() _variants=()
     for _keymap in "${KEYMAPS[@]}"; do
-        read -r _layout _variant <<<"$(locale_parts_xkb "$_keymap")"
+        read -r _layout _variant < <(locale_parts_xkb "$_keymap")
         _layouts+=("$_layout"); _variants+=("${_variant:-}")
     done
     _xkb_layout="$(IFS=,; printf '%s' "${_layouts[*]}")"
@@ -85,7 +86,7 @@ if [[ -n "${ENVIRONMENT_DESKTOP:-}" ]]; then
         echo '    Identifier "system-keyboard"'
         echo '    MatchIsKeyboard "on"'
         echo "    Option \"XkbLayout\" \"${_xkb_layout}\""
-        if [[ -n "${_xkb_variant//,/}" ]]; then
+        if [[ "$_xkb_variant" =~ [^,] ]]; then
             echo "    Option \"XkbVariant\" \"${_xkb_variant}\""
         fi
         echo 'EndSection'

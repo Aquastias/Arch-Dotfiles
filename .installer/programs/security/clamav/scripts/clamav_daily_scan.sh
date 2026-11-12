@@ -7,8 +7,7 @@ source "/usr/local/lib/shell-stdlib.sh"
 # From a timer there is no SUDO_USER: notify the seat0 user session, if any
 # (class user — never a greeter's account).
 # A notification is best effort (`|| true` below): it never fails the scan.
-: "${SUDO_USER:=$(loginctl list-sessions --no-legend 2>/dev/null \
-  | awk '$4 == "seat0" && $6 == "user" { print $3; exit }')}"
+: "${SUDO_USER:=$(seat0_user)}"
 export SUDO_USER
 
 # === Configuration ===
@@ -33,6 +32,7 @@ if [[ -f "$EXCLUDE_JSON" ]]; then
     echo "--- Excluded Files ---"
   } >>"$LOG_FILE"
 
+  # The file patterns to skip.
   mapfile -t EXCLUDE_FILES < <(jq -r '.exclude_files[]?' "$EXCLUDE_JSON")
   for pattern in "${EXCLUDE_FILES[@]}"; do
     EXCLUDE_ARGS+=(--exclude="$pattern")
@@ -43,6 +43,7 @@ if [[ -f "$EXCLUDE_JSON" ]]; then
     echo "--- Excluded Directories ---"
   } >>"$LOG_FILE"
 
+  # The directory patterns to skip.
   mapfile -t EXCLUDE_DIRS < <(jq -r '.exclude_dirs[]?' "$EXCLUDE_JSON")
   for pattern in "${EXCLUDE_DIRS[@]}"; do
     EXCLUDE_ARGS+=(--exclude-dir="$pattern")
@@ -59,7 +60,8 @@ if [[ "$EXIT_ON_FIRST_INFECTION" == true ]]; then
       while IFS= read -r line; do
         echo "$line" >>"$LOG_FILE"
         if [[ "$line" == *"FOUND" ]]; then
-          THREAT="${line% FOUND}"
+          # The line without its 6-character " FOUND" ending.
+          THREAT="${line:0:${#line}-6}"
 
           send_user_notification \
             "[WARNING] ClamAV Alert" \
@@ -82,8 +84,9 @@ else
   echo "$SCAN_OUTPUT" >>"$LOG_FILE"
 
   # Extract the number of infected files from the output
+  # The number on the summary's "Infected files: <n>" line.
   INFECTED_COUNT=$(echo "$SCAN_OUTPUT" \
-    | grep "Infected files:" | awk '{print $3}')
+    | grep "Infected files:" | cut -d' ' -f3)
 
   if [[ "$INFECTED_COUNT" -gt 0 ]]; then
     alert_message="Scan completed: $INFECTED_COUNT infected file(s) found."

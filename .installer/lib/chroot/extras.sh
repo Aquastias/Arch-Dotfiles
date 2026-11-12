@@ -21,7 +21,7 @@ chroot_error_trap "extras"
 EXTRAS_DIR="${EXTRAS_DIR:-/root/extras}"
 
 # Environment Runner: dispatch to desktop/<de>/<de>.sh for each selected DE.
-read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
+read -ra _desktops < <(printf '%s\n' "${ENVIRONMENT_DESKTOP:-}")
 for _desktop in "${_desktops[@]}"; do
   _adapter="${EXTRAS_DIR}/desktop/${_desktop}/${_desktop}.sh"
   if [[ ! -f "$_adapter" ]]; then

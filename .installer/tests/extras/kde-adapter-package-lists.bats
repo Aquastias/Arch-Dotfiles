@@ -2,6 +2,7 @@
 # Tests: first run and package lists (split from kde-adapter.bats;
 # shared setup in kde-adapter-helpers.bash)
 
+load ../lib/text-helpers
 load kde-adapter-helpers
 
 
@@ -279,12 +280,13 @@ JSON
   source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   local apps_json
+  # The section's list, as JSON.
   apps_json="$(jsonc "$real" | jq -c '.apps_list')"
 
   run categorized_list_parse "$apps_json" bool apps_list
   [ "$status" -eq 0 ]
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 34 ]
-  [ "$(sort <<<"$output")" = "$(printf '%s\n' \
+  [ "${#lines[@]}" -eq 34 ]
+  [ "$(printf '%s\n' "$output" | sort)" = "$(printf '%s\n' \
     ark calligra discover dolphin elisa filelight ghostwriter gwenview \
     isoimagewriter k3b kate kcalc kcolorchooser kdeconnect kdenlive keysmith \
     kfind kiten kleopatra kmag kolourpaint konsole krdc krfb ktorrent \
@@ -300,11 +302,12 @@ JSON
   source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   local extra_json
+  # The section's list, as JSON.
   extra_json="$(jsonc "$real" | jq -c '.apps_extra')"
 
   run categorized_list_parse "$extra_json" bool apps_extra
   [ "$status" -eq 0 ]
-  [ "$(sort <<<"$output")" = "$(printf '%s\n' \
+  [ "$(printf '%s\n' "$output" | sort)" = "$(printf '%s\n' \
     digikam haruna kdiff3 kommit krename krusader krita okteta orca vlc \
     | sort)" ]
 }
@@ -314,11 +317,12 @@ JSON
   source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   local plugins_json
+  # The section's list, as JSON.
   plugins_json="$(jsonc "$real" | jq -c '.plugins')"
 
   run categorized_list_parse "$plugins_json" bool plugins
   [ "$status" -eq 0 ]
-  [ "$(sort <<<"$output")" = "$(printf '%s\n' \
+  [ "$(printf '%s\n' "$output" | sort)" = "$(printf '%s\n' \
     darktable dolphin-plugins ebook-tools ffmpegthumbs kde-cli-tools \
     kdegraphics-mobipocket kdegraphics-thumbnailers kimageformats kio-admin \
     krita-plugin-gmic noise-suppression-for-voice opencv qt6-imageformats \
@@ -329,16 +333,18 @@ JSON
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   local names
+  # The plugin package names.
   names="$(jsonc_strip "$real" \
     | jq -r '.plugins | to_entries[].value | keys[]')"
-  ! grep -qx "7zip" <<<"$names"
-  ! grep -qx "unrar" <<<"$names"
+  ! printf '%s\n' "$names" | grep -qx "7zip"
+  ! printf '%s\n' "$names" | grep -qx "unrar"
 }
 
 @test "the plasma-extras category is gone" {
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   # shellcheck source=../../lib/jsonc.sh
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
+  # apps_list has no plasma-extras category.
   jsonc_strip "$real" | jq -e '.apps_list | has("plasma-extras") | not'
 }
 
@@ -346,9 +352,11 @@ JSON
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   local names
-  names="$(jsonc_strip "$real" | jq -r '
-    [(.apps_list // {}), (.apps_extra // {}), (.plugins // {})]
-    | .[] | to_entries[].value | keys[]')"
+  # shellcheck disable=SC2016 # a jq program, not shell
+  local section_names='[(.apps_list // {}), (.apps_extra // {}), (.plugins // {})]
+    | .[] | to_entries[].value | keys[]'
+  # Every package name in apps_list, apps_extra and plugins.
+  names="$(jsonc_strip "$real" | jq -r "$section_names")"
   local package
   # Old non-applications (relocated / redundant) plus this round's prunes:
   # karbon (⊂ calligra), kclock (mobile), skanlite (⊂ skanpage), arianna
@@ -356,7 +364,7 @@ JSON
   # keditbookmarks (unrequested).
   for package in sddm-kcm xdg-desktop-portal-kde kimageformats5 pacmanlogviewer \
            octopi karbon kclock skanlite arianna kgpg kompare keditbookmarks; do
-    ! grep -qx "$package" <<<"$names" || { echo "still declared: $package"; return 1; }
+    ! printf '%s\n' "$names" | grep -qx "$package" || { echo "still declared: $package"; return 1; }
   done
 }
 
@@ -367,10 +375,12 @@ JSON
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   local all
-  all="$(jsonc_strip "$real" | jq -r '
-    [(.apps_list // {}), (.aur // {})] | .[] | to_entries[].value | keys[]')"
-  grep -qx "octopi" <<<"$all"
-  ! grep -qx "pacmanlogviewer" <<<"$all"
+  local section_names='[(.apps_list // {}), (.aur // {})] | .[]
+    | to_entries[].value | keys[]'
+  # Every package name in apps_list and the aur section.
+  all="$(jsonc_strip "$real" | jq -r "$section_names")"
+  printf '%s\n' "$all" | grep -qx "octopi"
+  ! printf '%s\n' "$all" | grep -qx "pacmanlogviewer"
 }
 
 # pacmanlogviewer is not KDE — it stays a Fleet Layer package so both
@@ -379,10 +389,11 @@ JSON
 @test "pacmanlogviewer is in the Fleet Layer; octopi is not host-declared" {
   local fleet="$BATS_TEST_DIRNAME/../../hosts/fleet/profile.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
-  jsonc_strip "$fleet" | jq -e '[.packages.repo | to_entries[].value[]]
-    | index("pacmanlogviewer")'
-  ! jsonc_strip "$fleet" | jq -e '[.packages.aur | to_entries[].value[]]
-    | index("octopi")'
+  local repo_packages='[.packages.repo | to_entries[].value[]]'
+  local aur_packages='[.packages.aur | to_entries[].value[]]'
+  # Whether pacmanlogviewer is a repo package, octopi not an AUR one.
+  jsonc_strip "$fleet" | jq -e "$repo_packages | index(\"pacmanlogviewer\")"
+  ! jsonc_strip "$fleet" | jq -e "$aur_packages | index(\"octopi\")"
 }
 
 @test "calendar plugins survive Plasma's broken id migration (Audit 20261003)" {
@@ -397,6 +408,14 @@ JSON
   local config_directory="$TEST_DIR/seed/etc/skel/.config"
   grep -qx 'enabledCalendarPlugins=astronomicalevents,holidaysevents' \
     "$config_directory/plasma-org.kde.plasma.desktop-appletsrc"
-  grep -A2 -Fx '[migrate-calendar-to-plugin-id.upd]' "$config_directory/kconf_updaterc" \
-    | grep -qx 'done=migrate-calendar-plugins'
+  # The migration's section is marked done (on one of its next 2 lines).
+  local -a rc_lines
+  local header
+  mapfile -t rc_lines < "$config_directory/kconf_updaterc"
+  header="$(line_number_of "$config_directory/kconf_updaterc" \
+    '[migrate-calendar-to-plugin-id.upd]')"
+  [ -n "$header" ]
+  # header counts from 1, so rc_lines[header] is the line after it.
+  [[ "${rc_lines[header]}" == done=migrate-calendar-plugins \
+    || "${rc_lines[header + 1]}" == done=migrate-calendar-plugins ]]
 }

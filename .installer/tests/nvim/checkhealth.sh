@@ -25,7 +25,8 @@ fails=0
 # config defects) and pass in a real kitty session: snacks.dashboard's "setup
 # did not run" (needs a UI) and snacks.image's kitty-graphics probe (needs a
 # graphics terminal). Ignore those; any other ERROR is fatal.
-real_errors="$(grep -nE 'ERROR' "${log}" \
+# The ERROR lines, minus the two environmental ones.
+real_errors="$(grep -E 'ERROR' "${log}" \
   | grep -vE 'setup did not run|kitty graphics protocol' || true)"
 if [ -n "${real_errors}" ]; then
   echo "checkhealth reported ERROR(s):" >&2

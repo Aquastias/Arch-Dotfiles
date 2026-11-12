@@ -36,15 +36,19 @@ source "$_KERNEL_SH"
 # initramfs, not after a graphical session already holds tty1
 # (systemd-vconsole-setup then fails).
 _initcpio_hooks_line() {
-  local hooks="$1" kmod_present="$2" kms="${3:-false}" mod=modconf
-  if [[ "$kmod_present" == "true" ]]; then
-    hooks="${hooks//modconf/kmod}"; mod=kmod
-  fi
-  # the chroot owns `kms`: drop any the adapter listed, then add it once
-  hooks=" $hooks "; hooks="${hooks// kms / }"
-  hooks="${hooks# }"; hooks="${hooks% }"
-  [[ "$kms" == true ]] && hooks="${hooks//" $mod "/" $mod kms "}"
-  printf 'HOOKS=(%s)\n' "$hooks"
+  local hooks="$1" kmod_present="$2" kms="${3:-false}" mod=modconf hook
+  local -a words kept=()
+  [[ "$kmod_present" == "true" ]] && mod=kmod
+  # Each hook in order: modconf named for this mkinitcpio, any listed kms
+  # dropped (the chroot owns it), kms added once right after it when wanted.
+  read -ra words < <(printf '%s\n' "$hooks")
+  for hook in "${words[@]}"; do
+    [[ "$hook" == modconf ]] && hook="$mod"
+    [[ "$hook" == kms ]] && continue
+    kept+=("$hook")
+    [[ "$kms" == true && "$hook" == "$mod" ]] && kept+=(kms)
+  done
+  printf 'HOOKS=(%s)\n' "${kept[*]}"
 }
 
 # _initcpio_wants_kms <gpu…> — true unless the proprietary NVIDIA driver is
@@ -108,6 +112,7 @@ fi
 # shellcheck disable=SC2153 # HOOKS is exported by install_state_load, not a typo
 _hooks_line="$(_initcpio_hooks_line "$HOOKS" "$KMOD_PRESENT" \
   "$(_initcpio_wants_kms "${GPU[@]}")")"
+# Replace the HOOKS= line with the built one.
 sed -i "s|^HOOKS=.*|${_hooks_line}|" /etc/mkinitcpio.conf
 unset _hooks_line
 
@@ -134,6 +139,7 @@ fi
 if [[ -f "$PRESET_FILE" ]]; then
     if ! grep -q "^PRESETS=.*fallback" "$PRESET_FILE"; then
         echo "Adding fallback preset to ${PRESET_FILE} ..."
+        # Add fallback to the preset list.
         sed -i "s/^PRESETS=('default')/PRESETS=('default' 'fallback')/" \
           "$PRESET_FILE"
         cat >> "$PRESET_FILE" << EOF

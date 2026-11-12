@@ -28,6 +28,7 @@ _FAST_CORE_TOKENS=(
   chroot/mount-unit-validate.bats chroot/initcpio-validate.bats
   chroot/fstab-lint.bats chroot/chroot-impermanence-units.bats
   chroot/chroot-impermanence-btrfs-and-hooks.bats
+  chroot/chroot-impermanence-resnapshot-and-latehooks.bats
   chroot/chroot-impermanence-boot-services.bats
   profiles/user-units-validate.bats impermanence-common.bats
   lib/validators.bats sops.bats

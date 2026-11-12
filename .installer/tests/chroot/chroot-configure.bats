@@ -83,7 +83,8 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
     shift
     local cachefile_option="$1"; shift
     [ "$#" -eq 1 ] || return 2
-    printf 'cache:%s\n' "$1" >> "${cachefile_option#cachefile=}"
+    printf 'cache:%s\n' "$1" \
+      >> "$(printf '%s\n' "$cachefile_option" | cut -d= -f2-)"
   }
   export -f zpool
 

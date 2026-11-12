@@ -31,8 +31,7 @@ then cat "$o"
 else
   cat "$o"
   feature_audit_fail nvim-probe \
-    "headless probe did not finish: $(awk 'NR == 1 { print; exit }' \
-      /tmp/fa-nvim.err)"
+    "headless probe did not finish: $(head -n 1 /tmp/fa-nvim.err)"
 fi
 
 if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
@@ -40,13 +39,26 @@ if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
 fi
 # live-only maps go through the same matcher as the static plan
 _probe_live_plan() {
-  local expect_json
-  expect_json="$(awk '{ sub(/[[:space:]]\/\/[^"]*$/, "") }
-    !/^[[:space:]]*\/\// { print }' \
-    "$FA_DIR/audit-binds.jsonc" | jq -c .)"
-  jq -R -c --argjson e "$expect_json" -f "$FA_DIR/binds-plan.jq" < "$live"
+  local expect_json line
+  # The expectations, as plain JSON.
+  expect_json="$(awk -f "$FA_DIR/jsonc-strip.awk" "$FA_DIR/audit-binds.jsonc" \
+    | jq -c .)"
+  # Each live map line, as a JSON string, through the plan matcher. (The
+  # `|| -n` keeps a last line that has no newline.)
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # This line as a JSON string, matched against the plan.
+    jq -cn --arg line "$line" '$line' \
+      | jq -c --argjson e "$expect_json" -f "$FA_DIR/binds-plan.jq"
+  done < "$live"
 }
-# \x1f, not a tab: IFS whitespace collapses an empty field and shifts the rest
+# Each bind's chord, mode (its action's first word, up to a comma), effect,
+# argument and needs, joined by \x1f, not a tab: IFS whitespace collapses
+# an empty field and shifts the rest.
+# shellcheck disable=SC2016 # a jq program, not shell
+bind_fields='[.chord, (.action | split(" ")[0] | split(",")[0]),
+  (.effect // "none"), (.arg // .reason // ""), (.needs // "")]
+  | join("\u001f")'
+# Each bind of the static and live plans, probed and judged in turn.
 while IFS=$'\x1f' read -r key mode effect arg needs; do
   id="bind-nvim-$key"
   case "$effect" in
@@ -73,7 +85,5 @@ while IFS=$'\x1f' read -r key mode effect arg needs; do
     feature_audit_fail "$id" "hung (a prompt waiting for input?)"
   else feature_audit_fail "$id" "nvim exited $rc before judging the effect"; fi
 done < <({ cat "$FA_DIR/binds-plan.jsonl"; _probe_live_plan; } \
-  | jq -r '[.chord, (.action | split(" ")[0] | split(",")[0]),
-            (.effect // "none"), (.arg // .reason // ""),
-            (.needs // "")] | join("\u001f")')
+  | jq -r "$bind_fields")
 rm -f "$o" "$live"

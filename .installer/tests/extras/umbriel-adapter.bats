@@ -9,6 +9,8 @@
 # only its repo core and curates a session entry that resolves once the package
 # lands. The Noctalia work preset is the shared module (ADR 0097).
 
+load ../lib/text-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   STUB_BIN="$TEST_DIR/bin"
@@ -165,9 +167,13 @@ wl-clipboard" "$PACMAN_LOG"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/systemd-detect-virt"
   ENVIRONMENT_WAYLAND_SHELL=noctalia run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  grep -B1 -x 'hardware_cursor = false' \
-    "$SKEL/.config/umbriel/conf.d/environment.toml" \
-    | grep -qx '\[input.cursor\]'
+  # hardware_cursor = false sits right under the [input.cursor] header.
+  local -a toml_lines
+  local cursor_line
+  mapfile -t toml_lines < "$SKEL/.config/umbriel/conf.d/environment.toml"
+  cursor_line="$(first_line_matching \
+    "$SKEL/.config/umbriel/conf.d/environment.toml" '^hardware_cursor = false$')"
+  [ "${toml_lines[cursor_line - 2]}" = '[input.cursor]' ]
   ! grep -q hardware_cursor "$SKEL/.config/umbriel/config.toml"
 }
 
@@ -176,7 +182,7 @@ wl-clipboard" "$PACMAN_LOG"
 @test "noctalia seeds the KDE autostart gates into /etc/skel" {
   local gate=".config/systemd/user/app-org.kde.kdeconnect.daemon@autostart"
   gate+=".service.d/umbriel.conf"
-  mkdir -p "$CURATED/${gate%/*}"
+  mkdir -p "$(dirname "$CURATED/$gate")"
   echo 'gate' > "$CURATED/$gate"
   ENVIRONMENT_WAYLAND_SHELL=noctalia run bash "$ADAPTER"
   [ "$status" -eq 0 ]

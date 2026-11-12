@@ -313,7 +313,7 @@ run_hypr() {
 # uwsm session must never reach disk — not just stay out of the curated dir.
 @test "keeps the packaged uwsm session off disk under every greeter" {
   local uwsm=usr/share/wayland-sessions/hyprland-uwsm.desktop
-  mkdir -p "$ROOT/${uwsm%/*}"
+  mkdir -p "$(dirname "$ROOT/$uwsm")"
   touch "$ROOT/$uwsm"
   run_hypr "hyprland"
   [ "$status" -eq 0 ]

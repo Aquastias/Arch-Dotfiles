@@ -147,6 +147,19 @@ _gpu_write_pacman_hook() {
   _gpu_pacman_hook > "${directory}/95-nvidia-initramfs.hook"
 }
 
+# _gpu_current_modules <conf> — the inside of each MODULES=(…) line (up to
+# its last ")"), followed by any text after that paren.
+_gpu_current_modules() {
+  local line matched
+  while IFS= read -r line; do
+    # The line from "MODULES=(" up to its last ")".
+    matched="$(printf '%s\n' "$line" | grep -o '^MODULES=(.*)')" || continue
+    # Inside the parens (from character 9, without the closing ")"), then
+    # the rest of the line.
+    printf '%s%s\n' "${matched:9:${#matched}-10}" "${line:${#matched}}"
+  done < "$1"
+}
+
 # _gpu_apply_modules <conf> — rewrite the MODULES=() line of an mkinitcpio.conf
 # in place, appending the NVIDIA modules (idempotent). Appends the line if the
 # file has none.
@@ -154,10 +167,9 @@ _gpu_apply_modules() {
   local config_file="$1" existing newline
   if grep -q '^MODULES=' "$config_file"; then
     # The MODULES=(…) list, keeping any text after the closing paren.
-    existing="$(awk 'match($0, /^MODULES=\(.*\)/) {
-        print substr($0, 10, RLENGTH - 10) substr($0, RSTART + RLENGTH) }' \
-      "$config_file")"
+    existing="$(_gpu_current_modules "$config_file")"
     newline="$(_gpu_modules_line "$existing")"
+    # Replace the MODULES= line with the new one.
     sed -i "s|^MODULES=.*|${newline}|" "$config_file"
   else
     _gpu_modules_line "" >> "$config_file"

@@ -21,7 +21,7 @@ _DEFAULT_SESSION_SH_SOURCED=1
 # basename every adapter ships or links); rc 1 when no desktop is selected.
 default_session_id() {
   local desktops
-  read -ra desktops <<< "${ENVIRONMENT_DESKTOP:-}"
+  read -ra desktops < <(printf '%s\n' "${ENVIRONMENT_DESKTOP:-}")
   case "${desktops[0]:-}" in
   "")  return 1 ;;
   kde) echo plasma ;;
@@ -46,7 +46,7 @@ default_session_path() {
 # default_session_write <path> <content> — write a greeter's remembered-session
 # state (ROOT-prefixed), creating its directory.
 default_session_write() {
-  mkdir -p "${ROOT}${1%/*}"
+  mkdir -p "$(dirname "${ROOT}$1")"
   printf '%s' "$2" > "${ROOT}$1"
   info "Default Session seeded into $1."
 }

@@ -23,9 +23,18 @@ SUBGID_FILE="${PODMAN_SUBGID_FILE:-/etc/subgid}"
 # already in <file> (from 100000), so two rootless users never share
 # subordinate IDs.
 install_next_subid_range() {
-  awk -F: 'BEGIN { start = 100000 }
-    $3 > 0 && $2 + $3 > start { start = $2 + $3 }
-    END { printf "%d-%d\n", start, start + 65535 }' "$1" 2>/dev/null
+  local start=100000 _name first count
+  # Each "name:first:count" line: the next range starts past the highest.
+  # (The `|| -n` keeps a last line that has no newline.)
+  if [[ -f "$1" ]]; then
+    while IFS=: read -r _name first count || [[ -n "$_name" ]]; do
+      [[ "$first" =~ ^[0-9]+$ && "$count" =~ ^[0-9]+$ ]] || continue
+      if (( count > 0 && first + count > start )); then
+        start=$((first + count))
+      fi
+    done < "$1"
+  fi
+  printf '%d-%d\n' "$start" "$((start + 65535))"
 }
 
 if ! grep -q "^${USER}:" "$SUBUID_FILE" 2>/dev/null; then

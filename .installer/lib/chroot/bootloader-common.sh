@@ -40,10 +40,11 @@ PRIMARY_KBASE="$(kernel_package "$KERNEL")"
 # MICROCODE_INITRDS is consumed by sourcing adapters (systemd-boot/limine).
 # shellcheck disable=SC2034
 MICROCODE_INITRDS="$(microcode_present_initrds /boot)"
-MICROCODE_IMGS=""
-[[ -f /boot/intel-ucode.img ]] && MICROCODE_IMGS+="intel-ucode.img "
-[[ -f /boot/amd-ucode.img   ]] && MICROCODE_IMGS+="amd-ucode.img "
-MICROCODE_IMGS="${MICROCODE_IMGS% }"
+# The microcode images on /boot, space-separated.
+_BOOTLOADER_COMMON_MICROCODE=()
+[[ -f /boot/intel-ucode.img ]] && _BOOTLOADER_COMMON_MICROCODE+=(intel-ucode.img)
+[[ -f /boot/amd-ucode.img   ]] && _BOOTLOADER_COMMON_MICROCODE+=(amd-ucode.img)
+MICROCODE_IMGS="${_BOOTLOADER_COMMON_MICROCODE[*]}"
 
 # root= cmdline + rw + optional zswap fragment; desktop installs boot quietly so
 # the greeter VT stays clean (fallback entries stay verbose).

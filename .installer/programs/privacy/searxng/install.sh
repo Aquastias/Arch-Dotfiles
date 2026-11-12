@@ -25,6 +25,7 @@ fi
 mkdir -p "${HOME}/.config/searxng"
 cp "${PROGRAMS}/privacy/searxng/settings.yml" \
   "${HOME}/.config/searxng/settings.yml"
+# A fresh random secret key in place of the placeholder.
 sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" \
   "${HOME}/.config/searxng/settings.yml"
 cp "${PROGRAMS}/privacy/searxng/limiter.toml" "${HOME}/.config/searxng/"

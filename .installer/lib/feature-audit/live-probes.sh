@@ -43,6 +43,9 @@ feature_audit_stage_probes() {
       # the probe plans binds only its live dump sees with the same matcher
       cp "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" \
         "$staging_directory/fa-probes/$name/"
+      # … and the JSONC comment stripper its audit-binds.jsonc needs.
+      cp "$INSTALLER_DIR/lib/jsonc-strip.awk" \
+        "$staging_directory/fa-probes/$name/"
     done
   done
   feature_audit_agent sudo "rm -rf /tmp/fa-probes" >/dev/null 2>&1 || true

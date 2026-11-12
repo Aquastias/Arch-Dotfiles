@@ -16,28 +16,27 @@
 # `systemd-udev-settle.service` removed from every `Requires=`/`After=` line. A
 # directive emptied by the removal is dropped entirely; all other content is
 # preserved verbatim (token-level removal, so combined lists keep their peers).
-# parent_directory / base_name — the chroot-world path helpers (sibling).
-# shellcheck source=./chroot-common.sh
-declare -F parent_directory >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/chroot-common.sh"
 
 zfs_import_strip_settle() {
-  awk '
-    /^(Requires|After)=/ {
-      eq  = index($0, "=")
-      key = substr($0, 1, eq)
-      n   = split(substr($0, eq + 1), tok, /[ \t]+/)
-      out = ""
-      for (i = 1; i <= n; i++) {
-        if (tok[i] == "" || tok[i] == "systemd-udev-settle.service") continue
-        out = (out == "") ? tok[i] : out " " tok[i]
-      }
-      if (out == "") next          # directive emptied → drop the whole line
-      print key out
-      next
-    }
-    { print }
-  '
+  local line key value token
+  local -a tokens kept
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" != Requires=* && "$line" != After=* ]]; then
+      printf '%s\n' "$line"
+      continue
+    fi
+    # The directive's name, and its units without the settle service.
+    key="$(printf '%s\n' "$line" | cut -d= -f1)"
+    value="$(printf '%s\n' "$line" | cut -d= -f2-)"
+    read -ra tokens < <(printf '%s\n' "$value")
+    kept=()
+    for token in "${tokens[@]}"; do
+      [[ "$token" == systemd-udev-settle.service ]] || kept+=("$token")
+    done
+    # A directive emptied by the removal is dropped entirely.
+    (( ${#kept[@]} )) || continue
+    printf '%s=%s\n' "$key" "${kept[*]}"
+  done
 }
 
 # Thin I/O: for each post-boot import service, derive a settle-free full unit
@@ -57,7 +56,7 @@ zfs_import_write_settle_overrides() {
         "$source_path" >&2
       continue
     fi
-    mkdir -p "$(parent_directory "$destination")"
+    mkdir -p "$(dirname "$destination")"
     zfs_import_strip_settle < "$source_path" > "$destination"
   done
 }
@@ -72,7 +71,7 @@ zfs_import_write_settle_overrides() {
 zfs_import_write_load_key_template() {
   local root="${1:-}"
   local destination="${root}/etc/systemd/system/zfs-load-key@.service"
-  mkdir -p "$(parent_directory "$destination")"
+  mkdir -p "$(dirname "$destination")"
   cat > "$destination" <<'UNIT'
 [Unit]
 Description=Load ZFS encryption key for %i

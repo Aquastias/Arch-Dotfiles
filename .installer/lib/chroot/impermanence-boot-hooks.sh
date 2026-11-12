@@ -50,19 +50,20 @@ HELP
 INSTALL
 
   # Bake the dataset + mount lists into the runtime hook (no cmdline lookup).
-  local entry suffix mountpoint dataset_list="" mount_pairs=""
+  local entry suffix mountpoint dataset_list mount_pairs
+  local -a datasets=() pairs=()
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    mountpoint="${entry#*:}"
-    dataset_list+="$RPOOL/ROOT/$suffix "
-    mount_pairs+="$RPOOL/ROOT/$suffix=$mountpoint "
+    IFS=: read -r suffix mountpoint < <(printf '%s\n' "$entry")
+    datasets+=("$RPOOL/ROOT/$suffix")
+    pairs+=("$RPOOL/ROOT/$suffix=$mountpoint")
   done
-  dataset_list="${dataset_list% }"
+  dataset_list="${datasets[*]}"
   # /var + /var/log are NOT rollback datasets, but they are separate datasets
   # that otherwise mount post-pivot (via zfs-mount) AFTER PID1/journald start —
   # too late: dbus's machine-id (/var/lib/dbus) and the journal (/var/log) then
   # land on the wrong/empty tree. Mount them early too; /var before /var/log.
-  mount_pairs+="$RPOOL/var=/var $RPOOL/var/log=/var/log"
+  pairs+=("$RPOOL/var=/var" "$RPOOL/var/log=/var/log")
+  mount_pairs="${pairs[*]}"
 
   # Must be run_latehook: the archzfs zfs hook only imports the pool in
   # its own run_latehook, so during run_hook the pool isn't available and
@@ -121,15 +122,15 @@ INSTALL
 
   # Bake the rollback subvol list (and the subvol→mountpoint pairs the latehook
   # needs) into the runtime hook.
-  local entry suffix mountpoint subvolume_list="" mountpoint_pairs=""
+  local entry suffix mountpoint subvolume_list mountpoint_pairs
+  local -a subvolumes=() pairs=()
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    mountpoint="${entry#*:}"
-    subvolume_list+="@$suffix "
-    mountpoint_pairs+="@$suffix:$mountpoint "
+    IFS=: read -r suffix mountpoint < <(printf '%s\n' "$entry")
+    subvolumes+=("@$suffix")
+    pairs+=("@$suffix:$mountpoint")
   done
-  subvolume_list="${subvolume_list% }"
-  mountpoint_pairs="${mountpoint_pairs% }"
+  subvolume_list="${subvolumes[*]}"
+  mountpoint_pairs="${pairs[*]}"
 
   # run_hook (not latehook): reset the subvols on the btrfs top-level before
   # `filesystems` pivots into the root. The kernel root= device is resolved with
@@ -200,12 +201,13 @@ impermanence_boot_hooks_write_resnapshot_helper() {
 _impermanence_boot_hooks_write_resnapshot_helper_zfs() {
   local directory="${ROOT:-}/usr/lib/impermanence"
   local file="$directory/resnapshot.sh"
-  local entry suffix dataset_list=""
+  local entry suffix dataset_list
+  local -a datasets=()
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    dataset_list+="$RPOOL/ROOT/$suffix "
+    IFS=: read -r suffix _ < <(printf '%s\n' "$entry")
+    datasets+=("$RPOOL/ROOT/$suffix")
   done
-  dataset_list="${dataset_list% }"
+  dataset_list="${datasets[*]}"
   mkdir -p "$directory"
   cat > "$file" <<HELPER
 #!/usr/bin/env bash
@@ -238,12 +240,13 @@ HELPER
 _impermanence_boot_hooks_write_resnapshot_helper_btrfs() {
   local directory="${ROOT:-}/usr/lib/impermanence"
   local file="$directory/resnapshot.sh"
-  local entry suffix subvolume_list=""
+  local entry suffix subvolume_list
+  local -a subvolumes=()
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    subvolume_list+="@$suffix "
+    IFS=: read -r suffix _ < <(printf '%s\n' "$entry")
+    subvolumes+=("@$suffix")
   done
-  subvolume_list="${subvolume_list% }"
+  subvolume_list="${subvolumes[*]}"
   mkdir -p "$directory"
   cat > "$file" <<HELPER
 #!/usr/bin/env bash

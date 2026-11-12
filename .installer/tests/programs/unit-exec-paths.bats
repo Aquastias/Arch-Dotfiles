@@ -8,15 +8,13 @@
   local root="$BATS_TEST_DIRNAME/../../programs" unit program path bad=""
   for unit in "$root"/*/*/services/*.service; do
     [[ -f "$unit" ]] || continue
-    program="${unit%/services/*}"
+    # The program directory: <root>/<category>/<name>.
+    program="$(dirname "$(dirname "$unit")")"
     while IFS= read -r path; do
       grep -qF -- "$path" "$program/install.sh" \
-        || bad+="${unit#"$root"/}: $path"$'\n'
-    done < <(awk 'match($0, /^Exec[A-Za-z]*=[-@+!:]*\/usr\/local\/[^ ]+/) {
-               $0 = substr($0, RSTART, RLENGTH)
-               sub(/^Exec[A-Za-z]*=[-@+!:]*/, ""); print
-             }' \
-               "$unit")
+        || bad+="$(printf '%s\n' "$unit" | cut -c"$(( ${#root} + 2 ))-"): $path"$'\n'
+    done < <(grep -oE '^Exec[A-Za-z]*=[-@+!:]*/usr/local/[^ ]+' "$unit" \
+      | grep -oE '/usr/local/[^ ]+')
   done
   [[ -z "$bad" ]] || { printf '%s' "$bad"; false; }
 }

@@ -9,6 +9,7 @@ setup() {
 
 @test "persist-state: empty dirs/files when host has no persist" {
   result="$(install_config_from_json '{}' persist_json)"
+  # The persist field(s) in the result.
   [ "$(printf '%s' "$result" | jq -r '.directories | length')" = "0" ]
   [ "$(printf '%s' "$result" | jq -r '.files | length')" = "0" ]
 }
@@ -17,6 +18,7 @@ setup() {
   local host
   host='{"persist":{"directories":["/etc/wireguard"],"files":["/etc/foo"]}}'
   result="$(install_config_from_json "$host" persist_json)"
+  # The persist field(s) in the result.
   [ "$(printf '%s' "$result" | jq -r '.directories[0]')" = "/etc/wireguard" ]
   [ "$(printf '%s' "$result" | jq -r '.files[0]')"       = "/etc/foo" ]
 }
@@ -24,6 +26,7 @@ setup() {
 @test "persist-state: tolerates partial input (only directories)" {
   local host='{"persist":{"directories":["/etc/wireguard"]}}'
   result="$(install_config_from_json "$host" persist_json)"
+  # The persist field(s) in the result.
   [ "$(printf '%s' "$result" | jq -r '.directories[0]')" = "/etc/wireguard" ]
   [ "$(printf '%s' "$result" | jq -r '.files | length')" = "0" ]
 }

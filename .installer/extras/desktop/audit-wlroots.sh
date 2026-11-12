@@ -3,8 +3,9 @@
 # 0152): the Noctalia shell, Qt theming through its templates, xdg user dirs
 # (ADR 0131), the clipboard keep-alive (ADR 0147) and the portals.
 _probe_qt_env() {
-  local pid; pid="$(pgrep -x noctalia | awk 'NR == 1 { print; exit }')"
-  grep -qxz QT_QPA_PLATFORMTHEME=qt6ct "/proc/$pid/environ"
+  local pid; pid="$(pgrep -x noctalia | head -n 1)"
+  # The process environment, one variable per line (it is NUL-separated).
+  tr '\0' '\n' < "/proc/$pid/environ" | grep -qx QT_QPA_PLATFORMTHEME=qt6ct
 }
 if feature_audit_gate noctalia \
   "no Wayland shell in this variant" feature_audit_has_shell; then
@@ -25,7 +26,8 @@ _probe_xdg_directory() {
 if feature_audit_gate xdg-dirs \
   "stock install: no curated userland" feature_audit_curated; then
   for xdg_directory in DESKTOP DOCUMENTS DOWNLOAD MUSIC PICTURES VIDEOS; do
-    feature_audit_check "xdg-dir-${xdg_directory,,}" \
+    lower_name="$(printf '%s\n' "$xdg_directory" | tr '[:upper:]' '[:lower:]')"
+    feature_audit_check "xdg-dir-$lower_name" \
       "xdg user dir $xdg_directory exists" _probe_xdg_directory "$xdg_directory"
   done
 fi

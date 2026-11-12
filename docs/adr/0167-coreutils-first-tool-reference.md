@@ -3,6 +3,8 @@
 ## Status
 Accepted — not yet implemented. Supersedes the Tool Tiers of [ADR 0153];
 its names, sizes, prefixes and ADR-link rules stay.
+Amended 2026-11-12: grep also allows `-w` (whole words): its regex spelling
+reads worse than the flag.
 
 ## Context
 The owner architected the installer but cannot read many of its lines
@@ -38,7 +40,7 @@ Scope: all tracked code — `.installer/` (tests and lints included),
      `def`, `paths`, `getpath`/`setpath`, `inputs`. Banned logic becomes a
      bash loop over simple jq output, or a commented `.jq` file when bash
      cannot do it. The "merge consecutive jq reads" rule is dropped.
-   - **grep** with `-q -E -F -v -x -c -o -l` only.
+   - **grep** with `-q -E -F -v -x -c -o -l -w` only.
    - **sed** only as `sed -i 's/a/b/'`: no addresses, holds or
      multi-command scripts.
    - **awk** never inline; only in `.awk` files with a header comment and

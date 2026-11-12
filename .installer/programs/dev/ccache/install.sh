@@ -18,6 +18,7 @@ pacman -S --noconfirm --needed ccache
 
 if grep -q '^BUILDENV=.*!ccache' /etc/makepkg.conf; then
   print_status info "Enabling ccache in /etc/makepkg.conf BUILDENV..."
+  # Turn !ccache (off) into ccache (on).
   sed -i 's/!ccache/ccache/' /etc/makepkg.conf
 else
   print_status info "ccache already enabled in /etc/makepkg.conf BUILDENV."

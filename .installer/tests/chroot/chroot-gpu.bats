@@ -98,7 +98,8 @@ setup() {
 
 @test "modules: idempotent — no duplicate nvidia entries on re-run" {
   local once; once="$(_gpu_modules_line "")"
-  local inner="${once#MODULES=(}"; inner="${inner%)}"
+  # The text inside MODULES=( … ).
+  local inner="${once:9:${#once}-10}"
   run _gpu_modules_line "$inner"
   [ "$output" = "MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)" ]
 }
@@ -148,7 +149,7 @@ setup() {
 
 @test "services: nvidia-powerd for Dynamic Boost (ADR 0161)" {
   run _gpu_services
-  grep -qx "nvidia-powerd.service" <<<"$output"
+  printf '%s\n' "$output" | grep -qx "nvidia-powerd.service"
 }
 
 # ── thin IO seams write to the expected paths ───────────────────────────────

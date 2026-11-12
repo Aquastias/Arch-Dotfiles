@@ -3,6 +3,7 @@
 # shared setup in chroot-impermanence-helpers.bash)
 
 load chroot-impermanence-helpers
+load ../lib/text-helpers
 
 
 # ── cycle 1: tracer — disabled is a no-op ────────────────────────────────────
@@ -240,8 +241,8 @@ load chroot-impermanence-helpers
   # machine-id setup must run, and must precede the @blank snapshots
   grep -qE "^machine-id-setup " "$CALLS"
   local mid_line snap_line
-  mid_line="$(awk '/^machine-id-setup / { print NR; exit }' "$CALLS")"
-  snap_line="$(awk '/^zfs snapshot .*@blank/ { print NR; exit }' "$CALLS")"
+  mid_line="$(first_line_matching "$CALLS" '^machine-id-setup ')"
+  snap_line="$(first_line_matching "$CALLS" '^zfs snapshot .*@blank')"
   [ "$mid_line" -lt "$snap_line" ]
 }
 
@@ -307,8 +308,8 @@ load chroot-impermanence-helpers
   printf 'k' > "$FAKEROOT/etc/ssh/key"
   run_enabled
   local last_mv first_snap
-  last_mv="$(awk '/^mv / { last = NR } END { print last }' "$CALLS")"
-  first_snap="$(awk '/^zfs snapshot / { print NR; exit }' "$CALLS")"
+  last_mv="$(last_line_matching "$CALLS" '^mv ')"
+  first_snap="$(first_line_matching "$CALLS" '^zfs snapshot ')"
   [ -n "$last_mv" ] && [ -n "$first_snap" ]
   [ "$last_mv" -lt "$first_snap" ]
 }

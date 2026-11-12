@@ -58,16 +58,15 @@ if [[ "$ESP_STYLE" == efistub ]]; then
 else
     EFI_LOADER="$(bootloader_efi_loader "$BOOTLOADER")"
 fi
+# esp_stage_split_partition: an ESP partition → its disk and number.
+# shellcheck source=../boot/esp-stage.sh
+source "$_LIB_DIR/esp-stage.sh"
 if [[ "$ESP_COUNT" -gt 1 ]]; then
     for i in $(seq 1 $(( ESP_COUNT - 1 ))); do
         rsync -a --delete /boot/efi/ "/boot/efi${i}/"
         EFI_DEV="$(findmnt -n -o SOURCE "/boot/efi${i}" || true)"
         [[ -n "$EFI_DEV" ]] || continue
-        if [[ "$EFI_DEV" =~ nvme|mmcblk ]]; then
-            EFI_DISK="${EFI_DEV%p[0-9]*}"; EFI_PART="${EFI_DEV##*p}"
-        else
-            EFI_DISK="${EFI_DEV%[0-9]*}"; EFI_PART="${EFI_DEV##*[a-z]}"
-        fi
+        read -r EFI_DISK EFI_PART < <(esp_stage_split_partition "$EFI_DEV")
         if [[ "$ESP_STYLE" == efistub ]]; then
             bootloader_common_efistub_register "$EFI_DISK" "$EFI_PART" \
                 "disk $((i+1))"

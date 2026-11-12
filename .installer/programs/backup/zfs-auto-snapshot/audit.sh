@@ -13,13 +13,22 @@ feature_audit_check zfs-snap-tag "zfs-snapshot-tag.service enabled" \
 # The real proof: a frequent run takes a snapshot. Judged by creation time,
 # not the start's exit: the unit returns before the snapshot lands (poll),
 # and a run in a minute that already has one collides on its name.
+# _probe_zfs_snap_taken <since> — 0 when a frequent auto-snapshot was
+# created at or after <since> (epoch seconds).
+_probe_zfs_snap_taken() {
+  local name creation
+  while read -r name creation; do
+    [[ "$name" =~ @(znap|zfs-auto-snap)_.*frequent ]] || continue
+    (( creation >= $1 )) && return 0
+  done < <(zfs list -Hp -t snapshot -o name,creation)
+  return 1
+}
+
 _probe_zfs_snap() {
   local since; since=$(($(date +%s) - 60))
   systemctl start zfs-auto-snapshot-frequent.service || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    zfs list -Hp -t snapshot -o name,creation | awk -v t0="$since" '
-      $1 ~ /@(znap|zfs-auto-snap)_.*frequent/ && $2 >= t0 { f = 1 }
-      END { exit !f }' && return 0
+    _probe_zfs_snap_taken "$since" && return 0
     sleep 2
   done
   return 1

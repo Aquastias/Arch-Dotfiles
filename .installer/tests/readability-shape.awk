@@ -43,13 +43,21 @@ function is_one_substitution(program,   delimiter, count, part) {
   return count == 4 && part[4] ~ /^g?$/
 }
 
-# sed_program(text) — the single-quoted program after `sed -i` in the raw
-# logical line ("" when it is not single-quoted).
+# sed_program(text) — the quoted program after `sed -i` in the raw logical
+# line ("" when it is held in a variable: `sed -i "$edit"`).
 function sed_program(text,   program) {
-  if (!match(text, /(^|[^A-Za-z0-9_.-])sed[ \t]+-i[ \t]+'[^']*'/)) return ""
+  if (match(text, /(^|[^A-Za-z0-9_.-])sed[ \t]+-i[ \t]+'[^']*'/)) {
+    program = substr(text, RSTART, RLENGTH)
+    sub(/^[^']*'/, "", program)
+    sub(/'$/, "", program)
+    return program
+  }
+  if (!match(text, /(^|[^A-Za-z0-9_.-])sed[ \t]+-i[ \t]+"[^"]*"/)) return ""
   program = substr(text, RSTART, RLENGTH)
-  sub(/^[^']*'/, "", program)
-  sub(/'$/, "", program)
+  sub(/^[^"]*"/, "", program)
+  sub(/"$/, "", program)
+  # A program that is just a variable is checked where it is written.
+  if (program ~ /^\$[A-Za-z_{][A-Za-z0-9_}]*$/) return ""
   return program
 }
 

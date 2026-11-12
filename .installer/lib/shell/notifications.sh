@@ -33,3 +33,17 @@ function send_user_notification() {
     fi
   fi
 }
+
+# seat0_user — the user of the graphical (seat0) session, if any; never a
+# greeter's account (only "user"-class sessions count). Nothing when none.
+seat0_user() {
+  local _session _uid user seat _leader class _rest
+  # loginctl list-sessions columns: SESSION UID USER SEAT LEADER CLASS …
+  while read -r _session _uid user seat _leader class _rest; do
+    if [[ "$seat" == seat0 && "$class" == user ]]; then
+      printf '%s\n' "$user"
+      return 0
+    fi
+  done < <(loginctl list-sessions --no-legend 2>/dev/null)
+  return 0
+}

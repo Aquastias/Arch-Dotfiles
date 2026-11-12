@@ -8,7 +8,7 @@
 feature_audit_require_package emacs emacs-wayland || return 0
 feature_audit_as_user || return 0
 # The runner's FA_DIR ends in "/": Emacs' `load' reads "dir//file" as "/file".
-fixtures="${FA_DIR%/}/audit-fixtures"
+fixtures="$(readlink -m "$FA_DIR")/audit-fixtures"  # readlink -m: no trailing /
 doom_core="$FA_HOME/.config/emacs"
 
 feature_audit_check emacs-runs "emacs --version" emacs --version
@@ -29,10 +29,11 @@ feature_audit_check emacs-doom-pinned "Doom core at the pinned commit" \
 _probe_emacs_doctor() {
   local out
   out="$("$doom_core/bin/doom" doctor 2>&1)" \
-    || { awk 'END { print }' <<<"$out"; return 1; }
-  if grep -qE 'There (is|are) [0-9]+ errors?!|Attempt to load DOOM failed' \
-    <<<"$out"; then
-    grep -m1 -E 'errors?!|failed' <<<"$out"
+    || { printf '%s\n' "$out" | tail -n 1; return 1; }
+  local failed='There (is|are) [0-9]+ errors?!|Attempt to load DOOM failed'
+  if printf '%s\n' "$out" | grep -qE "$failed"; then
+    # The first error line.
+    printf '%s\n' "$out" | grep -E 'errors?!|failed' | head -n 1
     return 1
   fi
 }
@@ -43,18 +44,22 @@ if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
   feature_audit_skip emacs-binds "no plan staged"; return 0
 fi
 plan="$(mktemp)" out="$(mktemp)" log="$(mktemp)" socket="fa-emacs-probe-$$"
+# Each bind's chord, states (its action's first word), effect and argument,
+# joined by the unit separator (\x1f), which no field contains.
+# shellcheck disable=SC2016 # a jq program, not shell
+bind_fields='[.chord, (.action | split(" ")[0]), (.effect // "none"),
+  (.arg // "")] | join("\u001f")'
 # A bind with no expectation is a Finding; the rest go to the judge as
 # states, chord, wanted command, check id (ids carry the states: gsa is
 # bound in normal and visual).
 while IFS=$'\x1f' read -r chord states effect arg; do
-  id="bind-emacs-$states-${chord// /_}"
+  id="bind-emacs-$states-$(printf '%s' "$chord" | tr ' ' '_')"
   if [[ "$effect" == none ]]; then
     feature_audit_fail emacs-untested-bind "$states $chord has no expectation"
     continue
   fi
   printf '%s\t%s\t%s\t%s\n' "$states" "$chord" "$arg" "$id" >> "$plan"
-done < <(jq -r '[.chord, (.action | split(" ")[0]), (.effect // "none"),
-                 (.arg // "")] | join("\u001f")' "$FA_DIR/binds-plan.jsonl")
+done < <(jq -r "$bind_fields" "$FA_DIR/binds-plan.jsonl")
 
 if timeout 600 emacs --daemon="$socket" >"$log" 2>&1; then
   timeout 300 emacsclient -s "$socket" -e "(progn
@@ -63,11 +68,11 @@ if timeout 600 emacs --daemon="$socket" >"$log" 2>&1; then
   if [[ -s "$out" ]]; then cat "$out"
   else
     feature_audit_fail emacs-binds \
-      "bind judge returned nothing: $(awk 'NR == 1 { print; exit }' "$log")"
+      "bind judge returned nothing: $(head -n 1 "$log")"
   fi
   emacsclient -s "$socket" -e '(kill-emacs)' >/dev/null 2>&1
 else
   feature_audit_fail emacs-daemon \
-    "Doom did not start: $(awk 'NR == 1 { print; exit }' "$log")"
+    "Doom did not start: $(head -n 1 "$log")"
 fi
 rm -f "$plan" "$out" "$log"

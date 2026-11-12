@@ -27,10 +27,6 @@
 
 [[ -n "${_NOCTALIA_PRESET_SH_SOURCED:-}" ]] && return 0
 _NOCTALIA_PRESET_SH_SOURCED=1
-# parent_directory / base_name — the chroot-world path helpers (sibling).
-# shellcheck source=./chroot-common.sh
-declare -F parent_directory >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/chroot-common.sh"
 # Seeding the curated config into /etc/skel.
 # shellcheck source=./noctalia-skeleton.sh
 source "${BASH_SOURCE[0]%/*}/noctalia-skeleton.sh"
@@ -55,6 +51,7 @@ NOCTALIA_COMMUNITY_REF="${NOCTALIA_COMMUNITY_REF:-$_NOC_REF_DEFAULT}"
 # if absent).
 _noctalia_preset_flag() {
   [[ -f "$NOCTALIA_JSON" ]] || { echo false; return; }
+  # The component's bool (false when absent).
   jsonc "$NOCTALIA_JSON" | jq -r --arg k "$1" '.[$k] // false'
 }
 
@@ -63,8 +60,11 @@ _noctalia_preset_flag() {
 # detecting a battery. Gates the battery plugin pair (ADR 0093).
 _noctalia_preset_is_laptop() {
   local value="auto"
-  [[ -f "$NOCTALIA_JSON" ]] && value="$(jsonc "$NOCTALIA_JSON" \
-    | jq -r 'if has("laptop") then (.laptop|tostring) else "auto" end')"
+  if [[ -f "$NOCTALIA_JSON" ]]; then
+    # The `laptop` setting ("null" when the file has none).
+    value="$(jsonc "$NOCTALIA_JSON" | jq -r '.laptop')"
+    [[ "$value" == null ]] && value=auto
+  fi
   case "$value" in
     true)  echo true;  return ;;
     false) echo false; return ;;
@@ -83,13 +83,13 @@ _noctalia_preset_seed_plugin() {
   local repo="$1" git_revision="$2" sub="$3" temporary_directory
   temporary_directory="$(mktemp -d)" || return 1
   local checkout="$temporary_directory/op"
-  local destination="${NOCTALIA_SEED_ROOT%/}/${NOCTALIA_PLUGIN_DATA}/${sub}"
+  local destination="$NOCTALIA_SEED_ROOT/${NOCTALIA_PLUGIN_DATA}/${sub}"
   if ! _noctalia_preset_checkout_plugin "$repo" "$git_revision" "$sub" \
          "$checkout"; then
     rm -rf "$temporary_directory"
     return 1
   fi
-  mkdir -p "$(parent_directory "$destination")"
+  mkdir -p "$(dirname "$destination")"
   rm -rf "$destination"
   cp -r "$checkout/$sub" "$destination"
   rm -rf "$temporary_directory"
@@ -101,18 +101,22 @@ _noctalia_preset_seed_plugin() {
 _noctalia_preset_checkout_plugin() {
   local repo="$1" git_revision="$2" sub="$3" checkout="$4"
   git clone --filter=blob:none --no-checkout --sparse "$repo" "$checkout" \
-    && git -C "$checkout" sparse-checkout set "$sub" \
-    && git -C "$checkout" checkout "$git_revision" \
-    && [[ -f "$checkout/$sub/plugin.toml" ]] \
-    && [[ -n "$(_noctalia_preset_plugin_id "$checkout/$sub/plugin.toml")" ]]
+    || return 1
+  git -C "$checkout" sparse-checkout set "$sub" || return 1
+  git -C "$checkout" checkout "$git_revision" || return 1
+  [[ -f "$checkout/$sub/plugin.toml" ]] || return 1
+  [[ -n "$(_noctalia_preset_plugin_id "$checkout/$sub/plugin.toml")" ]]
 }
 
 # _noctalia_preset_plugin_id <plugin.toml> — the first `id = "…"` line's value.
 _noctalia_preset_plugin_id() {
-  awk 'match($0, /^[[:space:]]*id[[:space:]]*=[[:space:]]*"[^"]+"/) {
-      value = substr($0, RSTART, RLENGTH)
-      sub(/^[^"]*"/, "", value); sub(/"$/, "", value)
-      print value; exit }' "$1"
+  local line
+  while IFS= read -r line; do
+    [[ "$line" =~ ^[[:space:]]*id[[:space:]]*=[[:space:]]*\"[^\"]+\" ]] || continue
+    # The text between the line's first two quotes.
+    printf '%s\n' "$line" | cut -d'"' -f2
+    return 0
+  done < "$1"
 }
 
 # _noctalia_preset_vendor_plugin <repo> <ref> <sub> —

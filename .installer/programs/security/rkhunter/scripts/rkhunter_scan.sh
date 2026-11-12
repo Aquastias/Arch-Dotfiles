@@ -13,8 +13,7 @@ check_root
 # From a timer there is no SUDO_USER: notify the seat0 user session, if any
 # (class user — never a greeter's account).
 # A notification is best effort (`|| true` below): it never fails the scan.
-: "${SUDO_USER:=$(loginctl list-sessions --no-legend 2>/dev/null \
-  | awk '$4 == "seat0" && $6 == "user" { print $3; exit }')}"
+: "${SUDO_USER:=$(seat0_user)}"
 export SUDO_USER
 
 SYSTEM_LOG="/var/log/rkhunter.log"
@@ -39,7 +38,7 @@ fi
 
 # Run the scan
 { rkhunter --check --sk --nocolors --quiet 2>&1 \
-    | grep -v -e 'egrep: warning' -e 'grep: warning' \
+    | grep -vF 'grep: warning' \
     || true; } | tee -a "$SYSTEM_LOG"
 
 # Check for warnings

@@ -44,13 +44,13 @@ UNIT
 # ── zfs_import_strip_settle (pure filter) ────────────────────────────────────
 
 @test "strip_settle: removes systemd-udev-settle entirely" {
-  run zfs_import_strip_settle <<<"$(sample_unit)"
+  run zfs_import_strip_settle < <(sample_unit)
   [ "$status" -eq 0 ]
   [[ "$output" != *"systemd-udev-settle"* ]]
 }
 
 @test "strip_settle: keeps other After= ordering (cryptsetup, multipathd)" {
-  run zfs_import_strip_settle <<<"$(sample_unit)"
+  run zfs_import_strip_settle < <(sample_unit)
   [ "$status" -eq 0 ]
   [[ "$output" == *"After=cryptsetup.target"* ]]
   [[ "$output" == *"After=multipathd.service"* ]]
@@ -58,13 +58,13 @@ UNIT
 
 @test "strip_settle: drops a directive line emptied by the removal" {
   # Requires= had only settle, so the whole line goes (no dangling 'Requires=').
-  run zfs_import_strip_settle <<<"$(sample_unit)"
+  run zfs_import_strip_settle < <(sample_unit)
   [ "$status" -eq 0 ]
   [[ "$output" != *$'\nRequires='* ]]
 }
 
 @test "strip_settle: preserves non-dependency content verbatim" {
-  run zfs_import_strip_settle <<<"$(sample_unit)"
+  run zfs_import_strip_settle < <(sample_unit)
   [ "$status" -eq 0 ]
   [[ "$output" == *"Description=Import ZFS pools by cache file"* ]]
   [[ "$output" == *"ExecStart=/usr/bin/zpool import -c /etc/zfs/zpool.cache -aN"* ]]
@@ -180,9 +180,13 @@ _mount_retry_run() {
     "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR" "$fails" > "$bin/zfs"
   printf '#!/bin/sh\n' > "$bin/sleep"
   chmod +x "$bin/zfs" "$bin/sleep"
-  script="$(awk -F"'" '/^ExecStart=\/bin\/sh -c / { print $2 }' \
-    "$dropin_file")"
-  script="${script//\$\$/\$}"
+  # The drop-in's ExecStart script: the text between its single quotes,
+  # with systemd's $$ escapes turned back into $.
+  grep '^ExecStart=/bin/sh -c ' "$dropin_file" | cut -d"'" -f2 \
+    > "$BATS_TEST_TMPDIR/script"
+  # systemd's $$ back to $.
+  sed -i 's/\$\$/$/g' "$BATS_TEST_TMPDIR/script"
+  script="$(cat "$BATS_TEST_TMPDIR/script")"
   PATH="$bin:$PATH" run /bin/sh -c "$script"
 }
 

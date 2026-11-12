@@ -475,6 +475,7 @@ Example: `ln -sf /usr/share/wayland-sessions/plasma.desktop "$target"`
 Prints where a symlink points.
 
 - `-f` — follow every link and print the full real path
+- `-m` — canonical path; missing parts are allowed
 
 Example: `readlink -f ./relative`
 
@@ -646,6 +647,7 @@ Prints lines that match a pattern. Only these flags ([ADR 0167]):
 - `-c` — print how many lines matched
 - `-o` — print only the matching part of each line
 - `-l` — print the names of files with a match
+- `-w` — match whole words only (`docker` does not match `dockerd`)
 
 Example: `grep -qxF "$package" "$list_file"` — is this exact line in
 the file?
@@ -767,6 +769,7 @@ Runs a command as root (or another user).
 
 - `-u <user>` — run as this user
 - `-E` — keep the caller's environment
+- `-H` — set `HOME` to the target user's home
 
 Example: `sudo install -o root -g root -m 644 "$file" "$target"`
 
@@ -783,6 +786,11 @@ Version control. Flags below are spread over subcommands (`git status`,
 - `--short` — short status output
 - `--show-toplevel` — print the repository's root directory
 - `--name-only` — print only changed file names
+- `--depth <n>` — (`clone`) fetch only the last n commits
+- `--filter=<spec>` — (`clone`) skip objects, e.g. `blob:none`
+- `--no-checkout` — (`clone`) do not fill the working tree
+- `--sparse` — (`clone`) check out only the top-level files
+- `--detach` — (`checkout`) check out a commit, not a branch
 
 Example: `cd "$(git rev-parse --show-toplevel)"`
 
@@ -790,6 +798,8 @@ Example: `cd "$(git rev-parse --show-toplevel)"`
 Controls systemd services.
 
 - `--user` — the user's own service manager, not the system's
+- `-P <property>` — print one property value only
+- `--quiet` — print nothing; use the exit status
 
 Example: `systemctl enable seatd`
 
@@ -809,6 +819,7 @@ Arch's package manager.
 - `-p` — with `-S`: print what would be installed, install nothing
 - `--dbpath <directory>` — use this package database instead of the system's
 - `--logfile <file>` — log here instead of `/var/log/pacman.log`
+- `-Sl <repo>` — list the packages of a sync repository
 
 Example: `pacman -S --noconfirm --needed git`
 
@@ -823,6 +834,7 @@ Manages ZFS datasets and snapshots.
 - `-r` — recursive: the dataset and everything under it
 - `-V <size>` — on `create`: a volume (zvol) of this size
 - `-b <bytes>` — on `create -V`: the volume's block size
+- `-p` — exact numbers (bytes, seconds)
 
 Example: `zfs rollback -r "$dataset@blank"`
 
@@ -873,6 +885,7 @@ Lists mounted filesystems.
 - `-o <columns>` — only these columns
 - `-R` — this mount and everything mounted under it
 - `-t <types>` — only filesystems of these types (`zfs`)
+- `--target <path>` — the mount that holds this path
 
 Example: `findmnt -rno TARGET`
 
@@ -1004,6 +1017,7 @@ that only reads passwords from a terminal can be fed one.
 
 - `-q` — quiet: no start and done messages
 - `-c <command>` — the command to run
+- `-e` — exit with the command's exit status
 
 Example: `printf '%s
 ' "$passphrase" | script -qc "age -d -o out key.age" /dev/null`
@@ -1220,6 +1234,7 @@ Builds initramfs images.
 - `-S <hooks>` — skip these hooks (`autodetect`: a fallback image works on
   any hardware)
 - `-g <file>` — write the image to this file
+- `-P` — build every preset in `/etc/mkinitcpio.d`
 
 Example: `mkinitcpio -g "${boot}/${fallback_initramfs}"`
 
@@ -1318,7 +1333,382 @@ Example: `cryptsetup open "$part" "$mapper" --key-file "$keyfile"`
 Manages Btrfs filesystems. Subcommands used: `subvolume create`,
 `subvolume snapshot`, `device scan`, `filesystem show`.
 
+- `-r` — (`subvolume snapshot`) make the snapshot read-only
+
 Example: `btrfs subvolume create "${MOUNT_ROOT}/${subvol}"`
+
+### `bootctl`
+Installs and manages systemd-boot on the ESP. Subcommand used: `install`.
+
+- `--esp-path=<dir>` — where the ESP is mounted
+
+Example: `bootctl --esp-path="$ESP" install`
+
+### `grub-install`
+Installs GRUB's boot loader files onto the ESP and registers it.
+
+- `--target=<platform>` — the platform (`x86_64-efi`)
+- `--efi-directory=<dir>` — where the ESP is mounted
+- `--boot-directory=<dir>` — where GRUB keeps its files
+- `--bootloader-id=<name>` — the boot entry name
+- `--removable` — install to the fallback path `EFI/BOOT`
+- `--recheck` — re-probe the devices
+
+Example: `grub-install --target=x86_64-efi --efi-directory="$ESP"`
+
+### `refind-install`
+Installs the rEFInd boot manager onto the ESP.
+
+- `--root <dir>` — the root the system is installed in
+
+Example: `refind-install --root /`
+
+### `rsync`
+Copies a directory tree, sending only what changed.
+
+- `-a` — archive: recurse and keep permissions, times, links
+- `--delete` — remove files at the target that the source lacks
+
+Example: `rsync -a --delete /boot/efi/ "/boot/efi${i}/"`
+
+### `hwclock`
+Reads or sets the hardware (RTC) clock.
+
+- `--systohc` — set the hardware clock from the system clock
+
+Example: `hwclock --systohc`
+
+### `locale-gen`
+Builds the locales enabled in `/etc/locale.gen`.
+
+Example: `locale-gen`
+
+### `getent`
+Prints entries from the system databases (`passwd`, `group`, …). Exits
+non-zero when the entry is missing.
+
+Example: `getent group seat >/dev/null`
+
+### `useradd`
+Creates a user account.
+
+- `-m` — create the home directory
+- `-s <shell>` — the login shell
+- `-G <groups>` — extra groups, comma-separated
+
+Example: `useradd -m -s "$LOGIN_SHELL" -G "$groups" "$NAME"`
+
+### `usermod`
+Changes an existing user account.
+
+- `-a` — with `-G`: add to the groups, keep the others
+- `-G <groups>` — extra groups, comma-separated
+- `-s <shell>` — the login shell
+- `-c <comment>` — the comment (full name) field
+- `--add-subuids <first-last>` — give a range of sub-UIDs
+- `--add-subgids <first-last>` — give a range of sub-GIDs
+
+Example: `usermod -aG seat greeter`
+
+### `groupadd`
+Creates a group.
+
+Example: `groupadd docker`
+
+### `chpasswd`
+Sets passwords from `user:password` lines on stdin.
+
+Example: `printf '%s:%s
+' "$NAME" "$PASSWORD" | chpasswd`
+
+### `chsh`
+Changes a user's login shell.
+
+- `-s <shell>` — the new login shell
+
+Example: `chsh -s "$ROOT_SHELL" root`
+
+### `visudo`
+Edits or checks sudoers files safely.
+
+- `-c` — check syntax only
+- `-f <file>` — the file to check
+
+Example: `visudo -c -f "$SUDOERS_FILE"`
+
+### `systemd-detect-virt`
+Tells whether the system runs in a VM or container.
+
+- `--vm` — only VMs, not containers
+- `--quiet`, `-q` — print nothing; use the exit status
+
+Example: `systemd-detect-virt --vm --quiet`
+
+### `systemd-id128`
+Prints 128-bit IDs (machine ID, boot ID). Subcommand used: `new`.
+
+Example: `systemd-id128 new`
+
+### `systemd-machine-id-setup`
+Writes `/etc/machine-id` when it is missing.
+
+- `--root=<dir>` — the root to write in
+
+Example: `systemd-machine-id-setup --root="$ROOT"`
+
+### `systemd-tmpfiles`
+Creates the files and directories a `tmpfiles.d` config lists.
+
+- `--create` — create the listed files and directories
+
+Example: `systemd-tmpfiles --create /etc/tmpfiles.d/nix-store.conf`
+
+### `busctl`
+Talks to D-Bus. Subcommands used: `status` (who owns a bus name).
+
+- `--user` — the user bus, not the system bus
+
+Example: `busctl --user status org.freedesktop.FileManager1`
+
+### `setsid`
+Runs a program in a new session, detached from the terminal.
+
+- `-f` — always fork, so it returns at once
+
+Example: `setsid -f teamspeak3`
+
+### `pkill`
+Signals processes by name.
+
+- `-f` — match the full command line, not only the name
+
+Example: `pkill -f ts3client`
+
+### `logrotate`
+Rotates log files as its config says.
+
+- `-d` — debug: show what would be done, change nothing
+
+Example: `logrotate -d "$LOGROTATE_CONF"`
+
+### `openssl`
+Crypto toolkit. Subcommand used: `rand` (random bytes).
+
+- `-hex` — (`rand`) print the bytes as hex
+
+Example: `openssl rand -hex 32`
+
+### `paccache`
+Removes old packages from pacman's cache.
+
+- `-r` — remove the old packages
+- `-k <n>` — keep the n newest versions of each package
+
+Example: `paccache -rk "$keep"`
+
+### `pkgfile`
+Finds which package owns a file. `-u` refreshes its database.
+
+- `-u` — update the file database
+
+Example: `pkgfile -u`
+
+### `go`
+The Go toolchain. Subcommand used: `install`.
+
+Example: `go install "$module@latest"`
+
+### `npx`
+Runs a package from the npm registry without installing it.
+
+- `--yes`, `-y` — answer yes to install prompts
+- `-g` — (skills CLI) install globally
+- `-s <skill>` — (skills CLI) which skills to add
+- `-a <agent>` — (skills CLI) which agent to install for
+
+Example: `npx --yes skills@latest add mattpocock/skills`
+
+### `ufw`
+The Uncomplicated Firewall. Subcommands used: `default`, `allow`,
+`limit`, `enable`, `reset`, `status`.
+
+- `--force` — no confirmation prompt
+
+Example: `ufw default deny incoming`
+
+### `firewall-offline-cmd`
+Configures firewalld while it is not running.
+
+- `--zone=<zone>` — the zone to change
+- `--add-service=<service>` — allow a service
+- `--add-interface=<interface>` — put an interface in the zone
+- `--add-masquerade` — NAT traffic leaving the zone
+- `--direct` — pass a raw iptables rule (with `--add-rule`)
+- `--add-rule` — add the raw rule that follows
+- `-s <subnet>` — (in a raw rule) match this source subnet
+- `-j <target>` — (in a raw rule) what to do on a match
+
+Example: `firewall-offline-cmd --zone="$ZONE" --add-service=dhcp`
+
+### `rkhunter`
+Rootkit Hunter: scans for rootkits and changed system files.
+
+- `--update` — update its data files
+- `--propupd` — record the current file properties as the baseline
+- `--check` — run the scan
+- `--sk` — skip the "press Enter" pauses
+- `--nocolors` — plain output
+- `--quiet`, `-q` — print nothing but warnings
+
+Example: `rkhunter --check --sk --nocolors`
+
+### `clamscan`
+ClamAV's standalone virus scanner.
+
+- `-r` — scan directories recursively
+- `-i` — print infected files only
+- `--no-summary` — no summary at the end
+
+Example: `clamscan -r -i --no-summary "$SCAN_DIR"`
+
+### `clamdscan`
+Scans files through the running ClamAV daemon.
+
+- `--fdpass` — pass the open file to the daemon (no read rights needed)
+- `--no-summary` — no summary at the end
+
+Example: `clamdscan --fdpass --no-summary "$file"`
+
+### `freshclam`
+Downloads ClamAV's virus database.
+
+Example: `freshclam`
+
+### `borg`
+BorgBackup. Subcommands used: `init`, `create`, `list`.
+
+- `-e <mode>` — the encryption mode of a new repository (`repokey`)
+
+Example: `borg init -e repokey "$directory/repo"`
+
+### `podman`
+Runs containers without a daemon. Subcommands used: `run`, `pull`,
+`info`.
+
+Example: `podman run --rm "$image" true`
+
+### `lp`
+Sends a file to a printer queue. Prints the job ID.
+
+- `-d <queue>` — the printer queue
+
+Example: `lp -d fa-audit`
+
+### `lpadmin`
+Adds or changes CUPS printer queues.
+
+- `-p <queue>` — the queue to add or change
+- `-x <queue>` — delete this queue
+- `-E` — enable the queue and accept jobs
+- `-v <uri>` — the printer address
+- `-m <model>` — the driver (`everywhere` = driverless IPP)
+
+Example: `lpadmin -p fa-audit -E -v "$uri" -m everywhere`
+
+### `lpstat`
+Shows CUPS printers and jobs.
+
+- `-o <queue>` — list the jobs of this queue
+- `-W <which>` — which jobs (`completed`)
+- `-l` — long listing
+
+Example: `lpstat -W completed -o fa-audit`
+
+### `ippeveprinter`
+A fake IPP printer for tests.
+
+- `-r <mode>` — DNS-SD advertising (`off`)
+- `-p <port>` — the port to listen on
+- `-f <types>` — the document types it accepts
+
+Example: `ippeveprinter -r off -p 8631 fa-audit`
+
+### `powerprofilesctl`
+Reads or sets the power profile. Subcommands used: `get`, `set`.
+
+Example: `powerprofilesctl get`
+
+### `hyprctl`
+Controls a running Hyprland.
+
+- `-j` — print JSON
+
+Example: `hyprctl -j configerrors`
+
+### `kreadconfig6`
+Reads one key from a KDE config file.
+
+- `--file <file>` — the config file to read
+- `--group <group>` — the `[group]` the key is in
+- `--key <key>` — the key to read
+
+Example: `kreadconfig6 --file "$file" --group General --key Name`
+
+### `wl-copy`
+Copies stdin to the Wayland clipboard.
+
+Example: `printf 'text' | wl-copy`
+
+### `xdg-user-dir`
+Prints the path of a user directory (`DESKTOP`, `DOWNLOAD`, …).
+
+Example: `xdg-user-dir DOWNLOAD`
+
+### `noctalia-greeter-apply-appearance`
+Copies the Noctalia appearance to the greeter.
+
+- `--setup-system` — the system-wide first setup
+
+Example: `noctalia-greeter-apply-appearance --setup-system`
+
+### `codium`
+VSCodium, the editor.
+
+- `--list-extensions` — print installed extension IDs
+- `--install-extension <id>` — install one extension
+
+Example: `codium --list-extensions`
+
+### `emacs`
+The Emacs editor.
+
+- `--daemon=<name>` — start as a background server with this socket name
+
+Example: `emacs --daemon="$socket"`
+
+### `emacsclient`
+Sends a command to a running Emacs daemon.
+
+- `-s <name>` — the server socket to talk to
+- `-e <expression>` — evaluate this Lisp expression
+
+Example: `emacsclient -s "$socket" -e "(kill-emacs)"`
+
+### `nvim`
+The Neovim editor.
+
+- `--headless` — run with no user interface
+- `-c <command>` — run this Ex command after loading
+
+Example: `nvim --headless -c 'qa'`
+
+### `zsh`
+The Z shell. Its flags end at the script name.
+
+- `-i` — interactive: read `.zshrc`
+- `-c <command>` — run this command
+
+Example: `zsh -i -c 'exit'`
 
 <!-- ADR links: generated by readability.sh --fix-adr-links -->
 [ADR 0167]: ../docs/adr/0167-coreutils-first-tool-reference.md

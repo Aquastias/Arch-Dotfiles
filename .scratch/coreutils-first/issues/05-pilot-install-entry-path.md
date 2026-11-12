@@ -12,7 +12,7 @@ strict there from now on.
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Area added to Migrated Areas; strict Readability Lint passes
 - [x] Tool Reference entries added for every command/flag the area keeps
@@ -21,9 +21,12 @@ strict there from now on.
       paths, grepped strings)
 - [x] Any `readability-ok: perf` line carries a measured before→after
 - [x] Area bats files pass (`-j 4` max); audit passes
-- [ ] VM install passes; owner reviews the style before tickets 06–15 start
+- [x] VM install passes; owner reviews the style before tickets 06–15 start
 
 ## Comments
 
 - Code done; full suite 4103/4103 green. Open: VM install (host had
   ~11 GiB free, below VM RAM + 8 GiB) and owner style review.
+- 2026-11-12: owner approved the style; VM install of
+  `desktop/combined-sops-impermanence` (76fdc31) passed: system running, no
+  failed units, pools ONLINE, /persist mounted, sops-runtime active.

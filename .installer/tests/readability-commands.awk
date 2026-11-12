@@ -24,6 +24,7 @@
 # A flag followed by a <placeholder> takes a value:
 #   - `-d <delimiter>` — the character between fields
 #   - `-r`, `--raw-output` — print strings without quotes
+#   - `--esp-path=<dir>` — a value joined with `=`
 # Fills reference_tool[tool], reference_flag[tool, flag] and
 # reference_value[tool, flag].
 function load_tool_reference(   row, tool, rest, token, flag) {
@@ -52,7 +53,8 @@ function load_tool_reference(   row, tool, rest, token, flag) {
       sub(/^, /, "", rest)
       if (token !~ /^-/) break
       flag = token
-      sub(/[ \t].*$/, "", flag)
+      # The value follows a space or `=`: `--esp-path=<dir>`.
+      sub(/[ \t=].*$/, "", flag)
       reference_flag[tool, flag] = 1
       if (token ~ /[ \t]/) reference_value[tool, flag] = 1
     }

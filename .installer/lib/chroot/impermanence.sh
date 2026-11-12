@@ -12,10 +12,6 @@
 # Like dirname: a path with no slash means the current directory.
 _IMP_DIR="${BASH_SOURCE[0]%/*}"
 [[ "$_IMP_DIR" != "${BASH_SOURCE[0]}" ]] || _IMP_DIR=.
-# parent_directory / base_name — the chroot-world path helpers (sibling).
-# shellcheck source=./chroot-common.sh
-declare -F parent_directory >/dev/null 2>&1 \
-  || source "$_IMP_DIR/chroot-common.sh"
 _IMP_COMMON="$_IMP_DIR/impermanence-common.sh"
 [[ -f "$_IMP_COMMON" ]] || _IMP_COMMON="$_IMP_DIR/../impermanence-common.sh"
 # shellcheck disable=SC1090
@@ -48,7 +44,7 @@ _impermanence_apply_curated() {
   local units="${ROOT:-}/usr/lib/systemd/system"
   local wants="$units/local-fs.target.wants"
   local config_file="${ROOT:-}/usr/lib/tmpfiles.d/impermanence-curated.conf"
-  mkdir -p "$(parent_directory "$config_file")"
+  mkdir -p "$(dirname "$config_file")"
   : > "$config_file"
   local target file_source file_destination
   # Curated DIRS hold mutable state — MOVE them onto the Persist Dataset so the
@@ -77,7 +73,7 @@ _impermanence_apply_curated() {
     file_source="${ROOT:-}$target"
     file_destination="${ROOT:-}${IMPERMANENCE_MOUNT}$target"
     if [[ -e "$file_source" ]]; then
-      mkdir -p "$(parent_directory "$file_destination")"
+      mkdir -p "$(dirname "$file_destination")"
       cp -a "$file_source" "$file_destination"
     else
       info "impermanence: skip missing curated source $target"
@@ -104,7 +100,7 @@ _impermanence_init_machine_id() {
   if ! grep -qE '^[0-9a-f]{32}$' "$mid" 2>/dev/null; then
     info "impermanence: /etc/machine-id empty/uninitialized — generating one"
     { systemd-id128 new 2>/dev/null \
-        || awk '{ gsub(/-/, ""); print }' /proc/sys/kernel/random/uuid; } \
+        || tr -d '-' < /proc/sys/kernel/random/uuid; } \
       > "$mid" \
       || info "impermanence: failed to write /etc/machine-id"
   fi
@@ -118,7 +114,7 @@ _impermanence_apply_extensions() {
   local wants="$units/local-fs.target.wants"
   local config_file="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/tmpfiles.d"
   config_file+="/impermanence-extensions.conf"
-  mkdir -p "$(parent_directory "$config_file")"
+  mkdir -p "$(dirname "$config_file")"
   : > "$config_file"
   local target
   for target in "${PERSIST_DIRECTORIES[@]:-}"; do
@@ -182,15 +178,15 @@ _impermanence_write_bootstrap() {
 # encrypted (/dev/mapper/cryptroot) uniformly. Used by the btrfs FS-layer to
 # reach the top-level for subvolume snapshot/rollback.
 _impermanence_btrfs_root_device() {
-  findmnt -nro SOURCE --target "${ROOT:-/}" \
-    | awk '{ sub(/\[[^]]*\]$/, ""); print }'
+  # findmnt's source, without its "[/subvol]" suffix.
+  findmnt -nro SOURCE --target "${ROOT:-/}" | cut -d'[' -f1
 }
 
 # ZFS @blank: a namespace snapshot per Rollback Dataset, no mount needed.
 _impermanence_snapshot_blank_zfs() {
   local entry suffix
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
+    IFS=: read -r suffix _ < <(printf '%s\n' "$entry")
     # shellcheck disable=SC2153  # RPOOL: install-state global (install-state.sh)
     zfs snapshot "$RPOOL/ROOT/$suffix@blank"
   done
@@ -206,7 +202,7 @@ _impermanence_snapshot_blank_btrfs() {
   top="$(mktemp -d)"
   mount -o subvolid=5 "$dev" "$top"
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
+    IFS=: read -r suffix _ < <(printf '%s\n' "$entry")
     btrfs subvolume snapshot -r "$top/@$suffix" "$top/@$suffix@blank"
   done
   umount "$top"
@@ -245,10 +241,10 @@ _impermanence_relocate_enablements() {
   local wants target link unit
   for wants in "$etc"/*.target.wants; do
     [[ -d "$wants" ]] || continue
-    target="$(base_name "$wants")"
+    target="$(basename "$wants")"
     for link in "$wants"/*; do
       [[ -e "$link" || -L "$link" ]] || continue
-      unit="$(base_name "$link")"
+      unit="$(basename "$link")"
       [[ -e "$sys/$unit" ]] || continue     # packaged units only
       mkdir -p "$sys/$target"
       ln -sf "../$unit" "$sys/$target/$unit"

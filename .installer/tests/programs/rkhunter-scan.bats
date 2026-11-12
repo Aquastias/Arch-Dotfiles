@@ -18,14 +18,14 @@ esac
 STUB
   chmod +x "$T/bin/rkhunter"
   local scan_script=rkhunter_scan.sh
-  STDLIB="$T/stdlib.sh" LOG_PATH="$T/log" awk '{
-      sub(/\/usr\/local\/lib\/shell-stdlib.sh/, ENVIRON["STDLIB"])
-      sub(/SYSTEM_LOG="\/var\/log\/rkhunter.log"/,
-        "SYSTEM_LOG=\"" ENVIRON["LOG_PATH"] "\"")
-      print
-    }' \
-    "$BATS_TEST_DIRNAME/../../programs/security/rkhunter/scripts/${scan_script}" \
-    > "$T/scan.sh"
+  # The scan script, pointed at the test's stdlib and log.
+  cp "$BATS_TEST_DIRNAME/../../programs/security/rkhunter/scripts/${scan_script}" \
+    "$T/scan.sh"
+  local stdlib_edit="s|/usr/local/lib/shell-stdlib.sh|$T/stdlib.sh|"
+  local log_edit="s|SYSTEM_LOG=\"/var/log/rkhunter.log\"|SYSTEM_LOG=\"$T/log\"|"
+  # Swap in the test's stdlib and log.
+  sed -i "$stdlib_edit" "$T/scan.sh"
+  sed -i "$log_edit" "$T/scan.sh"
 }
 
 teardown() { rm -rf "$T"; }
@@ -52,6 +52,7 @@ teardown() { rm -rf "$T"; }
   # Audit Run 20261004: from the timer SUDO_USER is unset, the stdlib
   # notifier returns 1, and set -e killed a scan that had already run
   local notify_signature="send_user_notification()"
+  # A notifier that always fails.
   sed -i "s|$notify_signature { :; }|$notify_signature { return 1; }|" \
     "$T/stdlib.sh"
   UPDATE_RC=0 PATH="$T/bin:$PATH" run bash "$T/scan.sh"
@@ -67,6 +68,7 @@ teardown() { rm -rf "$T"; }
   chmod +x "$T/bin/loginctl"
   local notify_signature='send_user_notification()'
   local notify_stub="$notify_signature { echo \"to=\${SUDO_USER:-}\" >> '$T/notify'; }"
+  # A notifier that records whom it would notify.
   sed -i "s|$notify_signature { :; }|$notify_stub|" \
     "$T/stdlib.sh"
   UPDATE_RC=0 PATH="$T/bin:$PATH" run env -u SUDO_USER bash "$T/scan.sh"

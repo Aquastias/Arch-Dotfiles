@@ -56,11 +56,24 @@ print_status info "Adding NAT masquerading for libvirt VMs..."
 
 # External interface detection only works in a booted system; fall back to a
 # known-good default for the chroot phase. Override via UFW_EXT_IF env var.
+# _install_default_route_device — the device of the default route: the word
+# after "dev" in `ip route show default`.
+_install_default_route_device() {
+  local -a words
+  local i
+  read -ra words < <(ip route show default 0.0.0.0/0 2>/dev/null)
+  for i in "${!words[@]}"; do
+    if [[ "${words[i]}" == dev ]]; then
+      printf '%s\n' "${words[i + 1]:-}"
+      return 0
+    fi
+  done
+}
+
 EXT_IF="${UFW_EXT_IF:-}"
 if [[ -z "$EXT_IF" ]]; then
   if command_exists ip; then
-    EXT_IF="$(ip route show default 0.0.0.0/0 2>/dev/null \
-      | awk '{for(i=1;i<=NF;i++){if($i=="dev"){print $(i+1); exit}}}')"
+    EXT_IF="$(_install_default_route_device)"
   fi
 fi
 if [[ -z "$EXT_IF" ]]; then
@@ -75,12 +88,14 @@ if ! sudo test -f "${BEFORE_RULES}.bak"; then
 fi
 
 if ! sudo grep -q 'POSTROUTING -s 192.168.122.0/24 -o' "$BEFORE_RULES"; then
-  sudo sed -i '/^\*filter/i \
-# NAT table rules for libvirt VMs\n\
-*nat\n\
-:POSTROUTING ACCEPT [0:0]\n\
--A POSTROUTING -s 192.168.122.0/24 -o '"$EXT_IF"' -j MASQUERADE\n\
-COMMIT\n' "$BEFORE_RULES"
+  # The NAT rules for libvirt VMs go right before the *filter table.
+  nat_rules="# NAT table rules for libvirt VMs
+*nat
+:POSTROUTING ACCEPT [0:0]
+-A POSTROUTING -s 192.168.122.0/24 -o ${EXT_IF} -j MASQUERADE
+COMMIT
+"
+  insert_before_matching "$BEFORE_RULES" '^\*filter' "$nat_rules"
   print_status success "NAT masquerade rules added to $BEFORE_RULES"
 else
   print_status info "NAT masquerade rules already exist in $BEFORE_RULES"

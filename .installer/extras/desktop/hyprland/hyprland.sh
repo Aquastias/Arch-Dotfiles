@@ -71,9 +71,10 @@ section "Hyprland core"
 # scans /usr/share unconditionally, so keeping it out of the curated dir is not
 # enough. NoExtract (in [options], before the install) holds across upgrades.
 _uwsm_session=usr/share/wayland-sessions/hyprland-uwsm.desktop
-grep -qxF "NoExtract = ${_uwsm_session}" "${ROOT}/etc/pacman.conf" \
-  || sed -i "/^\[options\]/a NoExtract = ${_uwsm_session}" \
-    "${ROOT}/etc/pacman.conf"
+if ! grep -qxF "NoExtract = ${_uwsm_session}" "${ROOT}/etc/pacman.conf"; then
+  append_after_matching "${ROOT}/etc/pacman.conf" '^\[options\]' \
+    "NoExtract = ${_uwsm_session}"
+fi
 rm -f "${ROOT}/${_uwsm_session}"
 pacman -S --noconfirm --needed \
   hyprland \
@@ -137,7 +138,7 @@ DESKTOP
 # black-screening only the uwsm session while start-hyprland and Plasma work.
 # start-hyprland is the sole Hyprland session. The check reads the full resolved
 # desktop set, so it is independent of adapter execution order.
-read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
+read -ra _desktops < <(printf '%s\n' "${ENVIRONMENT_DESKTOP:-}")
 _has_kde=false
 for _desktop in "${_desktops[@]}"; do
   [[ "$_desktop" == "kde" ]] && { _has_kde=true; break; }
@@ -167,6 +168,7 @@ fi
 _hyprland_gpu_vendors() {
   local state="${STATE:-/root/lib-chroot/install-state.json}"
   [[ -f "$state" ]] || return 0
+  # The resolved GPU vendors, one per line.
   jq -r '.gpu[]?' "$state" 2>/dev/null
 }
 
@@ -189,13 +191,14 @@ _hyprland_aquamarine_pin() {
   }
   section "Aquamarine DRM pinning (hybrid GPU)"
   local rule="${ROOT}/usr/lib/udev/rules.d/60-aq-drm-devices.rules"
-  mkdir -p "${rule%/*}"
+  mkdir -p "$(dirname "$rule")"
   _hyprland_aquamarine_udev_rule > "$rule"
 
   local env="${ROOT}/etc/environment"
-  mkdir -p "${env%/*}"
-  [[ -f "$env" ]] && sed -i \
-    '/# >>> arch-dotfiles gpu/,/# <<< arch-dotfiles gpu/d' "$env"
+  mkdir -p "$(dirname "$env")"
+  # Drop an earlier gpu block, then write the current one.
+  [[ -f "$env" ]] \
+    && remove_block "$env" '# >>> arch-dotfiles gpu' '# <<< arch-dotfiles gpu'
   {
     echo '# >>> arch-dotfiles gpu (nvidia PRIME hybrid; see hyprland.sh)'
     echo '# Compositor on the iGPU only — the dGPU is off/on-demand; per-app'

@@ -22,7 +22,7 @@ noctalia_skeleton_seed() {
          "skel gets no Noctalia config."
     return 0
   fi
-  local skeleton="${NOCTALIA_SEED_ROOT%/}/etc/skel"
+  local skeleton="$NOCTALIA_SEED_ROOT/etc/skel"
   _noctalia_skeleton_seed_compositor_config "$skeleton" "$config_source" \
     "$config_destination"
   _noctalia_skeleton_seed_shell_files "$skeleton"
@@ -42,9 +42,9 @@ _noctalia_skeleton_seed_compositor_config() {
   # always ships beside it.
   local _dropin_source _dropin_destination
   _dropin_source="${NOCTALIA_CURATED_DIR}"
-  _dropin_source+="/$(parent_directory "$config_source")/conf.d"
+  _dropin_source+="/$(dirname "$config_source")/conf.d"
   _dropin_destination="${skeleton}"
-  _dropin_destination+="/$(parent_directory "$config_destination")/conf.d"
+  _dropin_destination+="/$(dirname "$config_destination")/conf.d"
   install -d "$_dropin_destination"
   install -m644 "$_dropin_source"/* "$_dropin_destination/"
   # VM-only software cursor: virtio-gpu's DRM cursor plane is buggy in a guest
@@ -56,7 +56,9 @@ _noctalia_skeleton_seed_compositor_config() {
   # an [input.cursor] table.
   # (Harmless if detect-virt is unavailable — no-ops, real-HW config stands.)
   if systemd-detect-virt --vm --quiet 2>/dev/null; then
-    local _current_extension="${config_destination##*.}"
+    local _current_extension
+    # The config's extension: the text after its last ".".
+    _current_extension="$(printf '%s\n' "$config_destination" | tr '.' '\n' | tail -n 1)"
     local _current_target
     _current_target="${_dropin_destination}/environment.${_current_extension}"
     case "$_current_extension" in
@@ -70,8 +72,25 @@ _noctalia_skeleton_seed_compositor_config() {
       printf '\n[input.cursor]\nhardware_cursor = false\n' \
         >> "$_current_target" ;;
     esac
-    info "VM detected — SW-cursor override seeded into ${_current_target##*/}."
+    info "VM detected — SW-cursor override seeded into" \
+      "$(basename "$_current_target")."
   fi
+}
+
+# _noctalia_skeleton_add_kcolorscheme <config.toml> — add "kcolorscheme"
+# as the first item of the config's `builtin_ids = [` list. The file keeps
+# its owner and mode.
+_noctalia_skeleton_add_kcolorscheme() {
+  local file="$1" line edited
+  edited="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    if [[ "$line" =~ ^[[:space:]]*builtin_ids\ =\ \[ ]]; then
+      printf '        "kcolorscheme",\n'
+    fi
+  done < "$file" > "$edited"
+  cat "$edited" > "$file"
+  rm -f "$edited"
 }
 
 _noctalia_skeleton_seed_shell_files() {
@@ -88,8 +107,7 @@ _noctalia_skeleton_seed_shell_files() {
   # off on combined boxes for lack of that reset. Injected into the SEEDED copy
   # (not the committed config.toml) so a hand-stow without the installer's KDE
   # reset never leaks; the injection and the reset ship together per install.
-  sed -i '/^[[:space:]]*builtin_ids = \[/a\        "kcolorscheme",' \
-    "${skeleton}/.config/noctalia/config.toml"
+  _noctalia_skeleton_add_kcolorscheme "${skeleton}/.config/noctalia/config.toml"
   info "Enabled kcolorscheme so KDE-framework apps follow Noctalia (ADR 0123)."
   # User-template inputs (ADR 0128/0129): config.toml declares
   # [theme.templates.user.*] (pi, zsh, p10k-accent); their input_path files

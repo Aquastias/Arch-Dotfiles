@@ -14,7 +14,8 @@ _probe_cups_print() {
   pid=$!; sleep 3
   if lpadmin -p fa-audit -E -v ipp://localhost:8631/ipp/print -m everywhere
   then
-    id="$(echo "Feature Audit test page" | lp -d fa-audit | awk '{print $4}')"
+    # The job id: word 4 of lp's "request id is <id> (1 file(s))".
+    id="$(echo "Feature Audit test page" | lp -d fa-audit | cut -d' ' -f4)"
     for _ in $(seq 60); do
       if lpstat -W completed -o fa-audit 2>/dev/null | grep -q "$id"; then
         rc=0; break
