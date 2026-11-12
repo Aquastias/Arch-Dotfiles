@@ -21,13 +21,16 @@
 # =============================================================================
 
 # shellcheck source=./install-config.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F install_config_use_json >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/install-config.sh"
 # shellcheck source=./layer-resolver.sh
 declare -F layer_resolver_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 # shellcheck source=./program-registry.sh
-declare -F _program_registry_merge >/dev/null 2>&1 \
+declare -F _program_registry_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/program-registry.sh"
 
 # shellcheck source=../picker.sh
@@ -74,9 +77,12 @@ profile_loader_directory() {
   printf '%s\n' "$directory"
 }
 
+# _profile_loader_load <kind> <name> — the named profile of <kind> (hosts |
+# users) resolved over its core layer (and the Fleet Layer for a fleet host).
+# rc 1: no such profile (core only printed); 2: an error; 3: a reserved name.
 _profile_loader_load() {
   local kind="$1" name="$2"
-
+  local singular="${kind:0:${#kind}-1}"
   if [[ -z "${INSTALLER_DIR:-}" ]]; then
     echo "profile: INSTALLER_DIR is not set" >&2
     return 2
@@ -91,12 +97,12 @@ _profile_loader_load() {
   spec_file="$(profile_loader_directory "$kind" "$name")/profile.jsonc"
 
   if [[ ! -f "$core_file" ]]; then
-    echo "profile: missing ${kind%s} core profile: ${core_file}" >&2
+    echo "profile: missing ${singular} core profile: ${core_file}" >&2
     return 2
   fi
   local core_json
   if ! core_json="$(_program_registry_parse "$core_file")"; then
-    echo "profile: failed to parse ${kind%s} core profile: ${core_file}" >&2
+    echo "profile: failed to parse ${singular} core profile: ${core_file}" >&2
     return 2
   fi
 
@@ -108,12 +114,12 @@ _profile_loader_load() {
 
   local spec_json
   if ! spec_json="$(_program_registry_parse "$spec_file")"; then
-    echo "profile: failed to parse ${kind%s} profile: ${spec_file}" >&2
+    echo "profile: failed to parse ${singular} profile: ${spec_file}" >&2
     return 2
   fi
 
-  # Resolve through the Layer Resolver (ADR 0057) rather than the blanket concat
-  # _program_registry_merge does: with Host Core carrying real content, a core
+  # Resolve through the Layer Resolver (ADR 0057) rather than a blanket
+  # concat-and-merge: with Host Core carrying real content, a core
   # options.kernel of ["lts"] plus a host wanting ["zen"] would otherwise
   # install both. The menu resolves through the same module, so display and
   # install cannot disagree. A fleet host folds the Fleet Layer between the two
@@ -122,7 +128,7 @@ _profile_loader_load() {
   local fleet_json
   fleet_json="$(_profile_loader_fleet_layer "$kind" "$spec_json")" || return 2
   [[ -n "$fleet_json" ]] && layers+=("$fleet_json")
-  layer_resolver_resolve "${kind%s}" "${layers[@]}" "$spec_json"
+  layer_resolver_resolve "${singular}" "${layers[@]}" "$spec_json"
 }
 
 # _profile_loader_fleet_layer <kind> <profile-json> — the Fleet Layer JSON when
@@ -141,7 +147,10 @@ _profile_loader_fleet_layer() {
 
 # profile_loader_is_fleet_host <profile-json> — rc 0 when the Host Profile
 # declares `"fleet": true` (ADR 0157): the one test of "is this a fleet host".
-profile_loader_is_fleet_host() { jq -e '.fleet == true' <<<"$1" >/dev/null; }
+profile_loader_is_fleet_host() {
+  # Does the profile say fleet: true?
+  printf '%s\n' "$1" | jq -e '.fleet == true' >/dev/null
+}
 
 # profile_loader_folded_layers <profile-json> — the layers a Host Profile
 # resolves over, folded into one JSON: Host Core, plus the Fleet Layer for a
@@ -194,11 +203,11 @@ profile_loader_assemble_config() {
 # system.hostname becomes the profile name. Shared with the Guided profile
 # pick, so both front-ends name the machine alike.
 profile_loader_default_hostname() {
-  jq --arg name "$1" '
-    .system = (.system // {})
-    | .system.hostname =
-        (if (.system.hostname // "") == "" then $name else .system.hostname end)
-  ' <<<"$2"
+  local fallback='.system = (.system // {}) | .system.hostname ='
+  fallback+=' (if (.system.hostname // "") == "" then $name'
+  fallback+=' else .system.hostname end)'
+  # The config, its hostname filled in when absent or empty.
+  printf '%s\n' "$2" | jq --arg name "$1" "$fallback"
 }
 
 # =============================================================================
@@ -324,38 +333,6 @@ _PROFILE_SCHEMA_user=(
 _PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" \
   "conflicts[]" "system_services[]" "user_services[]" "stow_opt_in" )
 
-# The closed-schema check: the first (shortest) config path no schema pattern
-# admits, rendered dotted ("a.b[].c"); empty when every path is allowed.
-# shellcheck disable=SC2016 # a jq program, not shell
-_PROFILE_LOADER_SCHEMA_JQ='
-  def parse_pat:
-    split(".")
-    | map(if   . == "*"        then ["*"]
-          elif endswith("[]")  then [.[0:length-2], "[]"]
-          else [.] end)
-    | add;
-  def tokmatch($p; $t):
-    if   $t == "[]" then ($p|type) == "number"
-    elif $t == "*"  then ($p|type) == "string"
-    else ($p|type) == "string" and $p == $t end;
-  def okprefix($P; $path):
-    any($P[];
-      . as $t
-      | ($path|length) <= ($t|length)
-      and all(range(0; $path|length); tokmatch($path[.]; $t[.])));
-  def render:
-    . as $a
-    | reduce range(0; ($a|length)) as $i ("";
-        ($a[$i]) as $s
-        | if   ($s|type) == "number" then . + "[]"
-          elif $i == 0                then ($s|tostring)
-          else . + "." + ($s|tostring) end);
-  ($pats | split("\n") | map(select(length > 0) | parse_pat)) as $P
-  | [ $cfg | paths ]
-  | map(select(okprefix($P; .) | not))
-  | sort_by(length)
-  | if length == 0 then "" else (.[0] | render) end
-'
 
 # profile_loader_validate_schema <kind> <json> — kind ∈ {host, user, program}.
 # Emits nothing and returns 0 when every key is enumerated; otherwise calls
@@ -369,13 +346,18 @@ profile_loader_validate_schema() {
      return 1 ;;
   esac
 
-  local -n schema_patterns="_PROFILE_SCHEMA_${kind}"
   local patterns
-  printf -v patterns '%s\n' "${schema_patterns[@]}"
+  # The kind's schema patterns, one per line.
+  case "$kind" in
+  host) patterns="$(printf '%s\n' "${_PROFILE_SCHEMA_host[@]}")" ;;
+  user) patterns="$(printf '%s\n' "${_PROFILE_SCHEMA_user[@]}")" ;;
+  program) patterns="$(printf '%s\n' "${_PROFILE_SCHEMA_program[@]}")" ;;
+  esac
 
   local first_unknown_path
+  # The shortest config path no pattern allows (profile-loader-schema.jq).
   first_unknown_path="$(jq -rn --argjson cfg "$json" --arg pats "$patterns" \
-    "$_PROFILE_LOADER_SCHEMA_JQ")" || {
+    -f "${BASH_SOURCE[0]%/*}/profile-loader-schema.jq")" || {
     error "profile_loader_validate_schema: jq failed for ${kind} schema"
     return 1
   }
@@ -409,6 +391,7 @@ _profile_loader_reject_manual() {
 # write. rc 0 when valid or absent. Pure: reads its JSON argument only.
 _profile_loader_validate_bootloader() {
   local json="$1" name="${2:-<profile>}" bootloader
+  # The chosen bootloader (nothing when unset).
   bootloader="$(printf '%s' "$json" | jq -r '.options.bootloader // empty')"
   [[ -z "$bootloader" ]] && return 0
   bootloader_is_valid "$bootloader" && return 0
@@ -438,10 +421,12 @@ profile_loader_validate() {
   # malformed objects (bad firewall enum, non-bool toggles) — the closed schema
   # only guards key names, not the object/bool distinction at post_install.*.
   local post_install_json
+  # The post_install selection ({} when absent).
   post_install_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
   post_install_validate "$post_install_json" || return 1
 
   local -a users
+  # The declared users.
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
 
   local user user_json
@@ -457,14 +442,23 @@ profile_loader_validate() {
 
   program_registry_build
 
-  local -a host_programs user_programs
+  local -a host_programs
+  # The host programs.
   mapfile -t host_programs < <(printf '%s' "$host_json" \
     | jq -r '.host_programs[]?')
   _profile_loader_validate_program_configs "${host_programs[@]}" || return 1
+  _profile_loader_validate_user_programs "${users[@]}"
+}
 
-  for user in "${users[@]}"; do
+# _profile_loader_validate_user_programs <user>… — closed-schema-validate the
+# config.jsonc of every program each user's profile lists.
+_profile_loader_validate_user_programs() {
+  local user user_json
+  local -a user_programs
+  for user in "$@"; do
     [[ -n "$user" ]] || continue
     user_json="$(profile_loader_load_user "$user")"
+    # The user's programs.
     mapfile -t user_programs < <(printf '%s' "$user_json" \
       | jq -r '.programs[]?')
     _profile_loader_validate_program_configs "${user_programs[@]}" || return 1
@@ -483,6 +477,7 @@ _profile_loader_validate_program_configs() {
       return 1
     fi
     config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
+    # The program config as JSON (fails when missing or unparseable).
     if ! json="$(jsonc_strip "$config_file" 2>/dev/null \
                  | jq '.' 2>/dev/null)"; then
       error "profile_loader_validate: program '${program}' config.jsonc" \

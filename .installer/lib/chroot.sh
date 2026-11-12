@@ -42,6 +42,7 @@ declare -F prompt_secret >/dev/null 2>&1 \
 _CHROOT_STAGE_LIBCHROOT=(
   "lib/install-state.sh|install-state.sh"
   "lib/config/locale-parts.sh|locale-parts.sh"
+  "lib/config/locale-parts.awk|locale-parts.awk"
   "lib/packages/kernel.sh|kernel.sh"
   "lib/packages/microcode.sh|microcode.sh"
   "lib/boot/bootloader.sh|bootloader.sh"

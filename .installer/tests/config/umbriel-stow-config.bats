@@ -2,6 +2,7 @@
 # Tests: the curated Umbriel glue (ADR 0159) — split from
 # noctalia-stow-config.bats; shared setup in noctalia-stow-helpers.bash.
 
+load ../lib/text-helpers
 load noctalia-stow-helpers
 
 UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
@@ -19,8 +20,12 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 # Noctalia's umbriel template post-hook rewrites config.toml unless this line is
 # already exactly so — through the stow link, into the repo.
 @test "umbriel includes Noctalia's palette exactly as its post-hook writes it" {
-  grep -A1 -x '\[include.optional\]' "$UMB/config.toml" \
-    | grep -qx 'files = \["noctalia.toml"\]'
+  local table
+  table="$(first_line_matching "$UMB/config.toml" '^\[include\.optional\]$')"
+  [ -n "$table" ]
+  # The line right after the [include.optional] header.
+  [ "$(head -n "$((table + 1))" "$UMB/config.toml" | tail -n 1)" \
+    = 'files = ["noctalia.toml"]' ]
 }
 
 @test "umbriel autostarts Noctalia and the enable one-shot" {
@@ -42,7 +47,7 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 }
 
 @test "umbriel seeds no hardcoded output (ADR 0110)" {
-  run grep -rEq '^\[output' "$UMB"
+  run tree_has -E '^\[output' "$UMB"
   [ "$status" -ne 0 ]
 }
 
@@ -53,7 +58,7 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 # Close window on Meta+X across every desktop (ADR 0113); Mod+Q is freed.
 @test "umbriel closes the focused window on Mod+X, not Mod+Q (ADR 0113)" {
   grep -q '^"Mod+X" = .*window-close' "$UMB/conf.d/keybinds.toml"
-  run grep -rq '"Mod+Q"' "$UMB"
+  run tree_has '"Mod+Q"' "$UMB"
   [ "$status" -ne 0 ]
 }
 

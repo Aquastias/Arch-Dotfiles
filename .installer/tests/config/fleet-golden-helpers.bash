@@ -33,14 +33,28 @@ fleet_golden_snapshot() {
     done
     echo "## packages"
     package_resolver_resolve "$(profile_loader_load "$1")" \
-      | awk -F "\t" "{ print \$1 \"\t\" \$3 }" | sort -u
+      | cut -f1,3 | sort -u
   ' _ "$profile"
 }
 
 # fleet_golden_packages <profile> — the package names alone, sorted.
 fleet_golden_packages() {
-  fleet_golden_snapshot "$1" \
-    | awk '/^## packages$/ { on = 1; next } on { print $2 }' | sort -u
+  local _source package
+  # Each package row's package, each once.
+  while read -r _source package; do
+    printf '%s\n' "$package"
+  done < <(_fleet_golden_package_rows "$1") | sort -u
+}
+
+# _fleet_golden_package_rows <profile> — the snapshot's "<source> <package>"
+# rows, after its `## packages` header.
+_fleet_golden_package_rows() {
+  local line inside=0
+  while IFS= read -r line; do
+    (( inside )) && printf '%s\n' "$line"
+    [[ "$line" == "## packages" ]] && inside=1
+  done < <(fleet_golden_snapshot "$1")
+  return 0
 }
 
 # Laptop-only hardware AUR packages: ADR 0114's one software image covers
@@ -52,9 +66,12 @@ FLEET_LAPTOP_HARDWARE_PACKAGES=(
 # fleet_golden_shared_packages <profile> — fleet_golden_packages minus the
 # laptop-only hardware packages: what desktop and laptop must share.
 fleet_golden_shared_packages() {
-  local drop="${FLEET_LAPTOP_HARDWARE_PACKAGES[*]}"
-  fleet_golden_snapshot "$1" | awk -v drop="$drop" '
-    BEGIN { n = split(drop, list, " "); for (i = 1; i <= n; i++) skip[list[i]] }
-    /^## packages$/ { on = 1; next }
-    on && !($1 == "aur" && $2 in skip) { print $2 }' | sort -u
+  local source_name package hardware
+  # Each package row's package, the laptop-only AUR ones left out.
+  while read -r source_name package; do
+    for hardware in "${FLEET_LAPTOP_HARDWARE_PACKAGES[@]}"; do
+      [[ "$source_name" == aur && "$package" == "$hardware" ]] && continue 2
+    done
+    printf '%s\n' "$package"
+  done < <(_fleet_golden_package_rows "$1") | sort -u
 }

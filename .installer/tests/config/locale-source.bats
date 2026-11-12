@@ -96,7 +96,7 @@ teardown() { rm -rf "$FIXROOT"; }
   : > "$FIXROOT/usr/share/kbd/consolefonts/Lat2-Terminus16.psfu.gz"
   run locale_source_console_fonts
   [ "$status" -eq 0 ]
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 3 ]
+  [ "$(printf '%s\n' "$output" | wc -l)" -eq 3 ]
   echo "$output" | grep -qx "default8x16"
   echo "$output" | grep -qx "ter-116n"
   echo "$output" | grep -qx "Lat2-Terminus16"

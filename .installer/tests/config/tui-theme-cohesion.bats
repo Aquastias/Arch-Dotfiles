@@ -4,6 +4,8 @@
 # runtime-rewritten, so it must never be stowed; git/less/ripgrep/fd render
 # default ANSI; neovim now follows via its own template (ADR 0136), not ANSI-16.
 
+load ../lib/text-helpers
+
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."       # .installer/tests/config → repo root
 }
@@ -25,5 +27,5 @@ setup() {
   # served from the dev/nvim program — no repo-root .config/nvim remains.
   local plugins_directory="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/plugins"
   [ ! -e "$REPO/.config/nvim" ]
-  grep -rq 'catppuccin' "$plugins_directory"
+  tree_has 'catppuccin' "$plugins_directory"
 }

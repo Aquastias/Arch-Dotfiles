@@ -6,19 +6,21 @@
 # Post-Config Hook runs Doom's install against it.
 # Helpers: emacs-program-helpers.bash.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
 load emacs-program-helpers
 
 # ── program definition ───────────────────────────────────────────────────────
 
 @test "dev/emacs config.jsonc declares an opt-in user-kind program" {
   [ -f "$CFG" ]
-  jsonc_strip "$CFG" | jq -e '.name == "emacs" and .kind == "user"'
-  jsonc_strip "$CFG" | jq -e '.stow_opt_in == true'   # ADR 0160
+  json_satisfies "$(jsonc_strip "$CFG")" '.name == "emacs" and .kind == "user"'
+  json_satisfies "$(jsonc_strip "$CFG")" '.stow_opt_in == true'   # ADR 0160
 }
 
 @test "Emacs is opt-in: not in User Core, listed by the operator" {
   ! grep -q '"emacs"' "$UCORE"
-  jsonc_strip "$OPERATOR" | jq -e '.programs | index("emacs") != null'
+  json_satisfies "$(jsonc_strip "$OPERATOR")" '.programs | index("emacs") != null'
 }
 
 @test "install.sh has the mandated shape and starts no service" {
@@ -113,11 +115,12 @@ load emacs-program-helpers
 
 @test "a no-name ./stow-configs.sh sweep skips emacs (ADR 0160)" {
   source "$REPO/.installer/lib/config/config-apply.sh"
-  local root="$REPO/.installer/programs"
-  config_apply_stow_opted_in_programs "$root" | jq -e 'index("emacs") != null'
-  config_apply_stow_selection "$(config_apply_ships_home_list "$root")" \
-    '[]' '[]' "$(config_apply_stow_opted_in_programs "$root")" \
-    | jq -e 'index("emacs") == null'
+  local root="$REPO/.installer/programs" opted_in selection
+  opted_in="$(config_apply_stow_opted_in_programs "$root")"
+  selection="$(config_apply_stow_selection \
+    "$(config_apply_ships_home_list "$root")" '[]' '[]' "$opted_in")"
+  json_satisfies "$opted_in" 'index("emacs") != null'
+  json_satisfies "$selection" 'index("emacs") == null'
 }
 
 # ── languages on the system toolchain (ADR 0160) ─────────────────────────────
@@ -132,31 +135,45 @@ load emacs-program-helpers
 }
 
 @test "Emacs Coverage Map keys == Language Registry keys (ADR 0160)" {
-  diff <(registry_keys | sort) \
-    <(data_rows "$REPO/$COVERAGE_REL" | awk '{ print $1 }' | sort -u)
+  local key _rest
+  # The Coverage Map's keys (each row's first column), each once.
+  diff <(registry_keys | sort) <(while read -r key _rest; do
+      printf '%s\n' "$key"
+    done < <(data_rows "$REPO/$COVERAGE_REL") | sort -u)
 }
 
 @test "every Coverage Map module is enabled and every package declared" {
-  local token
+  local token tokens
+  local -a fields
+  # Every token a row names: the columns after its key (n/a names none).
+  tokens="$(while read -ra fields; do
+      (( ${#fields[@]} > 1 )) || continue
+      [[ "${fields[1]}" == n/a ]] && continue
+      printf '%s\n' "${fields[@]:1}"
+    done < <(data_rows "$REPO/$COVERAGE_REL"))"
   while read -r token; do
     case "$token" in
+    # :lang/<module>: the module is enabled in init.el.
     :lang/*) elisp "$DOOMDIR/init.el" \
-        | grep -qE "(^|[[:space:](])${token#:lang/}([[:space:])]|$)" \
+        | grep -qE "(^|[[:space:](])${token:6}([[:space:])]|$)" \
         || { echo "module off: $token"; false; } ;;
+    # pkg:<package>: packages.el declares it.
     pkg:*) elisp "$DOOMDIR/packages.el" \
-        | grep -qF "(package! ${token#pkg:} " \
+        | grep -qF "(package! ${token:4} " \
         || { echo "package missing: $token"; false; } ;;
     builtin:*) ;;
     *) echo "unknown token: $token"; false ;;
     esac
-  done < <(data_rows "$REPO/$COVERAGE_REL" \
-    | awk '$2 != "n/a" { for (i = 2; i <= NF; i++) print $i }')
+  done < <(printf '%s\n' "$tokens")
 }
 
 @test "an n/a Coverage Map row states a reason" {
-  run bash -c "$(declare -f data_rows); data_rows '$REPO/$COVERAGE_REL' \
-    | awk '\$2 == \"n/a\" && NF < 3'"
-  [ -z "$output" ]
+  local -a fields
+  while read -ra fields; do
+    # An n/a row needs a reason after it.
+    [[ "${fields[1]:-}" == n/a ]] || continue
+    (( ${#fields[@]} >= 3 )) || { echo "no reason: ${fields[0]}"; false; }
+  done < <(data_rows "$REPO/$COVERAGE_REL")
 }
 
 # Each Registry server → the system binary eglot must launch and the Fleet
@@ -166,8 +183,9 @@ load emacs-program-helpers
   while read -r binary package; do
     elisp "$DOOMDIR/config.el" | grep -qF "\"$binary\"" \
       || { echo "no eglot client for $binary"; false; }
+    # "@nvim:<package>": installed by dev/nvim.
     if [[ "$package" == @nvim:* ]]; then
-      grep -q "needed ${package#@nvim:}" \
+      grep -q "needed ${package:6}" \
         "$REPO/.installer/programs/dev/nvim/install.sh"
     else
       grep -q "\"$package\"" "$REPO/$FLEET_REL" \
@@ -232,8 +250,10 @@ EOF_
 @test "manual-only formatters (shfmt, kdlfmt, taplo) skip format on save" {
   local mode
   for mode in sh-mode kdl-mode conf-toml-mode; do
+    # The format-on-save-disabled modes list names the mode.
     elisp "$DOOMDIR/config.el" \
-      | awk '/\+format-on-save-disabled-modes/,/\)\)/' | grep -qw "$mode" \
+      | lines_between '\+format-on-save-disabled-modes' '\)\)' \
+      | grep -qw "$mode" \
       || { echo "$mode formats on save"; false; }
   done
   [ "$(grep -c "format_on_save = false" "$REPO/$LANGS_REL")" -eq 3 ]
@@ -285,6 +305,6 @@ EOF_
 # Audit Run: the runner passes FA_DIR with a trailing slash; Emacs' `load'
 # reads "dir//file" as "/file", so the judge silently judged nothing.
 @test "audit.sh drops FA_DIR's trailing slash and fails an empty judge" {
-  grep -qF 'fixtures="${FA_DIR%/}/audit-fixtures"' "$PROG/audit.sh"
+  grep -qF 'fixtures="$(readlink -m "$FA_DIR")/audit-fixtures"' "$PROG/audit.sh"
   grep -qF 'feature_audit_fail emacs-binds' "$PROG/audit.sh"
 }

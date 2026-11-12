@@ -92,13 +92,15 @@ _environment_gpu_display_lines() {
 # libva-intel-driver; an unreadable id keeps the modern default. Needs lspci,
 # so it lives here, not in the pure map.
 _environment_gpu_intel_refine() {
-  local device_id decimal_id
-  device_id="$(_environment_gpu_display_lines | awk '
-    tolower($0) ~ /intel/ && match($0, /8086:[0-9a-fA-F]+/) {
-      print substr($0, RSTART + 5, RLENGTH - 5); exit
-    }')"
-  if [[ -n "$device_id" ]]; then
-    decimal_id=$(( 16#$device_id ))
+  local intel_lines device_pair decimal_id
+  # The display lines that mention Intel (in lower case).
+  intel_lines="$(_environment_gpu_display_lines \
+    | tr '[:upper:]' '[:lower:]' | grep intel || true)"
+  # The first "8086:<device id>" on them.
+  device_pair="$(printf '%s\n' "$intel_lines" \
+    | grep -oE '8086:[0-9a-f]+' | head -n 1 || true)"
+  if [[ -n "$device_pair" ]]; then
+    decimal_id=$(( 16#${device_pair:5} ))
     if (( decimal_id >= 0x1600 )); then echo "intel-media-driver"
     else echo "libva-intel-driver"; fi
   else
@@ -110,18 +112,20 @@ _environment_gpu_intel_refine() {
 # Returns "vm" for recognised VM GPUs; nothing for unknown.
 _environment_gpu_detect_vendors() {
   local lspci_output
-  lspci_output="$(_environment_gpu_display_lines)"
+  # The display lines, in lower case (vendor names match in any case).
+  lspci_output="$(_environment_gpu_display_lines | tr '[:upper:]' '[:lower:]')"
   local found=false
 
-  if echo "$lspci_output" \
-      | grep -qiP '15ad:|1af4:1050|VMware|Virtio GPU|VirtualBox'; then
+  if [[ "$lspci_output" == *15ad:* || "$lspci_output" == *1af4:1050* \
+        || "$lspci_output" == *vmware* || "$lspci_output" == *"virtio gpu"* \
+        || "$lspci_output" == *virtualbox* ]]; then
     echo "vm"
     return
   fi
 
-  echo "$lspci_output" | grep -qi '1002:'  && { echo "amd";    found=true; }
-  echo "$lspci_output" | grep -qi '10de:'  && { echo "nvidia"; found=true; }
-  echo "$lspci_output" | grep -qi '8086:'  && { echo "intel";  found=true; }
+  [[ "$lspci_output" == *1002:* ]] && { echo "amd";    found=true; }
+  [[ "$lspci_output" == *10de:* ]] && { echo "nvidia"; found=true; }
+  [[ "$lspci_output" == *8086:* ]] && { echo "intel";  found=true; }
 
   if ! $found; then
     warn "GPU auto-detection: no recognised vendor in lspci output" \
@@ -245,12 +249,15 @@ _environment_validate_stock() {
 # authored as a string or an array; nothing otherwise.
 _environment_read_list() {
   local key="$1" key_type
+  # The key's JSON type (null when absent).
   key_type="$(jsonc_strip "$CONFIG_FILE" \
     | jq -r ".environment.${key} | type // \"null\"")"
   case "$key_type" in
     string)
+      # The one string, as a one-entry list.
       jsonc_strip "$CONFIG_FILE" | jq -r "[.environment.${key}] | .[]" ;;
     array)
+      # The list, entry by entry.
       jsonc_strip "$CONFIG_FILE" | jq -r ".environment.${key}[]?" ;;
   esac
 }

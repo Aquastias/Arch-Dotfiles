@@ -8,6 +8,8 @@
 # Behaviour under test (external only — the decision the helper produces), never
 # internal structure. Prior art: tests/config/post-install.bats.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -54,35 +56,35 @@ setup() {
 
 @test "printing_inject: on adds cups to an empty host_programs" {
   run printing_inject '{"options":{"printing":{"enabled":true}}}'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
+  output_satisfies '.host_programs == ["cups"]'
 }
 
 @test "printing_inject: on preserves existing programs and appends cups" {
   run printing_inject '{"host_programs":["grub"],
                         "options":{"printing":{"enabled":true}}}'
-  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
+  output_satisfies '.host_programs == ["grub","cups"]'
 }
 
 @test "printing_inject: idempotent when cups already present" {
   run printing_inject '{"host_programs":["cups"],
                         "options":{"printing":{"enabled":true}}}'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
+  output_satisfies '.host_programs == ["cups"]'
 }
 
 @test "printing_inject: default-on (absent toggle) still injects cups" {
   run printing_inject '{"host_programs":["grub"]}'
-  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
+  output_satisfies '.host_programs == ["grub","cups"]'
 }
 
 @test "printing_inject: off is a no-op (no cups, existing kept)" {
   run printing_inject '{"host_programs":["grub"],
                         "options":{"printing":{"enabled":false}}}'
-  echo "$output" | jq -e '.host_programs == ["grub"]'
+  output_satisfies '.host_programs == ["grub"]'
 }
 
 @test "printing_inject: off leaves a config with no host_programs untouched" {
   run printing_inject '{"options":{"printing":{"enabled":false}}}'
-  echo "$output" | jq -e 'has("host_programs") | not'
+  output_satisfies 'has("host_programs") | not'
 }
 
 # ── printing_owned_programs: the picker-filter set ──────────────────────────

@@ -80,3 +80,9 @@
 .installer/tests/config/guided-users.bats
 .installer/tests/config/lifecycle-summary.bats
 .installer/tests/guided/emit.bats
+
+# Ticket 11 — config part B (every other config module), with the config
+# tests.
+.installer/lib/config/**
+.installer/tests/config/*
+.installer/tests/lib/language-registry.awk

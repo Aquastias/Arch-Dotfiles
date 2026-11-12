@@ -27,7 +27,7 @@ declare -F config_state_emit >/dev/null 2>&1 \
 declare -F layer_resolver_additive_keys >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 # shellcheck source=./program-registry.sh
-declare -F _program_registry_merge >/dev/null 2>&1 \
+declare -F _program_registry_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/program-registry.sh"
 # shellcheck source=../picker.sh
 declare -F picker_assign_disks >/dev/null 2>&1 \

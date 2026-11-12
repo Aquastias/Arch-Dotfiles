@@ -42,8 +42,7 @@ profiles_list() {
   local root="${1:?profiles_list needs a hosts root}" host_directory name
   for host_directory in "$root"/*/; do
     [[ -d "$host_directory" ]] || continue
-    name="${host_directory%/}"
-    name="${name##*/}"
+    name="$(basename "$host_directory")"
     [[ "$name" == "vm" ]] && continue
     profile_loader_is_layer hosts "$name" && continue
     [[ -f "${host_directory}profile.jsonc" ]] || continue
@@ -56,17 +55,17 @@ profiles_list() {
 # for the picker's preview pane. Emits nothing when the file has no leading
 # comment (the caller renders the "(no description …)" fallback) or is missing.
 profiles_header() {
-  local root="${1:?}" name="${2:?}" profile_file
-  profile_file="${root%/}/${name}/profile.jsonc"
+  local root="${1:?}" name="${2:?}" profile_file line
+  profile_file="${root}/${name}/profile.jsonc"
   [[ -f "$profile_file" ]] || return 0
-  awk '
-    /^[[:space:]]*\/\// {
-      sub(/^[[:space:]]*\/\/[[:space:]]?/, "")
-      print
-      next
-    }
-    { exit }
-  ' "$profile_file"
+  while IFS= read -r line; do
+    # Leading whitespace off; the block ends at the first non-// line.
+    while [[ "$line" == [[:space:]]* ]]; do line="${line:1}"; done
+    [[ "$line" == //* ]] || return 0
+    line="${line:2}"
+    [[ "$line" == [[:space:]]* ]] && line="${line:1}"
+    printf '%s\n' "$line"
+  done < "$profile_file"
 }
 
 # profiles_baseline <name> — the Guided baseline after picking Host Profile
@@ -82,6 +81,7 @@ profiles_baseline() {
   profile="$(profile_loader_load "$name" 2>/dev/null)" || return 1
   profile="$(profile_loader_default_hostname "$name" "$profile")"
   profile="$(skeleton_flatten_devices "$profile")"
+  # The Install Defaults with the profile laid over them.
   jq -n --argjson defaults "$(config_state_install_defaults '{}')" \
     --argjson profile "$profile" '$defaults * $profile'
 }

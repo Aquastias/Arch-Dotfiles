@@ -6,6 +6,8 @@
 # effective config the loader produces + profile_loader_validate's verdict — never how
 # the profile file is laid out. Prior art: profile-loader-*.bats.
 
+load ../lib/json-helpers
+
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   info()    { :; }
@@ -21,7 +23,7 @@ setup() {
 # ── each profile merges with core and carries the new machine shape ─────────
 
 flags_on() {  # <profile-name>
-  profile_loader_load "$1" | jq -e '
+  json_satisfies "$(profile_loader_load "$1")" '
     .filesystem == "zfs"
     and .options.encryption == true
     and .options.impermanence.enabled == true
@@ -36,12 +38,12 @@ flags_on() {  # <profile-name>
 # resolves onto both real machines (desktop, laptop) with no per-profile
 # packages block.
 @test "discord (from the Fleet Layer) resolves onto desktop and laptop" {
-  profile_loader_load desktop | jq -e '[.packages.repo[]?[]?] | index("discord")'
-  profile_loader_load laptop  | jq -e '[.packages.repo[]?[]?] | index("discord")'
+  json_satisfies "$(profile_loader_load desktop)" '[.packages.repo[]?[]?] | index("discord")'
+  json_satisfies "$(profile_loader_load laptop)" '[.packages.repo[]?[]?] | index("discord")'
 }
 
 @test "laptop: encrypted, ssh-enabled zfs (impermanence disabled)" {
-  profile_loader_load laptop | jq -e '
+  json_satisfies "$(profile_loader_load laptop)" '
     .filesystem == "zfs"
     and .options.encryption == true
     and (.options.impermanence.enabled // false) == false
@@ -50,26 +52,26 @@ flags_on() {  # <profile-name>
 
 # /home and /var (docker, libvirt) are persistent ZFS datasets already.
 @test "desktop: has no persist block (its paths are on persistent datasets)" {
-  profile_loader_load desktop | jq -e '(.persist // null) == null'
+  json_satisfies "$(profile_loader_load desktop)" '(.persist // null) == null'
 }
 
 @test "laptop: has no impermanence persist block (persistent root)" {
-  profile_loader_load laptop | jq -e '(.persist // null) == null'
+  json_satisfies "$(profile_loader_load laptop)" '(.persist // null) == null'
 }
 
 # ── the layouts are unchanged (desktop multi mirror+raidz1, laptop single) ──
 
 @test "desktop: keeps its rpool mirror x2 + data raidz1 x3 layout" {
   run profile_loader_load desktop
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
-  echo "$output" | jq -e '.storage_groups[0].topology == "raidz1"
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
+  output_satisfies '.storage_groups[0].topology == "raidz1"
                           and .storage_groups[0].disk_count == 3'
 }
 
 @test "laptop: keeps its single-disk layout" {
   run profile_loader_load laptop
-  echo "$output" | jq -e '.mode == "single"'
+  output_satisfies '.mode == "single"'
 }
 
 # ── validate-at-load passes for both (closed schema + config-sanity) ────────

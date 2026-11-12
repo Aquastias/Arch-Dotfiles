@@ -21,14 +21,15 @@ _LOCALE_PARTS_SH_SOURCED=1
 # .CODESET dropped, any @modifier kept. en_US.UTF-8→en_US,
 # sr_RS.UTF-8@latin→sr_RS@latin.
 locale_parts_language() {
-  awk '{ sub(/\.[^.@]*/, ""); print }' <<<"$1"
+  printf '%s\n' "$1" \
+    | awk -v part=language -f "${BASH_SOURCE[0]%/*}/locale-parts.awk"
 }
 
 # locale_parts_encoding <locale> → the CODESET (between . and any @), empty if
 # none.
 locale_parts_encoding() {
-  awk 'match($0, /\.[^.@]*/) { print substr($0, RSTART + 1, RLENGTH - 1) }' \
-    <<<"$1"
+  printf '%s\n' "$1" \
+    | awk -v part=encoding -f "${BASH_SOURCE[0]%/*}/locale-parts.awk"
 }
 
 # locale_parts_compose <language> <encoding> → the locale.gen name: <encoding>
@@ -36,10 +37,12 @@ locale_parts_encoding() {
 # Exactly one codeset is ever present, so recomposing an already-composed value
 # is a no-op.
 locale_parts_compose() {
-  local language="$1" encoding="$2"
+  local language="$1" encoding="$2" name modifier
   [[ -n "$encoding" ]] || { printf '%s\n' "$language"; return; }
   if [[ "$language" == *@* ]]; then
-    printf '%s.%s@%s\n' "${language%%@*}" "$encoding" "${language#*@}"
+    # The name before the @, and the modifier after it.
+    IFS=@ read -r name modifier < <(printf '%s\n' "$language")
+    printf '%s.%s@%s\n' "$name" "$encoding" "$modifier"
   else
     printf '%s.%s\n' "$language" "$encoding"
   fi
@@ -50,9 +53,16 @@ locale_parts_compose() {
 # uses); the variant is empty when none. Console names are not XKB layouts
 # (uk → gb, de-latin1 → de), so an unmapped name passes through as the layout.
 locale_parts_xkb() {
-  local keymap="$1" map_file="${2:-/usr/share/systemd/kbd-model-map}" mapped
-  mapped="$(awk -v k="$keymap" '$1 == k {
-      variant = ($4 == "-") ? "" : $4; print $2 " " variant; exit
-    }' "$map_file" 2>/dev/null)"
-  printf '%s\n' "${mapped:-$keymap }"
+  local keymap="$1" map_file="${2:-/usr/share/systemd/kbd-model-map}"
+  local console layout _model variant _rest
+  if [[ -r "$map_file" ]]; then
+    # Table rows: console keymap, X11 layout, model, variant ("-" = none), …
+    while read -r console layout _model variant _rest; do
+      [[ "$console" == "$keymap" ]] || continue
+      [[ "$variant" == "-" ]] && variant=""
+      printf '%s %s\n' "$layout" "$variant"
+      return 0
+    done < "$map_file"
+  fi
+  printf '%s \n' "$keymap"
 }

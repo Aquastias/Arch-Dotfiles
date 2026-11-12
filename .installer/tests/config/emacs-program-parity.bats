@@ -3,6 +3,8 @@
 # parity with the Neovim Config (ADR 0160). Where Doom's own binding collides
 # with the nvim map, nvim wins. Helpers: emacs-program-helpers.bash.
 
+load ../lib/json-helpers
+load ../lib/text-helpers
 load emacs-program-helpers
 
 # ── key parity with the Neovim Config: nvim wins (ADR 0160) ──────────────────
@@ -111,10 +113,9 @@ load emacs-program-helpers
 @test "install.sh adds vterm's build deps (Doom's vterm README)" {
   # join backslash-continued lines, so a package on line two still counts
   local installs
-  installs="$(awk '/\\$/ { sub(/\\$/, ""); printf "%s", $0; next } 1' \
-    "$INSTALL")"
-  grep -qE -- '--needed .*cmake' <<<"$installs"
-  grep -qE -- '--needed .*libvterm' <<<"$installs"
+  installs="$(join_continued "$INSTALL")"
+  printf '%s\n' "$installs" | grep -qE -- '--needed .*cmake'
+  printf '%s\n' "$installs" | grep -qE -- '--needed .*libvterm'
 }
 
 # ── theme: static by default, Noctalia follow on SPC u N (ADR 0160) ──────────
@@ -148,7 +149,7 @@ load emacs-program-helpers
   # The Arch Wiki's guarded server start; no emacs.service daemon.
   elisp "$DOOMDIR/config.el" | grep -qF '(unless (server-running-p)'
   elisp "$DOOMDIR/config.el" | grep -qF '(server-start)'
-  ! grep -rq 'emacs.service' "$PROG"
+  ! tree_has 'emacs.service' "$PROG"
 }
 
 @test "sapphire overlays Catppuccin only, never Noctalia's own accent" {
@@ -187,7 +188,8 @@ ORGMODE_REL=$ORGMODE_REL/orgmode.lua
 # ── debugging: dape on nvim-dap's system adapters (ADR 0140, 0160) ───────────
 
 @test "dape is declared, Doom's dap-mode debugger module is not" {
-  elisp "$DOOMDIR/packages.el" | grep -A1 -F '(package! dape ' \
+  # The dape declaration and the line after it carry a full commit pin.
+  elisp "$DOOMDIR/packages.el" | lines_between '\(package! dape ' '.' \
     | grep -qE ':pin "[0-9a-f]{40}"'
   ! module_enabled 'debugger'
 }
@@ -224,15 +226,16 @@ ORGMODE_REL=$ORGMODE_REL/orgmode.lua
 # the key; these autoload on it.
 @test "binds into lazily loaded packages autoload their command" {
   local block
+  # The autoload loop: from its dolist through the autoload call.
   block="$(elisp "$DOOMDIR/config.el" \
-    | awk '/^\(dolist \(package-commands/,/\(autoload command/')"
+    | lines_between '^\(dolist \(package-commands' '\(autoload command')"
   local command
   for command in dape-breakpoint-toggle dape-breakpoint-expression \
     dape-step-in dape-next dape-step-out dape-repl dape-restart dape-quit \
     dape-info eglot-code-action-organize-imports eglot-code-action-extract \
     eglot-code-actions eglot-code-action-inline eglot-inlay-hints-mode \
     undo-tree-visualize restclient-copy-curl-command; do
-    grep -qw -- "$command" <<<"$block" \
+    printf '%s\n' "$block" | grep -qw -- "$command" \
       || { echo "not autoloaded: $command"; false; }
   done
 }
@@ -240,6 +243,8 @@ ORGMODE_REL=$ORGMODE_REL/orgmode.lua
 # VM: binding vterm-shell before vterm loads made it lexical, so lazygit
 # never reached vterm ("Defining as dynamic an already lexical var").
 @test "the vterm runner loads vterm before binding vterm-shell" {
+  # The vterm runner's definition requires vterm.
   elisp "$DOOMDIR/config.el" \
-    | awk '/^\(defun \+parity--vterm-run/,/^$/' | grep -qF "(require 'vterm)"
+    | lines_between '^\(defun \+parity--vterm-run' '^$' \
+    | grep -qF "(require 'vterm)"
 }

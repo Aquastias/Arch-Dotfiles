@@ -25,6 +25,9 @@
 # =============================================================================
 
 # shellcheck source=./config-state.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F config_state_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 
@@ -167,22 +170,26 @@ menu_state_any_zfs() {
 # Matrix excludes the combination, both through this one predicate.
 # menu_state_encryption_locked <merged_state> → 0 when encryption is locked.
 menu_state_encryption_locked() {
-  jq -e '.filesystem == "btrfs"
-    and ((.mode // "") == "multi" or (.os_pool.disks // null) != null)' \
-    <<<"${1:-{\}}" >/dev/null
+  local locked='.filesystem == "btrfs" and ((.mode // "") == "multi"'
+  locked+=' or (.os_pool.disks // null) != null)'
+  # Is the root a multi-disk btrfs?
+  printf '%s\n' "${1:-{\}}" | jq -e "$locked" >/dev/null
 }
 
 # _menu_state_facts <override> <baseline> — what menu_rows needs from the merged
 # state (filesystem, disk kind, any-ZFS), read through the bound reader.
 _menu_state_facts() {
   local merged
+  local facts='{filesystem: $filesystem, disk_kind: $disk_kind,'
+  facts+=' any_zfs: $any_zfs}'
+  # The baseline with the overrides merged over it.
   merged="$(jq -cn --argjson o "$1" --argjson b "$2" '$b * $o')"
   (
     install_config_use_json "$merged"
+    # The three facts as one object.
     jq -n --arg filesystem "$(install_config_filesystem)" \
       --arg disk_kind "$(install_config_disk_kind)" \
-      --argjson any_zfs "$(install_config_any_zfs)" \
-      '{filesystem: $filesystem, disk_kind: $disk_kind, any_zfs: $any_zfs}'
+      --argjson any_zfs "$(install_config_any_zfs)" "$facts"
   )
 }
 
@@ -237,28 +244,29 @@ _MENU_CATEGORIES_JSON=""
 _menu_categories_json() {
   [[ -n "$_MENU_CATEGORIES_JSON" ]] \
     && { printf '%s' "$_MENU_CATEGORIES_JSON"; return; }
-  _MENU_CATEGORIES_JSON="$(printf '%s\n' "${_MENU_CATEGORIES[@]}" | jq -Rn \
-    '[inputs | split("|") | {name:.[0], summary:.[1], bucket:.[2]}]')"
+  local table
+  table='$rows | split("\n")'
+  table+=' | map(split("|") | {name:.[0], summary:.[1], bucket:.[2]})'
+  # One {name, summary, bucket} object per "name|summary|bucket" row.
+  _MENU_CATEGORIES_JSON="$(jq -cn \
+    --arg rows "$(printf '%s\n' "${_MENU_CATEGORIES[@]}")" "$table")"
   printf '%s' "$_MENU_CATEGORIES_JSON"
 }
 
 menu_categories() {
-  local rows; rows="$(menu_rows "$1" "${2:-{\}}")"
-  # One jq: fold "any field in this category is overridden" per category row.
+  local rows fold
+  rows="$(menu_rows "$1" "${2:-{\}}")"
   # Packages has no field rows (ADR 0086) — its edits are the repo/aur/exclude
   # drill — so its ● is lit from any package override in the map instead.
+  fold='[$cats[] | .name as $n | {name: $n, summary: .summary,'
+  fold+=' bucket: .bucket, overridden: (($rows | any(.[]; .section == $n'
+  fold+=' and .overridden)) or ($n == "Packages"'
+  fold+=' and (($ov.packages.repo // null) != null'
+  fold+=' or ($ov.packages.aur // null) != null'
+  fold+=' or ($ov.packages.exclude // null) != null)))}]'
+  # Each category row, overridden when any of its fields is.
   jq -n --argjson rows "$rows" --argjson cats "$(_menu_categories_json)" \
-    --argjson ov "$1" '
-    def pkg_override($n):
-      $n == "Packages"
-      and (($ov.packages.repo // null) != null
-           or ($ov.packages.aur // null) != null
-           or ($ov.packages.exclude // null) != null);
-    [ $cats[]
-      | .name as $n
-      | { name: $n, summary: .summary, bucket: .bucket,
-          overridden: (($rows | any(.[]; .section == $n and .overridden))
-                       or pkg_override($n)) } ]'
+    --argjson ov "$1" "$fold"
 }
 
 # menu_top_lines <override> [<baseline>] — the top screen's category block: each
@@ -266,16 +274,21 @@ menu_categories() {
 # "── <BUCKET> ──" header before each bucket's first category, and a blank spacer
 # between buckets (ADR 0081/0082). Pure; unit-testable in isolation.
 menu_top_lines() {
-  menu_categories "$1" "${2:-{\}}" | jq -r '
-    reduce .[] as $c ({prev: null, out: []};
-      .out += (if $c.bucket != .prev
-               then (if .prev == null then [] else [""] end)
-                    + ["── \($c.bucket) ──"]
-               else [] end)
-            + [ "\($c.name) — \($c.summary)"
-                + (if $c.overridden then "  ●" else "" end) ]
-      | .prev = $c.bucket)
-    | .out[]'
+  local bucket name summary overridden previous=""
+  local row='.[] | [.bucket, .name, .summary, .overridden] | @tsv'
+  # One "bucket<TAB>name<TAB>summary<TAB>overridden" line per category.
+  while IFS=$'\t' read -r bucket name summary overridden; do
+    if [[ "$bucket" != "$previous" ]]; then
+      [[ -n "$previous" ]] && printf '\n'
+      printf '── %s ──\n' "$bucket"
+      previous="$bucket"
+    fi
+    if [[ "$overridden" == true ]]; then
+      printf '%s — %s  ●\n' "$name" "$summary"
+    else
+      printf '%s — %s\n' "$name" "$summary"
+    fi
+  done < <(menu_categories "$1" "${2:-{\}}" | jq -r "$row")
 }
 
 # menu_render_value <config> <path> — the one-line rendering of <path>'s value in
@@ -285,16 +298,12 @@ menu_top_lines() {
 # scalars stringify. Shared by menu_rows (display) and the guided controller's
 # apply-time normalise (so "matches the default" is judged the way it displays).
 menu_render_value() {
-  # shellcheck disable=SC2016 # $p/$v are jq vars, must not expand in the shell
-  jq -r --arg p "$2" '
-    getpath($p | split(".")) as $v
-    | if   $v == null         then empty
-      elif ($v | type) == "array"  then
-        ($v | map(if type == "string" then . else (.name // tostring) end)
-            | join(", "))
-      elif ($v | type) == "object" then
-        ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
-      else ($v | tostring) end' <<<"$1"
+  local jq_path program
+  jq_path="$(_config_state_jq_path "$2")" || return 1
+  program="$(cat "${BASH_SOURCE[0]%/*}/menu-render.jq")"
+  program+=" ${jq_path} | select(. != null) | render(.; \"\")"
+  # The value at <path>, rendered (nothing when unset).
+  printf '%s\n' "$1" | jq -r "$program"
 }
 
 # _MENU_FIELDS_JSON — the field table (_MENU_FIELDS) as a JSON array, built once
@@ -303,9 +312,11 @@ menu_render_value() {
 _MENU_FIELDS_JSON=""
 _menu_fields_json() {
   [[ -n "$_MENU_FIELDS_JSON" ]] && { printf '%s' "$_MENU_FIELDS_JSON"; return; }
-  _MENU_FIELDS_JSON="$(printf '%s\n' "${_MENU_FIELDS[@]}" | jq -Rn \
-    '[inputs | split("|")
-      | {section:.[0], path:.[1], label:.[2], default:(.[3] // "")}]')"
+  local table='$rows | split("\n") | map(split("|")'
+  table+=' | {section:.[0], path:.[1], label:.[2], default:(.[3] // "")})'
+  # One {section, path, label, default} object per field row.
+  _MENU_FIELDS_JSON="$(jq -cn \
+    --arg rows "$(printf '%s\n' "${_MENU_FIELDS[@]}")" "$table")"
   printf '%s' "$_MENU_FIELDS_JSON"
 }
 
@@ -320,45 +331,19 @@ _menu_schema_defaults() {
   printf '%s' "$_MENU_SCHEMA_DEFAULTS"
 }
 
-# The jq helpers menu_rows renders with: render (array→", ", object→"k=v",
-# scalar→string, empty→default) and the locale projection.
-# shellcheck disable=SC2016 # a jq program, not shell
-_MENU_ROWS_JQ_DEFINITIONS='
-  # empty_label($path) — what an empty value means, for the rows where blank
-  # would read as unset (display only: the stored value stays empty).
-  def empty_label($path):
-    {"options.mirror_countries": "worldwide"}[$path] // "";
-  def render($v; $d):
-    (if   $v == null            then null
-     elif ($v | type) == "array"  then
-       ($v | map(if type == "string" then . else (.name // tostring) end)
-           | join(", "))
-     elif ($v | type) == "object" then
-       ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
-     else ($v | tostring) end) as $r
-    | if ($r == null or $r == "") then $d else $r end;
-  # Locale projection (ADR 0076): the canonical system.locale (element 0 when an
-  # array) split into its language identity (.CODESET dropped, @modifier kept)
-  # and its encoding (the CODESET). loc0 falls back to <fallback> (the schema
-  # install default) so the two leaves render their defaults on a fresh state.
-  def loc0($src; $fallback): ($src.system.locale) as $l
-    | (if ($l | type) == "array" then ($l[0] // "") else ($l // "") end)
-    | if . == "" then $fallback else . end;
-  def loc_lang($l): ($l | sub("\\.[^.@]+"; ""));
-  def loc_enc($l):
-    (if ($l | test("\\.[^.@]+")) then ($l | capture("\\.(?<e>[^.@]+)").e)
-     else "" end);
-'
-
 # menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
-# One jq call: merges baseline*override, derives the effective filesystem
-# (Impermanence hidden for ext4/xfs — ADR 0040), and per field renders the value
-# (array→", ", object→"k=v", scalar→string, empty→default) and the override-only
-# ● flag. Render logic mirrors menu_render_value / config_state_is_overridden.
+# One jq call (menu-render.jq + menu-rows.jq): merges baseline*override,
+# derives the effective filesystem (Impermanence hidden for ext4/xfs — ADR
+# 0040), and per field renders the value and the override-only ● flag.
 menu_rows() {
-  local state="$1" baseline="${2:-{\}}"
-  local lockpaths; lockpaths="$(menu_manual_locked_paths | jq -Rn '[inputs]')"
-  local zfslock; zfslock="$(menu_zfs_locked_paths | jq -Rn '[inputs]')"
+  local state="$1" baseline="${2:-{\}}" lists lockpaths zfslock program
+  lists='$lines | split("\n") | map(select(length > 0))'
+  # The locked paths as JSON arrays.
+  lockpaths="$(jq -cn --arg lines "$(menu_manual_locked_paths)" "$lists")"
+  zfslock="$(jq -cn --arg lines "$(menu_zfs_locked_paths)" "$lists")"
+  program="$(cat "${BASH_SOURCE[0]%/*}/menu-render.jq")"
+  program+="$(cat "${BASH_SOURCE[0]%/*}/menu-rows.jq")"
+  # The rows.
   jq -n \
     --argjson fields "$(_menu_fields_json)" \
     --argjson override "$state" \
@@ -367,43 +352,7 @@ menu_rows() {
     --argjson zfslock "$zfslock" \
     --argjson schema "$(_menu_schema_defaults)" \
     --argjson facts "$(_menu_state_facts "$state" "$baseline")" \
-    "${_MENU_ROWS_JQ_DEFINITIONS}"'
-    ($baseline * $override) as $m
-    | $facts.filesystem as $fs
-    | $facts.disk_kind as $kind
-    | loc0($schema; "") as $sloc
-    | loc0($m; $sloc) as $mloc
-    | loc0($baseline; $sloc) as $bloc
-    | (($override | getpath(["system","locale"])) != null) as $loc_ov
-    | [ $fields[]
-        | .path as $fp
-        | ($fp | split(".")) as $pp
-        | (if   $fp == "__language__" then loc_lang($sloc)
-           elif $fp == "__encoding__" then loc_enc($sloc)
-           elif .default != "" then .default
-           else render($schema | getpath($pp); "") end) as $def
-        | select($fp != "options.impermanence.enabled"
-                 or ($fs != "ext4" and $fs != "xfs"))
-        | { section: .section,
-            field:   $fp,
-            label:   .label,
-            value:
-              (if   $fp == "__language__"
-               then (loc_lang($mloc) | if . == "" then $def else . end)
-               elif $fp == "__encoding__"
-               then (loc_enc($mloc) | if . == "" then $def else . end)
-               else render($m | getpath($pp); $def)
-                 | if . == "" then empty_label($fp) else . end end),
-            overridden:
-              (if   $fp == "__language__"
-               then ($loc_ov and (loc_lang($mloc) != loc_lang($bloc)))
-               elif $fp == "__encoding__"
-               then ($loc_ov and (loc_enc($mloc) != loc_enc($bloc)))
-               else (($override | getpath($pp)) != null) end),
-            locked:  (($kind == "manual"
-                       and ($lockpaths | index($fp)) != null)
-                      or (($facts.any_zfs | not)
-                          and ($zfslock | index($fp)) != null)) } ]'
+    "$program"
 }
 
 # menu_category_rows <category> <override> [<baseline>] — the field rows for one
@@ -411,5 +360,7 @@ menu_rows() {
 # `section`. Same per-row shape as menu_rows.
 menu_category_rows() {
   local category="$1"
-  menu_rows "$2" "${3:-{\}}" | jq --arg c "$category" '[.[] | select(.section == $c)]'
+  # The rows of that category.
+  menu_rows "$2" "${3:-{\}}" \
+    | jq --arg c "$category" '[.[] | select(.section == $c)]'
 }

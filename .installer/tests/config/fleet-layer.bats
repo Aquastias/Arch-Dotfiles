@@ -3,6 +3,9 @@
 # Host Core → Fleet Layer → host by fleet hosts (`"fleet": true`) only. Runs
 # against the REAL tree — the point is what the committed profiles resolve to.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   export INSTALLER_DIR; INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   source "$INSTALLER_DIR/lib/common.sh"
@@ -13,40 +16,50 @@ setup() {
 
 # declared_names <profile-file> — every package and Host Program it declares.
 declared_names() {
-  jsonc_strip "$1" | jq -r '
-    ([.packages.repo // {}, .packages.aur // {}] | .[] | .[] | .[]),
-    (.host_programs // [])[]' | sort -u
+  local names='([.packages.repo // {}, .packages.aur // {}] | .[] | .[] | .[]),'
+  names+=' (.host_programs // [])[]'
+  # Every repo and AUR package and Host Program, each once.
+  jsonc_strip "$1" | jq -r "$names" | sort -u
 }
 
 fleet_names() { declared_names "$INSTALLER_DIR/hosts/fleet/profile.jsonc"; }
+
+# resolved <profile> [source…] — what the Package Resolver installs for
+# <profile> (only from the named sources when given), sorted, each once.
+resolved() {
+  local profile="$1" source_name _layer package
+  shift
+  # Resolver rows: source, layer, package.
+  while IFS=$'\t' read -r source_name _layer package; do
+    if (($#)) && ! text_has_line "$(printf '%s\n' "$@")" "$source_name"; then
+      continue
+    fi
+    printf '%s\n' "$package"
+  done < <(package_resolver_resolve "$(profile_loader_load "$profile")") \
+    | sort -u
+}
 
 # leaked_names <profile> — Fleet Layer software <profile> installs without
 # declaring it itself.
 leaked_names() {
   local own
   own="$(profile_loader_directory hosts "$1")/profile.jsonc"
-  grep -xF -f <(fleet_names) <(installed_names "$1") \
-    | grep -vxF -f <(declared_names "$own") || true
+  # Fleet software it installs (lines in both lists), minus its own.
+  comm -12 <(fleet_names) <(installed_names "$1") \
+    | comm -23 - <(declared_names "$own")
 }
 
 # installed_all <profile> — every package the Package Resolver installs for it.
-installed_all() {
-  package_resolver_resolve "$(profile_loader_load "$1")" \
-    | awk -F '\t' '{ print $3 }' | sort -u
-}
+installed_all() { resolved "$1"; }
 
 # installed_names <profile> — what the Package Resolver installs for it
 # through the layered slots (packages + Host Programs) — the only paths the
 # Fleet Layer feeds; a derived set (e.g. a Noctalia plugin dep) is not a leak.
-installed_names() {
-  package_resolver_resolve "$(profile_loader_load "$1")" \
-    | awk -F '\t' '$1 ~ /^(repo|aur|host-programs)$/ { print $3 }' \
-    | sort -u
-}
+installed_names() { resolved "$1" repo aur host-programs; }
 
 @test "Host Core declares no packages and no Host Programs" {
-  jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
-    | jq -e '(.packages // {}) == {} and (.host_programs // []) == []'
+  json_satisfies "$(jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc")" \
+    '(.packages // {}) == {} and (.host_programs // []) == []'
 }
 
 @test "the Fleet Layer carries the workstation software" {
@@ -87,27 +100,27 @@ installed_names() {
 # ── neutral User Core: personal programs live on aquastias (ADR 0157) ────────
 
 @test "User Core declares no programs and a bash shell" {
-  jsonc_strip "$INSTALLER_DIR/users/core/profile.jsonc" \
-    | jq -e '(.programs // []) == [] and .shell == "/bin/bash"'
+  json_satisfies "$(jsonc_strip "$INSTALLER_DIR/users/core/profile.jsonc")" \
+    '(.programs // []) == [] and .shell == "/bin/bash"'
 }
 
 @test "a user with no User Profile resolves to bash and no programs" {
   run profile_loader_load_user nobody-here
   [ "$status" -eq 1 ]
-  jq -e '(.programs // []) == [] and .shell == "/bin/bash"' <<<"$output"
+  output_satisfies '(.programs // []) == [] and .shell == "/bin/bash"'
 }
 
 @test "aquastias keeps zsh and the personal programs" {
   local user; user="$(profile_loader_load_user aquastias)"
-  jq -e '.shell == "/bin/zsh"' <<<"$user"
-  jq -e '.programs | index("claude") and index("nvim") and index("docker")' \
-    <<<"$user"
+  json_satisfies "$user" '.shell == "/bin/zsh"'
+  json_satisfies "$user" \
+    '.programs | index("claude") and index("nvim") and index("docker")'
 }
 
 @test "no VM user excludes a program nothing gives it" {
   local file
   for file in "$INSTALLER_DIR"/users/vm/*/profile.jsonc; do
-    ! jsonc_strip "$file" | jq -e 'has("programs_exclude")' >/dev/null \
+    ! json_satisfies "$(jsonc_strip "$file")" 'has("programs_exclude")' \
       || { echo "$file"; return 1; }
   done
 }
@@ -117,8 +130,7 @@ installed_names() {
 @test "the pure profiles carry no User Program" {
   local profile programs
   for profile in kde-pure niri-pure hyprland-pure umbriel-pure; do
-    programs="$(package_resolver_resolve "$(profile_loader_load "$profile")" \
-      | awk -F '\t' '$1 == "user-programs" { print $3 }')"
+    programs="$(resolved "$profile" user-programs)"
     [ -z "$programs" ] || { echo "$profile: $programs"; return 1; }
   done
 }
@@ -126,7 +138,7 @@ installed_names() {
 @test "the pure profiles still declare a login user" {
   local profile
   for profile in kde-pure niri-pure hyprland-pure umbriel-pure; do
-    profile_loader_load "$profile" | jq -e '(.users | length) == 1' >/dev/null \
+    json_satisfies "$(profile_loader_load "$profile")" '(.users | length) == 1' \
       || { echo "$profile"; return 1; }
   done
 }
@@ -151,10 +163,10 @@ installed_names() {
 
 @test "a non-fleet profile installs only the neutral font families" {
   local fonts
-  fonts="$(package_resolver_resolve "$(profile_loader_load minimal)" \
-    | awk -F '\t' '$1 == "fonts" { print $3 }')"
-  grep -qE 'nerd|ttf-ms-fonts' <<<"$fonts" && return 1
-  grep -qx noto-fonts <<<"$fonts"
+  fonts="$(resolved minimal fonts)"
+  # No nerd font and no MS font.
+  printf '%s\n' "$fonts" | grep -qE 'nerd|ttf-ms-fonts' && return 1
+  text_has_line "$fonts" noto-fonts
 }
 
 @test "a non-fleet profile ranks mirrors worldwide" {
@@ -164,7 +176,7 @@ installed_names() {
 
 @test "the fleet hosts keep the full font set and their mirror countries" {
   local config; config="$(profile_loader_load desktop)"
-  package_resolver_resolve "$config" | grep -qP '^fonts\t.*\tttf-firacode-nerd$'
+  text_has_line "$(resolved desktop fonts)" ttf-firacode-nerd
   install_config_from_json "$config" mirror_countries | grep -qx Romania
 }
 
@@ -173,17 +185,17 @@ installed_names() {
 @test "stock KDE installs no curated shell extras" {
   local packages
   packages="$(installed_all kde-pure)"
-  grep -qx plasma-meta <<<"$packages"
-  grep -qx papirus-icon-theme <<<"$packages" && return 1
-  grep -qx plasma-applets-weather-widget-3 <<<"$packages" && return 1
+  text_has_line "$packages" plasma-meta
+  text_has_line "$packages" papirus-icon-theme && return 1
+  text_has_line "$packages" plasma-applets-weather-widget-3 && return 1
   return 0
 }
 
 @test "curated KDE keeps the curated shell extras" {
   local packages
   packages="$(installed_all arch-kde)"
-  grep -qx papirus-icon-theme <<<"$packages"
-  grep -qx plasma-applets-weather-widget-3 <<<"$packages"
+  text_has_line "$packages" papirus-icon-theme
+  text_has_line "$packages" plasma-applets-weather-widget-3
 }
 
 # ── `"fleet": true` marks a fleet host (ADR 0157) ───────────────────────────
@@ -194,7 +206,7 @@ installed_names() {
   local profile
   for profile in arch-audit arch-combined arch-combined-sops-impermanence \
                  arch-hyprland arch-niri; do
-    installed_names "$profile" | grep -qx steam \
+    text_has_line "$(installed_names "$profile")" steam \
       || { echo "$profile lacks the Fleet Layer"; return 1; }
   done
 }
@@ -203,8 +215,8 @@ installed_names() {
   local file hosts=""
   for file in "$INSTALLER_DIR"/hosts/*/profile.jsonc \
               "$INSTALLER_DIR"/hosts/vm/*/profile.jsonc; do
-    jsonc_strip "$file" | jq -e '.fleet == true' >/dev/null || continue
-    file="${file%/profile.jsonc}"; hosts+="${file##*/} "
+    json_satisfies "$(jsonc_strip "$file")" '.fleet == true' || continue
+    hosts+="$(basename "$(dirname "$file")") "
   done
   [ "$hosts" = "desktop laptop arch-audit arch-combined \
 arch-combined-sops-impermanence arch-hyprland arch-niri " ]

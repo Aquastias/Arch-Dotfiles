@@ -8,6 +8,9 @@
 # Behaviour under test is external only (the decision the helper produces),
 # never internal structure. Prior art: tests/config/printing.bats.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -37,16 +40,16 @@ setup() {
   echo "$output" | grep -qx noto-fonts-cjk
   echo "$output" | grep -qx ttf-dejavu
   echo "$output" | grep -qx ttf-liberation
-  grep -qx ttf-ms-fonts <<<"$output" && return 1
-  grep -qx ttf-firacode-nerd <<<"$output" && return 1
+  text_has_line "$output" ttf-ms-fonts && return 1
+  text_has_line "$output" ttf-firacode-nerd && return 1
   ! echo "$output" | grep -qx otf-monaspace-nerd
   ! echo "$output" | grep -qx ttf-sazanami
 }
 
 @test "fonts_default_selection_json: a JSON array of the default set" {
   run fonts_default_selection_json
-  echo "$output" | jq -e 'type == "array" and (index("noto-fonts") != null)'
-  echo "$output" | jq -e '(index("otf-monaspace-nerd")) == null'
+  output_satisfies 'type == "array" and (index("noto-fonts") != null)'
+  output_satisfies '(index("otf-monaspace-nerd")) == null'
 }
 
 # ── fonts_selected: absent ⇒ defaults; explicit wins; [] honoured ───────────

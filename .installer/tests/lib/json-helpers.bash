@@ -6,6 +6,7 @@
 #
 #   output_satisfies <jq-test>      — the JSON in $output makes <jq-test> true
 #   json_satisfies <json> <jq-test> — the given JSON makes <jq-test> true
+#   file_satisfies <file> <jq-test> — the JSON in <file> makes <jq-test> true
 #
 # Both fail (non-zero) when the test is false or null, or the JSON does not
 # parse, so a bats test stops right there.
@@ -17,4 +18,10 @@ output_satisfies() {
 json_satisfies() {
   # Whether the JSON makes the test true.
   printf '%s\n' "$1" | jq -e "$2" >/dev/null
+}
+
+# file_satisfies <file> <jq-test> — the JSON in <file> makes <jq-test> true.
+file_satisfies() {
+  # Whether the file's JSON makes the test true.
+  jq -e "$2" "$1" >/dev/null
 }

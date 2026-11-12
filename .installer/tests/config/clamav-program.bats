@@ -5,6 +5,8 @@
 # clamav-daemon.service skips itself (ConditionPathExistsGlob on main/daily)
 # with no DB, leaving clamonacc nothing to attach to on first boot.
 
+load ../lib/text-helpers
+
 setup() {
   INSTALL="$BATS_TEST_DIRNAME/../../programs/security/clamav/install.sh"
 }
@@ -12,16 +14,31 @@ setup() {
 # _joined — install.sh with `\` continuations and leading-`||` lines folded
 # into the command they continue, so multi-line commands grep as one.
 _joined() {
-  awk '
-    /^[[:space:]]*\|\|/ { sub(/^[[:space:]]*/, " "); buf = buf $0; next }
-    { if (buf != "") print buf; buf = $0 }
-    buf ~ /\\$/ { sub(/\\$/, "", buf); getline nx; buf = buf nx }
-    END { if (buf != "") print buf }
-  ' "$INSTALL"
+  local line buffer="" continued=0 or_line='^[[:space:]]*[|][|]'
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if (( continued )); then
+      buffer+="$line"
+      continued=0
+    elif [[ "$line" =~ $or_line ]]; then
+      # A leading-|| line joins the command above, one space between.
+      while [[ "$line" == [[:space:]]* ]]; do line="${line:1}"; done
+      buffer+=" $line"
+      continue
+    else
+      [[ -n "$buffer" ]] && printf '%s\n' "$buffer"
+      buffer="$line"
+    fi
+    # A trailing \ joins the next line.
+    if [[ "$buffer" == *\\ ]]; then
+      buffer="${buffer:0:${#buffer}-1}"
+      continued=1
+    fi
+  done < "$INSTALL"
+  [[ -z "$buffer" ]] || printf '%s\n' "$buffer"
 }
 
 # _line <regex> — first line number in install.sh matching <regex>.
-_line() { PATTERN="$1" awk '$0 ~ ENVIRON["PATTERN"] { print NR; exit }' "$INSTALL"; }
+_line() { first_line_matching "$INSTALL" "$1"; }
 
 @test "clamav install seeds the signature DB with freshclam" {
   grep -qE '^[^#]*sudo freshclam' "$INSTALL"
@@ -56,9 +73,10 @@ send_user_notification() { printf '%s\n' "$@" >"$NOTIFY_ARGS"; }
 clamscan() { printf 'Infected files: 2\n'; }
 loginctl() { :; }
 STUB
-  local scan_text stdlib=/usr/local/lib/shell-stdlib.sh
-  scan_text="$(<"$scan")"
-  printf '%s\n' "${scan_text//"$stdlib"/"$work/stdlib.sh"}" >"$work/scan.sh"
+  local stdlib=/usr/local/lib/shell-stdlib.sh
+  cp "$scan" "$work/scan.sh"
+  # Point the copy at the stub stdlib.
+  sed -i "s|$stdlib|$work/stdlib.sh|g" "$work/scan.sh"
   NOTIFY_ARGS="$work/args" run bash "$work/scan.sh"
   mapfile -t args <"$work/args"
   [ "${args[2]}" = "clamav" ]             # icon

@@ -8,6 +8,8 @@
 # Behaviour under test (external only — the decision the helper produces), never
 # internal structure. Prior art: tests/config/printing.bats.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -32,17 +34,17 @@ setup() {
 
 @test "mirrors_inject: adds reflector to an empty host_programs" {
   run mirrors_inject '{}'
-  echo "$output" | jq -e '.host_programs == ["reflector"]'
+  output_satisfies '.host_programs == ["reflector"]'
 }
 
 @test "mirrors_inject: preserves existing programs and appends reflector" {
   run mirrors_inject '{"host_programs":["grub"]}'
-  echo "$output" | jq -e '.host_programs == ["grub","reflector"]'
+  output_satisfies '.host_programs == ["grub","reflector"]'
 }
 
 @test "mirrors_inject: idempotent when reflector already present" {
   run mirrors_inject '{"host_programs":["reflector"]}'
-  echo "$output" | jq -e '.host_programs == ["reflector"]'
+  output_satisfies '.host_programs == ["reflector"]'
 }
 
 # ── mirrors_owned_programs: the picker-filter set ───────────────────────────

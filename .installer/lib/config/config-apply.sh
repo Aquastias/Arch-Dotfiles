@@ -27,6 +27,9 @@
 # =============================================================================
 
 # shellcheck source=../jsonc.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 # config_apply_plan <programs-json> <ships-home-json> <exclude-json>
@@ -36,17 +39,16 @@ source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 #   → JSON array of program names whose config applies, in selection order,
 #     deduped. Pure: no filesystem, no globals.
 config_apply_plan() {
+  local plan='[$progs[] | . as $p | select(($ships | index($p))'
+  plan+=' and (($excl | index($p)) | not))]'
+  # Each name kept once, at its first place.
+  plan+=' | . as $a | [range(length) as $i | $a[$i]'
+  plan+=' | . as $x | select(($a | index($x)) == $i)]'
+  # The selected programs that ship a home/ and are not excluded.
   jq -n \
     --argjson progs "$1" \
     --argjson ships "$2" \
-    --argjson excl  "$3" '
-      [ $progs[]
-        | . as $p
-        | select($ships | index($p))
-        | select(($excl | index($p)) | not)
-        | $p ]
-      | reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end)
-    '
+    --argjson excl  "$3" "$plan"
 }
 
 # config_apply_stow_selection <ships-json> <except-json> <only-json>
@@ -62,34 +64,39 @@ config_apply_plan() {
 #                 the no-arg sweep, kept when named (ADR 0148).
 #   → ordered JSON array of program names to stow. Pure.
 config_apply_stow_selection() {
+  local selection='if ($only | length) > 0'
+  selection+=' then [$only[] | . as $p | select($ships | index($p))]'
+  selection+=' else [$ships[] | . as $p | select(($excl | index($p)) | not)'
+  selection+=' | select(($optin | index($p)) | not)] end'
+  # The programs to stow.
   jq -n \
     --argjson ships "$1" \
     --argjson excl  "$2" \
     --argjson only  "$3" \
-    --argjson optin "${4:-[]}" '
-      if ($only | length) > 0
-      then [ $only[]  | . as $p | select($ships | index($p)) | $p ]
-      else [ $ships[] | . as $p
-             | select(($excl | index($p)) | not)
-             | select(($optin | index($p)) | not) | $p ]
-      end
-    '
+    --argjson optin "${4:-[]}" "$selection"
+}
+
+# _config_apply_name_list — stdin's names (one per line) as a sorted JSON
+# array, each once.
+_config_apply_name_list() {
+  local names unique='$names | split("\n") | map(select(length > 0)) | unique'
+  names="$(cat)"
+  # The names as a sorted JSON array, each once.
+  jq -cn --arg names "$names" "$unique"
 }
 
 # config_apply_stow_opted_in_programs <programs-root> — JSON array of every
 # program whose config.jsonc sets `"stow_opt_in": true`.
 config_apply_stow_opted_in_programs() {
-  local root="$1" config_file program_directory
+  local root="$1" config_file
   [[ -d "$root" ]] || { printf '[]\n'; return 0; }
-  {
-    for config_file in "$root"/*/*/config.jsonc; do
-      [[ -f "$config_file" ]] || continue
-      [[ "$(jsonc_read_optional "$config_file" .stow_opt_in)" == true ]] \
-        || continue
-      program_directory="${config_file%/*}"
-      printf '%s\n' "${program_directory##*/}"
-    done
-  } | jq -R . | jq -s -c 'unique'
+  for config_file in "$root"/*/*/config.jsonc; do
+    [[ -f "$config_file" ]] || continue
+    [[ "$(jsonc_read_optional "$config_file" .stow_opt_in)" == true ]] \
+      || continue
+    # The program: the directory the config.jsonc is in.
+    basename "$(dirname "$config_file")"
+  done | _config_apply_name_list
 }
 
 # config_apply_ships_home_list <programs-root> — JSON array of every program
@@ -98,15 +105,13 @@ config_apply_stow_opted_in_programs() {
 config_apply_ships_home_list() {
   local root="$1"
   [[ -d "$root" ]] || { printf '[]\n'; return 0; }
-  local home_directory name
-  {
-    for home_directory in "$root"/*/*/home; do
-      [[ -d "$home_directory" ]] || continue
-      name="${home_directory%/*}"
-      name="${name##*/}"
-      printf '%s\n' "$name"
-    done
-  } | jq -R . | jq -s -c 'unique'
+  local homes names
+  # Each <cat>/<name>/home under the root.
+  homes="$(find "$root" -mindepth 3 -maxdepth 3 -type d -name home \
+    -printf '%P\n' 2>/dev/null)"
+  # Their <name>s, hidden directories left out (as a glob would).
+  names="$(printf '%s\n' "$homes" | grep -v '^\.\|/\.' | cut -d/ -f2)"
+  printf '%s\n' "$names" | _config_apply_name_list
 }
 
 # config_apply_home_directory <programs-root> <name> — echo the absolute `home/`

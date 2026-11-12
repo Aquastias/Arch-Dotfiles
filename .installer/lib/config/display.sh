@@ -24,7 +24,8 @@
 # _display_curated <token> → the curated Display Label for <token> (matched
 # case-insensitively), or non-zero when <token> has no curated entry.
 _display_curated() {
-  case "${1,,}" in
+  local -l token="$1"   # -l: kept in lower case
+  case "$token" in
   kde)          echo KDE ;;
   hyprland)     echo Hyprland ;;
   niri)         echo niri ;;
@@ -66,10 +67,11 @@ _display_passthrough() {
 # _display_word <word> → the word's display form: curated acronym, else
 # first-letter-uppercase with the rest lower-cased. Assumes a single word.
 _display_word() {
-  local curated lower
+  local curated
   if curated="$(_display_curated "$1")"; then printf '%s' "$curated"; return; fi
-  lower="${1,,}"
-  printf '%s' "${lower^}"
+  local -l lower="$1"              # -l: kept in lower case
+  local -u first="${lower:0:1}"    # -u: kept in upper case
+  printf '%s%s' "$first" "${lower:1}"
 }
 
 # display_label <token> → the Display Label for <token>. See file header.
@@ -82,8 +84,10 @@ display_label() {
   fi
   if _display_passthrough "$token"; then printf '%s\n' "$token"; return; fi
 
-  local -a words; read -ra words <<<"$token"
+  local -a words
+  read -ra words < <(printf '%s\n' "$token")
   local out="" i word display_word
+  local -l lower_word
   for i in "${!words[@]}"; do
     word="${words[$i]}"
     if display_word="$(_display_curated "$word")"; then
@@ -91,7 +95,8 @@ display_label() {
     elif [[ "$i" -eq 0 ]]; then
       display_word="$(_display_word "$word")"        # first word
     else
-      display_word="${word,,}"                       # rest: lower
+      lower_word="$word"                            # rest: lower
+      display_word="$lower_word"
     fi
     out+="${out:+ }$display_word"
   done

@@ -27,13 +27,22 @@
 # lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
+# shellcheck source=./derived-programs.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
+declare -F derived_programs_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/derived-programs.sh"
+
 # printing_enabled <config-json> — "true" unless the toggle is explicitly
 # false (absent ⇒ on, matching the default-on accessor). The sole on/off rule;
 # every other function derives from it. An explicit null check so a stored
 # `false` round-trips rather than being read as absent.
 printing_enabled() {
-  jq -r '(.options.printing.enabled) as $v
-    | if $v == false then "false" else "true" end' <<<"${1:-{\}}"
+  local enabled='(.options.printing.enabled) as $v'
+  enabled+=' | if $v == false then "false" else "true" end'
+  # "false" only when the toggle is explicitly off.
+  printf '%s\n' "${1:-{\}}" | jq -r "$enabled"
 }
 
 # printing_programs <config-json> — the toggle-derived Host Programs, one per
@@ -50,17 +59,8 @@ printing_programs() {
 # when printing is on. A no-op when printing yields nothing. Pure: JSON in,
 # compact JSON out.
 printing_inject() {
-  local config="${1:-{\}}" programs
-  programs="$(printing_programs "$config")"
-  # Nothing derived (printing off) → the config is untouched, not given an empty
-  # host_programs it never had.
-  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
-  jq -c --arg progs "$programs" '
-    ($progs | split("\n") | map(select(length > 0))) as $add
-    | .host_programs = ((.host_programs // []) as $sp
-        | reduce $add[] as $p ($sp;
-            if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$config"
+  local config="${1:-{\}}"
+  derived_programs_inject "$config" "$(printing_programs "$config")"
 }
 
 # printing_owned_programs — every Host Program the Printing toggle owns,

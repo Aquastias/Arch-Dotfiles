@@ -2,8 +2,8 @@
 # Tests for .installer/lib/config/timezone.sh — the Timezone resolver (ADR
 # 0118): a pure helper turning system.timezone into the effective IANA zone —
 # an explicit value wins, otherwise a validated geo-IP autodetect, otherwise
-# UTC (neutral, ADR 0157). The network fetch and the zoneinfo root are
-# injectable so the resolver is exercised entirely offline.
+# UTC (neutral, ADR 0157). The network fetch (timezone_fetch, overridden) and
+# the zoneinfo root are injectable, so the resolver runs entirely offline.
 #
 # Behaviour under test (external only — the zone the helper produces), never
 # internal structure. Prior art: tests/config/printing.bats.
@@ -25,13 +25,13 @@ teardown() { rm -rf "$ZI"; }
 # ── explicit value wins ─────────────────────────────────────────────────────
 
 @test "explicit system.timezone wins verbatim, no fetch" {
-  export TIMEZONE_FETCH_CMD='echo SHOULD_NOT_RUN'
+  timezone_fetch() { echo SHOULD_NOT_RUN; }
   local config='{"system":{"timezone":"America/New_York"}}'
   [ "$(timezone_resolve "$config")" = "America/New_York" ]
 }
 
 @test "explicit value is returned even if the fetch would differ" {
-  export TIMEZONE_FETCH_CMD='echo Europe/Berlin'
+  timezone_fetch() { echo Europe/Berlin; }
   [ "$(timezone_resolve '{"system":{"timezone":"America/New_York"}}')" \
     = "America/New_York" ]
 }
@@ -39,29 +39,29 @@ teardown() { rm -rf "$ZI"; }
 # ── autodetect when absent ──────────────────────────────────────────────────
 
 @test "absent timezone: a valid geo-IP zone is used" {
-  export TIMEZONE_FETCH_CMD='echo Europe/Berlin'
+  timezone_fetch() { echo Europe/Berlin; }
   [ "$(timezone_resolve '{"system":{}}')" = "Europe/Berlin" ]
   [ "$(timezone_resolve '{}')" = "Europe/Berlin" ]
 }
 
 @test "geo-IP reply is trimmed of surrounding whitespace" {
-  export TIMEZONE_FETCH_CMD='printf "  Europe/Berlin \n"'
+  timezone_fetch() { printf "  Europe/Berlin \n"; }
   [ "$(timezone_resolve '{}')" = "Europe/Berlin" ]
 }
 
 # ── fallback ────────────────────────────────────────────────────────────────
 
 @test "invalid geo-IP zone falls back to UTC" {
-  export TIMEZONE_FETCH_CMD='echo Not/AZone'
+  timezone_fetch() { echo Not/AZone; }
   [ "$(timezone_resolve '{}')" = "UTC" ]
 }
 
 @test "empty geo-IP reply (offline) falls back to UTC" {
-  export TIMEZONE_FETCH_CMD='true'
+  timezone_fetch() { true; }
   [ "$(timezone_resolve '{}')" = "UTC" ]
 }
 
 @test "path-traversal geo-IP reply is rejected, falls back" {
-  export TIMEZONE_FETCH_CMD='echo ../../etc/shadow'
+  timezone_fetch() { echo ../../etc/shadow; }
   [ "$(timezone_resolve '{}')" = "UTC" ]
 }

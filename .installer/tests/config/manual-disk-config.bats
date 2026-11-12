@@ -7,12 +7,17 @@
 # Strategy mirrors validation-filesystem.bats: stub the common helpers, drive
 # the accessors from CONFIG_FILE, and validate JSON against the host schema.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export CONFIG_FILE="$TEST_DIR/install.jsonc"
   jsonc_strip() { cat "$1"; }
+  # A stub: the filter over the file.
   jsonc_read()  { jsonc_strip "$1" | jq -r "$2"; }
+  # A stub: the value at the path in the test config.
   config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  # A stub: the value at the path in the test config.
   config_required() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error()       { echo "ERROR: $*" >&2; exit 1; }
   info() { :; }; section() { :; }; warn() { :; }
@@ -87,7 +92,7 @@ MANUAL='{
   write_config "$MANUAL"
   run install_config_partitions_json
   [ "$status" -eq 0 ]
-  [ "$(printf '%s' "$output" | jq 'length')" = "3" ]
+  output_satisfies 'length == 3'
 }
 
 # ── any_zfs guard: a manual layout is always poolless ───────────────────────

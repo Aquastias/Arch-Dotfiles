@@ -10,6 +10,8 @@
 # Behaviour under test (external only — the skeleton JSON a preset emits and the
 # rule checks over it), never internal structure.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -23,32 +25,32 @@ setup() {
 @test "skeleton_preset: os-mirror-raidz1 fills OS mirror + raidz1 storage" {
   run skeleton_preset os-mirror-raidz1
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
-  echo "$output" | jq -e '.storage_groups[0].topology == "raidz1"'
-  echo "$output" | jq -e '.storage_groups[0].disk_count == 3'
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
+  output_satisfies '.storage_groups[0].topology == "raidz1"'
+  output_satisfies '.storage_groups[0].disk_count == 3'
 }
 
 @test "skeleton_preset: single is the device-less single-disk shape" {
   run skeleton_preset single
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "single"'
+  output_satisfies '.mode == "single"'
 }
 
 @test "skeleton_preset: os-mirror is a 2-disk mirrored OS, no storage" {
   run skeleton_preset os-mirror
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
-  echo "$output" | jq -e 'has("storage_groups") | not'
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
+  output_satisfies 'has("storage_groups") | not'
 }
 
 @test "skeleton_preset: data-pools is OS none + a standalone data pool" {
   run skeleton_preset data-pools
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.os_pool.topology == "none" and .os_pool.disk_count == 1'
-  echo "$output" | jq -e '.data_pools[0].name == "tank"'
-  echo "$output" | jq -e '.data_pools[0].disk_count == 1'
+  output_satisfies '.os_pool.topology == "none" and .os_pool.disk_count == 1'
+  output_satisfies '.data_pools[0].name == "tank"'
+  output_satisfies '.data_pools[0].disk_count == 1'
 }
 
 @test "skeleton_preset: an unknown preset errors" {
@@ -129,16 +131,16 @@ setup() {
 @test "skeleton_new_multi: starts a multi skeleton with the OS pool" {
   run skeleton_new_multi mirror 2
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.mode == "multi"'
-  echo "$output" | jq -e '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.topology == "mirror" and .os_pool.disk_count == 2'
 }
 
 @test "skeleton_add_storage: appends a named storage group" {
   skel="$(skeleton_new_multi mirror 2)"
   run skeleton_add_storage "$skel" data raidz1 3
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.storage_groups[0].name == "data"'
-  echo "$output" | jq -e \
+  output_satisfies '.storage_groups[0].name == "data"'
+  output_satisfies \
     '.storage_groups[0].topology == "raidz1" and .storage_groups[0].disk_count == 3'
 }
 
@@ -147,17 +149,17 @@ setup() {
   skel="$(skeleton_add_storage "$skel" fast mirror 2 "alice @team")"
   run skeleton_add_storage "$skel" bulk raidz1 3
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.storage_groups[0].name == "fast"'
-  echo "$output" | jq -e '.storage_groups[0].owners == ["alice","@team"]'
-  echo "$output" | jq -e '.storage_groups[1].name == "bulk"'
+  output_satisfies '.storage_groups[0].name == "fast"'
+  output_satisfies '.storage_groups[0].owners == ["alice","@team"]'
+  output_satisfies '.storage_groups[1].name == "bulk"'
 }
 
 @test "skeleton_add_data_pool: appends a standalone data pool" {
   skel="$(skeleton_new_multi none 1)"
   run skeleton_add_data_pool "$skel" tank stripe 1
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.data_pools[0].name == "tank"'
-  echo "$output" | jq -e \
+  output_satisfies '.data_pools[0].name == "tank"'
+  output_satisfies \
     '.data_pools[0].topology == "stripe" and .data_pools[0].disk_count == 1'
 }
 

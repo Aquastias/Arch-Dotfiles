@@ -33,7 +33,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 write_jsonc() {
   local path="$1" content="$2"
-  mkdir -p "${path%/*}"
+  mkdir -p "$(dirname "$path")"
   printf '%s\n' "$content" > "$path"
 }
 

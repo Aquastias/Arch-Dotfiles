@@ -25,12 +25,21 @@
 # lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
+# shellcheck source=./derived-programs.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
+declare -F derived_programs_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/derived-programs.sh"
+
 # power_profile <config-json> — the selected backend. Absent/null/empty ⇒
 # power-profiles-daemon (the default); an explicit value (incl. `none`) wins.
 power_profile() {
-  jq -r '(.options.power.profile) as $v
-    | if ($v == null or $v == "") then "power-profiles-daemon" else $v end' \
-    <<<"${1:-{\}}"
+  local profile='(.options.power.profile) as $v'
+  profile+=' | if ($v == null or $v == "") then "power-profiles-daemon"'
+  profile+=' else $v end'
+  # The chosen backend (the default when unset).
+  printf '%s\n' "${1:-{\}}" | jq -r "$profile"
 }
 
 # power_programs <config-json> — the toggle-derived Host Program for the
@@ -48,15 +57,8 @@ power_programs() {
 # into .host_programs (order-preserving, idempotent). A no-op when power
 # yields nothing (`none`). Pure: JSON in, compact JSON out.
 power_inject() {
-  local config="${1:-{\}}" programs
-  programs="$(power_programs "$config")"
-  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
-  jq -c --arg progs "$programs" '
-    ($progs | split("\n") | map(select(length > 0))) as $add
-    | .host_programs = ((.host_programs // []) as $sp
-        | reduce $add[] as $p ($sp;
-            if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$config"
+  local config="${1:-{\}}"
+  derived_programs_inject "$config" "$(power_programs "$config")"
 }
 
 # power_owned_programs — every Host Program the Power enum can own, regardless

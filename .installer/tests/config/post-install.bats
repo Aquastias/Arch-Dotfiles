@@ -7,6 +7,8 @@
 # Behaviour under test is external only — the resolved program list, the
 # default object, and accept/reject of a candidate object — never internals.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -17,11 +19,11 @@ setup() {
 
 # secure_baseline — every extra on: the fleet hosts' selection, a full fixture.
 secure_baseline() {
-  jq -nc '{
-    security: { firewall: "firewalld", antivirus: true, rootkit: true,
-                apparmor: true },
-    backup:   { zfs_auto_snapshot: true, borg: true }
-  }'
+  cat <<'JSON'
+{"security": {"firewall": "firewalld", "antivirus": true, "rootkit": true,
+              "apparmor": true},
+ "backup":   {"zfs_auto_snapshot": true, "borg": true}}
+JSON
 }
 
 # ── tracer: the all-off launch object (ADR 0157) ────────────────────────────
@@ -29,15 +31,10 @@ secure_baseline() {
 @test "post_install_default: every extra off, installing nothing" {
   run post_install_default
   [ "$status" -eq 0 ]
-  [ "$(jq -S . <<<"$output")" = "$(jq -S . <<<'{
-    "security": {
-      "firewall": "none",
-      "antivirus": false,
-      "rootkit": false,
-      "apparmor": false
-    },
-    "backup": { "zfs_auto_snapshot": false, "borg": false }
-  }')" ]
+  local expected='{"security": {"firewall": "none", "antivirus": false,'
+  expected+=' "rootkit": false, "apparmor": false},'
+  expected+=' "backup": {"zfs_auto_snapshot": false, "borg": false}}'
+  output_satisfies ". == ${expected}"
   [ -z "$(post_install_programs "$output")" ]
 }
 

@@ -4,6 +4,8 @@
 # the program mirrors Fedora's systemd-oomd-defaults. Runs install.sh against a
 # temp root (OOMD_ROOT seam).
 
+load ../lib/json-helpers
+
 setup() {
   INSTALL="$BATS_TEST_DIRNAME/../../programs/system/systemd-oomd/install.sh"
   CONFIG="$BATS_TEST_DIRNAME/../../programs/system/systemd-oomd/config.jsonc"
@@ -41,6 +43,6 @@ _run_install() {
 
 @test "the runner enables systemd-oomd.service" {
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
-  jsonc_strip "$CONFIG" | jq -e '.kind == "host"
-    and .system_services == ["systemd-oomd.service"]' >/dev/null
+  json_satisfies "$(jsonc_strip "$CONFIG")" '.kind == "host"
+    and .system_services == ["systemd-oomd.service"]'
 }

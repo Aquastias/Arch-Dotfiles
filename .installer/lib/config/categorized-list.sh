@@ -13,6 +13,9 @@
 
 # Kebab-case category names: lowercase letters, digits, hyphens. No leading
 # or trailing hyphen; no consecutive hyphens.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _CATEGORIZED_LIST_CATEGORY_PATTERN='^[a-z0-9]+(-[a-z0-9]+)*$'
 
 # categorized_list_parse JSON LEAF_TYPE [FIELD_PATH]
@@ -37,6 +40,7 @@ categorized_list_parse() {
   esac
 
   local top_type
+  # The value's JSON type.
   top_type="$(printf '%s' "$json" | jq -r 'type')"
   if [[ "$top_type" != "object" ]]; then
     error "${field_path}: expected object, got ${top_type}."
@@ -54,22 +58,23 @@ categorized_list_parse() {
   _categorized_list_check_categories "$json" "$field_path" "$want_category_type"
   _categorized_list_check_leaves "$json" "$field_path" "$leaf_type" "$want_leaf"
 
+  local entries
   if [[ "$leaf_type" == "string" ]]; then
-    printf '%s' "$json" \
-      | jq -r '[.[][]] | unique[]'
+    entries='[.[][]] | unique[]'
   else
-    printf '%s' "$json" \
-      | jq -r '
-        [ to_entries[] | .value | to_entries[] | select(.value == true) | .key ]
-        | unique[]
-      '
+    entries='[to_entries[] | .value | to_entries[]'
+    entries+=' | select(.value == true) | .key] | unique[]'
   fi
+  # Every entry (the strings, or the keys set true), sorted, each once.
+  printf '%s' "$json" | jq -r "$entries"
 }
 
 # _categorized_list_check_categories <json> <field-path> <want-type> — abort
 # (error) on a non-kebab-case category name or a category of the wrong type.
 _categorized_list_check_categories() {
   local json="$1" field_path="$2" want_category_type="$3" key got_type
+  local rows='to_entries[] | "\(.key)\t\(.value | type)"'
+  # One "<category><TAB><type>" row per category.
   while IFS=$'\t' read -r key got_type; do
     if ! [[ "$key" =~ $_CATEGORIZED_LIST_CATEGORY_PATTERN ]]; then
       error "${field_path}.${key}: invalid category name" \
@@ -79,8 +84,7 @@ _categorized_list_check_categories() {
       error "${field_path}.${key}: expected ${want_category_type}," \
             "got ${got_type}."
     fi
-  done < <(printf '%s' "$json" \
-    | jq -r 'to_entries[] | "\(.key)\t\(.value | type)"')
+  done < <(printf '%s' "$json" | jq -r "$rows")
 }
 
 # _categorized_list_check_leaves <json> <field-path> <leaf-type> <want-leaf>
@@ -88,18 +92,15 @@ _categorized_list_check_categories() {
 # by its index (`.cat[0]`), a bool leaf by its key (`.cat.name`).
 _categorized_list_check_leaves() {
   local json="$1" field_path="$2" leaf_type="$3" want_leaf="$4"
-  local category leaf_path got_type
+  local category leaf_path got_type rows
+  rows='to_entries[] as $c | $c.value | to_entries[] | "\($c.key)\t"'
+  rows+=' + (if $mode == "string" then "[\(.key)]" else ".\(.key)" end)'
+  rows+=' + "\t\(.value | type)"'
+  # One "<category><TAB><leaf path><TAB><type>" row per leaf.
   while IFS=$'\t' read -r category leaf_path got_type; do
     if [[ "$got_type" != "$want_leaf" ]]; then
       error "${field_path}.${category}${leaf_path}: expected ${want_leaf}" \
             "leaf, got ${got_type}."
     fi
-  done < <(printf '%s' "$json" \
-    | jq -r --arg mode "$leaf_type" '
-        to_entries[] as $c
-        | $c.value | to_entries[]
-        | "\($c.key)\t"
-          + (if $mode == "string" then "[\(.key)]" else ".\(.key)" end)
-          + "\t\(.value | type)"
-      ')
+  done < <(printf '%s' "$json" | jq -r --arg mode "$leaf_type" "$rows")
 }

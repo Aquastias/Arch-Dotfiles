@@ -6,6 +6,8 @@
 # Extras) are not install defaults and stay in the seed. Shared setup in
 # install-config-helpers.bash.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
 load install-config-helpers
 
 @test "default: a scalar field's install default" {
@@ -40,21 +42,21 @@ load install-config-helpers
   run install_config_default_object pacman_parallel_downloads pacman_color \
     optional_repos bootloader
   [ "$status" -eq 0 ]
-  jq -e '. == {"options":{"pacman":{"parallel_downloads":5,"color":true},
-    "optional_repos":["multilib"], "bootloader":"systemd-boot"}}' <<<"$output"
+  output_satisfies '. == {"options":{"pacman":{"parallel_downloads":5,"color":true},
+    "optional_repos":["multilib"], "bootloader":"systemd-boot"}}'
 }
 
 @test "default_object: a field with no install default is left out" {
   run install_config_default_object hostname filesystem
   [ "$status" -eq 0 ]
-  jq -e '. == {"filesystem":"zfs"}' <<<"$output"
+  output_satisfies '. == {"filesystem":"zfs"}'
 }
 
 @test "schema_names: every schema row's name, one per line" {
   run install_config_schema_names
   [ "$status" -eq 0 ]
-  grep -qx bootloader <<<"$output"
-  grep -qx mirror_countries <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" \
+  text_has_line "$output" bootloader
+  text_has_line "$output" mirror_countries
+  [ "$(printf '%s\n' "$output" | wc -l)" \
     -eq "${#_INSTALL_CONFIG_SCHEMA[@]}" ]
 }

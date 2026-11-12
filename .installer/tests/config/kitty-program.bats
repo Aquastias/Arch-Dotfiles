@@ -7,6 +7,8 @@
 # The Noctalia live-follow wiring (config.toml, template input) is asserted in
 # noctalia-stow-*.bats.
 
+load ../lib/text-helpers
+
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."       # .installer/tests/config → repo root
   PROG="$REPO/.installer/programs/system/kitty"
@@ -66,7 +68,7 @@ setup() {
 @test "kitty config carries no invalid auto_reload_config (parse error)" {
   # kitty has NO auto_reload_config option; it auto-reloads config by default.
   # Setting it is a hard parse error (VM-verified, ADR 0130); never re-add.
-  ! grep -rq 'auto_reload_config' "$KITTY"
+  ! tree_has 'auto_reload_config' "$KITTY"
 }
 
 # ── seed theme: Catppuccin Mocha Sapphire default (ADR 0109) ─────────────────

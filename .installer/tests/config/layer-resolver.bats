@@ -12,12 +12,16 @@
 #   3. The LAST layer wins — it may re-add what an earlier layer excluded.
 #   4. `packages.inherit: false` drops the lower packages AND host_programs.
 
+load ../lib/json-helpers
+
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh"
 }
 
 # resolve <core-json> <profile-json> — host fold, compact output.
+# The host fold, compact.
 resolve() { layer_resolver_resolve_host "$1" "$2" | jq -c .; }
+# The user fold, compact.
 uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 
 # ── additive keys concat + dedupe ───────────────────────────────────────────
@@ -25,50 +29,50 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 @test "additive: packages.repo categories concat across layers" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"repo":{"cli":["fzf"]}}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["htop","fzf"]'
+  output_satisfies '.packages.repo.cli == ["htop","fzf"]'
 }
 
 @test "additive: packages.repo dedupes a package both layers declare" {
   run resolve '{"packages":{"repo":{"cli":["htop","fzf"]}}}' \
               '{"packages":{"repo":{"cli":["fzf","btop"]}}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["htop","fzf","btop"]'
+  output_satisfies '.packages.repo.cli == ["htop","fzf","btop"]'
 }
 
 @test "additive: a category only the upper layer declares is added" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"repo":{"gaming":["steam"]}}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["htop"]'
-  echo "$output" | jq -e '.packages.repo.gaming == ["steam"]'
+  output_satisfies '.packages.repo.cli == ["htop"]'
+  output_satisfies '.packages.repo.gaming == ["steam"]'
 }
 
 @test "additive: packages.aur concats like repo" {
   run resolve '{"packages":{"aur":{"misc":["brave-bin"]}}}' \
               '{"packages":{"aur":{"misc":["zen-browser-bin"]}}}'
-  echo "$output" | jq -e '.packages.aur.misc == ["brave-bin","zen-browser-bin"]'
+  output_satisfies '.packages.aur.misc == ["brave-bin","zen-browser-bin"]'
 }
 
 @test "additive: host_programs concats" {
   run resolve '{"host_programs":["cups"]}' '{"host_programs":["grub"]}'
-  echo "$output" | jq -e '.host_programs == ["cups","grub"]'
+  output_satisfies '.host_programs == ["cups","grub"]'
 }
 
 @test "additive: users concats, order preserved" {
   run resolve '{"users":["alice"]}' '{"users":["bob"]}'
-  echo "$output" | jq -e '.users == ["alice","bob"]'
+  output_satisfies '.users == ["alice","bob"]'
 }
 
 @test "additive: persist.directories and persist.files concat" {
   run resolve '{"persist":{"directories":["/home"],"files":["/etc/a"]}}' \
               '{"persist":{"directories":["/srv"],"files":["/etc/b"]}}'
-  echo "$output" | jq -e '.persist.directories == ["/home","/srv"]'
-  echo "$output" | jq -e '.persist.files == ["/etc/a","/etc/b"]'
+  output_satisfies '.persist.directories == ["/home","/srv"]'
+  output_satisfies '.persist.files == ["/etc/a","/etc/b"]'
 }
 
 @test "additive: sysctl deep-merges, upper wins per key" {
   run resolve '{"sysctl":{"vm.swappiness":10,"fs.file-max":100}}' \
               '{"sysctl":{"vm.swappiness":60}}'
-  echo "$output" | jq -e '.sysctl["vm.swappiness"] == 60'
-  echo "$output" | jq -e '.sysctl["fs.file-max"] == 100'
+  output_satisfies '.sysctl["vm.swappiness"] == 60'
+  output_satisfies '.sysctl["fs.file-max"] == 100'
 }
 
 @test "additive (user): groups, programs, ssh_authorized_keys concat" {
@@ -76,9 +80,9 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
                  "ssh_authorized_keys":["k1"]}' \
                '{"groups":["docker"],"programs":["docker"],
                  "ssh_authorized_keys":["k2"]}'
-  echo "$output" | jq -e '.groups == ["wheel","docker"]'
-  echo "$output" | jq -e '.programs == ["git","docker"]'
-  echo "$output" | jq -e '.ssh_authorized_keys == ["k1","k2"]'
+  output_satisfies '.groups == ["wheel","docker"]'
+  output_satisfies '.programs == ["git","docker"]'
+  output_satisfies '.ssh_authorized_keys == ["k1","k2"]'
 }
 
 # ── replace keys are overwritten wholesale ──────────────────────────────────
@@ -87,64 +91,64 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 
 @test "replace: options.kernel is overwritten, not concatenated" {
   run resolve '{"options":{"kernel":["lts"]}}' '{"options":{"kernel":["zen"]}}'
-  echo "$output" | jq -e '.options.kernel == ["zen"]'
+  output_satisfies '.options.kernel == ["zen"]'
 }
 
 @test "replace: a sibling scalar under options survives a kernel override" {
   run resolve '{"options":{"kernel":["lts"],"bootloader":"grub"}}' \
               '{"options":{"kernel":["zen"]}}'
-  echo "$output" | jq -e '.options.kernel == ["zen"]'
-  echo "$output" | jq -e '.options.bootloader == "grub"'
+  output_satisfies '.options.kernel == ["zen"]'
+  output_satisfies '.options.bootloader == "grub"'
 }
 
 @test "replace: system.locale and system.keymap are overwritten" {
   run resolve '{"system":{"locale":["en_US.UTF-8"],"keymap":["us"]}}' \
               '{"system":{"locale":["de_DE.UTF-8"],"keymap":["de"]}}'
-  echo "$output" | jq -e '.system.locale == ["de_DE.UTF-8"]'
-  echo "$output" | jq -e '.system.keymap == ["de"]'
+  output_satisfies '.system.locale == ["de_DE.UTF-8"]'
+  output_satisfies '.system.keymap == ["de"]'
 }
 
 @test "replace: environment.desktop and environment.gpu are overwritten" {
   run resolve '{"environment":{"desktop":["kde"],"gpu":["amd"]}}' \
               '{"environment":{"desktop":[],"gpu":["nvidia"]}}'
-  echo "$output" | jq -e '.environment.desktop == []'
-  echo "$output" | jq -e '.environment.gpu == ["nvidia"]'
+  output_satisfies '.environment.desktop == []'
+  output_satisfies '.environment.gpu == ["nvidia"]'
 }
 
 @test "replace: options.mirror_countries is an ordered preference" {
   run resolve '{"options":{"mirror_countries":["Germany","France"]}}' \
               '{"options":{"mirror_countries":["Romania"]}}'
-  echo "$output" | jq -e '.options.mirror_countries == ["Romania"]'
+  output_satisfies '.options.mirror_countries == ["Romania"]'
 }
 
 @test "replace: storage_groups and data_pools are positional" {
   run resolve '{"storage_groups":[{"name":"a"}],"data_pools":[{"name":"p"}]}' \
               '{"storage_groups":[{"name":"b"}],"data_pools":[{"name":"q"}]}'
-  echo "$output" | jq -e '.storage_groups == [{"name":"b"}]'
-  echo "$output" | jq -e '.data_pools == [{"name":"q"}]'
+  output_satisfies '.storage_groups == [{"name":"b"}]'
+  output_satisfies '.data_pools == [{"name":"q"}]'
 }
 
 @test "replace: every scalar is overwritten by the later layer" {
   run resolve '{"filesystem":"zfs","options":{"encryption":false}}' \
               '{"filesystem":"btrfs","options":{"encryption":true}}'
-  echo "$output" | jq -e '.filesystem == "btrfs"'
-  echo "$output" | jq -e '.options.encryption == true'
+  output_satisfies '.filesystem == "btrfs"'
+  output_satisfies '.options.encryption == true'
 }
 
 @test "replace (user): shell and sudo are overwritten" {
   run uresolve '{"shell":"/bin/bash","sudo":false}' \
                '{"shell":"/bin/zsh","sudo":true}'
-  echo "$output" | jq -e '.shell == "/bin/zsh"'
-  echo "$output" | jq -e '.sudo == true'
+  output_satisfies '.shell == "/bin/zsh"'
+  output_satisfies '.sudo == true'
 }
 
 @test "replace (user): user_services is overwritten, git deep-merges" {
   run uresolve '{"user_services":["podman.socket"],
                  "git":{"name":"Core","email":"core@x"}}' \
                '{"user_services":["syncthing"],"git":{"name":"Me"}}'
-  echo "$output" | jq -e '.user_services == ["syncthing"]'
-  echo "$output" | jq -e '.git.name == "Me"'
-  echo "$output" | jq -e '.git.email == "core@x"'
+  output_satisfies '.user_services == ["syncthing"]'
+  output_satisfies '.git.name == "Me"'
+  output_satisfies '.git.email == "core@x"'
 }
 
 # Coverage guard: every key in the classification table must be exercised
@@ -153,7 +157,9 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
   local key probe
   for key in $(layer_resolver_additive_keys host) $(layer_resolver_replace_keys host) \
              $(layer_resolver_additive_keys user) $(layer_resolver_replace_keys user); do
-    probe="${key%.\*}"                       # packages.repo.* → packages.repo
+    probe="$key"
+    # packages.repo.* → packages.repo
+    [[ "$key" == *".*" ]] && probe="${key:0:${#key}-2}"
     grep -q -- "$probe" "$BATS_TEST_FILENAME" \
       || { echo "classification key not covered by a test: $key"; return 1; }
   done
@@ -164,36 +170,36 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 @test "exclude: removes a package the lower layer contributed" {
   run resolve '{"packages":{"repo":{"cli":["htop","fzf"]}}}' \
               '{"packages":{"exclude":["htop"]}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["fzf"]'
+  output_satisfies '.packages.repo.cli == ["fzf"]'
 }
 
 @test "exclude: works across every repo category and aur" {
   run resolve '{"packages":{"repo":{"cli":["htop"],"dev":["htop","go"]},
                             "aur":{"misc":["htop"]}}}' \
               '{"packages":{"exclude":["htop"]}}'
-  echo "$output" | jq -e '.packages.repo.cli == []'
-  echo "$output" | jq -e '.packages.repo.dev == ["go"]'
-  echo "$output" | jq -e '.packages.aur.misc == []'
+  output_satisfies '.packages.repo.cli == []'
+  output_satisfies '.packages.repo.dev == ["go"]'
+  output_satisfies '.packages.aur.misc == []'
 }
 
 @test "exclude: host_programs_exclude drops a core system program" {
   run resolve '{"host_programs":["cups","grub"]}' \
               '{"host_programs_exclude":["cups"]}'
-  echo "$output" | jq -e '.host_programs == ["grub"]'
+  output_satisfies '.host_programs == ["grub"]'
 }
 
 @test "exclude (user): programs_exclude drops a User Core program" {
   run uresolve '{"programs":["docker","virt-manager","git"]}' \
                '{"programs_exclude":["docker","virt-manager"]}'
-  echo "$output" | jq -e '.programs == ["git"]'
+  output_satisfies '.programs == ["git"]'
 }
 
 @test "exclude: the control keys never reach the effective config" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"exclude":["htop"]},
                 "host_programs_exclude":["cups"]}'
-  echo "$output" | jq -e 'has("host_programs_exclude") | not'
-  echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
+  output_satisfies 'has("host_programs_exclude") | not'
+  output_satisfies '(.packages // {}) | has("exclude") | not'
 }
 
 # ── the last layer wins: re-adding what a lower layer excluded ──────────────
@@ -205,7 +211,7 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
   run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh'
     layer_resolver_resolve host '$core' '$mid' '$leaf' | jq -c ."
-  echo "$output" | jq -e '.packages.repo.cli == ["fzf","htop"]'
+  output_satisfies '.packages.repo.cli == ["fzf","htop"]'
 }
 
 @test "last layer wins: a lower layer's exclude cannot veto an upper add" {
@@ -213,7 +219,7 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
   # the later layer, has the final say about its own machine.
   run resolve '{"packages":{"exclude":["htop"]}}' \
               '{"packages":{"repo":{"cli":["htop"]}}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["htop"]'
+  output_satisfies '.packages.repo.cli == ["htop"]'
 }
 
 # ── packages.inherit: false — drops packages + host_programs ────────────────
@@ -221,14 +227,14 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 @test "inherit false: yields no inherited packages" {
   run resolve '{"packages":{"repo":{"cli":["htop"]},"aur":{"m":["brave"]}}}' \
               '{"packages":{"inherit":false}}'
-  echo "$output" | jq -e '(.packages.repo // {}) == {}'
-  echo "$output" | jq -e '(.packages.aur // {}) == {}'
+  output_satisfies '(.packages.repo // {}) == {}'
+  output_satisfies '(.packages.aur // {}) == {}'
 }
 
 @test "inherit false: the profile's OWN packages still apply" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"inherit":false,"repo":{"cli":["vim"]}}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["vim"]'
+  output_satisfies '.packages.repo.cli == ["vim"]'
 }
 
 # inherit:false also drops the lower host_programs (ADR 0089) — the base
@@ -239,22 +245,22 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
                 "host_programs":["cups"],
                 "packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"inherit":false}}'
-  echo "$output" | jq -e '.users == ["alice"]'
-  echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
-  echo "$output" | jq -e '(.host_programs // []) == []'
-  echo "$output" | jq -e '(.packages.repo // {}) == {}'
+  output_satisfies '.users == ["alice"]'
+  output_satisfies '.sysctl["vm.swappiness"] == 10'
+  output_satisfies '(.host_programs // []) == []'
+  output_satisfies '(.packages.repo // {}) == {}'
 }
 
 @test "inherit: the control key never reaches the effective config" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"inherit":false,"repo":{"cli":["vim"]}}}'
-  echo "$output" | jq -e '.packages | has("inherit") | not'
+  output_satisfies '.packages | has("inherit") | not'
 }
 
 @test "inherit true (the default) inherits normally" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"inherit":true,"repo":{"cli":["vim"]}}}'
-  echo "$output" | jq -e '.packages.repo.cli == ["htop","vim"]'
+  output_satisfies '.packages.repo.cli == ["htop","vim"]'
 }
 
 # ── programs_inherit: false — user bareness (ADR 0134) ──────────────────────
@@ -264,45 +270,45 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
 @test "programs_inherit false: yields no inherited programs" {
   run uresolve '{"programs":["zsh","kitty","claude"]}' \
                '{"programs_inherit":false}'
-  echo "$output" | jq -e '(.programs // []) == []'
+  output_satisfies '(.programs // []) == []'
 }
 
 @test "programs_inherit false: the user's OWN programs still apply" {
   run uresolve '{"programs":["zsh","kitty"]}' \
                '{"programs_inherit":false,"programs":["docker"]}'
-  echo "$output" | jq -e '.programs == ["docker"]'
+  output_satisfies '.programs == ["docker"]'
 }
 
 @test "programs_inherit false: identity keys still inherit" {
   run uresolve '{"programs":["zsh"],"groups":["wheel"],"shell":"/bin/zsh"}' \
                '{"programs_inherit":false}'
-  echo "$output" | jq -e '.groups == ["wheel"]'
-  echo "$output" | jq -e '.shell == "/bin/zsh"'
+  output_satisfies '.groups == ["wheel"]'
+  output_satisfies '.shell == "/bin/zsh"'
 }
 
 @test "programs_inherit: the control key never reaches the effective config" {
   run uresolve '{"programs":["zsh"]}' \
                '{"programs_inherit":false,"programs":["docker"]}'
-  echo "$output" | jq -e 'has("programs_inherit") | not'
+  output_satisfies 'has("programs_inherit") | not'
 }
 
 @test "programs_inherit true (the default) inherits normally" {
   run uresolve '{"programs":["zsh"]}' \
                '{"programs_inherit":true,"programs":["docker"]}'
-  echo "$output" | jq -e '.programs == ["zsh","docker"]'
+  output_satisfies '.programs == ["zsh","docker"]'
 }
 
 # ── shape / edge cases ──────────────────────────────────────────────────────
 
 @test "an empty upper layer returns the lower layer unchanged" {
   run resolve '{"users":["alice"],"options":{"kernel":["lts"]}}' '{}'
-  echo "$output" | jq -e '.users == ["alice"]'
-  echo "$output" | jq -e '.options.kernel == ["lts"]'
+  output_satisfies '.users == ["alice"]'
+  output_satisfies '.options.kernel == ["lts"]'
 }
 
 @test "an empty lower layer returns the upper layer unchanged" {
   run resolve '{}' '{"users":["bob"]}'
-  echo "$output" | jq -e '.users == ["bob"]'
+  output_satisfies '.users == ["bob"]'
 }
 
 @test "the resolver is deterministic for the same inputs" {
@@ -319,5 +325,5 @@ uresolve() { layer_resolver_resolve_user "$1" "$2" | jq -c .; }
     source '$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh'
     layer_resolver_resolve host '{\"users\":[\"a\"]}' '{\"users\":[\"b\"]}' \
       '{\"users\":[\"c\"]}' | jq -c ."
-  echo "$output" | jq -e '.users == ["a","b","c"]'
+  output_satisfies '.users == ["a","b","c"]'
 }

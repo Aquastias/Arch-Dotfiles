@@ -3,6 +3,8 @@
 # pi-agent.bats / noctalia-stow-*.bats: assert the COMMITTED program definition,
 # payload, config fixes, and Noctalia wiring without running an install.
 
+load ../lib/text-helpers
+
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."       # .installer/tests/config → repo root
   PROG="$REPO/.installer/programs/system/zsh"
@@ -159,7 +161,7 @@ setup() {
   # falls back to system node: no npx); install.sh links nvm.sh into it
   grep -q 'export NVM_DIR="$HOME/.nvm"' "$HOMESEED/.zsh/env/exports.zsh"
   grep -q 'ln -sfn /usr/share/nvm/nvm.sh' "$INSTALL"
-  ! grep -rq '/usr/share/nvm/init-nvm.sh' "$HOMESEED/.zsh" "$ZSHRC"
+  ! tree_has '/usr/share/nvm/init-nvm.sh' "$HOMESEED/.zsh" "$ZSHRC"
   [ ! -e "$HOMESEED/.zsh/vendors/nodejs" ]
 }
 

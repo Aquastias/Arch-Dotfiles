@@ -6,6 +6,8 @@
 # Apply rule (from the design prototype):
 #   apply(program) = selected && ships_home(program) && !config_exclude(program)
 
+load ../lib/json-helpers
+
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh"
 }
@@ -15,32 +17,32 @@ plan() { config_apply_plan "$1" "$2" "$3" | jq -c .; }
 
 @test "plan: a selected program that ships home and is not excluded applies" {
   run plan '["kitty"]' '["kitty"]' '[]'
-  echo "$output" | jq -e '. == ["kitty"]'
+  output_satisfies '. == ["kitty"]'
 }
 
 @test "plan: a package-only program (no home) is not in the plan" {
   run plan '["ccache","kitty"]' '["kitty"]' '[]'
-  echo "$output" | jq -e '. == ["kitty"]'
+  output_satisfies '. == ["kitty"]'
 }
 
 @test "plan: an excluded program is not in the plan though its package installs" {
   run plan '["kitty","zsh"]' '["kitty","zsh"]' '["kitty"]'
-  echo "$output" | jq -e '. == ["zsh"]'
+  output_satisfies '. == ["zsh"]'
 }
 
 @test "plan: empty config_exclude applies every home-shipping program" {
   run plan '["kitty","zsh","ccache"]' '["kitty","zsh"]' '[]'
-  echo "$output" | jq -e '. == ["kitty","zsh"]'
+  output_satisfies '. == ["kitty","zsh"]'
 }
 
 @test "plan: preserves selection order and dedupes" {
   run plan '["zsh","kitty","zsh"]' '["kitty","zsh"]' '[]'
-  echo "$output" | jq -e '. == ["zsh","kitty"]'
+  output_satisfies '. == ["zsh","kitty"]'
 }
 
 @test "plan: a program not selected never applies even if it ships home" {
   run plan '["zsh"]' '["kitty","zsh"]' '[]'
-  echo "$output" | jq -e '. == ["zsh"]'
+  output_satisfies '. == ["zsh"]'
 }
 
 # ── config_apply_ships_home_list walks a programs tree ────────────────────────────────
@@ -54,7 +56,7 @@ plan() { config_apply_plan "$1" "$2" "$3" | jq -c .; }
 
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
                config_apply_ships_home_list '$root' | jq -c 'sort'"
-  echo "$output" | jq -e '. == ["kitty","zsh"]'
+  output_satisfies '. == ["kitty","zsh"]'
 }
 
 @test "home_dir: resolves a program name to its home/ path" {
@@ -80,27 +82,27 @@ select_() { config_apply_stow_selection "$1" "$2" "$3" | jq -c .; }
 
 @test "selection: no except and no positional args stows every home program" {
   run select_ '["kitty","lazygit","zsh"]' '[]' '[]'
-  echo "$output" | jq -e '. == ["kitty","lazygit","zsh"]'
+  output_satisfies '. == ["kitty","lazygit","zsh"]'
 }
 
 @test "selection: --except subtracts the named programs" {
   run select_ '["kitty","lazygit","zsh"]' '["lazygit"]' '[]'
-  echo "$output" | jq -e '. == ["kitty","zsh"]'
+  output_satisfies '. == ["kitty","zsh"]'
 }
 
 @test "selection: positional args select exactly that subset, in their order" {
   run select_ '["kitty","lazygit","zsh"]' '[]' '["zsh","kitty"]'
-  echo "$output" | jq -e '. == ["zsh","kitty"]'
+  output_satisfies '. == ["zsh","kitty"]'
 }
 
 @test "selection: a positional name that ships no home is dropped" {
   run select_ '["kitty","zsh"]' '[]' '["kitty","ccache"]'
-  echo "$output" | jq -e '. == ["kitty"]'
+  output_satisfies '. == ["kitty"]'
 }
 
 @test "selection: an --except name that ships no home is a no-op" {
   run select_ '["kitty","zsh"]' '["ccache"]' '[]'
-  echo "$output" | jq -e '. == ["kitty","zsh"]'
+  output_satisfies '. == ["kitty","zsh"]'
 }
 
 # ── stow opt-in (ADR 0148) ──────────────────────────────────────────────────
@@ -108,17 +110,17 @@ select4_() { config_apply_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
 
 @test "selection: an opt-in program is skipped when no names are given" {
   run select4_ '["kitty","vscodium","zsh"]' '[]' '[]' '["vscodium"]'
-  echo "$output" | jq -e '. == ["kitty","zsh"]'
+  output_satisfies '. == ["kitty","zsh"]'
 }
 
 @test "selection: an opt-in program stows when named positionally" {
   run select4_ '["kitty","vscodium","zsh"]' '[]' '["vscodium"]' '["vscodium"]'
-  echo "$output" | jq -e '. == ["vscodium"]'
+  output_satisfies '. == ["vscodium"]'
 }
 
 @test "selection: --except still subtracts alongside the opt-in skip" {
   run select4_ '["kitty","vscodium","zsh"]' '["zsh"]' '[]' '["vscodium"]'
-  echo "$output" | jq -e '. == ["kitty"]'
+  output_satisfies '. == ["kitty"]'
 }
 
 @test "opt_in_list: names programs whose config.jsonc sets stow_opt_in" {
@@ -130,7 +132,7 @@ select4_() { config_apply_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
                config_apply_stow_opted_in_programs '$root'"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '. == ["vscodium"]'
+  output_satisfies '. == ["vscodium"]'
 }
 
 @test "opt_in_list: reads JSONC — key on its own line, false stays out" {
@@ -142,7 +144,7 @@ select4_() { config_apply_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
   run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
                config_apply_stow_opted_in_programs '$root'"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '. == ["a"]'
+  output_satisfies '. == ["a"]'
 }
 
 # ── ./stow-configs.sh end to end: a stale helper name once broke it silently ──

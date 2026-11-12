@@ -11,7 +11,7 @@ load install-config-helpers
   local spec name path kind default
   local test_json expected_present
   for spec in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    IFS='|' read -r name path kind default <<< "$spec"
+    IFS='|' read -r name path kind default < <(printf '%s\n' "$spec")
     case "$kind" in
     scalar)
       test_json="\"X_${name}\""
@@ -41,7 +41,8 @@ load install-config-helpers
     write_config '{}'
     out="$("install_config_${name}")" \
       || { echo "absent run failed for ${name}"; return 1; }
-    [ "$out" = "${default//,/$'\n'}" ] \
+    # The default, one comma-separated element per line.
+    [ "$out" = "$(printf '%s\n' "$default" | tr ',' '\n')" ] \
       || { echo "[${name}] absent: got '$out', want default '$default'"; return 1; }
 
     # present → value

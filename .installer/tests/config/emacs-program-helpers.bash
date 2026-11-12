@@ -26,7 +26,10 @@ FLEET_REL=.installer/hosts/fleet/profile.jsonc
 data_rows() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
 
 # elisp FILE → the file with `;` comments stripped (no string has a `;`).
-elisp() { awk '{ sub(/;.*/, ""); if ($0 ~ /[^[:space:]]/) print }' "$1"; }
+elisp() {
+  # Each line's code before any ; comment, blank results dropped.
+  cut -d';' -f1 "$1" | grep '[^[:space:]]'
+}
 
 # module_enabled <module-form> → status 0 when init.el's doom! block enables it
 # (e.g. `(evil +everywhere)` or `vertico`) on an uncommented line.
@@ -35,12 +38,9 @@ module_enabled() {
 }
 
 # registry_keys → the Language Registry's language keys (ADR 0141), read from
-# nvim's languages.lua with awk — no Lua runtime.
+# nvim's languages.lua (lib/language-registry.awk) — no Lua runtime.
 registry_keys() {
-  awk '/^local registry = \{/ { on = 1; next }
-       on && /^}/ { exit }
-       on && match($0, /^  [a-z_]+ = /) {
-         k = substr($0, 3); sub(/ = .*/, "", k); print k }' \
+  awk -v part=keys -f "$BATS_TEST_DIRNAME/../lib/language-registry.awk" \
     "$REPO/$LANGS_REL"
 }
 

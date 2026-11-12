@@ -87,7 +87,7 @@ setup() {
 @test "the full mattpocock skill set is vendored under .agents/skills" {
   [ -d "$SKILLS" ]
   # "all of them" — a generous floor so a partial vendor is caught
-  [ "$(find "$SKILLS" -name SKILL.md | awk 'END { print NR }')" -ge 30 ]
+  [ "$(find "$SKILLS" -name SKILL.md | wc -l)" -ge 30 ]
   for skill in tdd research code-review diagnosing-bugs domain-modeling wizard; do
     [ -f "$SKILLS/$skill/SKILL.md" ]
   done
@@ -103,7 +103,7 @@ setup() {
   grep -q '"source": "mattpocock/skills"' "$LOCK"
   # one lock entry per vendored SKILL.md
   [ "$(grep -c '"computedHash":' "$LOCK")" \
-      -eq "$(find "$SKILLS" -name SKILL.md | awk 'END { print NR }')" ]
+      -eq "$(find "$SKILLS" -name SKILL.md | wc -l)" ]
 }
 
 @test "pi auto-discovers ~/.agents/skills — settings declares no skills key" {
@@ -131,7 +131,9 @@ setup() {
   [ -f "$seed_file" ]
   grep -q '"mcpServers"' "$seed_file"
   # no raw API keys baked in — secrets, if any, use ${VAR} interpolation
-  run grep -qiE '(key|token|secret)" *: *"[^$"]' "$seed_file"
+  # Any key, token or secret given a literal value (in any case).
+  run grep -qE '(key|token|secret)" *: *"[^$"]' \
+    <(tr '[:upper:]' '[:lower:]' < "$seed_file")
   [ "$status" -ne 0 ]
 }
 

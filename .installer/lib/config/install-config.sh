@@ -110,6 +110,19 @@ _INSTALL_CONFIG_SCHEMA=(
   "kernels|.options.kernel|array|lts"
 )
 
+# The schema rows split once, at source time: each name's jq path, type and
+# install default ("" = none), and the names in schema order.
+declare -gA _INSTALL_CONFIG_PATHS=() _INSTALL_CONFIG_TYPES=()
+declare -gA _INSTALL_CONFIG_DEFAULTS=()
+declare -ga _INSTALL_CONFIG_NAMES=()
+while IFS='|' read -r _name _path _type _default; do
+  _INSTALL_CONFIG_PATHS[$_name]="$_path"
+  _INSTALL_CONFIG_TYPES[$_name]="$_type"
+  _INSTALL_CONFIG_DEFAULTS[$_name]="$_default"
+  _INSTALL_CONFIG_NAMES+=("$_name")
+done < <(printf '%s\n' "${_INSTALL_CONFIG_SCHEMA[@]}")
+unset _name _path _type _default
+
 # Accessors read CONFIG_FILE, or a bound JSON config (ADR 0154). Binding is
 # process state, so JSON holders read through install_config_from_json.
 _INSTALL_CONFIG_BOUND=false
@@ -134,23 +147,18 @@ install_config_from_json() {
 # _install_config_read <jq-filter> — the filter over the Effective Config, raw.
 _install_config_read() {
   if [[ "$_INSTALL_CONFIG_BOUND" == true ]]; then
-    jq -r "$1" <<<"$_INSTALL_CONFIG_JSON"
+    # The filter over the bound JSON.
+    printf '%s\n' "$_INSTALL_CONFIG_JSON" | jq -r "$1"
   else jsonc_read "$CONFIG_FILE" "$1"; fi
 }
 
 # _install_config_optional <path> — the field, or empty when missing / null.
 _install_config_optional() { _install_config_read "$1 // empty"; }
 
-# _install_config_row <name> — sets _INSTALL_CONFIG_ROW to the schema row's
-# "path|type|default" (a variable, not stdout: no fork per accessor read); an
-# unknown name is an error.
+# _install_config_row <name> — rc 0 for a schema name; an unknown name is an
+# error.
 _install_config_row() {
-  local schema_row
-  for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    [[ "${schema_row%%|*}" == "$1" ]] || continue
-    _INSTALL_CONFIG_ROW="${schema_row#*|}"
-    return 0
-  done
+  [[ -n "$1" && -n "${_INSTALL_CONFIG_TYPES[$1]:-}" ]] && return 0
   error "install_config: unknown schema name '$1'"
 }
 
@@ -159,42 +167,47 @@ _install_config_row() {
 install_config_default() {
   local default_value
   _install_config_row "$1" || return 1
-  default_value="${_INSTALL_CONFIG_ROW##*|}"
+  default_value="${_INSTALL_CONFIG_DEFAULTS[$1]}"
   [[ -n "$default_value" ]] || return 0
-  printf '%s\n' "${default_value//,/$'\n'}"
+  printf '%s\n' "$default_value" | tr ',' '\n'
 }
 
 # install_config_default_object <name>... — the named install defaults as one
 # typed JSON object at their paths (bool / number as JSON, arrays as arrays),
 # for the guided seed and menu. A field with no install default is left out.
+# One jq call: each default is an --arg, set at its path.
 install_config_default_object() {
-  local name
+  local name value expression index=0 program='{}'
+  local -a arguments=()
   for name in "$@"; do
     _install_config_row "$name" || return 1
-    [[ "${_INSTALL_CONFIG_ROW##*|}" == "" ]] \
-      || printf '%s\n' "$_INSTALL_CONFIG_ROW"
-  done | jq -Rn 'reduce (inputs | split("|")) as [$path, $type, $value] ({};
-    setpath($path | ltrimstr(".") | split(".");
-      if   $type == "bool" or $type == "number" then ($value | fromjson)
-      elif $type == "array" then ($value | split(","))
-      else $value end))'
+    value="${_INSTALL_CONFIG_DEFAULTS[$name]}"
+    [[ -n "$value" ]] || continue
+    case "${_INSTALL_CONFIG_TYPES[$name]}" in
+    bool | number) expression="(\$v${index} | fromjson)" ;;
+    array) expression="(\$v${index} | split(\",\"))" ;;
+    *) expression="\$v${index}" ;;
+    esac
+    program+=" | ${_INSTALL_CONFIG_PATHS[$name]} = ${expression}"
+    arguments+=(--arg "v${index}" "$value")
+    index=$((index + 1))
+  done
+  # The defaults, each at its path.
+  jq -n "${arguments[@]}" "$program"
 }
 
 # install_config_schema_names — every schema row's name, one per line.
 install_config_schema_names() {
-  local schema_row
-  for schema_row in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    printf '%s\n' "${schema_row%%|*}"
-  done
+  printf '%s\n' "${_INSTALL_CONFIG_NAMES[@]}"
 }
 
-# install_config_get <name> — schema dispatcher for the generated wrappers.
+# install_config_get <name> — schema dispatcher for the accessors below.
 # Reads the named field according to its schema row and applies the default.
 install_config_get() {
-  local jq_path field_type value
+  local jq_path value
   _install_config_row "$1" || return 1
-  IFS='|' read -r jq_path field_type _ <<< "$_INSTALL_CONFIG_ROW"
-  case "$field_type" in
+  jq_path="${_INSTALL_CONFIG_PATHS[$1]}"
+  case "${_INSTALL_CONFIG_TYPES[$1]}" in
   scalar | number) value="$(_install_config_optional "$jq_path")" ;;
   bool)
     value="$(_install_config_read "$jq_path")"
@@ -206,22 +219,68 @@ install_config_get() {
   else install_config_default "$1"; fi
 }
 
-# Generate one wrapper per schema row. Each wrapper forwards by name to
-# install_config_get. The canonical declaration is the schema row above.
-# A special below may redefine a generated wrapper to add logic (kernels,
-# optional_repos); defined later, it wins, and keeps the row's default.
-for _spec in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-  IFS='|' read -r _name _ _ _ <<< "$_spec"
-  eval "install_config_${_name}() { install_config_get ${_name}; }"
-done
-unset _spec _name
+# One accessor per schema row, reading it through install_config_get. The
+# rows with extra logic (impermanence_enabled, encryption_enabled,
+# optional_repos, kernels) have their own definitions below.
+install_config_bootloader() { install_config_get bootloader; }
+install_config_swap_enabled() { install_config_get swap_enabled; }
+install_config_zswap_enabled() { install_config_get zswap_enabled; }
+install_config_zswap_compressor() { install_config_get zswap_compressor; }
+install_config_zswap_max_pool_percent() {
+  install_config_get zswap_max_pool_percent
+}
+install_config_zfs_arc_max() { install_config_get zfs_arc_max; }
+install_config_esp_size() { install_config_get esp_size; }
+install_config_root_shell() { install_config_get root_shell; }
+install_config_ssh_enabled() { install_config_get ssh_enabled; }
+install_config_printing_enabled() { install_config_get printing_enabled; }
+install_config_bluetooth_enabled() { install_config_get bluetooth_enabled; }
+install_config_power_profile() { install_config_get power_profile; }
+install_config_impermanence_dataset() {
+  install_config_get impermanence_dataset
+}
+install_config_impermanence_mount() { install_config_get impermanence_mount; }
+install_config_age_key_url() { install_config_get age_key_url; }
+install_config_hostname() { install_config_get hostname; }
+install_config_fullname() { install_config_get fullname; }
+install_config_console_font() { install_config_get console_font; }
+install_config_desktop() { install_config_get desktop; }
+install_config_display_manager() { install_config_get display_manager; }
+install_config_wayland_shell() { install_config_get wayland_shell; }
+install_config_dotfiles_repo() { install_config_get dotfiles_repo; }
+install_config_os_pool_name() { install_config_get os_pool_name; }
+install_config_storage_pool_name() { install_config_get storage_pool_name; }
+install_config_storage_mount() { install_config_get storage_mount; }
+install_config_ashift() { install_config_get ashift; }
+install_config_os_pool_ashift() { install_config_get os_pool_ashift; }
+install_config_filesystem() { install_config_get filesystem; }
+install_config_disk_kind() { install_config_get disk_kind; }
+install_config_pacman_ilovecandy() { install_config_get pacman_ilovecandy; }
+install_config_pacman_color() { install_config_get pacman_color; }
+install_config_pacman_verbose_pkg_lists() {  # readability-ok: frozen key
+  install_config_get pacman_verbose_pkg_lists
+}
+install_config_pacman_disable_download_timeout() {
+  install_config_get pacman_disable_download_timeout
+}
+install_config_pacman_no_progress_bar() {
+  install_config_get pacman_no_progress_bar
+}
+install_config_pacman_parallel_downloads() {
+  install_config_get pacman_parallel_downloads
+}
+install_config_swap_size() { install_config_get swap_size; }
+install_config_stock() { install_config_get stock; }
+install_config_gpu() { install_config_get gpu; }
+install_config_locales() { install_config_get locales; }
+install_config_keymaps() { install_config_get keymaps; }
+install_config_mirror_countries() { install_config_get mirror_countries; }
 
 # Manual Partitioning neutralises the pool-dependent options (ADR 0073). A plain
 # hand-partitioned layout has no ZFS dataset to roll back and no pool to
 # encrypt, so impermanence and encryption read false under kind=manual whatever
 # override the (shown-but-locked) menu row still carries — the back-end must
-# never act on a stale value the operator cannot edit. These OVERRIDE the
-# generated wrappers above (last definition wins), like install_config_any_zfs.
+# never act on a stale value the operator cannot edit.
 install_config_impermanence_enabled() {
   [[ "$(install_config_disk_kind)" == "manual" ]] \
     && { printf 'false\n'; return; }
@@ -286,11 +345,11 @@ install_config_encryption_method() {
 # desktop layouts. The *s accessors are array schema rows (one token per line,
 # primary first); the singular ones return the primary for scalar consumers.
 install_config_locale() {
-  install_config_locales | awk 'NR == 1 { print; exit }'
+  install_config_locales | head -n 1
 }
 
 install_config_keymap() {
-  install_config_keymaps | awk 'NR == 1 { print; exit }'
+  install_config_keymaps | head -n 1
 }
 
 # Optional Repositories (ADR 0072) — the pacman repos enabled beyond core/extra:
@@ -326,11 +385,11 @@ install_config_mirror_servers() {
 # both default to the pacman-standard Required/TrustedOnly when omitted). Empty
 # when none are declared.
 install_config_custom_repositories() {
+  local rows='(. // [])[] | [.name, .url, (.sign_check // "Required"),'
+  rows+=' (.sign_option // "TrustedOnly")] | @tsv'
+  # One TSV row per declared repository.
   _install_config_read '.options.custom_repositories' 2>/dev/null \
-    | jq -r '(. // [])[]
-       | [ .name, .url,
-           (.sign_check // "Required"), (.sign_option // "TrustedOnly") ]
-       | @tsv' 2>/dev/null
+    | jq -r "$rows" 2>/dev/null
 }
 
 # install_config_persist_json — the effective config's Persist Extensions as
@@ -354,14 +413,14 @@ install_config_kernels() {
   Valid tokens: $(kernel_valid_tokens). See ADR 0024."
       return 1
     }
-  done <<< "$out"
+  done < <(printf '%s\n' "$out")
   printf '%s\n' "$out"
 }
 
 # Primary Kernel — the first selected token. Back-compat scalar accessor for
 # consumers (initramfs preset, bootloader default) that understand one kernel.
 install_config_kernel() {
-  install_config_kernels | awk 'NR == 1 { print; exit }'
+  install_config_kernels | head -n 1
 }
 
 # The wlroots compositors: the desktops the Wayland Shell Companion layers on

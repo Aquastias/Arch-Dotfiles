@@ -43,7 +43,15 @@ setup() {
 # toml_table <name> <file> — the [<name>] table's lines through the next
 # table header (inclusive, like a sed range).
 toml_table() {
-  TABLE="[$1]" awk 'index($0, ENVIRON["TABLE"]) == 1 { inside = 1; print; next }
-    inside { print; if (/^\[/) inside = 0 }' "$2"
+  local line header="[$1]" inside=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if (( inside )); then
+      printf '%s\n' "$line"
+      [[ "$line" == "["* ]] && inside=0
+    elif [[ "$line" == "$header"* ]]; then
+      printf '%s\n' "$line"
+      inside=1
+    fi
+  done < "$2"
 }
 

@@ -20,12 +20,8 @@
 
 # timezone_fetch — print the geo-IP IANA zone, or nothing on any failure. A
 # bounded curl mirroring the guided-controller idiom so an offline install
-# never hangs. Injectable via TIMEZONE_FETCH_CMD (tests set it, no network).
+# never hangs. Tests override this function (no network).
 timezone_fetch() {
-  if [[ -n "${TIMEZONE_FETCH_CMD:-}" ]]; then
-    eval "$TIMEZONE_FETCH_CMD"
-    return
-  fi
   curl -fsSL --connect-timeout 2 --max-time 8 \
     https://ipapi.co/timezone 2>/dev/null
 }
@@ -45,13 +41,15 @@ timezone_valid() {
 # install functional.
 timezone_resolve() {
   local config="${1:-{\}}" explicit detected
-  explicit="$(jq -r '.system.timezone // empty' <<<"$config" 2>/dev/null)"
+  # The authored zone (nothing when unset).
+  explicit="$(printf '%s\n' "$config" \
+    | jq -r '.system.timezone // empty' 2>/dev/null)"
   if [[ -n "$explicit" ]]; then
     printf '%s\n' "$explicit"
     return 0
   fi
-  detected="$(timezone_fetch \
-    | awk 'NR == 1 { gsub(/[[:space:]]/, ""); print; exit }')"
+  # The first line of the geo-IP reply, without any whitespace.
+  detected="$(timezone_fetch | head -n 1 | tr -d '[:space:]')"
   if timezone_valid "$detected"; then
     printf '%s\n' "$detected"
     return 0

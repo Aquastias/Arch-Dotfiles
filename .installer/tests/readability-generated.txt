@@ -2,6 +2,5 @@
 # them at run time (ADR 0167). One glob per line. Calls matching a glob
 # are treated as repo function calls, not commands.
 #
-# The Install Config Reader's accessors, made by `eval` from the schema
-# rows in lib/config/install-config.sh (until that eval is rewritten).
-install_config_*
+# None today: the Install Config Reader's accessors, once made by `eval`,
+# are written out in lib/config/install-config.sh.

@@ -29,11 +29,9 @@
 # their secure baseline themselves). Explicit, so the menu renders the off
 # values rather than blanks; installs exactly what an absent object does.
 post_install_default() {
-  jq -nc '{
-    security: { firewall: "none", antivirus: false, rootkit: false,
-                apparmor: false },
-    backup:   { zfs_auto_snapshot: false, borg: false }
-  }'
+  printf '%s%s\n' \
+    '{"security":{"firewall":"none","antivirus":false,"rootkit":false,' \
+    '"apparmor":false},"backup":{"zfs_auto_snapshot":false,"borg":false}}'
 }
 
 # post_install_programs <post_install_json> [any_zfs] — the ordered Program
@@ -45,22 +43,9 @@ post_install_default() {
 # zfs-auto-snapshot, which would otherwise pull ZFS in from the AUR; absent
 # means unknown and keeps it.
 post_install_programs() {
-  jq -r --arg zfs "${2:-true}" '
-    # Coerce a non-object (absent, null, or a legacy bool) to off — `// {}`
-    # alone would keep a stored `true` and then index a boolean.
-    (if (.security | type) == "object" then .security else {} end) as $s
-    | (if (.backup | type) == "object" then .backup else {} end) as $b
-    | [ (if   $s.firewall == "firewalld" then "firewalld"
-         elif $s.firewall == "ufw"       then "ufw"
-         else empty end),
-        (if $s.antivirus then "clamav"  else empty end),
-        (if $s.rootkit   then "rkhunter" else empty end),
-        (if $s.apparmor  then "apparmor" else empty end),
-        (if $b.zfs_auto_snapshot and $zfs != "false"
-         then "zfs-auto-snapshot" else empty end),
-        (if $b.borg              then "borg" else empty end) ]
-    | .[]
-  ' <<<"${1:-{\}}"
+  # The selection's programs (post-install-programs.jq).
+  printf '%s\n' "${1:-{\}}" | jq -r --arg zfs "${2:-true}" \
+    -f "${BASH_SOURCE[0]%/*}/post-install-programs.jq"
 }
 
 # post_install_owned_programs — every Program the Security & Backup toggles can
@@ -81,28 +66,10 @@ post_install_owned_programs() {
 # when present, must be bool. An absent field is valid (absent = off).
 post_install_validate() {
   local bad
-  bad="$(jq -rn --argjson pi "${1:-{\}}" '
-    def boolfield($obj; $k):
-      if ($obj | has($k)) and (($obj[$k] | type) != "boolean")
-      then $k else empty end;
-    [ if ($pi.security != null) and (($pi.security | type) != "object")
-      then "security (must be an object, not the old bool form)" else empty end,
-      if ($pi.backup != null) and (($pi.backup | type) != "object")
-      then "backup (must be an object, not the old bool form)" else empty end,
-      ( ($pi.security // {}) as $s
-        | if ($s | has("firewall"))
-             and ((["firewalld","ufw","none"] | index($s.firewall)) == null)
-          then "security.firewall (must be firewalld | ufw | none)" else empty
-          end ),
-      ( ($pi.security // {}) as $s
-        | boolfield($s; "antivirus"), boolfield($s; "rootkit"),
-          boolfield($s; "apparmor") | "security." + . ),
-      ( ($pi.backup // {}) as $b
-        | boolfield($b; "zfs_auto_snapshot"), boolfield($b; "borg")
-          | "backup." + . )
-    ]
-    | if length == 0 then "" else .[0] end
-  ')" || { error "post_install_validate: jq failed"; return 1; }
+  # The first malformed field (post-install-validate.jq).
+  bad="$(jq -rn --argjson pi "${1:-{\}}" \
+    -f "${BASH_SOURCE[0]%/*}/post-install-validate.jq")" \
+    || { error "post_install_validate: jq failed"; return 1; }
 
   if [[ -n "$bad" ]]; then
     error "Invalid post_install field: ${bad} (ADR 0041)."
@@ -119,7 +86,7 @@ post_install_guard_users() {
   local pi_json="${1:-{\}}" count="${2:-0}"
   local -a programs=()
   local extras; extras="$(post_install_programs "$pi_json")" || return 1
-  [[ -n "$extras" ]] && mapfile -t programs <<< "$extras"
+  [[ -n "$extras" ]] && mapfile -t programs < <(printf '%s\n' "$extras")
   if ((${#programs[@]} > 0)) && (("$count" == 0)); then
     error "Security/Backup Extras install via paru and need a primary user —" \
           "add a user or clear the selections."

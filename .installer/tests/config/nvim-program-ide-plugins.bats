@@ -2,6 +2,7 @@
 # Tests: IDE plugins (split from nvim-program.bats;
 # shared setup in nvim-program-helpers.bash)
 
+load ../lib/text-helpers
 load nvim-program-helpers
 
 
@@ -74,11 +75,11 @@ load nvim-program-helpers
 
 @test "ergonomics plugins: surround, autotag, ts-context, flash, colors" {
   local plugins_directory="$NVIM/lua/plugins"
-  grep -rq 'echasnovski/mini.surround' "$plugins_directory"
-  grep -rq 'windwp/nvim-ts-autotag' "$plugins_directory"
-  grep -rq 'nvim-treesitter/nvim-treesitter-context' "$plugins_directory"
-  grep -rq 'folke/flash.nvim' "$plugins_directory"
-  grep -rq 'brenoprata10/nvim-highlight-colors' "$plugins_directory"
+  tree_has 'echasnovski/mini.surround' "$plugins_directory"
+  tree_has 'windwp/nvim-ts-autotag' "$plugins_directory"
+  tree_has 'nvim-treesitter/nvim-treesitter-context' "$plugins_directory"
+  tree_has 'folke/flash.nvim' "$plugins_directory"
+  tree_has 'brenoprata10/nvim-highlight-colors' "$plugins_directory"
 }
 
 @test "surround uses the gs prefix so flash keeps s" {
@@ -113,7 +114,7 @@ load nvim-program-helpers
 @test "native multi-cursor keymaps, no multi-cursor plugin" {
   grep -q 'cgn' "$NVIM/lua/config/keymaps.lua"
   grep -q '"cn"' "$NVIM/lua/config/keymaps.lua"
-  ! grep -rqiE 'multicursor|visual-multi' "$NVIM/lua"
+  ! tree_has -i -E 'multicursor|visual-multi' "$NVIM/lua"
 }
 
 @test "mini.ai wires treesitter function/class textobjects" {
@@ -126,7 +127,7 @@ load nvim-program-helpers
 @test "incremental selection + context-aware comments present" {
   [ -f "$NVIM/lua/config/incremental.lua" ]
   grep -q '"<C-space>"' "$NVIM/lua/config/keymaps.lua"
-  grep -rq 'JoosepAlviste/nvim-ts-context-commentstring' "$NVIM/lua/plugins"
+  tree_has 'JoosepAlviste/nvim-ts-context-commentstring' "$NVIM/lua/plugins"
 }
 
 
@@ -175,8 +176,8 @@ load nvim-program-helpers
   # had no nvim, so the restore died "nvim: command not found".
   local ins rst
   local packages='--needed neovim git tree-sitter-cli'
-  ins="$(NEEDLE="$packages" awk 'index($0, ENVIRON["NEEDLE"]) { print NR }' "$INSTALL")"
-  rst="$(awk 'index($0, "nvim \"${_restore") { print NR; exit }' "$INSTALL")"
+  ins="$(line_number_of "$INSTALL" "$packages")"
+  rst="$(line_number_of "$INSTALL" 'nvim "${_restore')"
   [ -n "$ins" ] && [ -n "$rst" ] && (( ins < rst ))
 }
 

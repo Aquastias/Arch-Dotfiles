@@ -8,6 +8,8 @@
 #
 # Behaviour under test is external only. Prior art: tests/config/printing.bats.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -50,23 +52,23 @@ setup() {
 
 @test "power_inject: default appends power-profiles-daemon, preserving existing" {
   run power_inject '{"host_programs":["grub"]}'
-  echo "$output" | jq -e '.host_programs == ["grub","power-profiles-daemon"]'
+  output_satisfies '.host_programs == ["grub","power-profiles-daemon"]'
 }
 
 @test "power_inject: tuned appends tuned" {
   run power_inject '{"host_programs":["grub"],
                      "options":{"power":{"profile":"tuned"}}}'
-  echo "$output" | jq -e '.host_programs == ["grub","tuned"]'
+  output_satisfies '.host_programs == ["grub","tuned"]'
 }
 
 @test "power_inject: none leaves a config without host_programs untouched" {
   run power_inject '{"options":{"power":{"profile":"none"}}}'
-  echo "$output" | jq -e 'has("host_programs") | not'
+  output_satisfies 'has("host_programs") | not'
 }
 
 @test "power_inject: idempotent when the daemon is already present" {
   run power_inject '{"host_programs":["power-profiles-daemon"]}'
-  echo "$output" | jq -e '.host_programs == ["power-profiles-daemon"]'
+  output_satisfies '.host_programs == ["power-profiles-daemon"]'
 }
 
 # ── power_owned_programs: the picker-filter set ─────────────────────────────

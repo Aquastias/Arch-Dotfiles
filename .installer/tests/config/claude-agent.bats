@@ -3,6 +3,9 @@
 # COMMITTED payload + program definition + package/profile wiring + stow
 # gitignore shape, without running an install.
 
+load ../lib/json-helpers
+load ../lib/text-helpers
+
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."      # .installer/tests/config → repo root
   PROG="$REPO/.installer/programs/dev/claude"
@@ -50,35 +53,35 @@ setup() {
 @test "seeded settings.json pins the decided keys" {
   local settings_file="$HOMESEED/settings.json"
   [ -f "$settings_file" ]
-  [ "$(jq -r '.model' "$settings_file")" = "claude-opus-5-5" ]
-  [ "$(jq -r '.fallbackModel[0]' "$settings_file")" = "claude-sonnet-5" ]
-  [ "$(jq -r '.promptCacheTtl' "$settings_file")" = "3600" ]
-  [ "$(jq -r '.permissions.defaultMode' "$settings_file")" = "auto" ]
-  [ "$(jq -r '.permissions.disableBypassPermissionsMode' "$settings_file")" = "disable" ]
-  [ "$(jq -r '.skipAutoPermissionPrompt' "$settings_file")" = "true" ]
-  [ "$(jq -r '.attribution.commit' "$settings_file")" = "" ]
-  [ "$(jq -r '.attribution.pr' "$settings_file")" = "" ]
-  [ "$(jq -r '.attribution.sessionUrl' "$settings_file")" = "false" ]
-  [ "$(jq -r '.sandbox.failIfUnavailable' "$settings_file")" = "true" ]
-  jq -e '.sandbox.network.allowUnixSockets
-    | index("/run/libvirt/libvirt-sock")' "$settings_file" >/dev/null
-  [ "$(jq -r '.cleanupPeriodDays' "$settings_file")" = "30" ]
-  [ "$(jq -r '.autoUpdatesChannel' "$settings_file")" = "stable" ]
+  file_satisfies "$settings_file" '.model == "claude-opus-5-5"'
+  file_satisfies "$settings_file" '.fallbackModel[0] == "claude-sonnet-5"'
+  file_satisfies "$settings_file" '.promptCacheTtl == 3600'
+  file_satisfies "$settings_file" '.permissions.defaultMode == "auto"'
+  file_satisfies "$settings_file" '.permissions.disableBypassPermissionsMode == "disable"'
+  file_satisfies "$settings_file" '.skipAutoPermissionPrompt == true'
+  file_satisfies "$settings_file" '.attribution.commit == ""'
+  file_satisfies "$settings_file" '.attribution.pr == ""'
+  file_satisfies "$settings_file" '.attribution.sessionUrl == false'
+  file_satisfies "$settings_file" '.sandbox.failIfUnavailable == true'
+  file_satisfies "$settings_file" \
+    '.sandbox.network.allowUnixSockets | index("/run/libvirt/libvirt-sock")'
+  file_satisfies "$settings_file" '.cleanupPeriodDays == 30'
+  file_satisfies "$settings_file" '.autoUpdatesChannel == "stable"'
 }
 
 # ── curated feature set: unused tooling off, current Opus (ADR 0142) ──────────
 
 @test "seeded settings.json curates the feature set (ADR 0142)" {
   local settings_file="$HOMESEED/settings.json"
-  [ "$(jq -r '.effortLevel' "$settings_file")" = "medium" ]
-  [ "$(jq -r '.disableClaudeAiConnectors' "$settings_file")" = "true" ]
-  [ "$(jq -r '.disableRemoteControl' "$settings_file")" = "true" ]
-  [ "$(jq -r '.enableArtifact' "$settings_file")" = "false" ]
-  [ "$(jq -r '.disableWorkflows' "$settings_file")" = "true" ]
-  [ "$(jq -r '.syncClaudeAiSkills' "$settings_file")" = "false" ]
-  [ "$(jq -r '.syncClaudeAiPlugins' "$settings_file")" = "false" ]
-  [ "$(jq -r '.env.DISABLE_TELEMETRY' "$settings_file")" = "1" ]
-  [ "$(jq -r '.env.DISABLE_ERROR_REPORTING' "$settings_file")" = "1" ]
+  file_satisfies "$settings_file" '.effortLevel == "medium"'
+  file_satisfies "$settings_file" '.disableClaudeAiConnectors == true'
+  file_satisfies "$settings_file" '.disableRemoteControl == true'
+  file_satisfies "$settings_file" '.enableArtifact == false'
+  file_satisfies "$settings_file" '.disableWorkflows == true'
+  file_satisfies "$settings_file" '.syncClaudeAiSkills == false'
+  file_satisfies "$settings_file" '.syncClaudeAiPlugins == false'
+  file_satisfies "$settings_file" '.env.DISABLE_TELEMETRY == "1"'
+  file_satisfies "$settings_file" '.env.DISABLE_ERROR_REPORTING == "1"'
 }
 
 # ── single source under the program home/ (ADR 0134) ─────────────────────────
@@ -95,15 +98,16 @@ setup() {
 # ── sleep-poll hook (ADR 0156) ───────────────────────────────────────────────
 
 @test "seeded settings.json registers the sleep-poll PreToolUse hook" {
-  jq -e '.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[]
-    | select(.command == "~/.claude/scripts/block-sleep-poll.sh")' \
-    "$HOMESEED/settings.json" >/dev/null
+  file_satisfies "$HOMESEED/settings.json" \
+    '.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[]
+    | select(.command == "~/.claude/scripts/block-sleep-poll.sh")'
 }
 
 _sleep_hook() {
-  jq -n --arg command "$1" --argjson background "${2:-false}" \
-    '{tool_name:"Bash",
-      tool_input:{command:$command, run_in_background:$background}}' \
+  local call='{tool_name:"Bash",'
+  call+=' tool_input:{command:$command, run_in_background:$background}}'
+  # A Bash tool call, fed to the hook.
+  jq -n --arg command "$1" --argjson background "${2:-false}" "$call" \
     | "$HOMESEED/scripts/block-sleep-poll.sh"
 }
 
@@ -135,9 +139,12 @@ _sleep_hook() {
   # outside it — the only file that may linger. The operator's gitignored
   # runtime .claude is untouched.
   run git -C "$REPO" ls-files .claude
-  ! grep -qx '.claude/CLAUDE.md' <<<"$output"
-  ! grep -qx '.claude/scripts/statusline.sh' <<<"$output"
-  [ -z "$(grep -vx '.claude/settings.json' <<<"$output" | grep .)" ]
+  ! text_has_line "$output" '.claude/CLAUDE.md'
+  ! text_has_line "$output" '.claude/scripts/statusline.sh'
+  local tracked
+  for tracked in "${lines[@]}"; do
+    [ "$tracked" = '.claude/settings.json' ]
+  done
 }
 
 @test "claude runtime state and credentials stay gitignored" {

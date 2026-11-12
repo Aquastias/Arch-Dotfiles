@@ -32,6 +32,9 @@
 # ── the classification table ────────────────────────────────────────────────
 # Additive keys, as jq paths. `packages.repo.*` / `packages.aur.*` mean "every
 # category under this object is an additive array".
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _LAYER_ADDITIVE_host=(
   "packages.repo.*" "packages.aur.*"
   "host_programs"
@@ -80,8 +83,7 @@ layer_resolver_resolve() {
 
   local acc="$1"; shift
   local additive
-  additive="$(layer_resolver_additive_keys "$kind" | jq -R . | jq -s -c .)" \
-    || return 1
+  additive="$(layer_resolver_additive_json "$kind")" || return 1
 
   local next
   for next in "$@"; do
@@ -150,7 +152,10 @@ JQ
 # layer_resolver_additive_json <host|user> — classification table as a JSON
 # array for --argjson additive.
 layer_resolver_additive_json() {
-  layer_resolver_additive_keys "$1" | jq -R . | jq -s -c .
+  local keys list='$keys | split("\n") | map(select(length > 0))'
+  keys="$(layer_resolver_additive_keys "$1")" || return 1
+  # The additive keys as a JSON array.
+  jq -cn --arg keys "$keys" "$list"
 }
 
 # layer_resolver_apply_exclusions <config> — apply a config's OWN excludes to
@@ -160,14 +165,11 @@ layer_resolver_additive_json() {
 layer_resolver_apply_exclusions() {
   # inherit is meaningless without a fold, so drop it up front; apply_exclusions
   # then subtracts the config's OWN excludes and strips the control keys.
-  jq "$(layer_resolver_jq_exclusions)"'
-    del(.packages.inherit)
-    | del(.programs_inherit)
-    | apply_exclusions(
-        (.packages.exclude // []);
-        (.host_programs_exclude // []);
-        (.programs_exclude // []))
-  ' <<<"$1"
+  local apply='del(.packages.inherit) | del(.programs_inherit)'
+  apply+=' | apply_exclusions((.packages.exclude // []);'
+  apply+=' (.host_programs_exclude // []); (.programs_exclude // []))'
+  # The config with its own exclusions applied.
+  printf '%s\n' "$1" | jq "$(layer_resolver_jq_exclusions)${apply}"
 }
 
 # _layer_resolver_fold_one <lower> <upper> <additive-paths-json> — one layer
@@ -176,52 +178,12 @@ layer_resolver_apply_exclusions() {
 # (recursing into plain objects so a nested scalar override keeps its siblings),
 # (3) exclusions apply last. See the numbered steps below.
 _layer_resolver_fold_one() {
-  local lower="$1" upper="$2" additive="$3"
-
+  local lower="$1" upper="$2" additive="$3" program
+  program="$(layer_resolver_jq_prelude)$(layer_resolver_jq_exclusions)"
+  program+="$(cat "${BASH_SOURCE[0]%/*}/layer-resolver-fold.jq")"
+  # The upper layer folded over the lower one (layer-resolver-fold.jq).
   jq -n \
     --argjson lower "$lower" \
     --argjson upper "$upper" \
-    --argjson additive "$additive" \
-    "$(layer_resolver_jq_prelude)$(layer_resolver_jq_exclusions)"'
-    def merge($a; $b; $path):
-      if   ($a == null) then $b
-      elif ($b == null) then $a
-      elif ($a | type) == "object" and ($b | type) == "object"
-        then reduce (($a + $b) | keys_unsorted | unique[]) as $k
-          ({}; .[$k] = merge($a[$k]; $b[$k]; $path + [$k]))
-      elif ($a | type) == "array" and ($b | type) == "array"
-        then if is_additive($path) then (($a + $b) | odedup) else $b end
-      else $b
-      end;
-
-    # 1. inherit:false drops the lower layer base software wholesale — both
-    #    packages AND host_programs (the ADR 0089 base programs are the same
-    #    workstation base as the packages, so a bare install opts out of both
-    #    with the one flag). Compared to `false` directly: jq `//` treats
-    #    false as empty, so `(.inherit // true)` fails.
-    # `programs_inherit: false` is the user-fold twin of packages.inherit (ADR
-    # 0134): scoped to .programs only, so identity keys (groups/shell/sudo/
-    # ssh_authorized_keys) still fold. Harmless on the host fold — a host layer
-    # never carries programs_inherit.
-    ((if ($upper.packages.inherit == false)
-      then ($lower | del(.packages) | del(.host_programs))
-      else $lower end)
-     | (if ($upper.programs_inherit == false)
-        then del(.programs) else . end)) as $base
-
-    # 2. fold, then strip the control keys so they never reach a consumer.
-    | merge($base; $upper; [])
-    | del(.packages.inherit)
-    | del(.programs_inherit)
-
-    # 3. exclusions over the merged result — UPPER layer only. A lower layer
-    #    excluding what it never inherited is vacuous, and applying it here
-    #    would block a later layer re-adding it, breaking "last layer wins".
-    #    apply_exclusions also strips control keys (re-read from the authored
-    #    layers next fold — how a later layer re-adds an excluded entry).
-    | apply_exclusions(
-        ($upper.packages.exclude // []);
-        ($upper.host_programs_exclude // []);
-        ($upper.programs_exclude // []))
-  '
+    --argjson additive "$additive" "$program"
 }

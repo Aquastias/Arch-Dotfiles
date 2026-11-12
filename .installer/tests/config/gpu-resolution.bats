@@ -13,7 +13,9 @@ setup() {
 
   # ── common.sh stubs ────────────────────────────────────────────────────────
   jsonc_strip() { cat "$1"; }
+  # A stub: the value at the path in the test config.
   config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  # A stub: the value at the path in the test config.
   config_required() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error()   { echo "ERROR: $*" >&2; exit 1; }
   info()    { :; }

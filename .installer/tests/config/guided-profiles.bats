@@ -8,6 +8,9 @@
 # the helpers emit), never internal structure. Prior art: guided-seed.bats,
 # guided-state.bats.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -49,18 +52,18 @@ teardown() { rm -rf "$HOSTS" "$HOSTS.installer"; }
 
 @test "profiles_list: excludes core (the merge base)" {
   run profiles_list "$HOSTS"
-  ! grep -qx core <<<"$output"
+  ! text_has_line "$output" core
 }
 
 @test "profiles_list: excludes the vm/ harness tree" {
   run profiles_list "$HOSTS"
-  ! grep -qx vm <<<"$output"
-  ! grep -qx arch-kde <<<"$output"
+  ! text_has_line "$output" vm
+  ! text_has_line "$output" arch-kde
 }
 
 @test "profiles_list: excludes a dir with no profile.jsonc" {
   run profiles_list "$HOSTS"
-  ! grep -qx notes <<<"$output"
+  ! text_has_line "$output" notes
 }
 
 # ── header comment: stripped prose for the preview pane ─────────────────────
@@ -91,9 +94,9 @@ use_hosts_tree() {
   use_hosts_tree
   run profiles_baseline desktop
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'   # profile value
-  echo "$output" | jq -e '.options.encryption == true'
-  echo "$output" | jq -e '.options.bootloader == "systemd-boot"'  # a default
+  output_satisfies '.system.hostname == "eterniox"'   # profile value
+  output_satisfies '.options.encryption == true'
+  output_satisfies '.options.bootloader == "systemd-boot"'  # a default
 }
 
 @test "profiles_baseline: an unknown profile is rc 1" {
@@ -109,6 +112,6 @@ use_hosts_tree() {
     > "$HOSTS/laptop/profile.jsonc"
   run profiles_baseline laptop
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.os_pool | has("devices") | not'
-  echo "$output" | jq -e '.os_pool.disk_count == 2'   # count derived
+  output_satisfies '.os_pool | has("devices") | not'
+  output_satisfies '.os_pool.disk_count == 2'   # count derived
 }

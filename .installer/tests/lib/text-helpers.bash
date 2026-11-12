@@ -5,6 +5,9 @@
 #
 #   output_has_line <line>        — one line of $output is exactly <line>
 #   text_has_line <text> <line>   — one line of <text> is exactly <line>
+#   tree_has [-E -i -w] <re> <path>… — a file under <path>… has a matching line
+#   lines_between <start> <end>   — stdin's lines from <start> to <end> (sed /a/,/b/)
+#   join_continued <file>         — <file> with backslash-continued lines joined
 #   first_line_matching <file> <re> — first line matching <re>, by number
 #   last_line_matching <file> <re>  — last line matching <re>, by number
 #   function_body <file> <name>     — one function definition of <file>
@@ -41,6 +44,55 @@ text_has_line() {
     [[ "$line" == "$2" ]] && return 0
   done < <(printf '%s\n' "$1")
   return 1
+}
+
+# tree_has [-E] [-i] [-w] <pattern> <path>… — 0 when a line of any file under
+# <path>… matches <pattern> (grep's flags: -E extended, -i any case, -w whole
+# words). Stands in for `grep -r`: ADR 0167 keeps grep to one file at a time.
+tree_has() {
+  local -a flags=()
+  local pattern match
+  while [[ "$1" == -? ]]; do
+    flags+=("$1")
+    shift
+  done
+  pattern="$1"
+  shift
+  # The first file holding a matching line.
+  match="$(find "$@" -type f -exec grep -q "${flags[@]}" -- "$pattern" {} \; \
+    -print -quit 2>/dev/null)"
+  [[ -n "$match" ]]
+}
+
+# lines_between <start-ERE> <end-ERE> — stdin's lines from each one matching
+# <start> through the next one after it matching <end> (sed's /a/,/b/p).
+lines_between() {
+  local line inside=0
+  while IFS= read -r line; do
+    if (( inside )); then
+      printf '%s\n' "$line"
+      [[ "$line" =~ $2 ]] && inside=0
+    elif [[ "$line" =~ $1 ]]; then
+      printf '%s\n' "$line"
+      inside=1
+    fi
+  done
+  return 0
+}
+
+# join_continued <file> — <file> with each backslash-ended line joined to the
+# next one (the backslash dropped).
+join_continued() {
+  local line joined=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == *\\ ]]; then
+      joined+="${line:0:${#line}-1}"
+    else
+      printf '%s\n' "${joined}${line}"
+      joined=""
+    fi
+  done < "$1"
+  [[ -z "$joined" ]] || printf '%s\n' "$joined"
 }
 
 # first_line_matching <file> <extended-regex> — the number of the first line

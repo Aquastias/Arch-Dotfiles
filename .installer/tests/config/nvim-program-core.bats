@@ -2,6 +2,7 @@
 # Tests: program, LSP, format, lint (split from nvim-program.bats;
 # shared setup in nvim-program-helpers.bash)
 
+load ../lib/text-helpers
 load nvim-program-helpers
 
 
@@ -40,9 +41,9 @@ load nvim-program-helpers
 }
 
 @test "config is hand-rolled on lazy.nvim, not the LazyVim distro (ADR 0135)" {
-  grep -rq 'folke/lazy.nvim' "$NVIM/lua/config/lazy.lua"
-  ! grep -rq 'LazyVim/LazyVim' "$NVIM"
-  ! grep -rq 'import = "lazyvim' "$NVIM"
+  tree_has 'folke/lazy.nvim' "$NVIM/lua/config/lazy.lua"
+  ! tree_has 'LazyVim/LazyVim' "$NVIM"
+  ! tree_has 'import = "lazyvim' "$NVIM"
 }
 
 
@@ -50,19 +51,19 @@ load nvim-program-helpers
 
 @test "default look is Catppuccin Mocha with a sapphire accent (ADR 0136)" {
   # palette switching + the follow_noctalia live path arrive in tickets 06/07
-  grep -rq 'catppuccin' "$NVIM/lua/plugins"
-  grep -rq 'mocha' "$NVIM/lua/plugins"
-  grep -rq '#74c7ec' "$NVIM/lua/plugins"    # Catppuccin sapphire accent
+  tree_has 'catppuccin' "$NVIM/lua/plugins"
+  tree_has 'mocha' "$NVIM/lua/plugins"
+  tree_has '#74c7ec' "$NVIM/lua/plugins"    # Catppuccin sapphire accent
 }
 
 @test "follow_noctalia defaults to false (static out of the box, ADR 0136)" {
-  grep -rqE 'follow_noctalia[[:space:]]*=[[:space:]]*false' "$NVIM/lua"
+  tree_has -E 'follow_noctalia[[:space:]]*=[[:space:]]*false' "$NVIM/lua"
 }
 
 @test "unused language providers are disabled so checkhealth stays quiet" {
-  grep -rq 'loaded_perl_provider' "$NVIM/lua/config"
-  grep -rq 'loaded_ruby_provider' "$NVIM/lua/config"
-  grep -rq 'loaded_node_provider' "$NVIM/lua/config"
+  tree_has 'loaded_perl_provider' "$NVIM/lua/config"
+  tree_has 'loaded_ruby_provider' "$NVIM/lua/config"
+  tree_has 'loaded_node_provider' "$NVIM/lua/config"
 }
 
 
@@ -109,25 +110,25 @@ load nvim-program-helpers
 }
 
 @test "config wires nvim-lspconfig + native vim.lsp.enable (no mason)" {
-  grep -rq 'neovim/nvim-lspconfig' "$NVIM/lua/plugins"
-  grep -rq 'vim.lsp.enable' "$NVIM/lua/plugins"
+  tree_has 'neovim/nvim-lspconfig' "$NVIM/lua/plugins"
+  tree_has 'vim.lsp.enable' "$NVIM/lua/plugins"
   # no mason plugin (system packages instead, ADR 0135)
-  ! grep -rqiE 'mason-org|williamboman/mason|mason\.nvim' "$NVIM/lua"
+  ! tree_has -i -E 'mason-org|williamboman/mason|mason\.nvim' "$NVIM/lua"
 }
 
 @test "completion is blink.cmp (ADR 0135)" {
-  grep -rq 'saghen/blink.cmp' "$NVIM/lua/plugins"
+  tree_has 'saghen/blink.cmp' "$NVIM/lua/plugins"
 }
 
 @test "solid rides ts_ls; no dedicated solid server" {
   # ts_ls now lives in the Language Registry (ADR 0141), under lua/config.
-  grep -rq 'ts_ls' "$NVIM/lua"
-  ! grep -rqiE 'solid[_-]?(ls|language)' "$NVIM/lua"
+  tree_has 'ts_ls' "$NVIM/lua"
+  ! tree_has -i -E 'solid[_-]?(ls|language)' "$NVIM/lua"
 }
 
 @test "vue uses the current vue_ls name, not the deprecated volar" {
-  grep -rq 'vue_ls' "$NVIM/lua"
-  ! grep -rqw 'volar' "$NVIM/lua"
+  tree_has 'vue_ls' "$NVIM/lua"
+  ! tree_has -w 'volar' "$NVIM/lua"
 }
 
 
@@ -195,7 +196,7 @@ load nvim-program-helpers
 }
 
 @test "no mason-nvim-dap; adapters are system packages (ADR 0140)" {
-  ! grep -rqiE 'mason-nvim-dap|jay-babu/mason' "$NVIM/lua"
+  ! tree_has -i -E 'mason-nvim-dap|jay-babu/mason' "$NVIM/lua"
 }
 
 @test "the Fleet Layer declares the DAP adapter packages (ADR 0140)" {
@@ -277,10 +278,10 @@ load nvim-program-helpers
 @test "files/nav plugins present: snacks, oil, harpoon" {
   # snacks.explorer replaced neo-tree; oil owns buffer-editing.
   local plugins_directory="$NVIM/lua/plugins"
-  grep -rq 'folke/snacks.nvim' "$plugins_directory"
-  grep -rq 'stevearc/oil.nvim' "$plugins_directory"
-  grep -rq 'ThePrimeagen/harpoon' "$plugins_directory"
-  ! grep -rq 'nvim-neo-tree/neo-tree.nvim' "$plugins_directory"
+  tree_has 'folke/snacks.nvim' "$plugins_directory"
+  tree_has 'stevearc/oil.nvim' "$plugins_directory"
+  tree_has 'ThePrimeagen/harpoon' "$plugins_directory"
+  ! tree_has 'nvim-neo-tree/neo-tree.nvim' "$plugins_directory"
 }
 
 @test "snacks provides picker, dashboard and notifier" {
@@ -296,21 +297,21 @@ load nvim-program-helpers
 @test "chrome/git/editing plugins present (ticket 05)" {
   # snacks replaced fugitive for git; Emmet is served by its LSP, not a plugin.
   local plugins_directory="$NVIM/lua/plugins"
-  grep -rq 'nvim-lualine/lualine.nvim' "$plugins_directory"
-  grep -rq 'akinsho/bufferline.nvim' "$plugins_directory"
-  grep -rq 'folke/which-key.nvim' "$plugins_directory"
-  grep -rq 'lewis6991/gitsigns.nvim' "$plugins_directory"
-  grep -rq 'echasnovski/mini.ai' "$plugins_directory"
-  grep -rq 'echasnovski/mini.pairs' "$plugins_directory"
-  grep -rq 'kevinhwang91/nvim-ufo' "$plugins_directory"
-  grep -rq 'render-markdown.nvim' "$plugins_directory"
-  grep -rq 'folke/todo-comments.nvim' "$plugins_directory"
-  grep -rq 'mbbill/undotree' "$plugins_directory"
-  ! grep -rq 'tpope/vim-fugitive' "$plugins_directory"
+  tree_has 'nvim-lualine/lualine.nvim' "$plugins_directory"
+  tree_has 'akinsho/bufferline.nvim' "$plugins_directory"
+  tree_has 'folke/which-key.nvim' "$plugins_directory"
+  tree_has 'lewis6991/gitsigns.nvim' "$plugins_directory"
+  tree_has 'echasnovski/mini.ai' "$plugins_directory"
+  tree_has 'echasnovski/mini.pairs' "$plugins_directory"
+  tree_has 'kevinhwang91/nvim-ufo' "$plugins_directory"
+  tree_has 'render-markdown.nvim' "$plugins_directory"
+  tree_has 'folke/todo-comments.nvim' "$plugins_directory"
+  tree_has 'mbbill/undotree' "$plugins_directory"
+  ! tree_has 'tpope/vim-fugitive' "$plugins_directory"
 }
 
 @test "nvim-emmet is dropped; Emmet is served by emmet_language_server" {
-  ! grep -rq 'olrtg/nvim-emmet' "$NVIM/lua"
+  ! tree_has 'olrtg/nvim-emmet' "$NVIM/lua"
   [ ! -e "$NVIM/lua/plugins/emmet.lua" ]
   grep -q 'emmet_language_server' "$NVIM/lua/config/languages.lua"
 }
@@ -327,11 +328,11 @@ load nvim-program-helpers
 
 @test "the five Noctalia builtin palettes are installed" {
   local plugins_directory="$NVIM/lua/plugins"
-  grep -rq 'catppuccin/nvim' "$plugins_directory"
-  grep -rq 'rose-pine/neovim' "$plugins_directory"
-  grep -rq 'folke/tokyonight.nvim' "$plugins_directory"
-  grep -rq 'ellisonleao/gruvbox.nvim' "$plugins_directory"
-  grep -rq 'nord.nvim' "$plugins_directory"
+  tree_has 'catppuccin/nvim' "$plugins_directory"
+  tree_has 'rose-pine/neovim' "$plugins_directory"
+  tree_has 'folke/tokyonight.nvim' "$plugins_directory"
+  tree_has 'ellisonleao/gruvbox.nvim' "$plugins_directory"
+  tree_has 'nord.nvim' "$plugins_directory"
 }
 
 @test "theme module resolves follow_noctalia and persists the static choice" {
@@ -384,7 +385,7 @@ load nvim-program-helpers
 }
 
 @test "mini.base16 is available for the follow path" {
-  grep -rq 'echasnovski/mini.base16' "$NVIM/lua/plugins"
+  tree_has 'echasnovski/mini.base16' "$NVIM/lua/plugins"
 }
 
 

@@ -6,6 +6,8 @@
 # Effective Config is assembled host-side and run through the installer's own
 # validation (block-device probe stubbed).
 
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   export INSTALLER_DIR
@@ -19,7 +21,7 @@ setup() {
   local config
   config="$(bash "$INSTALLER_DIR/vm/vm.sh" --testing \
     --profile headless/secure --print-config 2>/dev/null)"
-  jq -e '.users == ["test"]' <<<"$config"
+  json_satisfies "$config" '.users == ["test"]'
   run feature_audit_validate_config "$config"
   [ "$status" -eq 0 ]
 }

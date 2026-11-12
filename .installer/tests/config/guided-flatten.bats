@@ -5,6 +5,8 @@
 # profile (Save) and lift it into the per-group assignment JSON
 # (Proceed/Export). Pure: JSON in, JSON out. No fzf, no disks.
 
+load ../lib/json-helpers
+
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/skeleton.sh"
 }
@@ -18,17 +20,17 @@ setup() {
     "data_pools":[{"name":"tank0","topology":"single",
                    "devices":["/d/c"],"disk_count":1}]}'
   run skeleton_flatten_devices "$skeleton"
-  [ "$(jq -r '.os_pool.disk_count' <<<"$output")" = "2" ]
-  [ "$(jq '.os_pool | has("devices")' <<<"$output")" = "false" ]
-  [ "$(jq -r '.data_pools[0].disk_count' <<<"$output")" = "1" ]
-  [ "$(jq 'has("root_disk")' <<<"$output")" = "false" ]
+  output_satisfies '.os_pool.disk_count == 2'
+  output_satisfies '(.os_pool | has("devices")) == false'
+  output_satisfies '.data_pools[0].disk_count == 1'
+  output_satisfies '(has("root_disk")) == false'
 }
 
 @test "skeleton_flatten_devices: a device-less group is untouched" {
   local skeleton='{"data_pools":[{"name":"t","topology":"mirror","disk_count":2}]}'
   run skeleton_flatten_devices "$skeleton"
-  [ "$(jq -r '.data_pools[0].disk_count' <<<"$output")" = "2" ]
-  [ "$(jq '.data_pools[0] | has("devices")' <<<"$output")" = "false" ]
+  output_satisfies '.data_pools[0].disk_count == 2'
+  output_satisfies '(.data_pools[0] | has("devices")) == false'
 }
 
 # ── skeleton_any_bound / skeleton_counted_disks ──────────────────────────────
@@ -51,16 +53,16 @@ setup() {
   local skeleton='{"os_pool":{"topology":"mirror","devices":["/d/a","/d/b"]},
     "data_pools":[{"topology":"single","devices":["/d/c"]}]}'
   run skeleton_build_assignment "$skeleton"
-  [ "$(jq -c '.os_pool' <<<"$output")" = '["/d/a","/d/b"]' ]
-  [ "$(jq -c '.data_pools[0]' <<<"$output")" = '["/d/c"]' ]
+  output_satisfies '.os_pool == ["/d/a","/d/b"]'
+  output_satisfies '.data_pools[0] == ["/d/c"]'
 }
 
 @test "skeleton_build_assignment: mixed — bound uses devices, counted slices" {
   local skeleton='{"os_pool":{"topology":"mirror","devices":["/d/a","/d/b"]},
     "data_pools":[{"topology":"stripe","disk_count":2}]}'
   run skeleton_build_assignment "$skeleton" /d/x /d/y
-  [ "$(jq -c '.os_pool' <<<"$output")" = '["/d/a","/d/b"]' ]
-  [ "$(jq -c '.data_pools[0]' <<<"$output")" = '["/d/x","/d/y"]' ]
+  output_satisfies '.os_pool == ["/d/a","/d/b"]'
+  output_satisfies '.data_pools[0] == ["/d/x","/d/y"]'
 }
 
 @test "skeleton_build_assignment: too few disks for the counted groups aborts" {
@@ -77,10 +79,11 @@ setup() {
                        "devices":["/d/c","/d/d","/d/e"]}],
     "data_pools":[{"name":"t","topology":"single","devices":["/d/f"]}]}'
   local from_dev pbld
-  from_dev="$(skeleton_build_assignment "$skeleton" | jq -cS .)"
+  from_dev="$(skeleton_build_assignment "$skeleton")"
   pbld="$(picker_build_assignment "$(skeleton_flatten_devices "$skeleton")" \
-    /d/a /d/b /d/c /d/d /d/e /d/f | jq -cS .)"
-  [ "$from_dev" = "$pbld" ]
+    /d/a /d/b /d/c /d/d /d/e /d/f)"
+  # Are the two assignments the same JSON?
+  jq -en --argjson a "$from_dev" --argjson b "$pbld" '$a == $b' >/dev/null
 }
 
 # ── AC5: an under-populated bound pool is rejected by validation ─────────────
@@ -89,5 +92,6 @@ setup() {
   local skeleton='{"mode":"multi","os_pool":{"topology":"mirror","devices":["/d/a"]}}'
   run skeleton_validate "$(skeleton_flatten_devices "$skeleton")"
   [ "$status" -ne 0 ]
-  echo "$output" | grep -qi "os_pool"
+  local -l message="$output"   # -l: kept in lower case
+  [[ "$message" == *os_pool* ]]
 }

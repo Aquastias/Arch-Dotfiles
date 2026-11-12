@@ -2,6 +2,7 @@
 # Tests: config.toml and theming (split from noctalia-stow.bats;
 # shared setup in noctalia-stow-helpers.bash)
 
+load ../lib/text-helpers
 load noctalia-stow-helpers
 
 
@@ -47,7 +48,7 @@ load noctalia-stow-helpers
   grep -q '^ *anr_missed_pings = 15,' "$in"
   grep -q '^ *no_update_news = true,' "$in"
   grep -q '^ *no_donation_nag = true,' "$in"
-  ! grep -rq 'focus-follows-mouse' "$REPO/.config/niri"
+  ! tree_has 'focus-follows-mouse' "$REPO/.config/niri"
 }
 
 @test "both compositors re-enable GTK middle-click paste (ADR 0147)" {
@@ -87,7 +88,7 @@ load noctalia-stow-helpers
 
 @test "config.toml carries no host-bound or orphan state" {
   ! grep -q 'Virtual-1' "$CT"          # VM output name
-  ! grep -qi 'bing' "$CT"              # captured wallpaper path
+  ! tr '[:upper:]' '[:lower:]' < "$CT" | grep -q 'bing'   # wallpaper path
   ! grep -q 'login_box' "$CT"          # lockscreen widget geometry
   ! grep -q 'lockscreen-login-box' "$CT"
   ! grep -q 'phone-connect' "$CT"      # orphan widget (plugin not enabled)
@@ -134,11 +135,11 @@ load noctalia-stow-helpers
 # host-specific mode — niri omits any `output` block, Hyprland uses `preferred`.
 @test "compositor configs seed no hardcoded resolution (ADR 0110)" {
   # niri: no output {} block anywhere in the config tree
-  run grep -rEq 'output[[:space:]]+"' "$REPO/.config/niri"
+  run tree_has -E 'output[[:space:]]+"' "$REPO/.config/niri"
   [ "$status" -ne 0 ]
   # Hyprland: autodetects via preferred, never a WxH@Hz literal
   grep -q 'mode = "preferred"' "$HENV"
-  run grep -rEq '[0-9]{3,}x[0-9]{3,}(@[0-9]+)?' "$REPO/.config/hypr"
+  run tree_has -E '[0-9]{3,}x[0-9]{3,}(@[0-9]+)?' "$REPO/.config/hypr"
   [ "$status" -ne 0 ]
 }
 
@@ -173,7 +174,7 @@ load noctalia-stow-helpers
   grep -q 'hl.exec_cmd("noctalia --daemon")' "$HAUTO"
   grep -q 'noctalia msg panel-toggle launcher' "$HBIND"
   grep -q 'noctalia msg session lock' "$HBIND"
-  run grep -rq 'hyprlock' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
+  run tree_has 'hyprlock' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
 }
 
 @test "the palette cycler is executable and uses the v5 native CLI" {
@@ -251,10 +252,13 @@ EOF
 # a core plugin ships enabled-but-not-vendored, or a slice id leaked into the
 # shared config — the drift 0094/0097 bans.
 @test "config.toml enabled list mirrors the shared core plugin set" {
-  local enabled core
-  enabled="$(awk '/^enabled = \[/{f=1;next} f&&/^\]/{f=0} f' "$CT" \
-    | grep -oE '"[^"]+"' | awk '{ gsub(/"/, ""); sub(/.*\//, ""); print }' \
-    | sort)"
+  local enabled core ids id
+  # The quoted ids in config.toml's `enabled = [ … ]` list, unquoted.
+  ids="$(lines_between '^enabled = \[' '^\]' < "$CT" | grep -oE '"[^"]+"' \
+    | tr -d '"')"
+  # Each id's last path part, sorted.
+  enabled="$(while read -r id; do basename "$id"; done \
+    < <(printf '%s\n' "$ids") | sort)"
   core="$( (set +u; source "$NOCTALIA_SH"; noctalia_core_plugins) | sort)"
   [ -n "$enabled" ]
   [ "$enabled" = "$core" ]
@@ -300,10 +304,12 @@ EOF
 @test "seeded gtk-4.0 carries no theme name so libadwaita follows gtk.css" {
   # exactly one gtk-theme-name in the preset (the gtk-3.0 one) …
   [ "$(cat "$PRESET" "$SKEL" | grep -c '^gtk-theme-name=')" -eq 1 ]
-  # … and none after the gtk-4.0 seed begins (awk exits with that count).
-  run awk '/gtk-4.0.settings/{f=1} f&&/^gtk-theme-name=/{c++} END{exit c}' \
-    "$SKEL"
-  [ "$status" -eq 0 ]
+  # … and none after the gtk-4.0 seed begins.
+  local start
+  start="$(first_line_matching "$SKEL" 'gtk-4.0.settings')"
+  [ -n "$start" ] || return 0
+  # No gtk-theme-name from the gtk-4.0 seed on.
+  [ "$(tail -n +"$start" "$SKEL" | grep -c '^gtk-theme-name=')" -eq 0 ]
 }
 
 # The preset seeds Noctalia's setup-complete marker so a fresh first login lands
@@ -323,8 +329,8 @@ EOF
   grep -q 'no_hardware_cursors' "$PRESET" "$SKEL"
   # NOT in the stow'd configs (real hardware keeps hardware cursors); run/status
   # so the negation actually fails the test (a bare `! grep` is errexit-exempt).
-  run grep -rq 'no_hardware_cursors' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
-  run grep -rq 'disable-cursor-plane' "$REPO/.config/niri"; [ "$status" -ne 0 ]
+  run tree_has 'no_hardware_cursors' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
+  run tree_has 'disable-cursor-plane' "$REPO/.config/niri"; [ "$status" -ne 0 ]
 }
 
 @test "the base preset ships adw-gtk-theme for the GTK bridge (ADR 0102)" {
@@ -345,9 +351,9 @@ EOF
 @test "the base preset ships gvfs-mtp, ffmpegthumbnailer and upower" {
   local preset
   preset="$( set +u; source "$NOCTALIA_SH"; noctalia_preset_packages )"
-  grep -qx gvfs-mtp <<<"$preset"
-  grep -qx ffmpegthumbnailer <<<"$preset"
-  grep -qx upower <<<"$preset"
+  text_has_line "$preset" gvfs-mtp
+  text_has_line "$preset" ffmpegthumbnailer
+  text_has_line "$preset" upower
 }
 
 @test "qt6ct is pre-seeded onto Noctalia's KColorScheme (ADR 0102/0124)" {

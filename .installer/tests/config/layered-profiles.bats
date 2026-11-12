@@ -10,6 +10,9 @@
 #   - nothing declared duplicates what a derived set already provides
 #   - the VM fixtures resolve lean, with no workstation userland
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   source "$INSTALLER_DIR/lib/config/profile-loader.sh"
@@ -19,12 +22,24 @@ setup() {
 }
 
 # repo_of <profile> / aur_of <profile> — the resolved flat package set.
-repo_of() { profile_loader_load "$1" | jq -r '.packages.repo // {}
-  | to_entries[].value[]' | sort -u; }
-aur_of()  { profile_loader_load "$1" | jq -r '.packages.aur // {}
-  | to_entries[].value[]' | sort -u; }
-fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
-  | jq -r '.packages.repo | to_entries[].value[]' | sort -u; }
+_LAYERED_SLOT_NAMES='to_entries[].value[]'
+repo_of() {
+  # Every packages.repo name, each once.
+  profile_loader_load "$1" \
+    | jq -r "(.packages.repo // {}) | $_LAYERED_SLOT_NAMES" \
+    | sort -u
+}
+aur_of() {
+  # Every packages.aur name, each once.
+  profile_loader_load "$1" \
+    | jq -r "(.packages.aur // {}) | $_LAYERED_SLOT_NAMES" \
+    | sort -u
+}
+fleet_repo() {
+  # Every packages.repo name the Fleet Layer declares, each once.
+  jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
+    | jq -r ".packages.repo | $_LAYERED_SLOT_NAMES" | sort -u
+}
 
 # ── the committed profiles resolve ──────────────────────────────────────────
 
@@ -33,7 +48,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   for host in desktop laptop; do
     run profile_loader_load "$host"
     [ "$status" -eq 0 ]
-    echo "$output" | jq -e . >/dev/null
+    output_satisfies '.'
   done
 }
 
@@ -50,8 +65,8 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   desktop_packages="$(repo_of desktop)"; fleet="$(fleet_repo)"
   local package
   while IFS= read -r package; do
-    grep -qx "$package" <<<"$desktop_packages" || { echo "fleet package missing: $package"; return 1; }
-  done <<<"$fleet"
+    text_has_line "$desktop_packages" "$package" || { echo "fleet package missing: $package"; return 1; }
+  done < <(printf '%s\n' "$fleet")
   [ "$(printf '%s\n' "$desktop_packages" | sort -u)" = "$(printf '%s\n' "$fleet" | sort -u)" ]
 }
 
@@ -59,7 +74,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   local desktop_packages; desktop_packages="$(repo_of desktop)"
   local package
   for package in qemu-full libguestfs virt-viewer lutris wine tectonic dnsmasq; do
-    grep -qx "$package" <<<"$desktop_packages" || { echo "missing desktop delta: $package"; return 1; }
+    text_has_line "$desktop_packages" "$package" || { echo "missing desktop delta: $package"; return 1; }
   done
 }
 
@@ -68,7 +83,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   for host in desktop laptop; do
     local packages; packages="$(repo_of "$host")"
     for package in firefox steam htop gimp vlc; do
-      grep -qx "$package" <<<"$packages" || { echo "$host missing fleet pkg: $package"; return 1; }
+      text_has_line "$packages" "$package" || { echo "$host missing fleet pkg: $package"; return 1; }
     done
   done
 }
@@ -82,8 +97,8 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   # ttf-ms-fonts left the core AUR list for the options.fonts Font Catalog (ADR
   # 0080) — it is routed to the paru pass by the font resolver, not packages.aur.
   for package in rar zen-browser-bin runelite; do
-    grep -qx "$package" <<<"$desktop_aur" || { echo "desktop missing fleet aur: $package"; return 1; }
-    grep -qx "$package" <<<"$laptop_aur" || { echo "laptop missing core aur: $package"; return 1; }
+    text_has_line "$desktop_aur" "$package" || { echo "desktop missing fleet aur: $package"; return 1; }
+    text_has_line "$laptop_aur" "$package" || { echo "laptop missing core aur: $package"; return 1; }
   done
 }
 
@@ -97,7 +112,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
       [[ -n "$package" ]] || continue
       [ "$(program_registry_kind "$package")" = "none" ] \
         || { echo "$host: '$package' is a Program, not a package"; return 1; }
-    done <<<"$packages"
+    done < <(printf '%s\n' "$packages")
   done
 }
 
@@ -107,7 +122,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   for host in desktop laptop; do
     local packages; packages="$(repo_of "$host"; aur_of "$host")"
     for package in docker docker-compose virt-manager teamspeak3; do
-      ! grep -qx "$package" <<<"$packages" || { echo "$host still declares $package"; return 1; }
+      ! text_has_line "$packages" "$package" || { echo "$host still declares $package"; return 1; }
     done
   done
 }
@@ -121,7 +136,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
     for package in base base-devel linux-firmware networkmanager openssh cronie \
              efibootmgr dosfstools vim git sudo rsync jq pacman-contrib \
              man-db man-pages texinfo stow; do
-      ! grep -qx "$package" <<<"$packages" \
+      ! text_has_line "$packages" "$package" \
         || { echo "$host re-declares base package: $package"; return 1; }
     done
   done
@@ -133,7 +148,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
     packages="$(repo_of "$host")"
     for package in pipewire pipewire-pulse pipewire-alsa wireplumber \
              gst-plugin-pipewire pipewire-jack libpulse; do
-      ! grep -qx "$package" <<<"$packages" \
+      ! text_has_line "$packages" "$package" \
         || { echo "$host re-declares derived audio package: $package"; return 1; }
     done
   done
@@ -144,7 +159,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   for host in desktop laptop; do
     packages="$(repo_of "$host")"
     for package in btrfs-progs xfsprogs zsh; do
-      ! grep -qx "$package" <<<"$packages" \
+      ! text_has_line "$packages" "$package" \
         || { echo "$host re-declares derived package: $package"; return 1; }
     done
   done
@@ -156,7 +171,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
     packages="$(repo_of "$host")"
     for package in papirus-icon-theme qt5-wayland qt6-wayland xdg-utils sddm-kcm \
              konsole dolphin ark okular kate; do
-      ! grep -qx "$package" <<<"$packages" \
+      ! text_has_line "$packages" "$package" \
         || { echo "$host re-declares DE-adapter package: $package"; return 1; }
     done
   done
@@ -176,7 +191,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
              catppuccin-konsole-colorscheme-mocha-git \
              papirus-folders-catppuccin-git \
              plymouth-theme-catppuccin-mocha-git; do
-      ! grep -qx "$package" <<<"$packages" || { echo "$host still declares $package"; return 1; }
+      ! text_has_line "$packages" "$package" || { echo "$host still declares $package"; return 1; }
     done
   done
 }
@@ -196,8 +211,8 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   for host in arch-data arch-kde arch-secure; do
     run profile_loader_load "$host"
     [ "$status" -eq 0 ]
-    echo "$output" | jq -e '(.packages.repo // {}) == {}'
-    echo "$output" | jq -e '(.packages.aur // {}) == {}'
+    output_satisfies '(.packages.repo // {}) == {}'
+    output_satisfies '(.packages.aur // {}) == {}'
   done
 }
 
@@ -206,7 +221,7 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   for host in arch-data arch-kde arch-secure; do
     packages="$(repo_of "$host")"
     for package in steam firefox gimp discord wine lutris kitty; do
-      ! grep -qx "$package" <<<"$packages" \
+      ! text_has_line "$packages" "$package" \
         || { echo "$host pulled workstation package: $package"; return 1; }
     done
   done
@@ -220,8 +235,8 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
   local host
   for host in arch-data arch-kde arch-secure; do
     run profile_loader_load "$host"
-    echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
-    echo "$output" | jq -e '.host_programs | index("cups") | not'
+    output_satisfies '.sysctl["vm.swappiness"] == 10'
+    output_satisfies '.host_programs | index("cups") | not'
   done
 }
 
@@ -230,16 +245,19 @@ fleet_repo() { jsonc_strip "$INSTALLER_DIR/hosts/fleet/profile.jsonc" \
 # single home: absent from packages.repo, present in host_programs on the real
 # hosts, and dropped on the bare inherit:false profiles.
 
-host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[]'; }
+host_programs_of() {
+  # The resolved host programs.
+  profile_loader_load "$1" | jq -r '.host_programs // [] | .[]'
+}
 
 @test "promoted base host programs resolve into host_programs, not packages" {
   local host package packages host_programs
   for host in desktop laptop; do
     packages="$(repo_of "$host")"; host_programs="$(host_programs_of "$host")"
     for package in ccache fwupd lact smartmontools; do
-      grep -qx "$package" <<<"$host_programs" \
+      text_has_line "$host_programs" "$package" \
         || { echo "$host missing host program: $package"; return 1; }
-      ! grep -qx "$package" <<<"$packages" \
+      ! text_has_line "$packages" "$package" \
         || { echo "$host still declares $package as a package"; return 1; }
     done
   done
@@ -253,7 +271,7 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
   for host in arch-data arch-kde arch-secure minimal; do
     host_programs="$(host_programs_of "$host")"
     for package in ccache fwupd lact smartmontools; do
-      ! grep -qx "$package" <<<"$host_programs" \
+      ! text_has_line "$host_programs" "$package" \
         || { echo "$host wrongly inherited host program: $package"; return 1; }
     done
   done
@@ -264,9 +282,9 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
 @test "a real user inherits User Core's programs and zsh shell" {
   run profile_loader_load_user aquastias
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.programs | index("docker")'
-  echo "$output" | jq -e '.programs | index("virt-manager")'
-  echo "$output" | jq -e '.shell == "/bin/zsh"'
+  output_satisfies '.programs | index("docker")'
+  output_satisfies '.programs | index("virt-manager")'
+  output_satisfies '.shell == "/bin/zsh"'
 }
 
 @test "the throwaway test users exclude User Core's programs" {
@@ -274,8 +292,8 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
   for user in test data; do
     run profile_loader_load_user "$user"
     [ "$status" -eq 0 ]
-    echo "$output" | jq -e '.programs | index("docker") | not'
-    echo "$output" | jq -e '.programs | index("virt-manager") | not'
+    output_satisfies '.programs | index("docker") | not'
+    output_satisfies '.programs | index("virt-manager") | not'
   done
 }
 
@@ -284,21 +302,21 @@ host_programs_of() { profile_loader_load "$1" | jq -r '.host_programs // [] | .[
   # flag — the user-layer twin of packages.inherit:false.
   run profile_loader_load_user server
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '(.programs // []) == []'
-  echo "$output" | jq -e '.programs | index("kitty") | not'
-  echo "$output" | jq -e '.programs | index("claude") | not'
+  output_satisfies '(.programs // []) == []'
+  output_satisfies '.programs | index("kitty") | not'
+  output_satisfies '.programs | index("claude") | not'
   # the control key is stripped from the resolved profile
-  echo "$output" | jq -e 'has("programs_inherit") | not'
+  output_satisfies 'has("programs_inherit") | not'
 }
 
 @test "the control keys never reach a resolved profile" {
   local host
   for host in desktop laptop arch-kde; do
     run profile_loader_load "$host"
-    echo "$output" | jq -e '(.packages // {}) | has("inherit") | not'
-    echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
-    echo "$output" | jq -e 'has("host_programs_exclude") | not'
+    output_satisfies '(.packages // {}) | has("inherit") | not'
+    output_satisfies '(.packages // {}) | has("exclude") | not'
+    output_satisfies 'has("host_programs_exclude") | not'
   done
   run profile_loader_load_user test
-  echo "$output" | jq -e 'has("programs_exclude") | not'
+  output_satisfies 'has("programs_exclude") | not'
 }

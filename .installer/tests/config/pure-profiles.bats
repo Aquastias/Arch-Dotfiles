@@ -6,6 +6,8 @@
 # effective config the loader produces + profile_loader_validate's verdict — never the
 # file layout. Prior art: personal-profiles.bats.
 
+load ../lib/json-helpers
+
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   info()    { :; }
@@ -23,8 +25,8 @@ setup() {
 # stripped from the output (ADR 0057), so the observable of "no inherited
 # packages" is a null .packages, not a surviving inherit flag.
 stock_single() {
-  profile_loader_load "$1" | jq -e --arg de "$2" '
-    (.environment.desktop == [$de])
+  json_satisfies "$(profile_loader_load "$1")" '
+    (.environment.desktop == ["'"$2"'"])
     and (.environment.stock == true)
     and (.packages == null)'
 }

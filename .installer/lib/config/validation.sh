@@ -93,7 +93,8 @@ _validation_impermanence() {
   [[ "$dataset" == */* ]] || \
     error "Invalid options.impermanence.dataset '${dataset}':" \
           "must be <pool>/<path>."
-  pool="${dataset%%/*}"
+  # The pool: the dataset path before its first /.
+  pool="$(printf '%s\n' "$dataset" | cut -d/ -f1)"
   os_pool="$(install_config_os_pool_name)"
   [[ "$pool" == "$os_pool" ]] || \
     error "options.impermanence.dataset '${dataset}' must be on the" \
@@ -216,8 +217,9 @@ _validation_one_group() {
   # ext4/xfs have no multi-disk story (no mdadm/LVM) — single-disk only.
   if [[ "$filesystem" == "ext4" || "$filesystem" == "xfs" ]]; then
     if [[ -n "$disk_count" ]] && ((disk_count > 1)); then
-      error "${kind^} '${name}' is ${filesystem} (single-disk only) but" \
-        "declares" \
+      local -u initial="${kind:0:1}"   # -u: kept in upper case
+      error "${initial}${kind:1} '${name}' is ${filesystem} (single-disk only)" \
+        "but declares" \
         "disk_count ${disk_count}. Use zfs or btrfs for a multi-disk group."
     fi
   fi
@@ -256,8 +258,10 @@ _validation_persist() {
   local path
 
   local -a directories files
+  # The persist directories.
   mapfile -t directories  < <(printf '%s' "$host_json" \
     | jq -r '(.persist.directories // [])[]')
+  # The persist files.
   mapfile -t files < <(printf '%s' "$host_json" \
     | jq -r '(.persist.files       // [])[]')
 

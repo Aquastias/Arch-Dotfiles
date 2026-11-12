@@ -34,6 +34,9 @@
 # Fleet Layer selects them for the operator's machines. Monaspace + Sazanami are
 # off too: Monaspace per the operator's default, Sazanami because Noto CJK
 # covers Japanese.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _FONTS_CATALOG=(
   "noto-fonts|repo|on"
   "noto-fonts-emoji|repo|on"
@@ -52,26 +55,31 @@ _FONTS_CATALOG=(
 # fonts_catalog_tokens — every font in the catalog, one per line, in declared
 # order. The enumerated option set the menu multi-select offers.
 fonts_catalog_tokens() {
-  local spec
-  for spec in "${_FONTS_CATALOG[@]}"; do printf '%s\n' "${spec%%|*}"; done
+  local package _rest
+  # Each catalog row's package (the field before the first |).
+  while IFS='|' read -r package _rest; do
+    printf '%s\n' "$package"
+  done < <(printf '%s\n' "${_FONTS_CATALOG[@]}")
 }
 
 # fonts_default_selection — the default-checked fonts, one per line. The shared
 # baseline an untouched install lands, seeded into the guided baseline and
 # applied when options.fonts is absent.
 fonts_default_selection() {
-  local spec package def
-  for spec in "${_FONTS_CATALOG[@]}"; do
-    IFS='|' read -r package _ def <<<"$spec"
-    [[ "$def" == "on" ]] && printf '%s\n' "$package"
-  done
+  local package _kind default
+  # Rows: package|kind|default (on | off).
+  while IFS='|' read -r package _kind default; do
+    [[ "$default" == "on" ]] && printf '%s\n' "$package"
+  done < <(printf '%s\n' "${_FONTS_CATALOG[@]}")
   return 0
 }
 
 # fonts_default_selection_json — the default-checked fonts as a compact JSON
 # array, for seeding options.fonts into the Guided baseline.
 fonts_default_selection_json() {
-  fonts_default_selection | jq -Rn '[inputs]'
+  local list='$fonts | split("\n") | map(select(length > 0))'
+  # The default fonts as a JSON array.
+  jq -n --arg fonts "$(fonts_default_selection)" "$list"
 }
 
 # _fonts_kind <pkg> → repo | aur | "" (unknown). The catalog is the sole
@@ -79,11 +87,11 @@ fonts_default_selection_json() {
 # repo by the routers below (matching the "free-text extra ⇒ packages.repo"
 # convention).
 _fonts_kind() {
-  local want="$1" spec package kind
-  for spec in "${_FONTS_CATALOG[@]}"; do
-    IFS='|' read -r package kind _ <<<"$spec"
+  local want="$1" package kind _default
+  # Rows: package|kind|default.
+  while IFS='|' read -r package kind _default; do
     [[ "$package" == "$want" ]] && { printf '%s\n' "$kind"; return; }
-  done
+  done < <(printf '%s\n' "${_FONTS_CATALOG[@]}")
 }
 
 # fonts_selected <config-json> — the selected fonts, one per line. Reads
@@ -92,11 +100,13 @@ _fonts_kind() {
 # optional_repos' null-vs-[] distinction.
 fonts_selected() {
   local config="${1:-{\}}" raw
-  raw="$(jq -c '.options.fonts // null' <<<"$config")"
+  # The authored font list (null when absent).
+  raw="$(printf '%s\n' "$config" | jq -c '.options.fonts // null')"
   if [[ "$raw" == "null" ]]; then
     fonts_default_selection
   else
-    jq -r '.[]' <<<"$raw"
+    # Its entries.
+    printf '%s\n' "$raw" | jq -r '.[]'
   fi
 }
 

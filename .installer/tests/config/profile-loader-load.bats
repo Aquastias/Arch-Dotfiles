@@ -2,6 +2,7 @@
 # Tests: loading and merging (split from profile-loader.bats;
 # shared setup in profile-loader-helpers.bash)
 
+load ../lib/json-helpers
 load profile-loader-helpers
 
 
@@ -15,9 +16,9 @@ load profile-loader-helpers
 
   run profile_loader_load desktop
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["alice","bob"]'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.users == ["alice","bob"]'
+  output_satisfies '.host_programs == ["cups"]'
+  output_satisfies '.system.hostname == "eterniox"'
 }
 
 @test "profile_loader_load: finds a VM host profile.jsonc under hosts/vm/<name>" {
@@ -27,9 +28,9 @@ load profile-loader-helpers
 
   run profile_loader_load arch-data
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["vm-data"]'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
-  echo "$output" | jq -e '.mode == "multi"'
+  output_satisfies '.users == ["vm-data"]'
+  output_satisfies '.host_programs == ["cups"]'
+  output_satisfies '.mode == "multi"'
 }
 
 
@@ -47,8 +48,8 @@ load profile-loader-helpers
 
   run profile_loader_load desktop
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["bob"]'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
+  output_satisfies '.users == ["bob"]'
+  output_satisfies '.host_programs == ["cups"]'
 }
 
 @test "profile_loader_load: missing host profile.jsonc → core only, rc 1 (no synth)" {
@@ -58,8 +59,8 @@ load profile-loader-helpers
 
   run profile_loader_load desktop
   [ "$status" -eq 1 ]
-  echo "$output" | jq -e '.host_programs == ["cups"]'
-  echo "$output" | jq -e '(.users // []) == []'
+  output_satisfies '.host_programs == ["cups"]'
+  output_satisfies '(.users // []) == []'
 }
 
 
@@ -73,9 +74,9 @@ load profile-loader-helpers
 
   run profile_loader_load_user aquastias
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.shell == "/bin/bash"'
-  echo "$output" | jq -e '.sudo == true'
-  echo "$output" | jq -e '.groups == ["audio","video"]'
+  output_satisfies '.shell == "/bin/bash"'
+  output_satisfies '.sudo == true'
+  output_satisfies '.groups == ["audio","video"]'
 }
 
 @test "profile_loader_load_user: missing user profile.jsonc → core only, rc 1 (no synth)" {
@@ -85,8 +86,8 @@ load profile-loader-helpers
 
   run profile_loader_load_user aquastias
   [ "$status" -eq 1 ]
-  echo "$output" | jq -e '.shell == "/bin/bash"'
-  echo "$output" | jq -e '(.sudo // false) == false'
+  output_satisfies '.shell == "/bin/bash"'
+  output_satisfies '(.sudo // false) == false'
 }
 
 
@@ -124,9 +125,9 @@ load profile-loader-helpers
 
   run profile_loader_load desktop
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["alice","shared","bob"]'
-  echo "$output" | jq -e '.system.timezone == "UTC"'
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.users == ["alice","shared","bob"]'
+  output_satisfies '.system.timezone == "UTC"'
+  output_satisfies '.system.hostname == "eterniox"'
 }
 
 @test "profile_loader_load: JSONC // comments are stripped before parsing" {
@@ -139,8 +140,8 @@ load profile-loader-helpers
 
   run profile_loader_load desktop
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["alice"]'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
+  output_satisfies '.users == ["alice"]'
+  output_satisfies '.host_programs == ["cups"]'
 }
 
 
@@ -156,10 +157,10 @@ load profile-loader-helpers
 
   run profile_loader_assemble_config arch-kde '{"mode":"single","disk":"/dev/sda"}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "arch-kde"'
-  echo "$output" | jq -e '.mode == "single"'
-  echo "$output" | jq -e '.disk == "/dev/sda"'
-  echo "$output" | jq -e 'has("host_profile") | not'
+  output_satisfies '.system.hostname == "arch-kde"'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
+  output_satisfies 'has("host_profile") | not'
 }
 
 @test "profile_loader_assemble_config: a profile-set hostname wins over the name" {
@@ -169,7 +170,7 @@ load profile-loader-helpers
 
   run profile_loader_assemble_config desktop '{"mode":"single","disk":"/dev/sda"}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.system.hostname == "eterniox"'
 }
 
 @test "profile_loader_assemble_config: under-populated raidz1 aborts (min-disk)" {
@@ -431,7 +432,8 @@ load profile-loader-helpers
   source "$BATS_TEST_DIRNAME/../../lib/config/install-config.sh"
   local spec name path kind default j
   for spec in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
-    IFS='|' read -r name path kind default <<< "$spec"
+    IFS='|' read -r name path kind default < <(printf '%s\n' "$spec")
+    # A config holding just that path.
     j="$(jq -n "$path = \"x\"")" || { echo "bad jq path: $path"; return 1; }
     run profile_loader_validate_schema host "$j"
     [ "$status" -eq 0 ] \
@@ -451,10 +453,10 @@ load profile-loader-helpers
 
   run profile_loader_load mybox
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs == ["lact"]'
+  output_satisfies '.host_programs == ["lact"]'
   run profile_loader_load guest
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '(.host_programs // []) == []'
+  output_satisfies '(.host_programs // []) == []'
 }
 
 # ── profile_loader_name_for_hostname (ADR 0020: hostname ≠ profile name) ────

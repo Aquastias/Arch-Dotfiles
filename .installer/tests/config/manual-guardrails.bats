@@ -12,9 +12,9 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   # Pull in _profile_loader_reject_manual without booting the whole loader graph by
   # sourcing profile.sh with its heavy deps stubbed as already-present.
-  layer_resolver_resolve() { :; }; _program_registry_merge() { :; }
+  layer_resolver_resolve() { :; }
   picker_assign_disks() { :; }; post_install_validate() { :; }
-  export -f layer_resolver_resolve _program_registry_merge picker_assign_disks post_install_validate
+  export -f layer_resolver_resolve picker_assign_disks post_install_validate
   source "$BATS_TEST_DIRNAME/../../lib/config/profile-loader.sh"
   TEST_DIR="$(mktemp -d)"
 }

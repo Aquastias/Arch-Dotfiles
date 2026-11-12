@@ -2,6 +2,7 @@
 # Tests: closed-schema validation (split from profile-loader.bats;
 # shared setup in profile-loader-helpers.bash)
 
+load ../lib/json-helpers
 load profile-loader-helpers
 
 
@@ -18,7 +19,7 @@ load profile-loader-helpers
     [ "$status" -eq 0 ] || { echo "host $host_name: $output"; return 1; }
   done
   for host in "$INSTALLER_DIR"/hosts/vm/*/; do
-    host_name="${host%/}"; host_name="${host_name##*/}"
+    host_name="$(basename "$host")"
     j="$(profile_loader_load "$host_name")" || { echo "profile_loader_load vm/$host_name failed"; return 1; }
     run profile_loader_validate_schema host "$j"
     [ "$status" -eq 0 ] || { echo "host vm/$host_name: $output"; return 1; }
@@ -29,14 +30,14 @@ load profile-loader-helpers
   export INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   local user_directory user_name j
   for user_directory in "$INSTALLER_DIR"/users/*/; do
-    user_name="${user_directory%/}"; user_name="${user_name##*/}"
+    user_name="$(basename "$user_directory")"
     { [ "$user_name" = core ] || [ "$user_name" = vm ]; } && continue
     j="$(profile_loader_load_user "$user_name")" || { echo "load user $user_name failed"; return 1; }
     run profile_loader_validate_schema user "$j"
     [ "$status" -eq 0 ] || { echo "user $user_name: $output"; return 1; }
   done
   for user_directory in "$INSTALLER_DIR"/users/vm/*/; do
-    user_name="${user_directory%/}"; user_name="${user_name##*/}"
+    user_name="$(basename "$user_directory")"
     j="$(profile_loader_load_user "$user_name")" || { echo "load user vm/$user_name failed"; return 1; }
     run profile_loader_validate_schema user "$j"
     [ "$status" -eq 0 ] || { echo "user vm/$user_name: $output"; return 1; }
@@ -47,6 +48,7 @@ load profile-loader-helpers
   local installer_directory; installer_directory="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   local config_file j
   while IFS= read -r config_file; do
+    # The program config as JSON.
     j="$(jsonc_strip "$config_file" | jq '.')" || { echo "parse $config_file failed"; return 1; }
     run profile_loader_validate_schema program "$j"
     [ "$status" -eq 0 ] || { echo "program $config_file: $output"; return 1; }
@@ -68,19 +70,19 @@ load profile-loader-helpers
   # software preserved from the legacy synthesis (core + arch-data). cups left
   # core (ADR 0079) — it is toggle-derived and injected at assembly, not present
   # in the loaded (pre-assembly) profile — so host_programs is empty here.
-  echo "$j" | jq -e '.users == ["data"]'
-  echo "$j" | jq -e '(.host_programs // []) == []'
-  echo "$j" | jq -e '.sysctl == {"vm.swappiness":10}'
+  json_satisfies "$j" '.users == ["data"]'
+  json_satisfies "$j" '(.host_programs // []) == []'
+  json_satisfies "$j" '.sysctl == {"vm.swappiness":10}'
 
   # machine skeleton present; devices excluded (operator-picked)
-  echo "$j" | jq -e '.mode == "multi"'
-  echo "$j" | jq -e '.os_pool.topology == "none"'
-  echo "$j" | jq -e '([.data_pools[].name] | sort) == ["tank0","tank1"]'
-  echo "$j" | jq -e '(.os_pool | has("disks")) | not'
-  echo "$j" | jq -e '([.data_pools[] | has("disks")] | any) | not'
+  json_satisfies "$j" '.mode == "multi"'
+  json_satisfies "$j" '.os_pool.topology == "none"'
+  json_satisfies "$j" '([.data_pools[].name] | sort) == ["tank0","tank1"]'
+  json_satisfies "$j" '(.os_pool | has("disks")) | not'
+  json_satisfies "$j" '([.data_pools[] | has("disks")] | any) | not'
 
   # ADR 0036: no host_profile; whole thing validates closed-schema
-  echo "$j" | jq -e 'has("host_profile") | not'
+  json_satisfies "$j" 'has("host_profile") | not'
   run profile_loader_validate_schema host "$j"
   [ "$status" -eq 0 ]
 }

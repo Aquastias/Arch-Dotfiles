@@ -11,6 +11,10 @@
 # validation_check_install_context runs _validation_preflight_programs).
 # =============================================================================
 
+# shellcheck source=../common.sh
+declare -F json_string_array >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
+
 # =============================================================================
 # PROGRAM PREFLIGHT
 # =============================================================================
@@ -34,8 +38,10 @@ _validation_preflight_programs() {
   esac
 
   local -a host_programs users
+  # The host programs.
   mapfile -t host_programs < <(printf '%s' "$host_json" \
     | jq -r '.host_programs[]?')
+  # The declared users.
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
 
   local user
@@ -55,9 +61,8 @@ _validation_preflight_programs() {
   # Host-program JSON array for the requires-order check (ADR 0065), built
   # once — it is the same for every user. Drops the empty-list sentinel.
   local host_programs_json
-  host_programs_json="$(printf '%s\n' \
-    "${host_programs[@]+"${host_programs[@]}"}" \
-    | jq -R . | jq -sc 'map(select(length > 0))')"
+  host_programs_json="$(_validation_names_json \
+    "${host_programs[@]+"${host_programs[@]}"}")"
 
   for user in "${users[@]}"; do
     _validation_check_user_programs "$user" "$host_programs_json" \
@@ -66,6 +71,16 @@ _validation_preflight_programs() {
 
   ((any_fail == 0)) || \
     error "Program contracts failed. Fix the errors above and re-run."
+}
+
+# _validation_names_json <name>… — the non-empty names as a JSON array.
+_validation_names_json() {
+  local name
+  local -a names=()
+  for name in "$@"; do
+    [[ -n "$name" ]] && names+=("$name")
+  done
+  json_string_array "${names[@]+"${names[@]}"}"
 }
 
 # _validation_check_user_programs <user> <host-programs-json> <host-program…>
@@ -87,6 +102,7 @@ _validation_check_user_programs() {
   # host installs aborts (reconcile prints the actionable why).
   local -a user_programs
   local program
+  # The user's programs.
   mapfile -t user_programs < <(printf '%s' "$user_json" | jq -r '.programs[]?')
   for program in "${user_programs[@]}"; do
     program_registry_reconcile_user_program "$program" "$@" >/dev/null \
@@ -98,6 +114,7 @@ _validation_check_user_programs() {
   # exclusion (ADR 0115): no program's `conflicts` may name another program
   # that also reaches this machine (Host Program or user's own).
   local programs_json
+  # The user's programs as a JSON array ([] when none).
   programs_json="$(printf '%s' "$user_json" | jq -c '.programs // []')"
   _validation_check_requires_order "$user" "$host_programs_json" \
     "$programs_json" || failed=1
@@ -134,6 +151,7 @@ _validation_program_requires() {
   relative_path="$(program_registry_resolve "$1" 2>/dev/null)" || return 0
   config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   [[ -f "$config_file" ]] || return 0
+  # The programs this one requires.
   jsonc_strip "$config_file" | jq -r '.requires[]?' 2>/dev/null
 }
 
@@ -146,7 +164,9 @@ _validation_program_requires() {
 _validation_check_requires_order() {
   local user="$1" host_programs_json="$2" programs_json="$3" fail=0
   local -a programs host_programs
+  # The user's programs.
   mapfile -t programs  < <(printf '%s' "$programs_json"  | jq -r '.[]?')
+  # The host programs.
   mapfile -t host_programs < <(printf '%s' "$host_programs_json" | jq -r '.[]?')
   local i program required
   for i in "${!programs[@]}"; do
@@ -200,6 +220,7 @@ _validation_program_conflicts() {
   relative_path="$(program_registry_resolve "$1" 2>/dev/null)" || return 0
   config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   [[ -f "$config_file" ]] || return 0
+  # The programs this one conflicts with.
   jsonc_strip "$config_file" | jq -r '.conflicts[]?' 2>/dev/null
 }
 
@@ -212,10 +233,14 @@ _validation_program_conflicts() {
 # if any; 0 when clean. Pure over INSTALLER_DIR + the two JSON array args.
 _validation_check_conflicts() {
   local user="$1" host_programs_json="$2" programs_json="$3" fail=0
-  local -a present
-  mapfile -t present < <(
-    { printf '%s' "$host_programs_json" | jq -r '.[]?'
-      printf '%s' "$programs_json" | jq -r '.[]?'; } | sort -u)
+  local -a present host_list program_list
+  # Both lists' names.
+  mapfile -t host_list < <(printf '%s' "$host_programs_json" | jq -r '.[]?')
+  mapfile -t program_list < <(printf '%s' "$programs_json" | jq -r '.[]?')
+  # Every program named in either list, sorted, each once.
+  mapfile -t present < <(printf '%s\n' \
+    "${host_list[@]+"${host_list[@]}"}" \
+    "${program_list[@]+"${program_list[@]}"}" | sort -u)
   local program rival seen=""
   for program in "${present[@]}"; do
     [[ -n "$program" ]] || continue

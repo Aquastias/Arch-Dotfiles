@@ -33,6 +33,7 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 # value must be a JSON literal (quoted strings, raw bools, raw arrays).
 set_path_config() {
   local jq_path="$1" value="$2"
+  # An empty object with the path set.
   echo '{}' | jq --argjson v "$value" "$jq_path = \$v" > "$CONFIG_FILE"
 }
 

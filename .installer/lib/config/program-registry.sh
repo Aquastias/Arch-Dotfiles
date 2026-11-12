@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/program-registry.sh — JSONC parse/merge + program resolution
+# lib/config/program-registry.sh — JSONC parse + program resolution
 # =============================================================================
 # The shared spine under the Profile Loader (lib/config/profile-loader.sh):
-# JSONC parsing, the core+specific merge, and the program registry / contract
-# validation. Pure: no side effects beyond reading files and writing to
-# stdout/stderr.
+# JSONC parsing and the program registry / contract validation. Pure: no side
+# effects beyond reading files and writing to stdout/stderr.
 #
 # Public API:
 #   _program_registry_parse <file>  → strip JSONC + jq '.' (returns 1 if
 #                                     absent)
-#   _program_registry_merge <a> <b> → merge two JSON values per the rules
-#                                     below
 #   program_registry_build
 #       → build in-memory program index from $INSTALLER_DIR/programs/
 #   program_registry_resolve <name>
@@ -27,42 +24,21 @@
 #   program_registry_reconcile_user_program <name> <host_program...>
 #       (ADR 0036)
 #
-# Merge rules:
-#   - Arrays on both sides:  concatenate + dedupe (order preserving)
-#   - Objects on both sides: deep merge (recursively)
-#   - Scalars on both sides: specific wins
-#   - One side null/missing: other side wins
-#
 # Used by: lib/config/{profile-loader,config-state,emit}.sh, 03-install.sh,
 # lib/profiles/runner.sh, lib/guided/controller.sh.
 # =============================================================================
 
 # shellcheck source=../jsonc.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 _program_registry_parse() {
   local file="$1"
   [[ -f "$file" ]] || return 1
+  # The JSONC file as JSON.
   jsonc_strip "$file" | jq '.'
-}
-
-# Merge two JSON values per the rules above.
-_program_registry_merge() {
-  jq -n --argjson a "$1" --argjson b "$2" '
-    def dedup_keep_first:
-      reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end);
-    def merge(x; y):
-      if   (x == null) then y
-      elif (y == null) then x
-      elif (x | type) == "array"  and (y | type) == "array"
-        then ((x + y) | dedup_keep_first)
-      elif (x | type) == "object" and (y | type) == "object"
-        then reduce ((x + y) | keys_unsorted | unique[]) as $k
-          ({}; .[$k] = merge(x[$k]; y[$k]))
-      else y
-      end;
-    merge($a; $b)
-  '
 }
 
 # =============================================================================
@@ -92,25 +68,26 @@ program_registry_build() {
   # an associative array — guarding on it left the fast paths below dead and
   # every lookup re-scanning the tree.
   declare -g _PROGRAM_REGISTRY_BUILT=1
-  local program_directory name category kind
-  for program_directory in "${INSTALLER_DIR}/programs"/*/*; do
-    [[ -d "$program_directory" ]] || continue
-    name="${program_directory##*/}"
-    category="${program_directory%/*}"
-    category="${category##*/}"
+  local category name kind config_file
+  # Every program as "<category>/<name>", in glob order.
+  while IFS=/ read -r category name; do
+    # Hidden directories (.claude/…) are not programs.
+    [[ "$category" == .* || "$name" == .* ]] && continue
     _PROGRAM_REGISTRY_PATHS["$name"]="${category}/${name}"
+    config_file="${INSTALLER_DIR}/programs/${category}/${name}/config.jsonc"
     kind=""
-    [[ -f "$program_directory/config.jsonc" ]] \
-      && kind="$(_program_registry_parse "$program_directory/config.jsonc" \
-        | jq -r '.kind // ""')"
+    # The config's kind ("" when absent).
+    [[ -f "$config_file" ]] \
+      && kind="$(_program_registry_parse "$config_file" | jq -r '.kind // ""')"
     case "$kind" in
       host | user) _PROGRAM_REGISTRY_KINDS["$name"]="$kind" ;;
       *) echo "configs: program '${name}' has an invalid or missing 'kind'" \
               "(want \"host\" or \"user\"), got '${kind:-<none>}' in" \
-              "${program_directory}/config.jsonc" >&2
+              "${config_file}" >&2
          return 1 ;;
     esac
-  done
+  done < <(find "${INSTALLER_DIR}/programs" -mindepth 2 -maxdepth 2 -type d \
+             -printf '%P\n' 2>/dev/null | sort)
 }
 
 # program_registry_kind <name> → "host" | "user" | "none".
@@ -130,6 +107,7 @@ program_registry_kind() {
   local config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   [[ -f "$config_file" ]] || { printf 'none\n'; return 0; }
   local kind
+  # The config's kind ("" when absent).
   kind="$(_program_registry_parse "$config_file" | jq -r '.kind // ""')"
   case "$kind" in
   host | user) printf '%s\n' "$kind" ;;
@@ -161,12 +139,11 @@ program_registry_resolve() {
     fi
     return 1
   fi
-  local program_directory category
-  for program_directory in "${INSTALLER_DIR}/programs"/*/"$name"; do
+  local program_directory programs_directory="${INSTALLER_DIR}/programs/"
+  for program_directory in "${programs_directory}"*/"$name"; do
     [[ -d "$program_directory" ]] || continue
-    category="${program_directory%/*}"
-    category="${category##*/}"
-    printf '%s/%s\n' "$category" "$name"
+    # The path under programs/: "<category>/<name>".
+    printf '%s\n' "${program_directory:${#programs_directory}}"
     return 0
   done
   return 1
@@ -256,8 +233,11 @@ program_registry_reconcile_user_program() {
 program_registry_validate_package_exclusivity() {
   local config="$1" label="${2:-config}"
   [[ -n "${_PROGRAM_REGISTRY_BUILT:-}" ]] || program_registry_build || return 1
-
-  local rc=0 slot category name kind
+  local rc=0 slot category name kind rows
+  rows='(["repo","aur"] | .[]) as $slot | (.packages[$slot] // {})'
+  rows+=' | to_entries[] | select(.value | type == "array") | .key as $cat'
+  rows+=' | .value[] | select(type == "string") | "\($slot)\t\($cat)\t\(.)"'
+  # One "<slot><TAB><category><TAB><name>" row per package entry.
   while IFS=$'\t' read -r slot category name; do
     [[ -n "$name" ]] || continue
     kind="$(program_registry_kind "$name")"
@@ -272,14 +252,7 @@ program_registry_validate_package_exclusivity() {
            "programs instead, or rename the package entry." >&2
     fi
     rc=1
-  done < <(jq -r '
-    (["repo","aur"] | .[]) as $slot
-    | (.packages[$slot] // {}) | to_entries[]
-    | select(.value | type == "array")
-    | .key as $cat | .value[]
-    | select(type == "string")
-    | "\($slot)\t\($cat)\t\(.)"
-  ' <<<"$config" 2>/dev/null)
+  done < <(printf '%s\n' "$config" | jq -r "$rows" 2>/dev/null)
   return "$rc"
 }
 

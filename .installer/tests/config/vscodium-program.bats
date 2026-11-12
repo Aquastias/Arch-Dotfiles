@@ -5,6 +5,9 @@
 # run. Config Apply places home/ (ADR 0134); install.sh installs the package +
 # extensions only.
 
+load ../lib/json-helpers
+load ../lib/text-helpers
+
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."   # .installer/tests/config → repo root
   PROG="$REPO/.installer/programs/dev/vscodium"
@@ -36,8 +39,8 @@ ext_ids() { data_rows "$EXTS"; }
 
 @test "dev/vscodium config.jsonc declares an opt-in user-kind program" {
   [ -f "$CFG" ]
-  jsonc_strip "$CFG" | jq -e '.name == "vscodium" and .kind == "user"'
-  jsonc_strip "$CFG" | jq -e '.stow_opt_in == true'   # ADR 0148
+  json_satisfies "$(jsonc_strip "$CFG")" '.name == "vscodium" and .kind == "user"'
+  json_satisfies "$(jsonc_strip "$CFG")" '.stow_opt_in == true'   # ADR 0148
 }
 
 @test "VSCodium is opt-in: not served by User Core" {
@@ -68,7 +71,7 @@ ext_ids() { data_rows "$EXTS"; }
 }
 
 @test "the Open VSX-only rule holds: no MS Marketplace anywhere (ADR 0148)" {
-  ! grep -rqiE 'marketplace\.visualstudio|vscodium-marketplace' "$PROG"
+  ! tree_has -i -E 'marketplace\.visualstudio|vscodium-marketplace' "$PROG"
 }
 
 # ── extension list ───────────────────────────────────────────────────────────
@@ -85,7 +88,10 @@ ext_ids() { data_rows "$EXTS"; }
 }
 
 @test "extension list has no duplicates (case-insensitive)" {
-  [ -z "$(ext_ids | awk '{ print tolower($0) }' | sort | awk 'seen[$0]++ == 1')" ]
+  local lower_ids
+  lower_ids="$(ext_ids | tr '[:upper:]' '[:lower:]')"
+  # No extension id listed twice.
+  [ -z "$(printf '%s\n' "$lower_ids" | sort | uniq -d)" ]
 }
 
 @test "the list carries VSCodeVim and the catppuccin theme + icons" {
@@ -97,8 +103,8 @@ ext_ids() { data_rows "$EXTS"; }
 # ── single-source settings (ADR 0134) ────────────────────────────────────────
 
 @test "settings.json and keybindings.json parse" {
-  jsonc_strip "$SETTINGS" | jq -e 'type == "object"'
-  jsonc_strip "$KEYS" | jq -e 'type == "array"'
+  json_satisfies "$(jsonc_strip "$SETTINGS")" 'type == "object"'
+  json_satisfies "$(jsonc_strip "$KEYS")" 'type == "array"'
 }
 
 @test "look: Catppuccin Mocha, sapphire accent, no black overrides" {
@@ -127,55 +133,45 @@ ext_ids() { data_rows "$EXTS"; }
 
 @test "VSCodeVim basics: Space leader, jj, clipboard, C-a/f/p passed" {
   [ "$(setting '."vim.leader"')" = '"<space>"' ]
-  setting '."vim.insertModeKeyBindings"' \
-    | jq -e 'any(.[]; .before == ["j","j"] and .after == ["<Esc>"])'
+  json_satisfies "$(setting '."vim.insertModeKeyBindings"')" \
+    'any(.[]; .before == ["j","j"] and .after == ["<Esc>"])'
   [ "$(setting '."vim.useSystemClipboard"')" = 'true' ]
   [ "$(setting '."editor.lineNumbers"')" = '"relative"' ]
-  setting '."vim.handleKeys"' \
-    | jq -e '.["<C-a>"] == false and .["<C-f>"] == false
-             and .["<C-p>"] == false'
+  json_satisfies "$(setting '."vim.handleKeys"')" \
+    '.["<C-a>"] == false and .["<C-f>"] == false and .["<C-p>"] == false'
 }
 
 @test "a no-name ./stow-configs.sh sweep skips vscodium (ADR 0148)" {
   source "$REPO/.installer/lib/config/config-apply.sh"
-  local root="$REPO/.installer/programs"
-  config_apply_stow_opted_in_programs "$root" | jq -e 'index("vscodium") != null'
-  config_apply_stow_selection "$(config_apply_ships_home_list "$root")" '[]' '[]' \
-    "$(config_apply_stow_opted_in_programs "$root")" | jq -e 'index("vscodium") == null'
+  local root="$REPO/.installer/programs" opted_in selection
+  opted_in="$(config_apply_stow_opted_in_programs "$root")"
+  selection="$(config_apply_stow_selection \
+    "$(config_apply_ships_home_list "$root")" '[]' '[]' "$opted_in")"
+  json_satisfies "$opted_in" 'index("vscodium") != null'
+  json_satisfies "$selection" 'index("vscodium") == null'
 }
 
 # ── languages on the system toolchain (ADR 0148) ─────────────────────────────
 
 # registry_keys → the Language Registry's language keys (ADR 0141), read from
-# nvim's languages.lua with awk — no Lua runtime.
+# nvim's languages.lua (lib/language-registry.awk) — no Lua runtime.
 registry_keys() {
-  awk '/^local registry = \{/ { on = 1; next }
-       on && /^}/ { exit }
-       on && match($0, /^  [a-z_]+ = /) {
-         k = substr($0, 3); sub(/ = .*/, "", k); print k }' \
-    "$LANGS"
+  awk -v part=keys -f "$BATS_TEST_DIRNAME/../lib/language-registry.awk" "$LANGS"
 }
 
 # registry_formatters → "<ft> <formatter>" per Registry filetype that formats.
 registry_formatters() {
-  awk '/^local registry = \{/ { on = 1; next }
-       on && /^}/ { exit }
-       on && /^  [a-z_]+ = / { ft = ""; fmt = "" }
-       on && /ft = \{/ { s = $0; sub(/.*ft = \{/, "", s); sub(/\}.*/, "", s)
-                         ft = s }
-       on && /formatter = \{/ { s = $0; sub(/.*formatter = \{/, "", s)
-                                sub(/\}.*/, "", s); fmt = s }
-       on && ft != "" && fmt != "" {
-         gsub(/[" ]/, "", ft); gsub(/[" ]/, "", fmt)
-         n = split(ft, fts, ","); split(fmt, f, ",")
-         for (i = 1; i <= n; i++) if (fts[i] != "") print fts[i], f[1]
-         ft = ""; fmt = "" }' \
+  awk -v part=formatters -f "$BATS_TEST_DIRNAME/../lib/language-registry.awk" \
     "$LANGS"
 }
 
 # coverage_keys → the Editor Coverage Map's language keys.
 coverage_keys() {
-  data_rows "$COVERAGE" | awk '{print $1}' | sort -u
+  local key _rest
+  # Each row's key (its first column), each once.
+  while read -r key _rest; do
+    printf '%s\n' "$key"
+  done < <(data_rows "$COVERAGE") | sort -u
 }
 
 @test "the Registry parse sees the languages nvim wires (sanity)" {
@@ -191,14 +187,18 @@ coverage_keys() {
 }
 
 @test "every Coverage Map extension is in the extension list" {
-  local ids
-  ids="$(data_rows "$COVERAGE" \
-    | awk '$2 != "n/a" { for (i = 2; i <= NF; i++) print $i }')"
+  local ids fields
+  # Every extension a row names (the columns after its key; n/a names none).
+  ids="$(while read -ra fields; do
+      (( ${#fields[@]} > 1 )) || continue
+      [[ "${fields[1]}" == n/a ]] && continue
+      printf '%s\n' "${fields[@]:1}"
+    done < <(data_rows "$COVERAGE"))"
   [ -n "$ids" ]
   local id
   while IFS= read -r id; do
     ext_ids | grep -qx "$id" || { echo "missing from list: $id"; false; }
-  done <<<"$ids"
+  done < <(printf '%s\n' "$ids")
 }
 
 @test "an n/a Coverage Map row states a reason" {
@@ -242,14 +242,16 @@ vsc_lang() {
   [ "${#lines[@]}" -ge 15 ]
   while read -r filetype formatter; do
     want="$(formatter_extension "$formatter")"
-    got="$(setting ".\"[$(vsc_lang "$filetype")]\".\"editor.defaultFormatter\"" | jq -r .)"
+    # The filetype's default formatter, unquoted.
+    got="$(setting ".\"[$(vsc_lang "$filetype")]\".\"editor.defaultFormatter\"" \
+      | jq -r .)"
     [ "$got" = "$want" ] || { echo "$filetype: want $want got $got"; false; }
   done < <(registry_formatters)
 }
 
 @test "save behaves as nvim: format on save, no code actions, no autosave" {
   [ "$(setting '."editor.formatOnSave"')" = 'true' ]
-  setting '."editor.codeActionsOnSave" // {}' | jq -e 'length == 0'
+  json_satisfies "$(setting '."editor.codeActionsOnSave" // {}')" 'length == 0'
   [ "$(setting '."files.autoSave" // "off"')" = '"off"' ]
 }
 
@@ -271,10 +273,12 @@ vsc_lang() {
 @test "toolchain path settings point at Fleet Layer system binaries" {
   local key path package
   while read -r key path package; do
+    # The setting's path (an array's first entry).
     got="$(setting ".$key" | jq -r 'if type == "array" then .[0] else . end')"
     [ "$got" = "$path" ] || { echo "$key: want $path got $got"; false; }
+    # "@nvim:<package>": installed by dev/nvim.
     if [[ "$package" == @nvim:* ]]; then
-      grep -q "needed ${package#@nvim:}" \
+      grep -q "needed ${package:6}" \
         "$REPO/.installer/programs/dev/nvim/install.sh"
     else
       grep -q "\"$package\"" "$FLEET" \
@@ -315,14 +319,16 @@ EOF_
 # its `after` keys, space-joined). `SPC` stands for the space key.
 bind() {
   local settings="$1"; shift
-  local before; before="$(printf '%s\n' "$@" | awk '{ sub(/^SPC$/, " "); print }' | jq -R . \
-    | jq -sc .)"
-  setting ".\"$settings\"" | jq -r --argjson b "$before" '
-    [ .[] | select(.before == $b) ][0]
-    | if . == null then "UNBOUND"
-      elif .commands then (.commands[0] | if type == "object"
-        then "\(.command) \(.args | tojson)" else . end)
-      else (.after | join(" ")) end'
+  local before keys bound
+  keys='$keys | split("\n") | map(if . == "SPC" then " " else . end)'
+  bound='[.[] | select(.before == $b)][0] | if . == null then "UNBOUND"'
+  bound+=' elif .commands then (.commands[0] | if type == "object"'
+  bound+=' then "\(.command) \(.args | tojson)" else . end)'
+  bound+=' else (.after | join(" ")) end'
+  # The key sequence as a JSON array (SPC is the space key).
+  before="$(jq -cn --arg keys "$(printf '%s\n' "$@")" "$keys")"
+  # What that sequence is bound to.
+  setting ".\"$settings\"" | jq -r --argjson b "$before" "$bound"
 }
 N=vim.normalModeKeyBindingsNonRecursive
 V=vim.visualModeKeyBindingsNonRecursive
@@ -373,8 +379,9 @@ V=vim.visualModeKeyBindingsNonRecursive
 
 @test "git keys: lazygit in terminal, diff, file/repo history, blame" {
   [ "$(bind "$N" '<leader>' g g)" = 'workbench.action.terminal.new' ]
-  setting ".\"$N\"" | jq -e 'any(.[]; .before == ["<leader>","g","g"]
-    and any(.commands[] | objects; .args.text == "lazygit\n"))'
+  json_satisfies "$(setting ".\"$N\"")" \
+    'any(.[]; .before == ["<leader>","g","g"]
+      and any(.commands[] | objects; .args.text == "lazygit\n"))'
   [ "$(bind "$N" '<leader>' g d)" = 'git.openChange' ]
   [ "$(bind "$N" '<leader>' g h)" = 'timeline.focus' ]
   [ "$(bind "$N" '<leader>' g H)" = 'git-graph.view' ]
@@ -418,9 +425,9 @@ V=vim.visualModeKeyBindingsNonRecursive
 }
 
 @test "native chords: <C-/> toggles the terminal, ctrl+alt+v toggles vim" {
-  jsonc_strip "$KEYS" | jq -e 'any(.[]; .key == "ctrl+/"
+  json_satisfies "$(jsonc_strip "$KEYS")" 'any(.[]; .key == "ctrl+/"
     and .command == "workbench.action.terminal.toggleTerminal")'
-  jsonc_strip "$KEYS" | jq -e 'any(.[]; .command == "toggleVim")'
+  json_satisfies "$(jsonc_strip "$KEYS")" 'any(.[]; .command == "toggleVim")'
 }
 
 @test "the five nvim palettes are installed for <leader>uC" {
@@ -481,13 +488,13 @@ V=vim.visualModeKeyBindingsNonRecursive
   # and lists; like nvim, off in insert/visual and in the terminal (an input).
   local key command when="!inputFocus || editorTextFocus && vim.mode == 'Normal'"
   while read -r key command; do
-    jsonc_strip "$KEYS" | jq -e --arg k "$key" --arg c "$command" --arg w "$when" \
-      'any(.[]; .key == $k and .command == $c and .when == $w)'
+    json_satisfies "$(jsonc_strip "$KEYS")" "any(.[]; .key == \"$key\"
+      and .command == \"$command\" and .when == \"$when\")"
   done <<'EOF_'
 ctrl+h workbench.action.navigateLeft
 ctrl+j workbench.action.navigateDown
 ctrl+k workbench.action.navigateUp
 ctrl+l workbench.action.navigateRight
 EOF_
-  setting ".\"$N\"" | jq -e 'all(.[]; .before != ["<C-h>"])'
+  json_satisfies "$(setting ".\"$N\"")" 'all(.[]; .before != ["<C-h>"])'
 }

@@ -24,6 +24,10 @@
 # lib/packages/package-resolver.sh, lib/guided/controller.sh.
 # =============================================================================
 
+# shellcheck source=./derived-programs.sh
+declare -F derived_programs_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/derived-programs.sh"
+
 # mirrors_programs <config-json> — the section-derived Host Programs, one per
 # line: always `reflector`. State-independent (the config arg is accepted for
 # signature parity with the toggle resolvers, not read). The source of truth
@@ -37,15 +41,8 @@ mirrors_programs() {
 # idempotent), so the Runner installs reflector exactly as an authored Host
 # Program. Pure: JSON in, compact JSON out.
 mirrors_inject() {
-  local config="${1:-{\}}" programs
-  programs="$(mirrors_programs "$config")"
-  [[ -n "$programs" ]] || { jq -c . <<<"$config"; return; }
-  jq -c --arg progs "$programs" '
-    ($progs | split("\n") | map(select(length > 0))) as $add
-    | .host_programs = ((.host_programs // []) as $sp
-        | reduce $add[] as $p ($sp;
-            if (. | index($p)) then . else . + [$p] end))
-  ' <<<"$config"
+  local config="${1:-{\}}"
+  derived_programs_inject "$config" "$(mirrors_programs "$config")"
 }
 
 # mirrors_owned_programs — every Host Program the Mirrors & Repositories section

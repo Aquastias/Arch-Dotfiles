@@ -24,6 +24,12 @@
 # vm/lib/flow-guided.sh.
 # =============================================================================
 
+# shellcheck source=../common.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
+declare -F json_string_array >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
 # shellcheck source=../picker.sh
 declare -F _picker_validate_group >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
@@ -34,30 +40,26 @@ declare -F _picker_validate_group >/dev/null 2>&1 \
 # os-mirror-raidz1 — mirrored OS + a 3-disk raidz1 storage group at /data.
 # data-pools— single OS disk (topology none) + a standalone stripe data pool.
 skeleton_preset() {
+  local os_mirror='os_pool: {pool_name: "rpool", topology: "mirror",'
+  os_mirror+=' disk_count: 2}'
+  local raidz_data='storage_groups: [{name: "data", mount: "/data",'
+  raidz_data+=' topology: "raidz1", disk_count: 3}]'
+  local os_none='os_pool: {pool_name: "rpool", topology: "none", disk_count: 1}'
+  local tank='data_pools: [{name: "tank", topology: "stripe", disk_count: 1}]'
+  local skeleton
   case "$1" in
-  single)
-    jq -n '{mode: "single"}'
-    ;;
-  os-mirror)
-    jq -n '{mode: "multi",
-            os_pool: {pool_name: "rpool", topology: "mirror", disk_count: 2}}'
-    ;;
-  os-mirror-raidz1)
-    jq -n '{mode: "multi",
-            os_pool: {pool_name: "rpool", topology: "mirror", disk_count: 2},
-            storage_groups: [{name: "data", mount: "/data",
-                              topology: "raidz1", disk_count: 3}]}'
-    ;;
-  data-pools)
-    jq -n '{mode: "multi",
-            os_pool: {pool_name: "rpool", topology: "none", disk_count: 1},
-            data_pools: [{name: "tank", topology: "stripe", disk_count: 1}]}'
-    ;;
+  single) skeleton='{mode: "single"}' ;;
+  os-mirror) skeleton="{mode: \"multi\", ${os_mirror}}" ;;
+  os-mirror-raidz1) skeleton="{mode: \"multi\", ${os_mirror}, ${raidz_data}}" ;;
+  data-pools) skeleton="{mode: \"multi\", ${os_none}, ${tank}}" ;;
   *)
     error "skeleton_preset: unknown preset '$1'" \
       "(single, os-mirror, os-mirror-raidz1, data-pools)"
+    return 1
     ;;
   esac
+  # The preset's skeleton.
+  jq -n "$skeleton"
 }
 
 # ── Composable builders (Advanced authoring) ────────────────────────────────
@@ -67,8 +69,10 @@ skeleton_preset() {
 # skeleton_new_multi <os_topology> <os_disk_count> — start a multi skeleton with
 # just the OS pool. storage_groups / data_pools are added below.
 skeleton_new_multi() {
-  jq -n --arg t "$1" --argjson dc "$2" \
-    '{mode: "multi", os_pool: {pool_name: "rpool", topology: $t, disk_count: $dc}}'
+  local skeleton='{mode: "multi",'
+  skeleton+=' os_pool: {pool_name: "rpool", topology: $t, disk_count: $dc}}'
+  # A multi skeleton holding only the OS pool.
+  jq -n --arg t "$1" --argjson dc "$2" "$skeleton"
 }
 
 # skeleton_custom_seed — the blank-canvas seed the guided `custom…` layout picks
@@ -81,48 +85,56 @@ skeleton_custom_seed() { skeleton_new_multi none 1; }
 # @-token a group); omitted when empty. ashift is left to the back-end default.
 _skeleton_group() {
   local name="$1" topology="$2" disk_count="$3" owners="${4:-}"
-  local owners_json="[]"
-  # shellcheck disable=SC2086 # owners is a whitespace-separated token list
-  [[ -n "$owners" ]] \
-    && owners_json="$(printf '%s\n' $owners | jq -R . | jq -s .)"
+  local owners_json="[]" group
+  local -a owner_list
+  if [[ -n "$owners" ]]; then
+    read -ra owner_list < <(printf '%s\n' "$owners")
+    owners_json="$(json_string_array "${owner_list[@]}")"
+  fi
+  group='{name: $n, topology: $t, disk_count: $dc}'
+  group+=' + (if ($o | length) > 0 then {owners: $o} else {} end)'
+  # The group object (owners only when there are some).
   jq -n --arg n "$name" --arg t "$topology" --argjson dc "$disk_count" \
-    --argjson o "$owners_json" \
-    '{name: $n, topology: $t, disk_count: $dc}
-     + (if ($o | length) > 0 then {owners: $o} else {} end)'
+    --argjson o "$owners_json" "$group"
 }
 
 # skeleton_add_storage <skeleton> <name> <topology> <disk_count> [owners] —
 # append a storage group (mounted at /<name>) to storage_groups[], in order.
 skeleton_add_storage() {
   local skeleton="$1"; shift
-  local group; group="$(_skeleton_group "$@")"
-  group="$(jq --arg m "/$1" '. + {mount: $m}' <<<"$group")"
-  jq --argjson g "$group" '.storage_groups = ((.storage_groups // []) + [$g])' \
-    <<<"$skeleton"
+  local group append
+  group="$(_skeleton_group "$@")"
+  # The group, mounted at /<name>.
+  group="$(printf '%s\n' "$group" | jq --arg m "/$1" '. + {mount: $m}')"
+  append='.storage_groups = ((.storage_groups // []) + [$g])'
+  # The skeleton with the group appended to storage_groups.
+  printf '%s\n' "$skeleton" | jq --argjson g "$group" "$append"
 }
 
 # skeleton_add_data_pool <skeleton> <name> <topology> <disk_count> [owners] —
 # append a standalone data pool to data_pools[], in order.
 skeleton_add_data_pool() {
   local skeleton="$1"; shift
-  local pool; pool="$(_skeleton_group "$@")"
-  jq --argjson p "$pool" '.data_pools = ((.data_pools // []) + [$p])' \
-    <<<"$skeleton"
+  local pool append
+  pool="$(_skeleton_group "$@")"
+  append='.data_pools = ((.data_pools // []) + [$p])'
+  # The skeleton with the pool appended to data_pools.
+  printf '%s\n' "$skeleton" | jq --argjson p "$pool" "$append"
 }
 
 # skeleton_total_disks <skeleton> — the flat number of disks the operator must
 # pick: Σ disk_count over os_pool + every storage_groups[] + data_pools[].
 # single is one disk; os_pool defaults to disk_count 1 when omitted.
 skeleton_total_disks() {
-  jq '
-    if .mode == "single" then 1
-    else
-      (.os_pool.disk_count // 1)
-      + ([.storage_groups[]?.disk_count] | add // 0)
-      + ([.data_pools[]?.disk_count] | add // 0)
-    end
-  ' <<<"$1"
+  local total='if .mode == "single" then 1 else (.os_pool.disk_count // 1)'
+  total+=' + ([.storage_groups[]?.disk_count] | add // 0)'
+  total+=' + ([.data_pools[]?.disk_count] | add // 0) end'
+  # The number of disks to pick.
+  printf '%s\n' "$1" | jq "$total"
 }
+
+# _skeleton_read <skeleton> <jq-filter> — one raw value of the skeleton.
+_skeleton_read() { printf '%s\n' "$1" | jq -r "$2"; }
 
 # skeleton_validate <skeleton> — rc 0 when every declared group's disk_count
 # meets its topology minimum (the shared picker min-disk table), else aborts via
@@ -130,28 +142,23 @@ skeleton_total_disks() {
 # disk, baked directly). Drives the "installable" guarantee for Advanced (later)
 # and guards the presets.
 skeleton_validate() {
-  local skeleton="$1" topology disk_count count i
-  [[ "$(jq -r '.mode // "multi"' <<<"$skeleton")" == "single" ]] && return 0
+  local skeleton="$1" topology disk_count count i list
+  [[ "$(_skeleton_read "$skeleton" '.mode // "multi"')" == "single" ]] \
+    && return 0
 
-  topology="$(jq -r '.os_pool.topology // "stripe"' <<<"$skeleton")"
-  disk_count="$(jq -r '.os_pool.disk_count // 1' <<<"$skeleton")"
+  topology="$(_skeleton_read "$skeleton" '.os_pool.topology // "stripe"')"
+  disk_count="$(_skeleton_read "$skeleton" '.os_pool.disk_count // 1')"
   _picker_validate_group os_pool "$topology" "$disk_count" || return 1
 
-  count="$(jq '(.storage_groups // []) | length' <<<"$skeleton")"
-  for ((i = 0; i < count; i++)); do
-    topology="$(jq -r ".storage_groups[$i].topology // \"stripe\"" \
-      <<<"$skeleton")"
-    disk_count="$(jq -r ".storage_groups[$i].disk_count // 0" <<<"$skeleton")"
-    _picker_validate_group "storage_groups[$i]" "$topology" "$disk_count" \
-      || return 1
-  done
-
-  count="$(jq '(.data_pools // []) | length' <<<"$skeleton")"
-  for ((i = 0; i < count; i++)); do
-    topology="$(jq -r ".data_pools[$i].topology // \"stripe\"" <<<"$skeleton")"
-    disk_count="$(jq -r ".data_pools[$i].disk_count // 0" <<<"$skeleton")"
-    _picker_validate_group "data_pools[$i]" "$topology" "$disk_count" \
-      || return 1
+  for list in storage_groups data_pools; do
+    count="$(_skeleton_read "$skeleton" "(.${list} // []) | length")"
+    for ((i = 0; i < count; i++)); do
+      topology="$(_skeleton_read "$skeleton" \
+        ".${list}[$i].topology // \"stripe\"")"
+      disk_count="$(_skeleton_read "$skeleton" ".${list}[$i].disk_count // 0")"
+      _picker_validate_group "${list}[$i]" "$topology" "$disk_count" \
+        || return 1
+    done
   done
 }
 
@@ -160,17 +167,17 @@ skeleton_validate() {
 # assignment shape picker_build_assignment emits: os_pool[], storage_groups[][],
 # data_pools[][]). The confirm screen before the install accepts. Pure: lines.
 skeleton_assignment_summary() {
-  jq -rn --argjson s "$1" --argjson a "$2" '
-    [ "OS pool (\($s.os_pool.topology // "stripe")): "
-      + (($a.os_pool // []) | join(", ")) ]
-    + [ ($s.storage_groups // []) | to_entries[]
-        | "storage \(.value.name) (\(.value.topology)): "
-          + ((($a.storage_groups // [])[.key] // []) | join(", ")) ]
-    + [ ($s.data_pools // []) | to_entries[]
-        | "data pool \(.value.name) (\(.value.topology)): "
-          + ((($a.data_pools // [])[.key] // []) | join(", ")) ]
-    | .[]
-  '
+  local os storage data
+  os='"OS pool (\($s.os_pool.topology // "stripe")): "'
+  os+=' + (($a.os_pool // []) | join(", "))'
+  storage='($s.storage_groups // []) | to_entries[]'
+  storage+=' | "storage \(.value.name) (\(.value.topology)): "'
+  storage+=' + ((($a.storage_groups // [])[.key] // []) | join(", "))'
+  data='($s.data_pools // []) | to_entries[]'
+  data+=' | "data pool \(.value.name) (\(.value.topology)): "'
+  data+=' + ((($a.data_pools // [])[.key] // []) | join(", "))'
+  # The OS pool line, then a line per storage group and per data pool.
+  jq -rn --argjson s "$1" --argjson a "$2" "${os}, (${storage}), (${data})"
 }
 
 # ── In-Menu Disk Binding: flatten + device-aware assignment (ADR 0047) ───────
@@ -183,37 +190,38 @@ skeleton_assignment_summary() {
 # and the devices[] dropped; the single-disk root_disk is dropped too. Save
 # writes this, preserving the device-less profile invariant (ADR 0036).
 skeleton_flatten_devices() {
-  jq '
-    def flat: if has("devices")
-              then (.disk_count = (.devices | length)) | del(.devices)
-              else . end;
-    (if .os_pool then .os_pool |= flat else . end)
-    | (if .storage_groups then .storage_groups |= map(flat) else . end)
-    | (if .data_pools then .data_pools |= map(flat) else . end)
-    | del(.root_disk)
-  ' <<<"$1"
+  local flat flatten
+  # One group: its devices[] counted into disk_count, then dropped.
+  flat='if has("devices") then (.disk_count = (.devices | length))'
+  flat+=' | del(.devices) else . end'
+  flatten="(if .os_pool then .os_pool |= (${flat}) else . end)"
+  flatten+=" | (if .storage_groups then .storage_groups |= map(${flat})"
+  flatten+=' else . end)'
+  flatten+=" | (if .data_pools then .data_pools |= map(${flat}) else . end)"
+  flatten+=' | del(.root_disk)'
+  # The skeleton with every group flattened.
+  printf '%s\n' "$1" | jq "$flatten"
 }
 
 # skeleton_any_bound <skeleton> — rc 0 when any group carries a devices[] key
 # (In-Menu Disk Binding happened), else non-zero (a device-less / counted skel).
 skeleton_any_bound() {
-  jq -e '[ .os_pool.devices,
-           ((.storage_groups // [])[].devices),
-           ((.data_pools // [])[].devices) ]
-         | any(. != null)' <<<"$1" >/dev/null 2>&1
+  local bound='[.os_pool.devices, ((.storage_groups // [])[].devices),'
+  bound+=' ((.data_pools // [])[].devices)] | any(. != null)'
+  # Does any group hold devices?
+  printf '%s\n' "$1" | jq -e "$bound" >/dev/null 2>&1
 }
 
 # skeleton_counted_disks <skeleton> — Σ disk_count over the still-counted
 # (device-less) groups only; a bound group contributes nothing (its disks are
 # already chosen). Drives how many disks a mixed layout must still flat-pick.
 skeleton_counted_disks() {
-  jq '
-    def counted: select(has("devices") | not);
-    [ (.os_pool | select(. != null) | counted | .disk_count // 1),
-      ((.storage_groups // [])[] | counted | .disk_count // 0),
-      ((.data_pools // [])[] | counted | .disk_count // 0) ]
-    | add // 0
-  ' <<<"$1"
+  local counted='select(has("devices") | not)' sum
+  sum="[(.os_pool | select(. != null) | ${counted} | .disk_count // 1),"
+  sum+=" ((.storage_groups // [])[] | ${counted} | .disk_count // 0),"
+  sum+=" ((.data_pools // [])[] | ${counted} | .disk_count // 0)] | add // 0"
+  # The disks the device-less groups still need.
+  printf '%s\n' "$1" | jq "$sum"
 }
 
 # skeleton_build_assignment <skeleton> <disk...> — the per-group assignment JSON
@@ -224,32 +232,30 @@ skeleton_counted_disks() {
 skeleton_build_assignment() {
   local skeleton="$1"; shift
   local -a disks=("$@")
-  local offset=0 devices os_json i count
-  local storage_groups_json="[]" data_pools_json="[]"
+  local offset=0 devices os_json i count list assignment
+  local -A lists_json=([storage_groups]="[]" [data_pools]="[]")
 
   _skeleton_take_devices .os_pool 1
   os_json="$devices"
 
-  count="$(jq '(.storage_groups // []) | length' <<<"$skeleton")"
-  for ((i = 0; i < count; i++)); do
-    _skeleton_take_devices ".storage_groups[$i]" 0
-    storage_groups_json="$(jq --argjson s "$devices" '. + [$s]' \
-      <<<"$storage_groups_json")"
-  done
-
-  count="$(jq '(.data_pools // []) | length' <<<"$skeleton")"
-  for ((i = 0; i < count; i++)); do
-    _skeleton_take_devices ".data_pools[$i]" 0
-    data_pools_json="$(jq --argjson s "$devices" '. + [$s]' \
-      <<<"$data_pools_json")"
+  for list in storage_groups data_pools; do
+    count="$(_skeleton_read "$skeleton" "(.${list} // []) | length")"
+    for ((i = 0; i < count; i++)); do
+      _skeleton_take_devices ".${list}[$i]" 0
+      # The list so far with this group's devices added.
+      lists_json[$list]="$(printf '%s\n' "${lists_json[$list]}" \
+        | jq --argjson s "$devices" '. + [$s]')"
+    done
   done
 
   (( offset == ${#disks[@]} )) || {
     echo "skeleton_build_assignment: counted groups need $offset disk(s), got" \
          "${#disks[@]}" >&2; return 1; }
-  jq -n --argjson os "$os_json" --argjson sg "$storage_groups_json" \
-    --argjson dp "$data_pools_json" \
-    '{ mode: "multi", os_pool: $os, storage_groups: $sg, data_pools: $dp }'
+  assignment='{mode: "multi", os_pool: $os, storage_groups: $sg,'
+  assignment+=' data_pools: $dp}'
+  # The assignment object.
+  jq -n --argjson os "$os_json" --argjson sg "${lists_json[storage_groups]}" \
+    --argjson dp "${lists_json[data_pools]}" "$assignment"
 }
 
 # _skeleton_take_devices <group-path> <default-count> — set the caller's
@@ -258,10 +264,12 @@ skeleton_build_assignment() {
 # skeleton, disks, offset and devices (dynamic scope).
 _skeleton_take_devices() {
   local group_path="$1" default_count="$2" group_disk_count
-  devices="$(jq -c "${group_path}.devices // empty" <<<"$skeleton")"
+  # The group's bound devices, compact (nothing when unbound).
+  devices="$(printf '%s\n' "$skeleton" \
+    | jq -c "${group_path}.devices // empty")"
   [[ -n "$devices" ]] && return 0
-  group_disk_count="$(jq -r "${group_path}.disk_count // ${default_count}" \
-    <<<"$skeleton")"
+  group_disk_count="$(_skeleton_read "$skeleton" \
+    "${group_path}.disk_count // ${default_count}")"
   devices="$(_picker_slice_json "${disks[@]:offset:group_disk_count}")"
   offset=$((offset + group_disk_count))
 }

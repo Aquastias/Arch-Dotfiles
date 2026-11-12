@@ -5,6 +5,8 @@
 # (_ctl_*) and the replay editors (_guided_edit_*) read it, so the two guided
 # front-ends can never drift on what a field offers. Pure: no TTY.
 
+load ../lib/text-helpers
+
 setup() {
   # shellcheck source=../../lib/config/config-state.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/config-state.sh"
@@ -54,7 +56,7 @@ setup() {
   # multi-word countries must survive as single lines, not split on space.
   echo "$output" | grep -qx "United Kingdom"
   echo "$output" | grep -qx "United States"
-  [ "${output%%$'\n'*}" == "Germany" ]
+  [ "${lines[0]}" == "Germany" ]
 }
 
 @test "menu_enum_options: unknown / free-text field emits nothing" {
@@ -68,12 +70,12 @@ setup() {
 # of the single authority (the interactive/replay drift bug it closes).
 @test "drift guard: kernel flavour list appears only in menu.sh" {
   local lib="$BATS_TEST_DIRNAME/../../lib"
-  run grep -rn 'hardened zen' "$lib/guided/shell.sh" "$lib/guided/controller.sh"
+  run tree_has 'hardened zen' "$lib/guided/shell.sh" "$lib/guided/controller.sh"
   [ "$status" -ne 0 ]
 }
 
 @test "drift guard: gpu vendor list appears only in menu.sh" {
   local lib="$BATS_TEST_DIRNAME/../../lib"
-  run grep -rn 'amd nvidia intel' "$lib/guided/shell.sh" "$lib/guided/controller.sh"
+  run tree_has 'amd nvidia intel' "$lib/guided/shell.sh" "$lib/guided/controller.sh"
   [ "$status" -ne 0 ]
 }

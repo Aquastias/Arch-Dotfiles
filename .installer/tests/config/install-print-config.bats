@@ -3,6 +3,8 @@
 # (unified-host-profile/01): validate + assemble + emit the effective config
 # to stdout, with NO libvirt and NO disk-touching phase (01/02/03 never run).
 
+load ../lib/json-helpers
+
 setup() {
   INSTALL_SH="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)/install.sh"
   OSDIR="$(mktemp -d)"
@@ -20,8 +22,8 @@ teardown() { rm -rf "$OSDIR"; }
 
   run env INSTALLER_DIR="$OSDIR" bash "$INSTALL_SH" --profile desktop --print-config
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
-  echo "$output" | jq -e '.options.bootloader == "grub"'
+  output_satisfies '.system.hostname == "eterniox"'
+  output_satisfies '.options.bootloader == "grub"'
 }
 
 @test "--profile X --print-config aborts on a typo'd key before any phase" {

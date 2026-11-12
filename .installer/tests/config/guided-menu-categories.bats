@@ -2,6 +2,7 @@
 # Tests: categories and buckets (split from guided-menu.bats;
 # shared setup in guided-menu-helpers.bash)
 
+load ../lib/json-helpers
 load guided-menu-helpers
 
 
@@ -10,8 +11,8 @@ load guided-menu-helpers
 @test "menu_categories: returns the categories in install-flow order (ADR 0081)" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 14'
-  echo "$output" | jq -e '[.[].name] == ["System","Locales","Users","Disks",
+  output_satisfies 'length == 14'
+  output_satisfies '[.[].name] == ["System","Locales","Users","Disks",
     "Bootloader","Kernels","Environment","Mirrors & Repositories","Pacman",
     "Packages","Daemons","Security","Backup","Expert"]'
 }
@@ -19,33 +20,32 @@ load guided-menu-helpers
 @test "menu_categories: each category carries its bucket" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .bucket | length > 0)'
-  echo "$output" | jq -e '.[] | select(.name == "System")   | .bucket == "GENERAL"'
-  echo "$output" | jq -e '.[] | select(.name == "Daemons") | .bucket == "SERVICES"'
-  echo "$output" | jq -e '.[] | select(.name == "Expert") | .bucket == "ADVANCED"'
+  output_satisfies 'all(.[]; .bucket | length > 0)'
+  output_satisfies '.[] | select(.name == "System")   | .bucket == "GENERAL"'
+  output_satisfies '.[] | select(.name == "Daemons") | .bucket == "SERVICES"'
+  output_satisfies '.[] | select(.name == "Expert") | .bucket == "ADVANCED"'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .summary | length > 0)'
-  echo "$output" \
-    | jq -e '.[] | select(.name == "Security") | .summary | test("firewall")'
+  output_satisfies 'all(.[]; .summary | length > 0)'
+  output_satisfies '.[] | select(.name == "Security") | .summary | test("firewall")'
 }
 
 @test "menu_categories: a fresh state overrides nothing" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .overridden == false)'
+  output_satisfies 'all(.[]; .overridden == false)'
 }
 
 @test "menu_categories: editing a field flips only its category's ●" {
   state="$(config_state_set "$(config_state_new)" system.hostname '"myhost"')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "System")  | .overridden == true'
-  echo "$output" | jq -e '.[] | select(.name == "Disks")   | .overridden == false'
-  echo "$output" | jq -e '.[] | select(.name == "Kernels") | .overridden == false'
+  output_satisfies '.[] | select(.name == "System")  | .overridden == true'
+  output_satisfies '.[] | select(.name == "Disks")   | .overridden == false'
+  output_satisfies '.[] | select(.name == "Kernels") | .overridden == false'
 }
 
 # the ● folds the override map only — a seeded-but-untouched value carries no ●
@@ -53,7 +53,7 @@ load guided-menu-helpers
   baseline="$(config_state_set "$(config_state_new)" system.hostname '"eterniox"')"
   run menu_categories "$(config_state_new)" "$baseline"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "System") | .overridden == false'
+  output_satisfies '.[] | select(.name == "System") | .overridden == false'
 }
 
 
@@ -64,15 +64,15 @@ load guided-menu-helpers
 @test "menu_category_rows: System returns only System rows incl. hostname" {
   run menu_category_rows System "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "System")'
-  echo "$output" | jq -e 'any(.[]; .field == "system.hostname")'
+  output_satisfies 'all(.[]; .section == "System")'
+  output_satisfies 'any(.[]; .field == "system.hostname")'
 }
 
 # Font Catalog (ADR 0080): the curated multi-select lives as a System leaf.
 @test "menu_category_rows: the Font Catalog is a System row" {
   run menu_category_rows System "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "options.fonts")'
+  output_satisfies 'any(.[]; .field == "options.fonts")'
 }
 
 @test "menu_enum_options: the Font Catalog offers the curated set" {
@@ -86,8 +86,7 @@ load guided-menu-helpers
 @test "menu_categories: the System summary mentions fonts" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" \
-    | jq -e 'any(.[]; .name == "System" and (.summary | test("fonts")))'
+  output_satisfies 'any(.[]; .name == "System" and (.summary | test("fonts")))'
 }
 
 
@@ -98,11 +97,14 @@ load guided-menu-helpers
   # every bucket header present, exactly once
   for bucket in "── GENERAL ──" "── STORAGE & BOOT ──" "── SOFTWARE ──" \
            "── SERVICES ──" "── SECURITY & DATA ──" "── ADVANCED ──"; do
-    [ "$(grep -Fxc "$bucket" <<<"$output")" -eq 1 ]
+    [ "$(printf '%s\n' "$output" | grep -Fxc "$bucket")" -eq 1 ]
   done
   # the GENERAL header leads System, its first category
-  awk 'previous == "── GENERAL ──" { print; exit } { previous = $0 }' \
-    <<<"$output" | grep -q "^System — "
+  local index
+  for index in "${!lines[@]}"; do
+    [[ "${lines[index]}" == "── GENERAL ──" ]] && break
+  done
+  [[ "${lines[index + 1]}" == "System — "* ]]
   # a category line, no header, carries name — summary
   printf '%s\n' "$output" | grep -q "^Daemons — "
 }
@@ -120,10 +122,15 @@ load guided-menu-helpers
   run menu_top_lines "$(config_state_new)"
   [ "$status" -eq 0 ]
   # the line immediately before a non-first bucket header is blank
-  [ -z "$(awk '$0 == "── STORAGE & BOOT ──" { print previous; exit }
-              { previous = $0 }' <<<"$output")" ]
+  local -a top
+  local index
+  mapfile -t top < <(printf '%s\n' "$output")
+  for index in "${!top[@]}"; do
+    [[ "${top[index]}" == "── STORAGE & BOOT ──" ]] && break
+  done
+  [ -z "${top[index - 1]}" ]
   # the first line is the first bucket header, not a blank
-  [ "${output%%$'\n'*}" = "── GENERAL ──" ]
+  [ "${top[0]}" = "── GENERAL ──" ]
 }
 
 
@@ -135,10 +142,10 @@ load guided-menu-helpers
 @test "menu_category_rows: esp size surfaces under Disks (swap is synthetic)" {
   run menu_category_rows Disks "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "options.esp_size")'
+  output_satisfies 'any(.[]; .field == "options.esp_size")'
   # swap / swap_size moved to the controller's synthetic swap row (sub-editor).
-  echo "$output" | jq -e 'all(.[]; .field != "options.swap")'
-  echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
+  output_satisfies 'all(.[]; .field != "options.swap")'
+  output_satisfies 'all(.[]; .field != "options.swap_size")'
 }
 
 # mirrors + optional repos + custom servers/repos live under Mirrors &
@@ -146,10 +153,10 @@ load guided-menu-helpers
 @test "menu_category_rows: countries + optional/custom repos under Mirrors & Repositories" {
   run menu_category_rows "Mirrors & Repositories" "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "options.mirror_countries")'
-  echo "$output" | jq -e 'any(.[]; .field == "options.optional_repos")'
-  echo "$output" | jq -e 'any(.[]; .field == "options.mirror_servers")'
-  echo "$output" | jq -e 'any(.[]; .field == "options.custom_repositories")'
+  output_satisfies 'any(.[]; .field == "options.mirror_countries")'
+  output_satisfies 'any(.[]; .field == "options.optional_repos")'
+  output_satisfies 'any(.[]; .field == "options.mirror_servers")'
+  output_satisfies 'any(.[]; .field == "options.custom_repositories")'
 }
 
 
@@ -158,40 +165,37 @@ load guided-menu-helpers
 @test "menu_categories: Pacman is a category, summary mentions ilovecandy" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .name == "Pacman")'
-  echo "$output" \
-    | jq -e '.[] | select(.name == "Pacman") | .summary | test("ilovecandy")'
+  output_satisfies 'any(.[]; .name == "Pacman")'
+  output_satisfies '.[] | select(.name == "Pacman") | .summary | test("ilovecandy")'
 }
 
 @test "menu_category_rows: Pacman carries the six [options] flags with defaults" {
   run menu_category_rows Pacman "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "Pacman")'
-  echo "$output" | row options.pacman.ilovecandy | jq -e '.value == "true"'
-  echo "$output" | row options.pacman.color | jq -e '.value == "true"'
-  echo "$output" | row options.pacman.verbose_pkg_lists | jq -e '.value == "true"'
-  echo "$output" | row options.pacman.disable_download_timeout \
-    | jq -e '.value == "false"'
-  echo "$output" | row options.pacman.no_progress_bar | jq -e '.value == "false"'
-  echo "$output" | row options.pacman.parallel_downloads | jq -e '.value == "5"'
-  echo "$output" | jq -e 'all(.[]; .overridden == false)'
+  output_satisfies 'all(.[]; .section == "Pacman")'
+  row_satisfies options.pacman.ilovecandy '.value == "true"'
+  row_satisfies options.pacman.color '.value == "true"'
+  row_satisfies options.pacman.verbose_pkg_lists '.value == "true"'
+  row_satisfies options.pacman.disable_download_timeout '.value == "false"'
+  row_satisfies options.pacman.no_progress_bar '.value == "false"'
+  row_satisfies options.pacman.parallel_downloads '.value == "5"'
+  output_satisfies 'all(.[]; .overridden == false)'
 }
 
 @test "menu_rows: toggling a Pacman flag flips its ● and value" {
   state="$(config_state_set "$(config_state_new)" options.pacman.ilovecandy 'false')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.pacman.ilovecandy | jq -e '.value == "false"'
-  echo "$output" | row options.pacman.ilovecandy | jq -e '.overridden == true'
+  row_satisfies options.pacman.ilovecandy '.value == "false"'
+  row_satisfies options.pacman.ilovecandy '.overridden == true'
 }
 
 @test "menu_categories: editing a Pacman flag flips only the Pacman ●" {
   state="$(config_state_set "$(config_state_new)" options.pacman.color 'false')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "Pacman") | .overridden == true'
-  echo "$output" \
-    | jq -e '.[] | select(.name == "Mirrors & Repositories") | .overridden == false'
+  output_satisfies '.[] | select(.name == "Pacman") | .overridden == true'
+  output_satisfies '.[] | select(.name == "Mirrors & Repositories") | .overridden == false'
 }
 
 @test "menu_enum_options: optional repositories (multilib + testing)" {
@@ -205,16 +209,16 @@ load guided-menu-helpers
 @test "menu_category_rows: sysctl is a Security row, empty + unmarked when unset" {
   run menu_category_rows Security "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row sysctl | jq -e '.value == ""'
-  echo "$output" | row sysctl | jq -e '.overridden == false'
+  row_satisfies sysctl '.value == ""'
+  row_satisfies sysctl '.overridden == false'
 }
 
 @test "menu_rows: a set sysctl renders key=value pairs and is overridden" {
   state="$(config_state_set "$(config_state_new)" sysctl '{"vm.swappiness":10}')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row sysctl | jq -e '.value == "vm.swappiness=10"'
-  echo "$output" | row sysctl | jq -e '.overridden == true'
+  row_satisfies sysctl '.value == "vm.swappiness=10"'
+  row_satisfies sysctl '.overridden == true'
 }
 
 # post_install security/backup are their own categories; Packages carries the
@@ -225,43 +229,43 @@ load guided-menu-helpers
   [ "$status" -eq 0 ]
   # Neither extra packages nor host programs — Packages is a pure
   # repo/aur/derived drill now (ADR 0086).
-  ! echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
-  ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
-  echo "$output" | jq -e 'length == 0'
+  ! output_satisfies 'any(.[]; .field == "packages.repo.extra")'
+  ! output_satisfies 'any(.[]; .field == "host_programs")'
+  output_satisfies 'length == 0'
 }
 
 @test "menu_category_rows: Security + Backup carry the structured tool rows" {
   run menu_category_rows Security "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.firewall")'
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.antivirus")'
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.rootkit")'
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.apparmor")'
+  output_satisfies 'any(.[]; .field == "post_install.security.firewall")'
+  output_satisfies 'any(.[]; .field == "post_install.security.antivirus")'
+  output_satisfies 'any(.[]; .field == "post_install.security.rootkit")'
+  output_satisfies 'any(.[]; .field == "post_install.security.apparmor")'
   run menu_category_rows Backup "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.zfs_auto_snapshot")'
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.borg")'
+  output_satisfies 'any(.[]; .field == "post_install.backup.zfs_auto_snapshot")'
+  output_satisfies 'any(.[]; .field == "post_install.backup.borg")'
 }
 
 # Expert is now a real category (ADR 0071): the ssh + age-key-url remainder.
 @test "menu_category_rows: Expert carries ssh + age key url" {
   run menu_category_rows Expert "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "options.ssh.enabled")'
-  echo "$output" | jq -e 'any(.[]; .field == "options.age_key_url")'
-  echo "$output" | jq -e 'all(.[]; .section == "Expert")'
+  output_satisfies 'any(.[]; .field == "options.ssh.enabled")'
+  output_satisfies 'any(.[]; .field == "options.age_key_url")'
+  output_satisfies 'all(.[]; .section == "Expert")'
 }
 
 # the old catch-all "Options" category is gone (its fields were redistributed)
 @test "menu_categories: the Options section is gone" {
   run menu_categories "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .name != "Options")'
+  output_satisfies 'all(.[]; .name != "Options")'
 }
 
 # dotfiles_repo is removed entirely — no row in any category (issue 02)
 @test "menu_rows: the dotfiles_repo field is gone" {
   run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .field != "dotfiles_repo")'
+  output_satisfies 'all(.[]; .field != "dotfiles_repo")'
 }

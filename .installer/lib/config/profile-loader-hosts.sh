@@ -16,7 +16,8 @@ profile_loader_name_for_hostname() {
   for profile_file in "${INSTALLER_DIR}"/hosts/*/profile.jsonc \
                       "${INSTALLER_DIR}"/hosts/vm/*/profile.jsonc; do
     [[ -f "$profile_file" ]] || continue
-    name="${profile_file%/profile.jsonc}"; name="${name##*/}"
+    # The profile's directory name.
+    name="$(basename "$(dirname "$profile_file")")"
     profile_loader_is_layer hosts "$name" && continue
     declared="$(jsonc_read_optional "$profile_file" .system.hostname)"
     [[ "${declared:-$name}" == "$hostname" ]] \

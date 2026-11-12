@@ -22,16 +22,22 @@
 # shellcheck source=./locale-parts.sh
 declare -F locale_parts_encoding >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/locale-parts.sh"
+# The name rules, beside locale-parts.sh.
+_LOCALE_PARTS_AWK="${BASH_SOURCE[0]%/*}/locale-parts.awk"
 
 # locale_source_keymaps — every console keymap the medium offers, one per line.
 # Prefers `localectl list-keymaps`; falls back to the kbd keymaps tree (also the
 # only source under a fixture root, where localectl is deliberately skipped).
 locale_source_keymaps() {
-  local root="${LOCALE_SRC_ROOT:-}" out=""
+  local root="${LOCALE_SRC_ROOT:-}" out="" files
   [[ -z "$root" ]] && out="$(localectl list-keymaps 2>/dev/null)"
-  [[ -n "$out" ]] || out="$(find "${root}/usr/share/kbd/keymaps" \
-    -name '*.map.gz' -printf '%f\n' 2>/dev/null \
-    | awk '{ sub(/\.map\.gz$/, ""); print }' | sort -u)"
+  if [[ -z "$out" ]]; then
+    files="$(find "${root}/usr/share/kbd/keymaps" -name '*.map.gz' \
+      -printf '%f\n' 2>/dev/null)"
+    # The keymap names (the file names without .map.gz), each once.
+    out="$(printf '%s\n' "$files" | awk -v part=keymap -f "$_LOCALE_PARTS_AWK" \
+      | sort -u)"
+  fi
   [[ -n "$out" ]] && printf '%s\n' "$out"
   return 0
 }
@@ -45,13 +51,17 @@ locale_source_keymaps() {
 # locales offer (codeset stripped), sorted-unique. Falls back to `localectl
 # list-locales`.
 locale_source_languages() {
-  local root="${LOCALE_SRC_ROOT:-}" supported_file out
+  local root="${LOCALE_SRC_ROOT:-}" supported_file out locales
   supported_file="${root}/usr/share/i18n/SUPPORTED"
-  out="$(awk '{ name = $1; sub(/\.[^.@]*/, "", name); print name }' \
-    "$supported_file" 2>/dev/null | sort -u)"
-  [[ -z "$out" && -z "$root" ]] \
-    && out="$(localectl list-locales 2>/dev/null \
-      | awk '{ sub(/\.[^.@]*/, ""); print }' | sort -u)"
+  # The language of each SUPPORTED locale, each once.
+  out="$(awk -v part=language -f "$_LOCALE_PARTS_AWK" "$supported_file" \
+    2>/dev/null | sort -u)"
+  if [[ -z "$out" && -z "$root" ]]; then
+    locales="$(localectl list-locales 2>/dev/null)"
+    # The language of each listed locale, each once.
+    out="$(printf '%s\n' "$locales" \
+      | awk -v part=language -f "$_LOCALE_PARTS_AWK" | sort -u)"
+  fi
   [[ -n "$out" ]] && printf '%s\n' "$out"
   return 0
 }
@@ -63,10 +73,9 @@ locale_source_languages() {
 locale_source_encodings() {
   local language="$1" root="${LOCALE_SRC_ROOT:-}" supported_file
   supported_file="${root}/usr/share/i18n/SUPPORTED"
-  awk -v lang="$language" '
-    { name = $1; enc = $2; sub(/\.[^.@]*/, "", name)
-      if (name == lang && enc != "") print enc }' "$supported_file" \
-    2>/dev/null | sort -u
+  # The charsets of that language's SUPPORTED lines, each once.
+  awk -v part=charsets -v wanted="$language" -f "$_LOCALE_PARTS_AWK" \
+    "$supported_file" 2>/dev/null | sort -u
   return 0
 }
 
@@ -75,9 +84,12 @@ locale_source_encodings() {
 # the first '.'), sorted-unique. The ISO and target font sets are identical (kbd
 # ∈ base), so this is also the valid set for a committed system.console_font.
 locale_source_console_fonts() {
-  local root="${LOCALE_SRC_ROOT:-}" out
-  out="$(find "${root}/usr/share/kbd/consolefonts" -maxdepth 1 -name '*.gz' \
-    -printf '%f\n' 2>/dev/null | awk '{ sub(/\..*/, ""); print }' | sort -u)"
+  local root="${LOCALE_SRC_ROOT:-}" out files
+  files="$(find "${root}/usr/share/kbd/consolefonts" -maxdepth 1 -name '*.gz' \
+    -printf '%f\n' 2>/dev/null)"
+  # The font names (each file name before its first .), each once.
+  out="$(printf '%s\n' "$files" | awk -v part=font -f "$_LOCALE_PARTS_AWK" \
+    | sort -u)"
   [[ -n "$out" ]] && printf '%s\n' "$out"
   return 0
 }

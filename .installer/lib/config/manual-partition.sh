@@ -23,6 +23,9 @@
 # =============================================================================
 
 # shellcheck source=./config-state.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F config_state_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config-state.sh"
 # The supported-filesystem / mountpoint source of truth + the validator live in
@@ -43,24 +46,11 @@ _MANUAL_SWAP_GUID="0657fd6d-a4ab-43c4-84e5-0933c84b4f4f"  # Linux swap
 # already carries data defaults to keep. Everything else starts unassigned.
 manual_partition_scan() {
   local lsblk="$1"
-  jq -c \
+  # The assignment table (manual-partition-scan.jq).
+  printf '%s\n' "$lsblk" | jq -c \
     --arg esp "$_MANUAL_ESP_GUID" \
-    --arg swap "$_MANUAL_SWAP_GUID" '
-    [ .blockdevices | .. | objects | select(.type? == "part") ]
-    | map(
-        ((.parttype // "") | ascii_downcase) as $pt
-      | ((.parttypename // "") | ascii_downcase) as $pn
-      | (.fstype // "") as $fst
-      | (($pt == $esp) or ($pn | test("efi")) or ($fst == "vfat")) as $is_esp
-      | (($pt == $swap) or ($pn | test("swap")) or ($fst == "swap")) as $is_swap
-      | { device: .path,
-          size: (.size // 0),
-          mountpoint: (if $is_esp then "/boot/efi"
-                       elif $is_swap then "[swap]" else "" end),
-          fs:     (if $is_esp then "fat32"
-                   elif $fst != "" then $fst else "" end),
-          format: ($fst == "") }
-      )' <<< "$lsblk"
+    --arg swap "$_MANUAL_SWAP_GUID" \
+    -f "${BASH_SOURCE[0]%/*}/manual-partition-scan.jq"
 }
 
 # manual_partition_autoassign_root <partitions-json> — if nothing is mounted at
@@ -71,18 +61,9 @@ manual_partition_scan() {
 # assignment; richer layouts (kept /home, dual-boot) are edited
 # partition-by-partition. Pure.
 manual_partition_autoassign_root() {
-  jq -c '
-    if any(.[]; .mountpoint == "/") then .
-    else
-      ( [ to_entries[] | select(.value.mountpoint == "") ]
-        | sort_by(.value.size) | last ) as $pick
-      | if $pick == null then .
-        else .[$pick.key].mountpoint = "/"
-             | (if (.[$pick.key].fs // "") == "" then .[$pick.key].fs = "ext4"
-                else . end)
-             | .[$pick.key].format = true
-        end
-    end' <<< "$1"
+  # The table with a root assigned (manual-partition-autoassign.jq).
+  printf '%s\n' "$1" \
+    | jq -c -f "${BASH_SOURCE[0]%/*}/manual-partition-autoassign.jq"
 }
 
 # manual_partition_target_disk — the disk cfdisk runs on (ADR 0073): the
@@ -112,7 +93,8 @@ _manual_partition_choose_disk() {
       printf '%s\t%s\n' "$(picker_disk_label "$path")" "$path"
     done | fzf --reverse --prompt='cfdisk on> ' --delimiter='\t' \
       --with-nth=1)" || return 1
-  printf '%s\n' "${pick#*$'\t'}"
+  # The by-id path after the label.
+  printf '%s\n' "$pick" | cut -f2-
 }
 
 # manual_partition_set_field <partitions-json> <device> <field> <value> — set
@@ -121,14 +103,16 @@ _manual_partition_choose_disk() {
 # unchanged.
 manual_partition_set_field() {
   local partitions="$1" device="$2" field="$3" value="$4"
-  local json_value
+  local json_value set='map(if .device == $d then .[$f] = $v else . end)'
   if [[ "$field" == "format" ]]; then
     [[ "$value" == "true" ]] && json_value=true || json_value=false
   else
+    # The value as a JSON string.
     json_value="$(jq -n --arg v "$value" '$v')"
   fi
-  jq -c --arg d "$device" --arg f "$field" --argjson v "$json_value" \
-    'map(if .device == $d then .[$f] = $v else . end)' <<< "$partitions"
+  # The table with that device's field set.
+  printf '%s\n' "$partitions" \
+    | jq -c --arg d "$device" --arg f "$field" --argjson v "$json_value" "$set"
 }
 
 # The mountpoint cycle for the assignment sub-screen: Enter on a partition
@@ -167,11 +151,12 @@ manual_partition_cycle_filesystem() {
 # a partition: "<device> → <mountpoint or '(unassigned)'> <fs> [keep|format]".
 # Pure: reads the object only.
 manual_partition_row_label() {
-  jq -r '
-    (.mountpoint // "") as $m
-    | "\(.device)  →  \(if $m == "" then "(unassigned)" else $m end)"
-      + (if (.fs // "") != "" then "  \(.fs)" else "" end)
-      + (if .format then "  [format]" else "  [keep]" end)' <<< "$1"
+  local label='(.mountpoint // "") as $m'
+  label+=' | "\(.device)  →  \(if $m == "" then "(unassigned)" else $m end)"'
+  label+=' + (if (.fs // "") != "" then "  \(.fs)" else "" end)'
+  label+=' + (if .format then "  [format]" else "  [keep]" end)'
+  # The partition's row.
+  printf '%s\n' "$1" | jq -r "$label"
 }
 
 # manual_partition_store <state> <partitions-json> — write the assignment into

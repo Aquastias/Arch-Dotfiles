@@ -7,6 +7,8 @@
 #
 # Behaviour under test is external only. Prior art: tests/config/printing.bats.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -45,22 +47,22 @@ setup() {
 @test "bluetooth_inject: on appends bluetooth, preserving existing" {
   run bluetooth_inject '{"host_programs":["grub"],
                          "options":{"bluetooth":{"enabled":true}}}'
-  echo "$output" | jq -e '.host_programs == ["grub","bluetooth"]'
+  output_satisfies '.host_programs == ["grub","bluetooth"]'
 }
 
 @test "bluetooth_inject: default-on (absent toggle) still injects bluetooth" {
   run bluetooth_inject '{"host_programs":["grub"]}'
-  echo "$output" | jq -e '.host_programs == ["grub","bluetooth"]'
+  output_satisfies '.host_programs == ["grub","bluetooth"]'
 }
 
 @test "bluetooth_inject: idempotent when bluetooth already present" {
   run bluetooth_inject '{"host_programs":["bluetooth"]}'
-  echo "$output" | jq -e '.host_programs == ["bluetooth"]'
+  output_satisfies '.host_programs == ["bluetooth"]'
 }
 
 @test "bluetooth_inject: off leaves a config without host_programs untouched" {
   run bluetooth_inject '{"options":{"bluetooth":{"enabled":false}}}'
-  echo "$output" | jq -e 'has("host_programs") | not'
+  output_satisfies 'has("host_programs") | not'
 }
 
 # ── bluetooth_owned_programs: the picker-filter set ─────────────────────────
