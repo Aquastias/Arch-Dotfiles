@@ -11,7 +11,7 @@ the Migrated Areas list, so the rules are strict there from now on.
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Area added to Migrated Areas; strict Readability Lint passes
 - [x] Tool Reference entries added for every command/flag the area keeps
@@ -20,4 +20,4 @@ the Migrated Areas list, so the rules are strict there from now on.
       paths, grepped strings)
 - [x] Any `readability-ok: perf` line carries a measured before→after
 - [x] Area bats files pass (`-j 4` max); audit passes
-- [ ] VM install passes
+- [x] VM install passes
