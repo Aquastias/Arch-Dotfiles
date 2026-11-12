@@ -332,7 +332,7 @@ JSON
 @test "verify: matching sha256 returns 0" {
   iso="$DOWNLOADS_DIR/archlinux-2099.04.01-x86_64.iso"
   printf 'fake-iso-bytes' > "$iso"
-  real_sum="$(sha256sum "$iso" | awk '{print $1}')"
+  real_sum="$(sha256sum "$iso" | cut -d' ' -f1)"
   _iso_resolver_fetch_sha256sums() {
     echo "${real_sum}  archlinux-2099.04.01-x86_64.iso"
   }

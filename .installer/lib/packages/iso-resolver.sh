@@ -20,8 +20,8 @@
 #       or no archived ISO matches. Downloads only; sha256 is verified by
 #       iso_resolver_verify_sha256 (ADR 0023).
 #
-# Dependencies: curl, jq, awk. Test seams (overridable in bats after sourcing):
-#   _iso_resolver_resolve_url DIRECTORY_URL — latest ISO URL (HTTP GET + awk)
+# Dependencies: curl, jq. Test seams (overridable in bats after sourcing):
+#   _iso_resolver_resolve_url DIRECTORY_URL — latest ISO URL (HTTP GET + grep)
 #   _iso_resolver_fetch_archzfs_kernels   — archzfs prebuilt major.minor, one
 #                                           per line
 #   _iso_resolver_fetch_arch_releases     — raw releng releases JSON
@@ -52,17 +52,24 @@ ISO_RESOLVER_FILENAME_REGEX='archlinux-[0-9]+\.[0-9]+\.[0-9]+-x86_64\.iso'
 
 # ── Internal seams (override in tests) ───────────────────────────────────────
 
+# _iso_resolver_without_slash <path> — <path> without one trailing `/`.
+_iso_resolver_without_slash() {
+  local path="$1"
+  [[ "$path" == */ ]] && path="${path:0:${#path}-1}"
+  printf '%s\n' "$path"
+}
+
 _iso_resolver_resolve_url() {
-  local directory_url="$1"
-  directory_url="${directory_url%/}"
+  local directory_url
+  directory_url="$(_iso_resolver_without_slash "$1")"
 
   local listing
   listing="$(curl -fsSL "$directory_url/" 2>/dev/null)" || return 1
 
   local filename
-  filename="$(PATTERN="$ISO_RESOLVER_FILENAME_REGEX" awk '
-    match($0, ENVIRON["PATTERN"]) { print substr($0, RSTART, RLENGTH); exit }
-  ' <<<"$listing")"
+  # The first versioned ISO file name the listing mentions.
+  filename="$(printf '%s\n' "$listing" \
+    | grep -oE "$ISO_RESOLVER_FILENAME_REGEX" | head -n 1)"
   [[ -n "$filename" ]] || return 1
 
   printf '%s/%s\n' "$directory_url" "$filename"
@@ -72,12 +79,16 @@ _iso_resolver_fetch_archzfs_kernels() {
   # Asset names look like:
   #   zfs-linux-2.4.1_6.19.14.arch1.1-1-x86_64.pkg.tar.zst
   # We extract the kernel major.minor — `6.19` here.
-  curl -fsSL "$ISO_RESOLVER_ARCHZFS_API" 2>/dev/null |
-    jq -r '.assets[]?.name
-      | capture("^zfs-linux-[0-9.]+_"
-          + "(?<major_minor>[0-9]+\\.[0-9]+)\\.[0-9]+\\.arch")
-      | .major_minor' |
-    sort -uV
+  local names kernels versions
+  # The name of every file attached to the release.
+  names="$(curl -fsSL "$ISO_RESOLVER_ARCHZFS_API" 2>/dev/null \
+    | jq -r '.assets[]?.name')" || return 1
+  # The start of each zfs-linux name, through the kernel's `.arch` tag.
+  kernels="$(printf '%s\n' "$names" \
+    | grep -oE '^zfs-linux-[0-9.]+_[0-9]+\.[0-9]+\.[0-9]+\.arch')" || return 0
+  # Its kernel major.minor: zfs-linux-2.4.1_6.19.14.arch → 6.19.
+  versions="$(printf '%s\n' "$kernels" | cut -d_ -f2 | cut -d. -f1,2)"
+  printf '%s\n' "$versions" | sort -uV
 }
 
 _iso_resolver_fetch_arch_releases() {
@@ -127,24 +138,16 @@ _iso_resolver_pick_compatible_release() {
   # while the newest published ISO is still 7.1), stalling every ZFS install
   # between an archzfs bump and the next monthly ISO.
   local kernel_ceiling
-  kernel_ceiling="$(printf '%s\n' "$kernels_text" | sort -V \
-    | awk 'END { print }')"
+  # The newest kernel archzfs supports: the ceiling.
+  kernel_ceiling="$(printf '%s\n' "$kernels_text" | sort -V | tail -n 1)"
   [[ -n "$kernel_ceiling" ]] || return 1
 
   # Walk releases newest-first; pick the first AVAILABLE one whose kernel
-  # major.minor is <= the ceiling, compared numerically (so 6.190 does not
-  # slip under a 6.19 cap, and 6.9 < 6.19).
+  # major.minor is <= the ceiling (iso-resolver-pick.jq).
   local picked
-  picked="$(jq -r --arg max "$kernel_ceiling" '
-    ($max | split(".") | map(tonumber)) as $cap
-    | .releases
-    | map(select(.available == true))
-    | map(select(
-        (.kernel_version | split(".") | map(tonumber)) as $k
-        | ($k[0] < $cap[0]) or ($k[0] == $cap[0] and $k[1] <= $cap[1])
-      ))
-    | (.[0].iso_url // empty)
-  ' <<<"$releases_json")"
+  picked="$(printf '%s\n' "$releases_json" \
+    | jq -r --arg max "$kernel_ceiling" \
+      -f "${BASH_SOURCE[0]%/*}/iso-resolver-pick.jq")"
 
   [[ -n "$picked" ]] || return 1
   printf '%s\n' "$picked"
@@ -190,14 +193,14 @@ iso_resolver_get() {
     return 1
   }
 
-  local filename="${final_url##*/}"
+  local filename; filename="$(basename "$final_url")"
   [[ "$filename" == *.iso ]] || {
     echo "iso-resolver: resolved URL has no .iso filename: $final_url" >&2
     return 1
   }
 
   _iso_resolver_fetch_to "$final_url" \
-    "${downloads_directory%/}/${filename}"
+    "$(_iso_resolver_without_slash "$downloads_directory")/${filename}"
 }
 
 # ── Public API: latest archzfs-compatible ISO ────────────────────────────────
@@ -231,38 +234,55 @@ iso_resolver_get_zfs_compatible() {
   iso_path="$(_iso_resolver_pick_compatible_release \
     "$kernels" "$releases_json")" || {
     local kernel_list
-    kernel_list="$(awk 'NR > 1 { printf "," } { printf "%s", $0 }' \
-      <<<"$kernels")"
+    # The kernels on one line, comma-separated.
+    kernel_list="$(printf '%s\n' "$kernels" | paste -sd,)"
     echo "iso-resolver: no available archived ISO matches" \
          "archzfs kernels: ${kernel_list}" >&2
     return 1
   }
 
+  local directory filename
+  directory="$(_iso_resolver_without_slash "$downloads_directory")"
+  filename="$(basename "$iso_path")"
   _iso_resolver_fetch_to "${ISO_RESOLVER_ARCHIVE_BASE}${iso_path}" \
-    "${downloads_directory%/}/${iso_path##*/}"
+    "${directory}/${filename}"
 }
 
 # ── Public API: verify a downloaded ISO's sha256 ──────────────────────────────
+
+# _iso_resolver_sum_for <filename> <sums> — the sum on the first
+# "<sum> <filename>" line of a sha256sums.txt ("" when none).
+_iso_resolver_sum_for() {
+  local sum name _rest
+  while read -r sum name _rest; do
+    if [[ "$name" == "$1" ]]; then
+      printf '%s\n' "$sum"
+      return 0
+    fi
+  done < <(printf '%s\n' "$2")
+}
 
 iso_resolver_verify_sha256() {
   local file="$1"
 
   local filename version sums expected actual
-  filename="${file##*/}"
+  filename="$(basename "$file")"
   version="$filename"
+  # archlinux-2026.05.01-x86_64.iso → 2026.05.01
   [[ "$filename" =~ ^archlinux-(.+)-x86_64\.iso$ ]] \
-    && version="${BASH_REMATCH[1]}"
+    && version="$(printf '%s\n' "$filename" | cut -d- -f2)"
 
   if ! sums="$(_iso_resolver_fetch_sha256sums "$version")"; then
     echo "iso-resolver: failed to fetch sha256sums for ${filename}" >&2
     return 1
   fi
-  expected="$(awk -v f="$filename" '$2 == f {print $1; exit}' <<<"$sums")"
+  expected="$(_iso_resolver_sum_for "$filename" "$sums")"
   [[ -n "$expected" ]] || {
     echo "iso-resolver: no sha256sums line for ${filename}" >&2
     return 1
   }
-  actual="$(sha256sum "$file" | awk '{print $1}')"
+  # sha256sum prints "<sum>  <file>".
+  actual="$(sha256sum "$file" | cut -d' ' -f1)"
 
   if [[ "$actual" != "$expected" ]]; then
     echo "iso-resolver: sha256 mismatch for ${filename}" >&2

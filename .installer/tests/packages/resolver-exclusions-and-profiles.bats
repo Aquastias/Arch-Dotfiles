@@ -14,8 +14,8 @@ load resolver-helpers
   [ "$output" = "$(printf 'btop\nfzf')" ]
   # and they are absent from the installed set
   local packages; packages="$(packages_of "$config")"
-  ! grep -qx "fzf"  <<<"$packages"
-  ! grep -qx "btop" <<<"$packages"
+  ! text_has_line "$packages" "fzf"
+  ! text_has_line "$packages" "btop"
 }
 
 @test "a config with no exclusions reports none" {
@@ -57,17 +57,20 @@ load resolver-helpers
 @test "package_resolver_sources lists every source the resolver can emit" {
   local declared emitted
   declared="$(package_resolver_sources | sort)"
-  emitted="$(package_resolver_resolve '{"users":["a"],"environment":
+  # A config that touches every source.
+  local config='{"users":["a"],"environment":
     {"desktop":["kde","niri","hyprland","umbriel"],"gpu":["amd"]},
      "options":{"bootloader":"grub"},
      "filesystem":"btrfs","packages":{"repo":{"c":["htop"]},
      "aur":{"m":["x"]}},"post_install":{"security":{"firewall":"ufw"},
-     "backup":{"borg":true}}}' | awk -F'\t' '{ print $1 }' | sort -u)"
+     "backup":{"borg":true}}}'
+  # Every source the resolver emits for it.
+  emitted="$(package_resolver_resolve "$config" | cut -f1 | sort -u)"
   # everything emitted must be declared
   local source_name
   while IFS= read -r source_name; do
-    grep -qx "$source_name" <<<"$declared" || { echo "undeclared source: $source_name"; return 1; }
-  done <<<"$emitted"
+    text_has_line "$declared" "$source_name" || { echo "undeclared source: $source_name"; return 1; }
+  done < <(printf '%s\n' "$emitted")
 }
 
 
@@ -78,11 +81,12 @@ load resolver-helpers
   local effective; effective="$(profile_loader_load desktop)"
   run package_resolver_resolve "$effective"
   [ "$status" -eq 0 ]
-  local packages; packages="$(awk -F'\t' '{ print $3 }' <<<"$output" | sort -u)"
-  grep -qx "steam"       <<<"$packages"   # core
-  grep -qx "qemu-full"   <<<"$packages"   # desktop delta
-  grep -qx "plasma-meta" <<<"$packages"   # derived, KDE
-  grep -qx "base"        <<<"$packages"   # derived, base list
+  # The resolved package names (rows are source<TAB>layer<TAB>package).
+  local packages; packages="$(printf '%s\n' "$output" | cut -f3 | sort -u)"
+  text_has_line "$packages" "steam"   # core
+  text_has_line "$packages" "qemu-full"   # desktop delta
+  text_has_line "$packages" "plasma-meta"   # derived, KDE
+  text_has_line "$packages" "base"   # derived, base list
 }
 
 # The curation's headline number: desktop adds exactly 25 packages over
@@ -95,11 +99,17 @@ load resolver-helpers
 @test "desktop and laptop resolve to the same package set (all apps in fleet)" {
   source "$INSTALLER_DIR/lib/config/profile-loader.sh"
   local desktop_packages laptop_packages
-  desktop_packages="$(package_resolver_resolve "$(profile_loader_load desktop)" | awk -F'\t' '{ print $3 }' | sort -u)"
-  laptop_packages="$(package_resolver_resolve "$(profile_loader_load laptop)"  | awk -F'\t' '{ print $3 }' | sort -u)"
+  desktop_packages="$(packages_of "$(profile_loader_load desktop)")"
+  laptop_packages="$(packages_of "$(profile_loader_load laptop)")"
   source "$BATS_TEST_DIRNAME/../config/fleet-golden-helpers.bash"
-  laptop_packages="$(grep -vxF -f <(printf '%s\n' \
-    "${FLEET_LAPTOP_HARDWARE_PACKAGES[@]}") <<<"$laptop_packages")"
+  # The laptop's packages without its hardware-only ones.
+  local hardware package
+  local -a laptop_software=()
+  hardware="$(printf '%s\n' "${FLEET_LAPTOP_HARDWARE_PACKAGES[@]}")"
+  while IFS= read -r package; do
+    text_has_line "$hardware" "$package" || laptop_software+=("$package")
+  done < <(printf '%s\n' "$laptop_packages")
+  laptop_packages="$(printf '%s\n' "${laptop_software[@]}")"
   [ "$(only_in_second "$laptop_packages" "$desktop_packages")" -eq 0 ]
   [ "$(only_in_second "$desktop_packages" "$laptop_packages")" -eq 0 ]
 }
@@ -108,8 +118,8 @@ load resolver-helpers
   local config='{"users":["a"],"filesystem":"ext4",
     "post_install":{"backup":{"zfs_auto_snapshot":true,"borg":true}}}'
   local bak; bak="$(packages_of "$config" backup)"
-  grep -qx "borg" <<<"$bak"
-  ! grep -qx "zfs-auto-snapshot" <<<"$bak"
+  text_has_line "$bak" "borg"
+  ! text_has_line "$bak" "zfs-auto-snapshot"
 }
 
 @test "a manual layout reports no ZFS userland and no zfs-auto-snapshot" {

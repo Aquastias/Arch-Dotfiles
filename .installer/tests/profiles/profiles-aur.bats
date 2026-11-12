@@ -8,6 +8,8 @@
 # missing host field / adapter file / adapter field contribute nothing.
 # Asserts on the resolved set — paru never runs.
 
+load ../lib/text-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export INSTALLER_DIR="$TEST_DIR/os"
@@ -34,7 +36,7 @@ _adapter() {
 
   run _runner_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
-  grep -qx "qt6ct-kde" <<< "$output"
+  text_has_line "$output" "qt6ct-kde"
 }
 
 @test "empty adapter aur resolves to exactly the host AUR set" {
@@ -83,6 +85,7 @@ _adapter() {
 
 @test "shipped install-kde.jsonc has an aur field" {
   local adapter_file="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  # The adapter declares an aur field.
   jsonc_strip "$adapter_file" | jq -e 'has("aur")' >/dev/null
 }
 
@@ -98,7 +101,7 @@ _adapter() {
   for desktop in kde niri hyprland; do
     run _runner_resolve_aur '{}' "$desktop"
     [ "$status" -eq 0 ]
-    grep -qx "qt6ct-kde" <<< "$output" \
+    text_has_line "$output" "qt6ct-kde" \
       || { echo "qt6ct-kde missing under $desktop"; return 1; }
   done
 }
@@ -107,7 +110,7 @@ _adapter() {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   run _runner_resolve_aur '{}'          # no desktops
   [ "$status" -eq 0 ]
-  ! grep -qx "qt6ct-kde" <<< "$output"
+  ! text_has_line "$output" "qt6ct-kde"
 }
 
 @test "qt6ct-kde is no longer declared in any host packages.aur" {
@@ -121,7 +124,7 @@ _adapter() {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
   run _runner_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
-  grep -qx "octopi" <<< "$output"
+  text_has_line "$output" "octopi"
 }
 
 @test "octopi is no longer declared in any host packages.aur" {
@@ -142,7 +145,7 @@ _adapter() {
   for desktop in kde niri hyprland; do
     run _runner_resolve_aur '{}' "$desktop"
     [ "$status" -eq 0 ]
-    grep -qx "bibata-cursor-git" <<< "$output" \
+    text_has_line "$output" "bibata-cursor-git" \
       || { echo "bibata missing under $desktop"; return 1; }
   done
 }
@@ -151,7 +154,7 @@ _adapter() {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   run _runner_resolve_aur '{}'          # no desktops
   [ "$status" -eq 0 ]
-  ! grep -qx "bibata-cursor-git" <<< "$output"
+  ! text_has_line "$output" "bibata-cursor-git"
 }
 
 # ── steam: repo package, not AUR steam-native-runtime (libjpeg6 conflict) ────

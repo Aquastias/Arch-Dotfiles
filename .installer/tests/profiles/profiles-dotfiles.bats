@@ -3,6 +3,8 @@
 # root-owned 0600, so it must be made readable before the su'd user runs it —
 # else "bash: <tmp>: Permission denied" aborts the install (dotfiles_repo path).
 
+load ../lib/text-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export MOUNT_ROOT="$TEST_DIR/mnt"
@@ -30,10 +32,13 @@ teardown() { rm -rf "$TEST_DIR"; }
   [[ "$output" == *'chmod 0644 "$CLONE_SCRIPT"'* ]]
   # chmod must come BEFORE the su that runs it as the user.
   local chmod_ln su_ln
-  chmod_ln="$(awk '/chmod 0644/ { print NR; exit }' <<<"$output")"
-  su_ln="$(awk 'index($0, "su - \"$USER_NAME\" -c \"bash") { print NR; exit }' \
-    <<<"$output")"
-  [ -n "$chmod_ln" ] && [ -n "$su_ln" ] && [ "$chmod_ln" -lt "$su_ln" ]
+  printf '%s\n' "$output" > "$BATS_TEST_TMPDIR/output"
+  chmod_ln="$(line_number_of "$BATS_TEST_TMPDIR/output" 'chmod 0644')"
+  su_ln="$(line_number_of "$BATS_TEST_TMPDIR/output" \
+    'su - "$USER_NAME" -c "bash')"
+  [ -n "$chmod_ln" ]
+  [ -n "$su_ln" ]
+  [ "$chmod_ln" -lt "$su_ln" ]
 }
 
 @test "no-op when the host declares no dotfiles_repo" {

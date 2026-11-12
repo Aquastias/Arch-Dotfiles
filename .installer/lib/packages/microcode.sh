@@ -33,9 +33,9 @@ _microcode_cpuinfo() { cat /proc/cpuinfo 2>/dev/null; }
 microcode_detect_vendor() {
   local info
   info="$(_microcode_cpuinfo)"
-  if grep -q 'GenuineIntel' <<<"$info"; then
+  if [[ "$info" == *GenuineIntel* ]]; then
     echo "intel"
-  elif grep -q 'AuthenticAMD' <<<"$info"; then
+  elif [[ "$info" == *AuthenticAMD* ]]; then
     echo "amd"
   else
     echo ""

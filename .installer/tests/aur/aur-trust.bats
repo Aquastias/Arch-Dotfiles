@@ -46,9 +46,10 @@ _adopted() {
   [[ "$output" == *"oldie -> newbie"* ]]
   [[ "$output" == *"sources, checksums, install: unchanged"* ]]
   [[ "$output" == *"+# restyle"* ]]                 # the diff is shown
-  local row='^foo\ttrust-adopted\treviewed \d{4}-\d\d-\d\d '
+  local tab=$'\t' row
+  row="^foo${tab}trust-adopted${tab}reviewed [0-9]{4}-[0-9]{2}-[0-9]{2} "
   row+='\(newbie adopted from oldie; [0-9a-f]{7,} sources\+sums unchanged\)$'
-  grep -qP "$row" \
+  grep -qE "$row" \
     "$AUR_TRUST_ALLOW"
 }
 

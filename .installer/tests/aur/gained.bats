@@ -10,10 +10,7 @@ teardown() { aur_vet_teardown; }
 
 # Add <line> after the first line matching <ERE> in <dir>/PKGBUILD, commit.
 _inject() {
-  local pkgbuild="$1/PKGBUILD"
-  L="$3" awk -v re="$2" \
-    '{ print } !d && $0 ~ re { print ENVIRON["L"]; d = 1 }' \
-    "$pkgbuild" > "$pkgbuild.new" && command mv "$pkgbuild.new" "$pkgbuild"
+  _aur_vet_insert_after "$1/PKGBUILD" "$2" "$3"
   git -C "$1" -c user.name=m -c user.email=m@aur commit -q -am inject
 }
 
@@ -69,6 +66,7 @@ _inject() {
   # The flagged source URL carries the version; a bump changes its text but
   # not what fires. (basedpyright: source-owner, allowlisted, went critical.)
   local clone_directory; clone_directory="$(aur_vet_case source "https://github.com/other/rc/v1.tgz" g)"
+  # Bump the version in the URL.
   sed -i 's#other/rc/v1#other/rc/v2#' "$clone_directory/PKGBUILD" "$clone_directory/.SRCINFO"
   git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -am bump
   printf 'rulecase\tsource-owner\treviewed\n' >> "$AUR_VET_STORE/allow.tsv"

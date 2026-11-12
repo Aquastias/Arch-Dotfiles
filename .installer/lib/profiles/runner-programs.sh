@@ -70,6 +70,7 @@ _runner_programs_install_user_program() {
 # runs it as the user, after the Config Apply pass placed its home/.
 runner_run_post_config() {
   local user="$1" user_json="$2" program relative_path hook
+  # Each program the user's profile lists.
   while IFS= read -r program; do
     relative_path="$(program_registry_resolve "$program")" || continue
     hook="${_RUNNER_RUNTIME_DIR}/programs/${relative_path}/post-config.sh"
@@ -77,7 +78,7 @@ runner_run_post_config() {
     info "Post-config hook: ${program}  (user=${user})"
     _runner_programs_user_program_chroot \
       "$user" "${_RUNNER_RUNTIME_DIR}" "$hook" ""
-  done < <(jq -r '.programs[]?' <<<"$user_json")
+  done < <(printf '%s\n' "$user_json" | jq -r '.programs[]?')
 }
 
 # Reads runner_run_profiles' system_programs (dynamic scope).

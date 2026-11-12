@@ -54,6 +54,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   run _runner_users_resolve_secrets "alice"
   [ "$status" -eq 0 ]
   [ "$output" = "${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
+  # The password stored in the staged secrets file.
   [ "$(jq -r '.password' \
       "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json")" \
     = "12345" ]
@@ -164,6 +165,6 @@ _setup_archroot_capture() {
   runner_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
   # last arg should be the default password, not a path
   local last_argument
-  last_argument="$(awk 'END { print }' "$TEST_DIR/archroot_args")"
+  last_argument="$(tail -n 1 "$TEST_DIR/archroot_args")"
   [ "$last_argument" = "$_RUNNER_DEFAULT_PASSWORD" ]
 }

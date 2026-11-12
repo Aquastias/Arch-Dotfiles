@@ -31,15 +31,24 @@ runner_install_aur_vet() {
 # (ADR 0143). Idempotent; a missing file is a no-op unless `create` is passed
 # (the system paru.conf).
 runner_wire_paru_hook() {
-  local config_file="$1" line="PreBuildCommand = ${_RUNNER_AUR_VET_BIN}"
+  local config_file="$1" hook="PreBuildCommand = ${_RUNNER_AUR_VET_BIN}"
+  local line placed=0
+  local hook_pattern='^[[:space:]]*#?[[:space:]]*PreBuildCommand[[:space:]]*='
+  local bin_pattern='^\[bin\][[:space:]]*$'
   [[ "${2:-}" == create && ! -f "$config_file" ]] && : > "$config_file"
   [[ -f "$config_file" ]] || return 0
-  awk -v hook="$line" '
-    /^[[:space:]]*#?[[:space:]]*PreBuildCommand[[:space:]]*=/ { next }
-    { print }
-    /^\[bin\][[:space:]]*$/ && !done { print hook; done = 1 }
-    END { if (!done) { print ""; print "[bin]"; print hook } }' "$config_file" \
-    > "${config_file}.new"
+  # Drop every PreBuildCommand line (commented out or not) and put the hook
+  # right below the first [bin] header.
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ $hook_pattern ]] && continue
+    printf '%s\n' "$line"
+    if (( ! placed )) && [[ "$line" =~ $bin_pattern ]]; then
+      printf '%s\n' "$hook"
+      placed=1
+    fi
+  done < "$config_file" > "${config_file}.new"
+  # No [bin] section: add one at the end.
+  (( placed )) || printf '\n[bin]\n%s\n' "$hook" >> "${config_file}.new"
   cat "${config_file}.new" > "$config_file"
   rm -f "${config_file}.new"
 }

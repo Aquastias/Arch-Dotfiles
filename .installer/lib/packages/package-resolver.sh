@@ -97,6 +97,9 @@ declare -F _package_resolver_desktop_packages >/dev/null 2>&1 \
 # shellcheck source=./package-resolver-programs.sh
 declare -F _package_resolver_programs_host >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/package-resolver-programs.sh"
+# shellcheck source=./package-resolver-layers.sh
+declare -F _package_resolver_authored_slots >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/package-resolver-layers.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -136,15 +139,17 @@ _PACKAGE_RESOLVER_SOURCES=(
   "aur|Packages"
 )
 package_resolver_sources() {
-  printf '%s\n' "${_PACKAGE_RESOLVER_SOURCES[@]%%|*}"
+  # The source name before each entry's `|`.
+  printf '%s\n' "${_PACKAGE_RESOLVER_SOURCES[@]}" | cut -d'|' -f1
 }
 
 # package_resolver_source_origin <source> — the menu category that drives it, so
 # the guided read-only section can say where to go to change it.
 package_resolver_source_origin() {
-  local entry
+  local entry name origin
   for entry in "${_PACKAGE_RESOLVER_SOURCES[@]}"; do
-    [[ "${entry%%|*}" == "$1" ]] && { printf '%s' "${entry#*|}"; return 0; }
+    IFS='|' read -r name origin < <(printf '%s\n' "$entry")
+    [[ "$name" == "$1" ]] && { printf '%s' "$origin"; return 0; }
   done
   printf 'the installer'
 }
@@ -160,7 +165,13 @@ _package_resolver_emit() {
 }
 
 # _package_resolver_jq <config> <filter> — read a value out of the config.
-_package_resolver_jq() { jq -r "$2" <<<"$1" 2>/dev/null; }
+_package_resolver_jq() { printf '%s\n' "$1" | jq -r "$2" 2>/dev/null; }
+
+# _package_resolver_has_line <text> <line> — rc 0 when one line of <text> is
+# exactly <line>.
+_package_resolver_has_line() {
+  [[ $'\n'"$1"$'\n' == *$'\n'"$2"$'\n'* ]]
+}
 
 # package_resolver_excluded <effective-json> — the packages a layer dropped,
 # reported separately so an operator can confirm an exclusion took effect. The
@@ -305,15 +316,15 @@ _package_resolver_filesystems() {
 _package_resolver_filesystem_sets() {
   local config="$1" filesystems="$2"
   # shellcheck disable=SC2046
-  grep -qx xfs   <<<"$filesystems" \
+  _package_resolver_has_line "$filesystems" xfs \
     && _package_resolver_emit filesystem-tools derived \
          $(filesystem_userland_packages xfs)
   # shellcheck disable=SC2046
-  grep -qx btrfs <<<"$filesystems" \
+  _package_resolver_has_line "$filesystems" btrfs \
     && _package_resolver_emit filesystem-tools derived \
          $(filesystem_userland_packages btrfs)
   # shellcheck disable=SC2046
-  grep -qx zfs   <<<"$filesystems" \
+  _package_resolver_has_line "$filesystems" zfs \
     && _package_resolver_emit zfs derived $(filesystem_userland_packages zfs)
 
   # the install list's own per-group rule (ADR 0043)
@@ -363,7 +374,7 @@ _package_resolver_desktop_sets() {
   while IFS= read -r desktop; do
     [[ -n "$desktop" ]] || continue
     _package_resolver_desktop_packages "$desktop" "$config"
-  done <<<"$desktops"
+  done < <(printf '%s\n' "$desktops")
 }
 
 # _package_resolver_login_shells <config> — the chroot installs a user's login
@@ -373,7 +384,7 @@ _package_resolver_login_shells() {
   local shell
   while IFS= read -r shell; do
     [[ -n "$shell" ]] || continue
-    _package_resolver_emit login-shell derived "${shell##*/}"
+    _package_resolver_emit login-shell derived "$(basename "$shell")"
   done < <(_package_resolver_user_shells "$1")
 }
 
@@ -385,7 +396,7 @@ _package_resolver_post_install() {
   post_install_json="$(_package_resolver_jq "$config" \
     '.post_install // {} | tojson')"
   [[ -n "$post_install_json" && "$post_install_json" != "null" ]] || return 0
-  grep -qx zfs <<<"$filesystems" && has_zfs=true
+  _package_resolver_has_line "$filesystems" zfs && has_zfs=true
   while IFS= read -r program; do
     [[ -n "$program" ]] || continue
     case "$program" in
@@ -394,55 +405,6 @@ _package_resolver_post_install() {
     *) _package_resolver_emit security derived "$program" ;;
     esac
   done < <(post_install_programs "$post_install_json" "$has_zfs" 2>/dev/null)
-}
-
-# _package_resolver_authored_slots <config> — packages.repo / packages.aur.
-# Layer provenance: an authored package the Fleet Layer declares is tagged
-# `fleet`, one Host Core declares `core`, otherwise `host` — so the report
-# answers "which layer do I edit?" rather than only "was this authored or
-# derived?".
-_package_resolver_authored_slots() {
-  local config="$1" layers_json
-  layers_json="$(_package_resolver_layers_json)"
-  local slot json package
-  for slot in repo aur; do
-    json="$(_package_resolver_jq "$config" ".packages.${slot} // {} | tojson")"
-    [[ -n "$json" && "$json" != "null" ]] || continue
-    while IFS= read -r package; do
-      [[ -n "$package" ]] || continue
-      _package_resolver_emit "$slot" \
-        "$(_package_resolver_authored_layer "$layers_json" "$slot" \
-          "$package")" "$package"
-    done < <(categorized_list_parse "$json" string \
-      "packages.${slot}" 2>/dev/null)
-  done
-}
-
-# _package_resolver_layers_json — {fleet, core} as one JSON object, each the
-# layer's profile (null when unreadable); `{}` when no INSTALLER_DIR is set.
-_package_resolver_layers_json() {
-  [[ -n "${INSTALLER_DIR:-}" ]] || { printf '{}'; return 0; }
-  local layer file json layer_profiles='{}'
-  for layer in fleet core; do
-    file="${INSTALLER_DIR}/hosts/${layer}/profile.jsonc"
-    [[ -f "$file" ]] || continue
-    json="$(jsonc_strip "$file" 2>/dev/null)" || continue
-    layer_profiles="$(jq -c --arg l "$layer" --argjson j "$json" '.[$l] = $j' \
-      <<<"$layer_profiles")"
-  done
-  printf '%s' "$layer_profiles"
-}
-
-# _package_resolver_authored_layer <layers-json> <slot> <package> — the first
-# layer (fleet, then core) declaring <package> in <slot>, else `host`;
-# `authored` when no layer is readable.
-_package_resolver_authored_layer() {
-  local layers_json="$1" slot="$2" package="$3"
-  [[ "$layers_json" != "{}" ]] || { printf 'authored'; return 0; }
-  jq -r --arg s "$slot" --arg p "$package" '
-    [to_entries[] | select([(.value.packages[$s] // {})
-      | to_entries[].value[]] | index($p)) | .key] | first // "host"
-  ' <<<"$layers_json"
 }
 
 # _package_resolver_user_shells <config> — the login shell package of every
@@ -466,6 +428,7 @@ _package_resolver_user_shells() {
 _package_resolver_profile_shell() {
   local profile="${INSTALLER_DIR:-}/$1/profile.jsonc"
   [[ -n "${INSTALLER_DIR:-}" && -f "$profile" ]] || return 0
+  # The profile's shell, if it names one.
   jsonc_strip "$profile" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null
 }
 

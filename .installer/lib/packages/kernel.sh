@@ -35,7 +35,7 @@ _KERNEL_TOKEN_MAP=(
 kernel_valid_tokens() {
   local spec token
   for spec in "${_KERNEL_TOKEN_MAP[@]}"; do
-    IFS='|' read -r token _ <<< "$spec"
+    IFS='|' read -r token _ < <(printf '%s\n' "$spec")
     printf '%s ' "$token"
   done
 }
@@ -44,7 +44,7 @@ kernel_valid_tokens() {
 kernel_is_valid_token() {
   local want="$1" spec token
   for spec in "${_KERNEL_TOKEN_MAP[@]}"; do
-    IFS='|' read -r token _ <<< "$spec"
+    IFS='|' read -r token _ < <(printf '%s\n' "$spec")
     [[ "$token" == "$want" ]] && return 0
   done
   return 1
@@ -54,7 +54,7 @@ kernel_is_valid_token() {
 kernel_package() {
   local want="$1" spec token base
   for spec in "${_KERNEL_TOKEN_MAP[@]}"; do
-    IFS='|' read -r token base <<< "$spec"
+    IFS='|' read -r token base < <(printf '%s\n' "$spec")
     [[ "$token" == "$want" ]] && { printf '%s\n' "$base"; return 0; }
   done
   error "Unknown kernel token: '$want' (valid: $(kernel_valid_tokens))."
@@ -72,10 +72,15 @@ kernel_headers_package() {
 # entries (limine, grub) iterate this.
 kernel_bases_primary_first() {
   local primary token kernel_base
+  local -a printed
   primary="$(kernel_package "$1")"; shift
   printf '%s\n' "$primary"
+  printed=("$primary")
   for token in "$@"; do
     kernel_base="$(kernel_package "$token")"
-    [[ "$kernel_base" == "$primary" ]] || printf '%s\n' "$kernel_base"
-  done | awk '!seen[$0]++'
+    # Skip a base already printed (the words of printed, space-padded).
+    [[ " ${printed[*]} " == *" $kernel_base "* ]] && continue
+    printf '%s\n' "$kernel_base"
+    printed+=("$kernel_base")
+  done
 }

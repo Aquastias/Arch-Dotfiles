@@ -18,13 +18,13 @@ declare -F profile_loader_load_user >/dev/null 2>&1 \
 # Programs. The toggle-derived ones are skipped: their own source (printing,
 # mirrors, bluetooth, power) already reports them.
 _package_resolver_programs_host() {
-  local config="$1" program derived="" line
-  while IFS= read -r line; do
-    derived+="${line##*$'\t'}"$'\n'
-  done < <(_package_resolver_services "$config")
+  local config="$1" program derived
+  # The package of each derived row (rows are source<TAB>layer<TAB>package).
+  derived="$(_package_resolver_services "$config" | cut -f3)"
   while IFS= read -r program; do
     [[ -n "$program" ]] || continue
-    [[ $'\n'"$derived" == *$'\n'"$program"$'\n'* ]] && continue
+    [[ $'\n'"$derived"$'\n' == *$'\n'"$program"$'\n'* ]] \
+      && continue
     _package_resolver_emit host-programs host "$program"
   done < <(_package_resolver_jq "$config" '(.host_programs // [])[]')
 }

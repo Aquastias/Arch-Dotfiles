@@ -54,8 +54,7 @@ _package_resolver_adapter_sets() {
   # true`). sddm the PACKAGE moved to the display-manager set (ADR 0069);
   # sddm-kcm (a KDE config app) stays with the KDE shell.
   local shell_enabled
-  shell_enabled="$(jq -r 'if .shell == false then false else true end' \
-    <<<"$json")"
+  shell_enabled="$(_package_resolver_jq "$json" '.shell != false')"
   if [[ "$shell_enabled" == "true" && "$desktop" == "kde" ]]; then
     _package_resolver_emit_list kde-shell "$json" shell_packages
   fi
@@ -71,7 +70,7 @@ _package_resolver_adapter_sets() {
     _package_resolver_emit_list kde-shell "$json" curated_shell_packages
   fi
 
-  if [[ "$(jq -r '.apps // true' <<<"$json")" == "true" ]]; then
+  if [[ "$(_package_resolver_jq "$json" '.apps // true')" == "true" ]]; then
     # apps_list (kde-applications group members), apps_extra (non-group KDE
     # apps — ADR 0087) and plugins (per-app optdepend enhancers — ADR 0088):
     # one source each. Adding a fourth section is one line here.
@@ -85,19 +84,21 @@ _package_resolver_adapter_sets() {
 # _package_resolver_emit_list <source> <adapter-json> <field> — emit the
 # enabled entries of the bool Categorized List at .<field>.
 _package_resolver_emit_list() {
-  local source_name="$1" json="$2" field="$3" package
+  local source_name="$1" json="$2" field="$3" package list_json
+  # The .<field> list, compact ({} when absent).
+  list_json="$(printf '%s\n' "$json" | jq -c ".${field} // {}")"
   while IFS= read -r package; do
     [[ -n "$package" ]] && _package_resolver_emit "$source_name" derived \
       "$package"
-  done < <(categorized_list_parse \
-    "$(jq -c ".${field} // {}" <<<"$json")" bool "$field" 2>/dev/null)
+  done < <(categorized_list_parse "$list_json" bool "$field" 2>/dev/null)
   return 0
 }
 
 # _package_resolver_noctalia_flag <key> <noctalia-json> —
 # install-noctalia.jsonc bool (false if absent).
 _package_resolver_noctalia_flag() {
-  jq -r --arg k "$1" '.[$k] // false' <<<"$2"
+  # The key's value, or false.
+  printf '%s\n' "$2" | jq -r --arg k "$1" '.[$k] // false'
 }
 
 # _package_resolver_noctalia_plugin_deps <noctalia-json> <list-function> —
@@ -146,9 +147,10 @@ _package_resolver_noctalia_preset() {
     noctalia_json="$(jsonc_strip "$noctalia_file" 2>/dev/null)"
   fi
   [[ -n "$noctalia_json" ]] || return 0
-  [[ "$(jq -r '.cava // false' <<<"$noctalia_json")" == true ]] \
+  [[ "$(_package_resolver_noctalia_flag cava "$noctalia_json")" == true ]] \
     && _package_resolver_emit noctalia derived cava
-  [[ "$(jq -r '.cliphist // false' <<<"$noctalia_json")" == true ]] \
+  [[ "$(_package_resolver_noctalia_flag cliphist "$noctalia_json")" \
+      == true ]] \
     && _package_resolver_emit noctalia derived cliphist
 
   # Enriched plugin deps (ADR 0093/0097) — the shared core plus this
@@ -160,8 +162,8 @@ _package_resolver_noctalia_preset() {
   # hardware, so it reports the pair only when install-noctalia.jsonc sets
   # `laptop` true; the "auto" default is an install-time /sys decision the
   # adapter makes.
-  [[ "$(jq -r 'if has("laptop") then (.laptop|tostring) else "false" end' \
-     <<<"$noctalia_json")" == true ]] || return 0
+  [[ "$(_package_resolver_noctalia_flag laptop "$noctalia_json")" == true ]] \
+    || return 0
   _package_resolver_noctalia_plugin_deps "$noctalia_json" \
     noctalia_laptop_plugins
 }
@@ -200,7 +202,7 @@ _package_resolver_display_manager() {
   if [[ -z "$desktops" ]]; then
     display_manager="none"
   elif [[ "$display_manager" == "auto" ]]; then
-    if grep -qx kde <<<"$desktops"; then
+    if _package_resolver_has_line "$desktops" kde; then
       display_manager="sddm"
     elif [[ "$(_package_resolver_wayland_shell "$config")" == noctalia ]]; then
       display_manager="noctalia-greeter"

@@ -92,7 +92,9 @@ _allow_rows() { grep -vE '^[[:space:]]*(#|$)' "$AUR_VET_STORE/allow.tsv" \
 }
 
 @test "verdict: the repo allowlist has no commit column" {
-  run awk -F'\t' '!/^#/ && NF && $2 ~ /^[0-9a-f]{40}$/' \
-    "$AUR_VET_SRC/allow.tsv"
-  [ -z "$output" ]
+  local commits
+  # Any second column that looks like a commit hash (comments skipped).
+  commits="$(grep -v '^#' "$AUR_VET_SRC/allow.tsv" | cut -f2 \
+    | grep -xE '[0-9a-f]{40}' || true)"
+  [ -z "$commits" ]
 }

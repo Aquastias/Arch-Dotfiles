@@ -50,3 +50,15 @@
 .installer/tests/extras/*
 .installer/tests/programs/*
 .installer/tests/nvim/*
+
+# Ticket 09 — packages, profiles and AUR vetting, with their tests.
+.installer/lib/packages/**
+.installer/lib/profiles/**
+.installer/aur/**
+.installer/tests/packages/*
+.installer/tests/profiles/*
+.installer/tests/aur/*
+.installer/tests/lib/aur-vet.bash
+.installer/tests/explain-packages.bats
+.installer/tests/pkglist-profile.bats
+.installer/tests/commons-json-string-array.bats

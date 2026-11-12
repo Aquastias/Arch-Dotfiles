@@ -38,7 +38,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "regression: a unit with an unknown directive is rejected" {
   validators_skip_unless systemd-analyze
   # Start from a real shipped unit so only the injected fault differs.
-  local source_unit; source_unit="$(find "$INSTALLER_DIR/programs" -name '*.service' | awk 'NR == 1')"
+  local source_unit; source_unit="$(find "$INSTALLER_DIR/programs" -name '*.service' | head -n 1)"
   cp "$source_unit" "$TEST_DIR/bad.service"
   printf '\n[Service]\nNotADirective=oops\n' >> "$TEST_DIR/bad.service"
   run validators_verify_user_unit "$TEST_DIR/bad.service"

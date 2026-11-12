@@ -76,6 +76,7 @@ readonly _RUNNER_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 : "${_RUNNER_AUR_VET_BIN:=/usr/local/bin/aur-vet}"
 readonly -a _AUR_VET_SHARE_FILES=(
   scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv
+  aur-vet-scan.sh aur-vet-trust.sh aur-vet-allowlist.sh aur-vet-maintenance.sh
 )
 # Paths (relative to the runtime root) that constitute a valid staged tree. Both
 # runner_stage_runtime and validation_check_staging iterate this array so the
@@ -123,12 +124,7 @@ _runner_cleanup() {
 
 runner_resolve_user_groups() {
   local json="$1"
-  printf '%s' "$json" | jq -r '
-    (.groups // []) +
-    (if .sudo == true and ((.groups // []) | index("wheel") == null)
-      then ["wheel"] else [] end)
-    | unique_by(.) | join(",")
-  '
+  printf '%s' "$json" | jq -r -f "${BASH_SOURCE[0]%/*}/runner-user-groups.jq"
 }
 
 # True (0) iff install-state at <path> records a SOPS secret. Thin delegator
@@ -177,7 +173,8 @@ runner_resolve_post_install() {
   local -a extras=()
   local _extras_text
   _extras_text="$(post_install_programs "$pi_json" "$any_zfs")" || return 1
-  [[ -n "$_extras_text" ]] && mapfile -t extras <<< "$_extras_text"
+  [[ -n "$_extras_text" ]] && mapfile -t extras \
+    < <(printf '%s\n' "$_extras_text")
 
   local extra program has
   for extra in "${extras[@]+"${extras[@]}"}"; do
@@ -204,21 +201,25 @@ _runner_resolve_aur() {
   local parsed
 
   local host_aur_json
+  # The host's packages.aur object (nothing when absent).
   host_aur_json="$(printf '%s' "$host_json" | jq -c '.packages.aur // empty')"
   if [[ -n "$host_aur_json" ]]; then
     parsed="$(categorized_list_parse "$host_aur_json" string packages.aur)" \
       || return 1
-    [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
+    [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out \
+      < <(printf '%s\n' "$parsed")
   fi
 
   local desktop adapter aur_json
   for desktop in "$@"; do
     adapter="${INSTALLER_DIR}/extras/desktop/${desktop}/install-${desktop}.jsonc"
     [[ -f "$adapter" ]] || continue
+    # The adapter's aur object (nothing when absent).
     aur_json="$(jsonc_strip "$adapter" | jq -c '.aur // empty')"
     [[ -n "$aur_json" ]] || continue
     parsed="$(categorized_list_parse "$aur_json" bool aur)" || return 1
-    [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
+    [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out \
+      < <(printf '%s\n' "$parsed")
   done
 
   ((${#out[@]})) || return 0
@@ -260,7 +261,7 @@ runner_run_profiles() {
   export INSTALLER_DIR="${SCRIPT_DIR}"
 
   local host_json
-  _runner_effective_config host_json || return 0
+  _runner_effective_config || return 0
   info "Loaded effective config for: ${RESOLVED_HOST_PROFILE}"
 
   runner_apply_sysctl "$host_json"
@@ -290,11 +291,11 @@ runner_run_profiles() {
   info "Profiles runner complete."
 }
 
-# _runner_effective_config <out-var> — the assembled effective config as
-# JSON into <out-var>, or a warning and status 1 when the run must be
+# _runner_effective_config — fills host_json with the assembled effective
+# config (JSON), or prints a warning and returns 1 when the run must be
 # skipped (no core profiles, unreadable config).
 _runner_effective_config() {
-  local __config_variable="$1" __host_json
+  local effective_json
   if [[ ! -f "${INSTALLER_DIR}/hosts/core/profile.jsonc" ]]; then
     warn "Hosts core profile not found at" \
          "${INSTALLER_DIR}/hosts/core/profile.jsonc — skipping profiles runner."
@@ -311,17 +312,18 @@ _runner_effective_config() {
   # the front-end produced (install.sh --profile or the VM seed). CONFIG_FILE
   # is set by 03-install.sh.
   # shellcheck disable=SC2153  # CONFIG_FILE global, set by 03-install.sh
-  if ! __host_json="$(jsonc_read "$CONFIG_FILE" '.' 2>/dev/null)" \
-     || [[ -z "$__host_json" || "$__host_json" == "null" ]]; then
+  if ! effective_json="$(jsonc_read "$CONFIG_FILE" '.' 2>/dev/null)" \
+     || [[ -z "$effective_json" || "$effective_json" == "null" ]]; then
     warn "Runner: cannot read effective config at ${CONFIG_FILE}" \
          "— skipping profiles runner."
     return 1
   fi
-  printf -v "$__config_variable" '%s' "$__host_json"
+  host_json="$effective_json"
 }
 
 # Fills users, system_programs and USER_JSONS from host_json.
 _runner_load_users_and_programs() {
+  # The declared user names, then the host programs.
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
   mapfile -t system_programs < <(printf '%s' "$host_json" \
     | jq -r '.host_programs[]?')
@@ -361,7 +363,8 @@ _runner_resolve_host_aur() {
   local resolved fonts_aur
   resolved="$(_runner_resolve_aur "$host_json" \
     "${ENVIRONMENT_DESKTOP[@]+"${ENVIRONMENT_DESKTOP[@]}"}")"
-  [[ -n "$resolved" ]] && mapfile -t host_aur <<< "$resolved"
+  [[ -n "$resolved" ]] && mapfile -t host_aur \
+    < <(printf '%s\n' "$resolved")
 
   # Font Catalog (ADR 0080): AUR fonts (today ttf-ms-fonts) ride the paru pass
   # too — options.fonts is the single font home, so its AUR members union in
@@ -370,7 +373,7 @@ _runner_resolve_host_aur() {
   # Absent options.fonts ⇒ the catalog defaults.
   fonts_aur="$(fonts_aur_packages "$host_json")" || return 1
   [[ -n "$fonts_aur" ]] && mapfile -t -O "${#host_aur[@]}" host_aur \
-    <<< "$fonts_aur"
+    < <(printf '%s\n' "$fonts_aur")
   return 0
 }
 
@@ -381,6 +384,7 @@ _runner_install_user_software() {
   local user="$1" primary=false
   [[ "$user" == "${users[0]}" ]] && primary=true
   local -a user_programs=()
+  # The programs the user's profile lists.
   mapfile -t user_programs < <(printf '%s' "${USER_JSONS[$user]}" \
     | jq -r '.programs[]?')
 
@@ -390,7 +394,9 @@ _runner_install_user_software() {
   # both installs once.
   if $primary; then
     local post_install_json
-    post_install_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
+    # The host's post_install selection ({} when absent).
+    post_install_json="$(printf '%s' "$host_json" \
+      | jq -c '.post_install // {}')"
     mapfile -t user_programs < <(runner_resolve_post_install \
       "$post_install_json" "$(install_config_any_zfs)" \
       "${user_programs[@]+"${user_programs[@]}"}")
@@ -438,9 +444,13 @@ _runner_config_apply_pass() {
   local ships_home system_programs_json
   ships_home="$(config_apply_ships_home_list \
     "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/programs")"
-  system_programs_json="$(printf '%s\n' \
-      "${system_programs[@]+"${system_programs[@]}"}" \
-    | jq -R . | jq -s -c 'map(select(length > 0))')"
+  local program
+  local -a named_programs=()
+  for program in "${system_programs[@]+"${system_programs[@]}"}"; do
+    [[ -n "$program" ]] && named_programs+=("$program")
+  done
+  system_programs_json="$(json_string_array \
+    "${named_programs[@]+"${named_programs[@]}"}")"
   _runner_seed_selected_defaults "$ships_home" "$system_programs_json"
 
   # Re-apply full group memberships now that package-created groups exist.
@@ -467,12 +477,17 @@ _runner_config_apply_pass() {
 # machine default, shared across users.
 _runner_seed_selected_defaults() {
   local ships_home="$1" system_programs_json="$2"
-  local all_user_programs='[]' user_json
+  local all_user_programs='[]' user_json user_programs selected
   for user_json in "${USER_JSONS[@]}"; do
+    # This user's programs ([] when none).
+    user_programs="$(printf '%s\n' "$user_json" | jq -c '.programs // []')"
+    # Every user's programs so far, then this user's.
     all_user_programs="$(jq -c -n --argjson a "$all_user_programs" \
-      --argjson b "$(jq -c '.programs // []' <<<"$user_json")" '$a + $b')"
+      --argjson b "$user_programs" '$a + $b')"
   done
-  runner_seed_skeleton_root "$(config_apply_plan \
-    "$(jq -c -n --argjson s "$system_programs_json" \
-       --argjson u "$all_user_programs" '$s + $u')" "$ships_home" '[]')"
+  # The host programs, then every user's.
+  selected="$(jq -c -n --argjson s "$system_programs_json" \
+    --argjson u "$all_user_programs" '$s + $u')"
+  runner_seed_skeleton_root \
+    "$(config_apply_plan "$selected" "$ships_home" '[]')"
 }

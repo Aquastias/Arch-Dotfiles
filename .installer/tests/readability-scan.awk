@@ -462,8 +462,10 @@ FNR == 1 {
   features_check_line(code, FNR, exempt, starts_in_quote)
   shape_check_perf(raw, FNR)
 
-  # Heredoc opener (not a here-string): body starts on the next line.
-  if (!starts_in_quote && \
+  # Heredoc opener (not a here-string): body starts on the next line. A
+  # `<<` inside quotes is text: the opener must show in code, where each
+  # quoted piece (a quoted delimiter too) reads Q.
+  if (!starts_in_quote && code ~ /<<-?[ \t]*(Q|\\?[A-Za-z_])/ && \
       match(raw, /<<-?[ \t]*['"\\]?[A-Za-z_][A-Za-z0-9_]*/) && \
       substr(raw, RSTART, 3) != "<<<" && substr(raw, RSTART - 1, 1) != "<") {
     opener = substr(raw, RSTART, RLENGTH)

@@ -118,7 +118,7 @@ write_config() {
   write_config '{"options":{"optional_repos":[]}}'
   run pacman_config_enable_optional_repositories
   [ "$status" -eq 0 ]
-  echo "$output" | grep -qi "no optional repositories"
+  [[ "$output" == *"no optional repositories"* ]]
 }
 
 @test "install_config_optional_repos: defaults to multilib when unset" {

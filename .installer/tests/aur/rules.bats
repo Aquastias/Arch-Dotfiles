@@ -14,7 +14,9 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
   local id pol place text case_directory base fails="" i=0
   while IFS=$'\t' read -r id pol place text; do
     i=$((i + 1))
-    base=rulecase; [[ "$place" == pkgbase ]] && base="${text%@*}"
+    base=rulecase
+    # A pkgbase case is "<pkgbase>[@<date>]".
+    [[ "$place" == pkgbase ]] && base="$(printf '%s\n' "$text" | cut -d@ -f1)"
     case_directory="$(aur_vet_case "$place" "$text" "c$i")"
     aur_vet_hook "$case_directory" "$base"
     if [[ "$pol" == + && "$output" != *" $id "* ]] \
@@ -27,13 +29,17 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 
 # trust-scope rules need the RPC: trust.bats covers them.
 @test "rules: every catalogue rule has a positive and a negative case" {
-  local id missing=""
-  while read -r id; do
+  local line id scope missing=""
+  while IFS= read -r line; do
+    # A rule row starts with its id (a continuation line with a tab).
+    [[ "$line" == [a-z]*$'\t'* ]] || continue
+    id="$(printf '%s\n' "$line" | cut -f1)"
+    scope="$(printf '%s\n' "$line" | cut -f3)"
+    # trust-scope rules are skipped.
+    [[ "$scope" != trust ]] || continue
     _cases | grep -q "^${id}"$'\t+\t' || missing+=" ${id}(+)"
     _cases | grep -q "^${id}"$'\t-\t' || missing+=" ${id}(-)"
-  done < <(awk -F'\t' '/^[a-z]/ && NF > 1 && $3 != "trust" {
-             print $1 }' \
-             "$AUR_VET_DATA/rules.tsv")
+  done < "$AUR_VET_DATA/rules.tsv"
   [[ -z "$missing" ]] || { echo "missing:${missing}"; return 1; }
 }
 
@@ -75,6 +81,7 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 # weak-checksums reads whole arrays and counts only real digests.
 @test "rules: a multi-line MD5 array is weak-checksums" {
   local clone_directory; clone_directory="$(aur_vet_case sums md5 w1)"
+  # Spread the one-line md5sums array over three lines.
   sed -i "s/^md5sums=('\\(2*\\)')$/md5sums=(\\n  '\\1'\\n)/" "$clone_directory/PKGBUILD"
   grep -q "^md5sums=($" "$clone_directory/PKGBUILD"
   git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -am ml

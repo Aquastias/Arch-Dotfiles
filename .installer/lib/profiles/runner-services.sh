@@ -12,6 +12,7 @@ runner_enable_system_services() {
   relative_path="$(program_registry_resolve "$program")"
   config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   local -a services=()
+  # The services the profile lists.
   mapfile -t services < <(jsonc_strip "$config_file" \
     | jq -r '.system_services[]?' 2>/dev/null)
   ((${#services[@]} > 0)) || return 0
@@ -28,6 +29,7 @@ runner_enable_user_services() {
   relative_path="$(program_registry_resolve "$program")"
   config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
   local -a services=()
+  # The services the profile lists.
   mapfile -t services < <(jsonc_strip "$config_file" \
     | jq -r '.user_services[]?' 2>/dev/null)
   ((${#services[@]} > 0)) || return 0
@@ -73,6 +75,7 @@ _runner_services_resolve_user_unit() {
 runner_enable_profile_user_services() {
   local user="$1" json="$2"
   local -a services=()
+  # The user services the profile lists.
   mapfile -t services < <(printf '%s' "$json" | jq -r '.user_services[]?')
   ((${#services[@]} > 0)) || return 0
   local service

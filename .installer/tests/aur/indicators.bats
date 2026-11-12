@@ -9,18 +9,7 @@ teardown() { aur_vet_teardown; }
 
 @test "indicators: every row has a known kind, campaign and source" {
   local bad
-  bad="$(awk -F'\t' '
-    FILENAME ~ /sources/ {
-      if (!/^#/ && !/^\t/ && NF) { k = $1; sub(/\\$/, "", k); src[k] }
-      next
-    }
-    FILENAME ~ /campaigns/ { if (!/^#/ && NF) camp[$1]; next }
-    /^#/ || !NF { next }
-    /\\$/ { held = substr($0, 1, length($0) - 1); next }
-    { r = held; sub(/^\t/, "", $0); r = r $0; held = "" }
-    { n = split(r, c, "\t")
-      if (c[1] !~ /^(pkgbase|npm|domain|sha256|path)$/ || !(c[3] in camp) \
-          || !(c[4] in src) || n != 4) print r }' \
+  bad="$(awk -F'\t' -f "$BATS_TEST_DIRNAME/indicators-untraceable.awk" \
     "$AUR_VET_SRC/sources.tsv" "$AUR_VET_SRC/campaigns.tsv" \
     "$AUR_VET_SRC/indicators.tsv")"
   [[ -z "$bad" ]] || { echo "untraceable rows:"; echo "$bad"; return 1; }
@@ -47,20 +36,21 @@ _refresh() {
 }
 
 @test "refresh: appends new names tagged with their source, keeps the rest" {
-  local before; before="$(awk 'END { print NR }' "$AUR_VET_DATA/indicators.tsv")"
+  local before; before="$(wc -l < "$AUR_VET_DATA/indicators.tsv")"
   _refresh
   [ "$status" -eq 0 ]
   grep -qx $'pkgbase\tnew-evil-pkg\tatomic-arch\tarch-md' \
     "$AUR_VET_DATA/indicators.tsv"
   grep -qx $'npm\tfresh-npm-payload\tatomic-arch\tlenucksi' \
     "$AUR_VET_DATA/indicators.tsv"
-  [ "$(awk 'END { print NR }' "$AUR_VET_DATA/indicators.tsv")" -eq $((before + 2)) ]
+  [ "$(wc -l < "$AUR_VET_DATA/indicators.tsv")" -eq $((before + 2)) ]
   [[ "$output" == *"added 2"* ]]
 }
 
 @test "refresh: drops names outside the AUR charset and is idempotent" {
   _refresh
-  [ -z "$(awk -F'\t' '$2 ~ /^bad/' "$AUR_VET_DATA/indicators.tsv")" ]
+  # No indicator value starting with "bad" was kept.
+  [ -z "$(cut -f2 "$AUR_VET_DATA/indicators.tsv" | grep '^bad')" ]
   _refresh
   [[ "$output" == *"added 0"* ]]
 }
@@ -76,6 +66,6 @@ _refresh() {
 
 @test "data: no record continues with a TAB before the backslash" {
   # `value<TAB>\` + a two-TAB continuation would yield an empty field.
-  run grep -nP '\t\\$' "$AUR_VET_SRC"/*.tsv
+  run grep -l $'\t\\\\$' "$AUR_VET_SRC"/*.tsv
   [ "$status" -eq 1 ]
 }

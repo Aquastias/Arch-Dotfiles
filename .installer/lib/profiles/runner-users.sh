@@ -25,6 +25,7 @@ _runner_users_resolve_secrets() {
 runner_create_user() {
   local name="$1" json="$2" fullname="${3:-}"
   local shell sudo_flag groups_csv
+  # The login shell and sudo flag, with their defaults.
   shell="$(printf '%s' "$json" | jq -r '.shell // "/bin/bash"')"
   sudo_flag="$(printf '%s' "$json" | jq -r '.sudo // false')"
   groups_csv="$(runner_resolve_user_groups "$json")"
@@ -88,6 +89,7 @@ runner_revoke_temporary_sudo() {
 _runner_users_write_authorized_keys() {
   local user="$1" json="$2"
   local -a keys=()
+  # The SSH public keys the profile lists.
   mapfile -t keys < <(printf '%s' "$json" \
     | jq -r '.ssh_authorized_keys[]?' 2>/dev/null)
   ((${#keys[@]} > 0)) || return 0

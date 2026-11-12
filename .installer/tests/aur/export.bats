@@ -43,7 +43,7 @@ teardown() { chmod -R u+w "$T" 2>/dev/null || true; aur_vet_teardown; }
     > "$AUR_VET_STORE/allow.tsv"
   run "$AUR_VET_SRC/aur-vet" export "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(awk 'NR == 1 { print; exit }' "$REPO/allow.tsv")" = '# header' ]
+  [ "$(head -n 1 "$REPO/allow.tsv")" = '# header' ]
   grep -qx $'old-pkg\tskip-checksum\tkeep' "$REPO/allow.tsv"
   grep -qx $'chaos-rat\tinstall-interp\treviewed 2026-09-28' "$REPO/allow.tsv"
 }

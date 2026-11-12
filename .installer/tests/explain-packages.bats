@@ -5,6 +5,8 @@
 # involvement, and share its resolver with the menu's derived section so the
 # two cannot drift.
 
+load lib/text-helpers
+
 setup() {
   OS="$BATS_TEST_DIRNAME/.."
   TOOL="$OS/tools/explain-packages.sh"
@@ -25,14 +27,16 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Total:"* ]]
   local total
-  total="$(awk 'match($0, /Total: [0-9]* unique packages/) { $0 = substr($0, RSTART + 7, RLENGTH - 23); print }' <<<"$output")"
+  # N from the "Total: N unique packages" line.
+  total="$(printf '%s\n' "$output" \
+    | grep -oE 'Total: [0-9]* unique packages' | cut -d' ' -f2)"
   [ "$total" -gt 100 ]
 }
 
 @test "explain-packages: --flat is one package per line, sorted and unique" {
   run bash "$TOOL" desktop --flat
   [ "$status" -eq 0 ]
-  [ "$output" = "$(sort -u <<<"$output")" ]
+  [ "$output" = "$(printf '%s\n' "$output" | sort -u)" ]
   echo "$output" | grep -qx "steam"
   echo "$output" | grep -qx "plasma-meta"
 }
@@ -168,7 +172,7 @@ JSON
   run bash "$TOOL" no-such-profile --flat
   [ "$status" -eq 0 ]
   [[ "$output" == *"no profile 'no-such-profile' — resolved core only."* ]]
-  grep -qx base <<<"$output"
+  text_has_line "$output" base
 }
 
 # Host Programs and each user's User Programs land too (ADR 0157), so the
@@ -191,7 +195,7 @@ JSON
 @test "explain-packages: a bare profile reports no User Programs" {
   run bash "$TOOL" minimal --flat
   [ "$status" -eq 0 ]
-  grep -qx "claude" <<<"$output" && return 1
-  grep -qx "lact" <<<"$output" && return 1
+  text_has_line "$output" "claude" && return 1
+  text_has_line "$output" "lact" && return 1
   return 0
 }

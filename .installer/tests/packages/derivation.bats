@@ -6,6 +6,8 @@
 # fails here, not in a VM. gpu is pinned to an explicit vendor so the guard
 # stays deterministic and headless (no lspci).
 
+load ../lib/text-helpers
+
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   TEST_DIR="$(mktemp -d)"
@@ -27,14 +29,22 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 write_config() { printf '%s\n' "$1" >"$CONFIG_FILE"; }
-resolved_from_source() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort -u; }
+# resolved_from_source <config> <source> — the package names one source
+# resolves (rows are source<TAB>layer<TAB>package).
+resolved_from_source() {
+  local source_name package _layer
+  while IFS=$'\t' read -r source_name _layer package; do
+    [[ "$source_name" == "$2" ]] && printf '%s\n' "$package"
+  done < <(package_resolver_resolve "$1") | sort -u
+}
 
 # ── unit: base ──────────────────────────────────────────────────────────────
 
 @test "base_packages: the unconditional 18-package set" {
   run base_packages
   [ "$status" -eq 0 ]
-  [ "$(base_packages | sort -u | awk 'END { print NR }')" -eq 18 ]
+  # How many distinct packages.
+  [ "$(base_packages | sort -u | wc -l)" -eq 18 ]
   base_packages | grep -qx base
   base_packages | grep -qx base-devel
   base_packages | grep -qx stow
@@ -68,7 +78,7 @@ resolved_from_source() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$
 # ── unit: audio ─────────────────────────────────────────────────────────────
 
 @test "audio_packages: the PipeWire stack" {
-  [ "$(audio_packages | awk 'END { print NR }')" -eq 8 ]
+  [ "$(audio_packages | wc -l)" -eq 8 ]
   audio_packages | grep -qx pipewire
   audio_packages | grep -qx libpulse
   audio_packages | grep -qx rtkit
@@ -93,7 +103,7 @@ resolved_from_source() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$
   diff <(base_packages | sort -u) <(resolved_from_source "$config" base)
   # install side contains every base name
   local out package; out="$(package_list_collect)"
-  while IFS= read -r package; do grep -qx "$package" <<<"$out"; done < <(base_packages)
+  while IFS= read -r package; do text_has_line "$out" "$package"; done < <(base_packages)
 }
 
 @test "drift: gpu (amd) — module == resolver == install globals" {
@@ -123,7 +133,7 @@ resolved_from_source() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$
   out="$(package_list_collect)"
   while IFS= read -r package; do
     [[ -n "$package" ]] || continue
-    grep -qx "$package" <<<"$out"
+    text_has_line "$out" "$package"
     resolved_from_source "$config" zfs | grep -qx "$package"
   done < <(printf '%s\n' $(filesystem_userland_packages zfs))
 }

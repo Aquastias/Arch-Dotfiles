@@ -17,6 +17,24 @@ _PACMAN_CONFIG_DIRECTORY="${BASH_SOURCE[0]%/*}"
   || _PACMAN_CONFIG_DIRECTORY=.
 _PACMAN_CONFIG_DIRECTORY="$(cd "$_PACMAN_CONFIG_DIRECTORY" && pwd)"
 
+# _pacman_config_uncomment_section <name> — in /etc/pacman.conf, drop the
+# leading `#` from the shipped `#[name]` line through its next `#Include`.
+_pacman_config_uncomment_section() {
+  local header="#[$1]" edited line in_section=0
+  edited="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # The `]` in the header keeps [multilib] from catching [multilib-testing].
+    [[ "$line" == "$header"* ]] && in_section=1
+    if (( in_section )); then
+      [[ "$line" == "#Include"* ]] && in_section=0
+      [[ "$line" == "#"* ]] && line="${line:1}"
+    fi
+    printf '%s\n' "$line"
+  done < /etc/pacman.conf > "$edited"
+  cat "$edited" > /etc/pacman.conf
+  rm -f "$edited"
+}
+
 # _pacman_config_enable_repository <name> — enable one official optional repo in
 # the host /etc/pacman.conf. Uncomments the shipped `#[name]` + its `#Include`
 # in place (preserving Arch's testing-above-stable ordering); appends a standard
@@ -27,9 +45,8 @@ _pacman_config_enable_repository() {
   local repository="$1"
   grep -q "^\[${repository}\]" /etc/pacman.conf && return 0   # already enabled
   if grep -q "^#\[${repository}\]" /etc/pacman.conf; then
-    # Range anchored on '#[repo]' (the ']' keeps [multilib] from catching
-    # [multilib-testing]) through its adjacent '#Include'.
-    sed -i "/^#\[${repository}\]/,/^#Include/ s/^#//" /etc/pacman.conf
+    # Uncomment the shipped section.
+    _pacman_config_uncomment_section "$repository"
   else
     printf '\n[%s]\nInclude = /etc/pacman.d/mirrorlist\n' "$repository" \
       >> /etc/pacman.conf
@@ -71,6 +88,7 @@ pacman_config_disable_checkspace() {
   # Idempotent.
   if grep -q '^CheckSpace' /etc/pacman.conf; then
     info "Disabling pacman CheckSpace (unreliable on ZFS)..."
+    # Comment the directive out.
     sed -i 's/^CheckSpace/#CheckSpace/' /etc/pacman.conf
   else
     info "pacman CheckSpace already disabled."
@@ -163,12 +181,17 @@ _AUDIT_AUR_REPO=audit-aur
 # pacman_config_apply_audit_cache [<conf>] — no-op unless
 # INSTALL_PKG_CACHE_SERVER / INSTALL_AUDIT_AUR_URL are set.
 pacman_config_apply_audit_cache() {
-  local pacman_config_file="${1:-/etc/pacman.conf}" rewritten_file
+  local pacman_config_file="${1:-/etc/pacman.conf}" rewritten_file line
   if [[ -n "${INSTALL_PKG_CACHE_SERVER:-}" ]]; then
     rewritten_file="$(mktemp)"
-    awk -v u="$INSTALL_PKG_CACHE_SERVER" '{ print }
-      /^\[/ && $0 != "[options]" { print "CacheServer = " u }' \
-      "$pacman_config_file" > "$rewritten_file" \
+    # Each repo section header ([options] is not a repo) gets a CacheServer
+    # line right below it.
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      printf '%s\n' "$line"
+      if [[ "$line" == "["* && "$line" != "[options]" ]]; then
+        printf 'CacheServer = %s\n' "$INSTALL_PKG_CACHE_SERVER"
+      fi
+    done < "$pacman_config_file" > "$rewritten_file" \
       && cat "$rewritten_file" > "$pacman_config_file"
     rm -f "$rewritten_file"
   fi
@@ -182,20 +205,22 @@ pacman_config_apply_audit_cache() {
 # pacman_config_strip_audit_cache [<conf>] — drop every CacheServer line and the
 # [audit-aur] section (with the blank line that introduced it).
 pacman_config_strip_audit_cache() {
-  local pacman_config_file="${1:-/etc/pacman.conf}" rewritten_file
+  local pacman_config_file="${1:-/etc/pacman.conf}" line skip=0
+  local -a kept=()
   [[ -f "$pacman_config_file" ]] || return 0
-  rewritten_file="$(mktemp)"
-  awk -v r="[$_AUDIT_AUR_REPO]" '
-    /^CacheServer = / { next }
-    { l[++n] = $0 }
-    END {
-      for (i = 1; i <= n; i++) {
-        if (l[i] == r) { if (o && out[o] == "") o--; skip = 1; continue }
-        if (skip && l[i] ~ /^\[/) skip = 0
-        if (!skip) out[++o] = l[i]
-      }
-      for (i = 1; i <= o; i++) print out[i]
-    }' "$pacman_config_file" > "$rewritten_file" \
-    && cat "$rewritten_file" > "$pacman_config_file"
-  rm -f "$rewritten_file"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == "CacheServer = "* ]] && continue
+    if [[ "$line" == "[$_AUDIT_AUR_REPO]" ]]; then
+      # Drop the blank line before the section too.
+      (( ${#kept[@]} )) && [[ -z "${kept[-1]}" ]] && unset 'kept[-1]'
+      skip=1
+      continue
+    fi
+    # The next section header ends the skipped one.
+    [[ "$line" == "["* ]] && skip=0
+    (( skip )) || kept+=("$line")
+  done < "$pacman_config_file"
+  : > "$pacman_config_file"
+  (( ${#kept[@]} )) && printf '%s\n' "${kept[@]}" > "$pacman_config_file"
+  return 0
 }

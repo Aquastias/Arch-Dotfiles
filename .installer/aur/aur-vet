@@ -15,578 +15,143 @@
 #
 # Exit: 0 pass · 1 abort (findings or policy) · 2 usage/environment error.
 # SELF-CONTAINED: installed onto PATH and staged into the chroot, so it
-# sources no Installer/Shell Stdlib. Stateless: each build is decided from
-# the clone as it is (ADR 0149); only the allowlist is stored.
+# sources no Installer/Shell Stdlib — only its own modules (aur-vet-*.sh),
+# which ship beside scan.awk. Stateless: each build is decided from the
+# clone as it is (ADR 0149); only the allowlist is stored.
 # =============================================================================
 set -euo pipefail
 
-_SELF_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SELF_DIRECTORY="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # Overrides (data, store, RPC fixtures, clock, sudo, …) exist for tests and
 # the operator's repo copy (scan.awk beside it). The installed vetter drops
 # them, so an environment user-level malware controls can't redirect its
 # store, data, RPC answers or sudo (ADR 0143). AUR_VET_UNATTENDED stays: it
 # can only refuse prompts, never skip review.
-if [[ ! -f "$_SELF_DIR/scan.awk" ]]; then
+if [[ ! -f "$SELF_DIRECTORY/scan.awk" ]]; then
   unset AUR_VET_DATA AUR_VET_STORE AUR_VET_RPC_FIXTURE_DIR AUR_VET_NOW \
     AUR_VET_SUDO AUR_VET_INTERACTIVE AUR_VET_RETRY_DELAYS AUR_VET_AUDIT_ROOT \
     AUR_VET_ARCH_LIST_URL AUR_VET_NPM_LIST_URL AUR_VET_ETC_PARU_CONF
 fi
 
-_say() { printf 'aur-vet: %s\n' "$*" >&2; }
-_die() { _say "$*"; exit 2; }
+say() { printf 'aur-vet: %s\n' "$*" >&2; }
+die() { say "$*"; exit 2; }
 
 # Data (rules/indicators) and the allowlist sit beside the script in the repo;
 # the installed copy reads the system locations.
-_data_dir() {
+data_directory() {
   if [[ -n "${AUR_VET_DATA:-}" ]]; then printf '%s' "$AUR_VET_DATA"
-  elif [[ -f "$_SELF_DIR/rules.tsv" ]]; then printf '%s' "$_SELF_DIR"
+  elif [[ -f "$SELF_DIRECTORY/rules.tsv" ]]; then printf '%s' "$SELF_DIRECTORY"
   else printf '%s' /usr/local/share/aur-vet; fi
 }
 
-# The engine (scan.awk) ships with the command, not with the data.
-_lib_dir() {
-  if [[ -f "$_SELF_DIR/scan.awk" ]]; then printf '%s' "$_SELF_DIR"
-  else printf '%s' /usr/local/share/aur-vet; fi
+# The engine (scan.awk and the modules) ships with the command, not with the
+# data: beside it in the repo, else in share/aur-vet next to its bin/
+# (/usr/local/bin/aur-vet → /usr/local/share/aur-vet).
+library_directory() {
+  if [[ -f "$SELF_DIRECTORY/scan.awk" ]]; then printf '%s' "$SELF_DIRECTORY"
+  else printf '%s' "$(dirname "$SELF_DIRECTORY")/share/aur-vet"; fi
 }
 
-# Findings for the tree at <root> (paths NUL-separated on stdin) of
-# <pkgbase>, with the campaign-window <days>, on stdout: TSV from scan.awk
-# (severity id file line description).
-_scan_tree() {
-  local root="$1" base="$2" days="$3" data bins="" all="" f
-  data="$(_data_dir)"
-  local -a files=()
-  for f in rules indicators campaigns; do
-    [[ -r "$data/$f.tsv" ]] || _die "missing data file: $data/$f.tsv"
-  done
-  while IFS= read -r -d '' f; do
-    all+="${f}"$'\037'
-    [[ -s "$root/$f" ]] || continue
-    # Text files are scanned; the rest are reported by name, never skipped.
-    if LC_ALL=C grep -Iq . "$root/$f" 2>/dev/null; then files+=("$root/$f")
-    else bins+="${f}"$'\037'; fi
-  done
-  # Clone-derived strings go through the environment: awk -v would expand
-  # backslash escapes in file names.
-  AV_ROOT="$root" AV_PKGBASE="$base" AV_DAYS="$days" AV_BINARIES="$bins" \
-  AV_TRACKED="$all" awk -v rules="$data/rules.tsv" \
-    -v indicators="$data/indicators.tsv" -v campaigns="$data/campaigns.tsv" \
-    -f "$(_lib_dir)/scan.awk" "${files[@]+"${files[@]}"}" </dev/null
-}
+# Hook-mode results, filled by evaluate (aur-vet-scan.sh): the critical and
+# suspicious rule ids (id → 1), the tally line, and whether the RPC was
+# down.
+declare -A CRITICAL_RULES=() SUSPICIOUS_RULES=()
+TALLY=""
+RPC_DOWN=0
 
-# Days that may place the clone at <dir> in a campaign window: every
-# commit's author + committer day, and the AUR's own LastModified epoch
-# <modified> (server-side). Backdating a commit can't hide an in-window one.
-_days() {
-  local days
-  days="$(TZ=UTC git -C "$1" log --format='%ad %cd' --date=format-local:%F)" \
-    || return 1
-  [[ -n "${2:-}" ]] && days+=" $(date -u -d "@$2" +%F)"
-  printf '%s' "${days//$'\n'/ }"
-}
-
-# Findings for the clone at <dir> <pkgbase>, with campaign-window <days>.
-_scan() { git -C "$1" ls-files -z | _scan_tree "$1" "$2" "$3"; }
-
-# Finding keys (see _finding_key) of the clone's previous commit (HEAD~1),
-# one per line. Its tree is extracted from the git objects into a temp dir
-# — written, never checked out, sourced or run. Fails when there is no
-# previous commit.
-_prev_keys() {
-  local dir="$1" base="$2" days="$3" tmp out rc=0
-  git -C "$dir" rev-parse -q --verify 'HEAD~1^{commit}' >/dev/null 2>&1 \
-    || return 1
-  tmp="$(mktemp -d)"
-  if git -C "$dir" archive HEAD~1 | tar -x -C "$tmp" \
-     && out="$(git -C "$dir" ls-tree -r -z --name-only HEAD~1 \
-       | _scan_tree "$tmp" "$base" "$days")"; then
-    local sev id file ln desc
-    [[ -n "$out" ]] && while IFS=$'\t' read -r sev id file ln desc; do
-      _finding_key "$id" "$file"; printf '\n'
-    done <<<"$out"
-  else
-    rc=2
-  fi
-  command rm -rf "$tmp"
-  ((rc == 0)) || _die "${base}: scan of the previous commit failed"
-}
-
-# Identity of a finding for the Gained Finding count: rule + file. Line
-# numbers and text are left out — a version bump rewrites a flagged source
-# line, a new line moves the rest — so only a rise in the count is a gain.
-_finding_key() { printf '%s\037%s' "$1" "$2"; }
-
-# ── refresh-indicators ──────────────────────────────────────────────────────
-# Pull the official Arch Atomic Arch list and lenucksi's npm list, append the
-# names not yet held, tagged with their source key, and print them for review.
-# Explicit and offline-safe: vetting itself never fetches (ADR 0143).
-_ARCH_LIST_URL="https://md.archlinux.org/s/SxbqukK6IA/download"
-_NPM_LIST_URL="https://raw.githubusercontent.com/lenucksi/aur-malware-check"
-_NPM_LIST_URL+="/main/data/campaigns/aur-infected/npm-packages.txt"
-
-_refresh_indicators() {
-  local ind; ind="$(_data_dir)/indicators.tsv"
-  [[ -w "$ind" ]] || _die "not writable: $ind"
-  local arch npm add
-  arch="$(curl -fsSL "${AUR_VET_ARCH_LIST_URL:-$_ARCH_LIST_URL}")" \
-    || _die "download failed: Arch package list"
-  npm="$(curl -fsSL "${AUR_VET_NPM_LIST_URL:-$_NPM_LIST_URL}")" \
-    || _die "download failed: npm package list"
-  # AUR names are [a-z0-9@._+-]; anything else (markup, typos) is dropped.
-  add="$(
-    {
-      printf '%s\n' "$arch" | awk '/^[a-z0-9@._+-]+$/ {
-        printf "pkgbase\t%s\tatomic-arch\tarch-md\n", $1 }'
-      printf '%s\n' "$npm" | awk '/^[a-z0-9@._\/-]+$/ {
-        printf "npm\t%s\tatomic-arch\tlenucksi\n", $1 }'
-    } | awk -F'\t' 'FNR == NR { if (!/^#/) seen[$1 FS $2]; next }
-                    !(($1 FS $2) in seen) { seen[$1 FS $2]; print }' "$ind" -
-  )"
-  local count=0
-  if [[ -n "$add" ]]; then
-    printf '%s\n' "$add" >> "$ind"
-    count="$(printf '%s\n' "$add" | wc -l)"
-    printf '%s\n' "$add"
-  fi
-  _say "added ${count} indicator(s) to ${ind} — review the diff, then commit"
-}
-
-# ── Allowlist (ADR 0149) ────────────────────────────────────────────────────
-# allow.tsv: pkgbase rule note — a suspicious rule accepted for a package at
-# any version. The only stored state; nothing is pinned.
-_store_dir() {
-  if [[ -n "${AUR_VET_STORE:-}" ]]; then printf '%s' "$AUR_VET_STORE"
-  elif [[ -f "$_SELF_DIR/allow.tsv" ]]; then printf '%s' "$_SELF_DIR"
-  else printf '%s' /etc/aur-vet; fi
-}
-
-# Unattended never prompts. The installer says so explicitly; otherwise a
-# terminal on stdin means a human is there. AUR_VET_INTERACTIVE forces the
-# prompt (tests) — it can only ask for more review, never skip it.
-_unattended() {
-  [[ "${AUR_VET_UNATTENDED:-}" == 1 ]] && return 0
-  [[ "${AUR_VET_INTERACTIVE:-}" == 1 ]] && return 1
-  [[ ! -t 0 ]]
-}
-
-_today() { date -u -d "@${AUR_VET_NOW:-$(date +%s)}" +%F; }
-
-# Is suspicious <rule> accepted for <pkgbase>?
-_allowed() {
-  local f; f="$(_store_dir)/allow.tsv"
-  [[ -r "$f" ]] || return 1
-  awk -F'\t' -v b="$1" -v r="$2" \
-    '$1 == b && $2 == r { hit = 1 } END { exit !hit }' "$f"
-}
-
-# Replace <file>'s content with stdin. A writable store (repo, tests) is
-# rewritten in place via a temp file in its own dir, so a failed write leaves
-# the old file intact. The booted store is root-owned, so user-level malware
-# can't forge allowlist rows (ADR 0143): writes go through sudo.
-_store_put() {
-  local file="$1" tmp
-  if [[ -w "$(dirname "$file")" ]]; then
-    tmp="$(mktemp "${file}.XXXXXX")"
-    cat > "$tmp"
-    chmod 0644 "$tmp"
-    command mv -f "$tmp" "$file"
-    return 0
-  fi
-  local sudo="${AUR_VET_SUDO:-sudo}"
-  tmp="$(mktemp)"
-  cat > "$tmp"
-  if ! command -v "$sudo" >/dev/null 2>&1 \
-     || ! "$sudo" install -m0644 "$tmp" "$file"; then
-    command rm -f "$tmp"
-    _die "allowlist not writable: ${file} (needs sudo)"
-  fi
-  command rm -f "$tmp"
-}
-
-_allow_add() {
-  local af; af="$(_store_dir)/allow.tsv"
-  { cat "$af" 2>/dev/null || true; printf '%s\n' "$@"; } | _store_put "$af"
-}
-
-# One answer to a suspicious finding: n (abort), y (once) or a (always).
-_choose() {
-  local ans
-  printf 'aur-vet: %s [n/y/a] ' "$1" >&2
-  read -r ans || ans=n
-  case "${ans,,}" in
-    y | yes) printf y ;;
-    a | always) printf a ;;
-    *) printf n ;;
-  esac
-}
-
-_ask() {
-  local ans
-  printf 'aur-vet: %s [y/N] ' "$1" >&2
-  read -r ans || return 1
-  [[ "$ans" == [yY] || "$ans" == [yY][eE][sS] ]]
-}
-
-# ── Trust signals (AUR RPC) ─────────────────────────────────────────────────
-_RPC_URL="https://aur.archlinux.org/rpc/v5/info"
-# An AUR package name (aurweb): lowercase alnum and @._+-, nothing else.
-_AUR_NAME='[a-z0-9@._+-]+'
-_TRUST_WINDOW=$((14 * 86400))
-
-# One RPC `info` answer for <pkgbase> (queried by <pkgname>), valid JSON or
-# failure. Tests serve <pkgbase>.json from AUR_VET_RPC_FIXTURE_DIR instead.
-_rpc_fetch() {
-  local out
-  if [[ -n "${AUR_VET_RPC_FIXTURE_DIR:-}" ]]; then
-    out="$(cat "$AUR_VET_RPC_FIXTURE_DIR/$1.json" 2>/dev/null)" || return 1
-  else
-    out="$(curl -gfsS --max-time 20 "${_RPC_URL}?arg%5B%5D=${2//+/%2B}")" \
-      || return 1
-  fi
-  jq -e '.results | type == "array"' >/dev/null 2>&1 <<<"$out" || return 1
-  printf '%s\n' "$out"
-}
-
-# Run <cmd...> with the RPC retry policy (ADR 0052 pattern):
-# AUR_VET_RETRY_DELAYS is the CSV of per-gap seconds. Prints the output of
-# the first success; non-zero when every attempt failed.
-_rpc_retry() {
-  local -a delays
-  IFS=, read -ra delays <<<"${AUR_VET_RETRY_DELAYS:-3,10}"
-  local tries=$((${#delays[@]} + 1)) i out
-  for ((i = 1; i <= tries; i++)); do
-    if out="$("$@")"; then printf '%s\n' "$out"; return 0; fi
-    _say "RPC attempt ${i}/${tries} failed"
-    ((i < tries)) && sleep "${delays[i - 1]:-0}"
-  done
-  return 1
-}
-
-_rpc_info() { _rpc_retry _rpc_fetch "$@"; }
-
-# The RPC answer for the clone at <dir> <pkgbase> (queried by its first
-# pkgname), or failure when unreachable.
-_rpc_for() {
-  local name
-  name="$(awk -F' = ' '/^pkgname = / { print $2; exit }' \
-    "$1/.SRCINFO" 2>/dev/null)"
-  # .SRCINFO is attacker text: only an AUR-shaped name may reach the URL.
-  [[ "$name" =~ ^$_AUR_NAME$ ]] || name="$2"
-  _rpc_info "$2" "$name"
-}
-
-# Trust findings (scan TSV shape, file "AUR") from the RPC <json> for
-# <pkgbase>. Server-side fields only: git author/committer is attacker-set
-# (ADR 0149).
-_trust() {
-  local json="$1" base="$2" r
-  local -A sev=() desc=()
-  local id s d
-  while IFS=$'\t' read -r id s d; do sev[$id]="$s"; desc[$id]="$d"
-  done < <(awk -v rules="$(_data_dir)/rules.tsv" -v list_trust=1 \
-             -f "$(_lib_dir)/scan.awk" </dev/null)
-  _t() { [[ -n "${sev[$1]:-}" ]] && printf '%s\tAUR\t0\t%s%s\n' \
-    "${sev[$1]}"$'\t'"$1" "${desc[$1]}" "${2:+ [$2]}"; return 0; }
-
-  r="$(jq -c --arg b "$base" \
-    '[.results[] | select(.PackageBase == $b)][0] // empty' <<<"$json")"
-  if [[ -z "$r" ]]; then _t trust-not-found; return 0; fi
-  local maint sub first last ood votes now
-  IFS=$'\x1f' read -r maint sub first last ood votes < <(jq -r '[
-    .Maintainer // "", .Submitter // "", .FirstSubmitted // 0,
-    .LastModified // 0, .OutOfDate // "", .NumVotes // 0]
-    | map(tostring) | join("\u001f")' <<<"$r")
-  # Numbers only: these reach shell arithmetic, and the RPC is untrusted.
-  [[ "$first" =~ ^[0-9]+$ && "$last" =~ ^[0-9]+$ && "$votes" =~ ^[0-9]+$ ]] \
-    || _die "${base}: AUR RPC answer malformed"
-  now="${AUR_VET_NOW:-$(date +%s)}"
-  if [[ -n "$maint" && -n "$sub" && "$maint" != "$sub" ]] \
-     && ((now - last < _TRUST_WINDOW)); then
-    _t trust-adopted "${sub} -> ${maint}"
-  fi
-  ((now - first < _TRUST_WINDOW)) && _t trust-new
-  [[ -z "$maint" ]] && _t trust-orphaned
-  [[ -n "$ood" ]] && _t trust-out-of-date
-  ((votes < 3)) && _t trust-low-votes "${votes}"
-  return 0
-}
-
-# ── export ──────────────────────────────────────────────────────────────────
-# Merge the booted allowlist back into the repo copy (default: the dotfiles
-# checkout) for the operator to commit: rows union on pkgbase + rule, repo
-# comments stay. `--check` only reports drift (exit 1).
-_export() {
-  local check=0
-  [[ "${1:-}" == --check ]] && { check=1; shift; }
-  local repo="${1:-$HOME/.dotfiles/.installer/aur}"
-  local src="${AUR_VET_STORE:-/etc/aur-vet}" new changes
-  [[ -f "$repo/allow.tsv" ]] || _die "export: no allowlist at ${repo}"
-  if [[ ! -r "$src/allow.tsv" ]]; then
-    _say "export: no allowlist at ${src} — nothing to export"
-    return 0
-  fi
-  new="$(_export_merge "$src/allow.tsv" "$repo/allow.tsv")"
-  changes="$(diff "$repo/allow.tsv" <(printf '%s\n' "$new") \
-    | sed -n 's/^> /+ /p; s/^< /- /p')" || true
-  # --check is two-way: a repo row the store lacks is drift too.
-  local stale=""
-  ((check)) && stale="$(_export_stale "$src/allow.tsv" "$repo/allow.tsv")"
-  [[ -n "$stale" ]] && printf 'only in the repo:\n%s\n' "$stale"
-  if [[ -z "$changes" && -z "$stale" ]]; then
-    if ((check)); then _say "export: ${src} and ${repo} in sync"
-    else _say "export: nothing to export"; fi
-    return 0
-  fi
-  [[ -n "$changes" ]] && printf 'allow.tsv:\n%s\n' "$changes"
-  if ((check)); then
-    _say "export: drift between ${src} and ${repo}"
-    return 1
-  fi
-  printf '%s\n' "$new" > "$repo/allow.tsv"
-  _say "export: updated ${repo} — review the diff, then commit"
-}
-
-# <store-file> <repo-file> → repo rows (pkgbase + rule) the store lacks.
-_export_stale() {
-  awk -F'\t' 'FNR == NR { if ($0 !~ /^#/ && NF) s[$1 FS $2]; next }
-    $0 !~ /^#/ && NF && !(($1 FS $2) in s) { print "  " $1 " " $2 }' "$1" "$2"
-}
-
-# <store-file> <repo-file> → the merged repo allowlist on stdout.
-_export_merge() {
-  awk -F'\t' '
-    FNR == NR {
-      if ($0 ~ /^#/ || !NF) next
-      k = $1 FS $2; if (!(k in s)) order[++n] = k
-      s[k] = $0; next
-    }
-    /^#/ || !NF { print; next }
-    { k = $1 FS $2; if (k in s) { print s[k]; done[k] = 1 } else print }
-    END { for (i = 1; i <= n; i++) if (!(order[i] in done)) print s[order[i]] }
-  ' "$1" "$2"
-}
-
-# ── audit ───────────────────────────────────────────────────────────────────
-# Post-install check for installer-created VMs, never the operator's host
-# (ADR 0143): installed foreign packages on a campaign list, campaign npm/bun
-# packages in caches or global node_modules, and on-disk IOC paths.
-# AUR_VET_AUDIT_ROOT prefixes every path (tests).
-_audit() {
-  local root="${AUR_VET_AUDIT_ROOT:-}" data kind value camp hits=0
-  data="$(_data_dir)"
-  local -A pkg=()
-  local -a npm=() paths=() homes=()
-  while IFS=$'\t' read -r kind value camp; do
-    case "$kind" in
-      pkgbase) pkg[$value]="$camp" ;;
-      npm) npm+=("$value") ;;
-      path) paths+=("$value") ;;
-    esac
-  done < <(awk -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
-             -v campaigns="$data/campaigns.tsv" -v list_indicators=1 \
-             -f "$(_lib_dir)/scan.awk" </dev/null)
-  _hit() { _say "AUDIT $*"; hits=$((hits + 1)); }
-
-  local p
-  while IFS= read -r p; do
-    [[ -n "${pkg[$p]:-}" ]] && _hit "installed ${p} is on the ${pkg[$p]} list"
-  done < <(pacman -Qmq 2>/dev/null || true)
-
-  local h n
-  for h in "$root"/home/* "$root/root"; do
-    [[ -d "$h" ]] && homes+=("$h")
-  done
-  for n in "${npm[@]}"; do
-    for h in "${homes[@]}"; do
-      grep -rqsF -- "/${n}/-/" "$h/.npm/_cacache/index-v5" \
-        && _hit "npm cache of ${h#"$root"} holds ${n}"
-      for p in "$h/.bun/install/cache/${n}" "$h/.bun/install/cache/${n}@"* \
-               "$h/.local/lib/node_modules/${n}" \
-               "$h/.npm-global/lib/node_modules/${n}"; do
-        [[ -e "$p" ]] && _hit "${p#"$root"}"
-      done
-    done
-    for p in "$root/usr/lib/node_modules/${n}" \
-             "$root/usr/local/lib/node_modules/${n}"; do
-      [[ -e "$p" ]] && _hit "${p#"$root"}"
-    done
-  done
-  for p in "${paths[@]}"; do
-    # shellcheck disable=SC2088  # a literal ~/ marker from indicators.tsv
-    if [[ "$p" == "~/"* ]]; then
-      for h in "${homes[@]}"; do
-        [[ -e "$h/${p#"~/"}" ]] && _hit "${h#"$root"}/${p#"~/"}"
-      done
-    elif [[ -e "${root}${p}" ]]; then
-      _hit "$p"
-    fi
-  done
-
-  if ((hits)); then _say "audit: ${hits} finding(s)"; return 1; fi
-  _say "audit: clean"
-}
-
-# ── doctor ──────────────────────────────────────────────────────────────────
-# Login check (/etc/profile.d/aur-vet.sh): paru reads $PARU_CONF or the
-# user's own paru.conf *instead of* /etc/paru.conf, so any of them without
-# the hook runs AUR builds unvetted (ADR 0143). Silent when all is well.
-_HOOK_LINE="PreBuildCommand = /usr/local/bin/aur-vet"
-_doctor() {
-  local etc="${AUR_VET_ETC_PARU_CONF:-/etc/paru.conf}" f bad=0
-  local user="${XDG_CONFIG_HOME:-$HOME/.config}/paru/paru.conf"
-  for f in "${PARU_CONF:-}" "$user" "$etc"; do
-    [[ -n "$f" && -f "$f" ]] || continue
-    # paru parses PreBuildCommand only in [bin]; anywhere else it is ignored.
-    awk '/^[[:space:]]*\[/ { s = $0; gsub(/[[:space:]]/, "", s) }
-      s == "[bin]" && /^[[:space:]]*PreBuildCommand[[:space:]]*=[[:space:]]*\
-\/usr\/local\/bin\/aur-vet[[:space:]]*$/ { hit = 1 }
-      END { exit !hit }' "$f" && continue
-    _say "WARNING: ${f} is without the AUR Vetting hook — AUR builds run" \
-      "unvetted. Add under [bin]: ${_HOOK_LINE}"
-    bad=1
-  done
-  return "$bad"
-}
+for module in scan trust allowlist maintenance; do
+  # shellcheck source=/dev/null  # aur-vet-scan.sh … beside scan.awk
+  source "$(library_directory)/aur-vet-${module}.sh"
+done
 
 # ── Hook mode ───────────────────────────────────────────────────────────────
-# Scan + trust one clone and print its findings. Results land in _E_*
-# globals: _E_CRIT / _E_SUSP (id → 1), _E_TALLY, _E_RPC_DOWN, _E_GAINED.
-_evaluate() {
-  local dir="$1" base="$2" modified=""
-  declare -gA _E_CRIT=() _E_SUSP=()
-  _E_RPC_DOWN=0; _E_GAINED=0
-  # One RPC answer feeds both the trust signals and the Indicator window.
-  local json=""
-  json="$(_rpc_for "$dir" "$base")" || _E_RPC_DOWN=1
-  if ((!_E_RPC_DOWN)); then
-    modified="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
-      == $b)][0].LastModified // empty' <<<"$json")"
-    [[ -z "$modified" || "$modified" =~ ^[0-9]+$ ]] \
-      || _die "${base}: AUR RPC answer malformed"
-  fi
-  # Fail closed: an engine error must abort, never read as "no findings".
-  local out keys="" trust="" has_prev=1
-  local days rc=0
-  days="$(_days "$dir" "$modified")" || _die "${base}: git log failed"
-  out="$(_scan "$dir" "$base" "$days")" || _die "${base}: scan failed"
-  # Exit 1 = no previous commit (no comparison); anything else is a failed
-  # scan and aborts — never a silent skip of the gain check.
-  keys="$(_prev_keys "$dir" "$base" "$days")" || rc=$?
-  case "$rc" in
-    0) ;;
-    1) has_prev=0 ;;
-    *) _die "${base}: scan of the previous commit failed" ;;
-  esac
-  if ((!_E_RPC_DOWN)); then
-    trust="$(_trust "$json" "$base")" || _die "${base}: trust check failed"
-  fi
-
-  # Per-key counts in the previous commit and now; a rise is a gain.
-  local -A before=() now=()
-  local row sev id file ln desc k
-  if [[ -n "$keys" ]]; then
-    while IFS= read -r k; do before["$k"]=$((${before["$k"]:-0} + 1)); done \
-      <<<"$keys"
-  fi
-
-  local -a findings=()
-  [[ -n "$out" ]] && mapfile -t findings <<<"$out"
-  for row in "${findings[@]}"; do
-    IFS=$'\t' read -r sev id file ln desc <<<"$row"
-    k="$(_finding_key "$id" "$file")"; now["$k"]=$((${now["$k"]:-0} + 1))
-  done
-  [[ -n "$trust" ]] && mapfile -t -O "${#findings[@]}" findings <<<"$trust"
-  local crit=0 susp=0 info=0 tag
-  for row in "${findings[@]}"; do
-    IFS=$'\t' read -r sev id file ln desc <<<"$row"
-    tag=""
-    # A Gained Finding climbs one tier (ADR 0149); trust rows have no past.
-    k="$(_finding_key "$id" "$file")"
-    if ((has_prev)) && [[ "$file" != AUR ]] \
-       && ((${now["$k"]:-0} > ${before["$k"]:-0})); then
-      _E_GAINED=1; tag=" (gained since the previous commit)"
-      case "$sev" in
-        info) sev=suspicious ;;
-        suspicious) sev=critical ;;
-      esac
-    fi
-    # A probable adoption that also gained something is the Atomic Arch
-    # takeover shape (ADR 0149). Trust rows come last, after every gain.
-    if [[ "$id" == trust-adopted ]] && ((_E_GAINED)); then
-      sev=critical; tag=" (adopted and gained a finding)"
-    fi
-    _say "$(printf '%s %s %s:%s %s%s' "${sev^^}" "$id" "$file" "$ln" \
-      "$desc" "$tag")"
-    case "$sev" in
-      critical) crit=$((crit + 1)); _E_CRIT["$id"]=1 ;;
-      suspicious) susp=$((susp + 1)); _E_SUSP["$id"]=1 ;;
-      *) info=$((info + 1)) ;;
-    esac
-  done
-  _E_TALLY="${crit} critical, ${susp} suspicious, ${info} info"
-}
-
 # Decide one build on the spot (ADR 0149): critical aborts; suspicious rules
 # not allowlisted for this package ask n/y/a, or abort unattended.
-_hook() {
-  local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
-  [[ "$base" =~ ^$_AUR_NAME$ ]] || _die "invalid package base: ${base}"
-  git -C "$dir" rev-parse -q --verify HEAD >/dev/null 2>&1 \
-    || _die "${base}: not an AUR git clone: ${dir}"
-  local head; head="$(git -C "$dir" rev-parse HEAD)"
-  local at="${base} @${head:0:12}"
+hook() {
+  local directory="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
+  [[ "$base" =~ ^$AUR_NAME$ ]] || die "invalid package base: ${base}"
+  git -C "$directory" rev-parse -q --verify HEAD >/dev/null 2>&1 \
+    || die "${base}: not an AUR git clone: ${directory}"
+  local head at
+  head="$(git -C "$directory" rev-parse HEAD)"
+  at="${base} @${head:0:12}"
 
-  _evaluate "$dir" "$base"
-  local tally="$_E_TALLY" id
-  _abort() { _say "${at}: ABORT (${tally}) — $1"; }
-  if ((${#_E_CRIT[@]})); then
-    _abort "critical findings always abort"
+  evaluate "$directory" "$base"
+  local tally="$TALLY" id
+  if ((${#CRITICAL_RULES[@]})); then
+    abort_build "$at" "$tally" "critical findings always abort"
     return 1
   fi
-  if ((_E_RPC_DOWN)); then
-    if _unattended; then _abort "AUR RPC unreachable"; return 1; fi
-    _ask "AUR RPC unreachable — continue without trust signals?" \
-      || { _abort "AUR RPC unreachable"; return 1; }
+  if ((RPC_DOWN)); then
+    if unattended; then
+      abort_build "$at" "$tally" "AUR RPC unreachable"
+      return 1
+    fi
+    ask "AUR RPC unreachable — continue without trust signals?" \
+      || { abort_build "$at" "$tally" "AUR RPC unreachable"; return 1; }
   fi
 
   local -a unallowed=()
-  for id in "${!_E_SUSP[@]}"; do
-    _allowed "$base" "$id" || unallowed+=("$id")
+  for id in "${!SUSPICIOUS_RULES[@]}"; do
+    allowed "$base" "$id" || unallowed+=("$id")
   done
   if ((${#unallowed[@]} == 0)); then
-    _say "${at}: PASS (${tally})"
+    say "${at}: PASS (${tally})"
     return 0
   fi
+  decide_suspicious "$at" "$tally" "$base" "${unallowed[@]}"
+}
 
-  local reason="suspicious findings not allowlisted: ${unallowed[*]}"
-  if _unattended; then
-    _abort "${reason} (answer interactively to accept)"
+# abort_build <at> <tally> <reason> — say why the build of <at> stops.
+abort_build() { say "${1}: ABORT (${2}) — $3"; }
+
+# decide_suspicious <at> <tally> <pkgbase> <rule>… — the not-allowlisted
+# suspicious rules: abort unattended, else ask n (abort), y (once) or
+# a (always: allowlist them for <pkgbase>).
+decide_suspicious() {
+  local at="$1" tally="$2" base="$3"; shift 3
+  local reason="suspicious findings not allowlisted: $*" question id
+  local -a rows=()
+  if unattended; then
+    abort_build "$at" "$tally" "${reason} (answer interactively to accept)"
     return 1
   fi
-  _say "${at}: ${reason}"
-  local q="Build ${at}? n = abort, y = once, a = always for ${base}"
-  case "$(_choose "$q")" in
-    y) _say "${at}: PASS (${tally}) — accepted once" ;;
+  say "${at}: ${reason}"
+  question="Build ${at}? n = abort, y = once, a = always for ${base}"
+  case "$(choose "$question")" in
+    y) say "${at}: PASS (${tally}) — accepted once" ;;
     a)
-      local -a rows=()
-      for id in "${unallowed[@]}"; do
-        rows+=("$(printf '%s\t%s\treviewed %s' "$base" "$id" "$(_today)")")
+      for id in "$@"; do
+        rows+=("$(printf '%s\t%s\treviewed %s' "$base" "$id" "$(today)")")
       done
-      _allow_add "${rows[@]}"
-      _say "${at}: PASS (${tally}) — allowlisted for ${base}: ${unallowed[*]}"
+      allow_add "${rows[@]}"
+      say "${at}: PASS (${tally}) — allowlisted for ${base}: $*"
       ;;
-    *) _abort "rejected"; return 1 ;;
+    *) abort_build "$at" "$tally" "rejected"; return 1 ;;
   esac
 }
 
+# print_help — the header comment from line 5 to the next ==== rule, without
+# its leading "# ".
+print_help() {
+  local line number=0
+  while IFS= read -r line; do
+    number=$((number + 1))
+    ((number >= 5)) || continue
+    [[ "$line" == "# ===="* ]] && return 0
+    [[ "$line" == "#"* ]] && line="${line:1}"
+    [[ "$line" == " "* ]] && line="${line:1}"
+    printf '%s\n' "$line"
+  done < "${BASH_SOURCE[0]}"
+}
+
 case "${1:-}" in
-  "") _hook ;;
-  refresh-indicators) _refresh_indicators ;;
-  export) shift; _export "$@" ;;
-  audit) _audit ;;
-  doctor) _doctor ;;
-  -h | --help) sed -n '5,/^# ====/{/^# ====/d;p}' "${BASH_SOURCE[0]}" \
-    | sed 's/^# \{0,1\}//' ;;
-  *) _die "unknown command: $1" ;;
+  "") hook ;;
+  refresh-indicators) refresh_indicators ;;
+  export) shift; export_allowlist "$@" ;;
+  audit) audit ;;
+  doctor) doctor ;;
+  -h | --help) print_help ;;
+  *) die "unknown command: $1" ;;
 esac

@@ -113,9 +113,12 @@ function is_command_word(word) {
 }
 
 # is_wrapper(tool) — 1 when the tool runs the command written after it.
-# bats' `run` only wraps inside .bats files.
+# bats' `run` only wraps inside .bats files and the tests/ .bash helpers
+# they load.
 function is_wrapper(tool) {
-  if (tool == "run") return FILENAME ~ /\.bats$/
+  if (tool == "run")
+    return FILENAME ~ /\.bats$/ \
+      || (is_test_file(FILENAME) && FILENAME ~ /\.bash$/)
   return tool in wrapper_command
 }
 
@@ -164,7 +167,8 @@ function commands_record(text, line,   words, word, count, position, tool,
     }
     save_use(tool, flags, line)
     if (tool == "command" && flags ~ /-[vV]/) return
-    if (tool == "timeout") position++
+    # `timeout` takes a duration and `arch-chroot` a root before the command.
+    if (tool == "timeout" || tool == "arch-chroot") position++
   }
 }
 
@@ -251,7 +255,7 @@ BEGIN {
   for (n in list) shell_keyword[list[n]] = 1
 
   # Commands that run the command written after them.
-  split("sudo exec command nohup env timeout xargs", list, " ")
+  split("sudo exec command nohup env timeout xargs arch-chroot", list, " ")
   for (n in list) wrapper_command[list[n]] = 1
   split("bash sh zsh", list, " ")
   for (n in list) shell_command[list[n]] = 1

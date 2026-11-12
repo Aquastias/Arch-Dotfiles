@@ -520,6 +520,27 @@ SH
   [[ "$output" != *"sudo"* ]]
 }
 
+@test "flag-reference: arch-chroot's command after the root gets the flags" {
+  make_reference_repo
+  printf '\n### `arch-chroot`\nRuns a command in a root.\n' \
+    >> docs/tool-reference.md
+  printf 'arch-chroot "$root" rm -rf /tmp/x\narch-chroot /mnt cut -s x\n' \
+    > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"flag-reference: .installer/lib/a.sh:2: cut -s has no"* ]]
+  [[ "$output" != *"arch-chroot"* ]]
+  [[ "$output" != *"a.sh:1"* ]]
+}
+
+@test "tool-reference: bats run wraps its command in tests/ .bash helpers" {
+  make_reference_repo
+  mkdir -p .installer/tests/lib
+  printf 'helper() {\n  run cut -s x\n}\n' > .installer/tests/lib/h.bash
+  check_repo --list
+  [[ "$output" == *"flag-reference: .installer/tests/lib/h.bash:2: cut -s has no"* ]]
+}
+
 @test "tool-reference: user scripts are scanned; notes, vendored skills not" {
   make_reference_repo
   mkdir -p .local/bin .scratch/x .agents/skills/x
@@ -529,6 +550,14 @@ SH
   check_repo --list
   [[ "$output" == *"tool-reference: .local/bin/tool:2: wc has no"* ]]
   [[ "$output" != *".scratch"* && "$output" != *".agents"* ]]
+}
+
+@test "tool-reference: the extensionless aur-vet script is scanned" {
+  make_reference_repo
+  mkdir -p .installer/aur
+  printf '#!/usr/bin/env bash\nwc /etc/passwd\n' > .installer/aur/aur-vet
+  check_repo --list
+  [[ "$output" == *"tool-reference: .installer/aur/aur-vet:2: wc has no"* ]]
 }
 
 @test "ADR 0153 rules are advisory outside .installer/ until migrated" {
@@ -662,6 +691,20 @@ SH
   printf 'read -r first <<<"x y"\nwc /etc/passwd\n' > .installer/lib/a.sh
   check_repo --list
   [[ "$output" == *"tool-reference: .installer/lib/a.sh:2: wc has no"* ]]
+}
+
+@test "a << inside quotes is not a heredoc: code after it is still scanned" {
+  make_reference_repo
+  printf "printf 'x << EOF'\nwc /etc/passwd\n" > .installer/lib/a.sh
+  check_repo --list
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:2: wc has no"* ]]
+}
+
+@test "a heredoc with a quoted delimiter still skips its body" {
+  make_reference_repo
+  printf "cat <<'EOF'\nwc /etc/passwd\nEOF\n" > .installer/lib/a.sh
+  check_repo --list
+  [[ "$output" != *"a.sh:2"* ]]
 }
 
 # ── One step per line (ADR 0167) ───────────────────────────────────────────

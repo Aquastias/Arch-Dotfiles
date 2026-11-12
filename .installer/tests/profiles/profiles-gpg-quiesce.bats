@@ -5,6 +5,8 @@
 # gpg on the installed host can't prove that lock stale, so every later
 # --recv-keys failed ("SQL library used incorrectly"). VM-found.
 
+load ../lib/text-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export MOUNT_ROOT="$TEST_DIR/mnt"
@@ -64,6 +66,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "runner_run_profiles quiesces gpg before revoking the temp sudo" {
   local runner_script="$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
-  grep -A1 'runner_quiesce_gpg "\$user"' "$runner_script" \
+  local quiesce
+  quiesce="$(line_number_of "$runner_script" 'runner_quiesce_gpg "$user"')"
+  [ -n "$quiesce" ]
+  # The line right after the quiesce call.
+  head -n "$((quiesce + 1))" "$runner_script" | tail -n 1 \
     | grep -q 'runner_revoke_temporary_sudo'
 }

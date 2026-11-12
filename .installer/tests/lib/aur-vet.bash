@@ -40,7 +40,8 @@ aur_vet_clone() {
 
 # Run the hook the way paru does: cwd = clone, $PKGBASE set.
 aur_vet_hook() {
-  local clone_directory="$1" base="${2:-${1##*/}}"
+  local clone_directory="$1" base="${2:-}"
+  [[ -n "$base" ]] || base="$(basename "$1")"
   _aur_vet_default_rpc "$base"
   run bash -c 'cd "$1" && PKGBASE="$2" "$3"' _ "$clone_directory" "$base" \
     "$AUR_VET_SRC/aur-vet"
@@ -52,65 +53,49 @@ _aur_vet_default_rpc() {
     || aur_vet_rpc "$1"
 }
 
+# _aur_vet_replace_all <text> <from> <to> — <text> with every <from>
+# replaced by <to>, read left to right.
+_aur_vet_replace_all() {
+  local text="$1" from="$2" to="$3" result="" index=0
+  while (( index < ${#text} )); do
+    if [[ "${text:index:${#from}}" == "$from" ]]; then
+      result+="$to"
+      index=$(( index + ${#from} ))
+    else
+      result+="${text:index:1}"
+      index=$(( index + 1 ))
+    fi
+  done
+  printf '%s\n' "$result"
+}
+
+# _aur_vet_insert_after <file> <after-ERE> <line> — put <line> right after
+# the first line of <file> matching <after-ERE>.
+_aur_vet_insert_after() {
+  local file="$1" pattern="$2" text="$3" line placed=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    if (( ! placed )) && [[ "$line" =~ $pattern ]]; then
+      printf '%s\n' "$text"
+      placed=1
+    fi
+  done < "$file" > "$file.new" && mv "$file.new" "$file"
+}
+
 # Inject <text> into a fresh copy of the rulecase fixture per <placement> (see
-# fixtures/aur/rule-cases.tsv), commit, and print the clone dir. Text goes via
-# ENVIRON so awk never interprets its backslashes.
+# fixtures/aur/rule-cases.tsv), commit, and print the clone dir.
 aur_vet_case() {
   local placement="$1" text="$2" clone_directory="$T/clone/${3:-case}"
-  text="${text//@BLOB@/$(printf 'QUJD%.0s' {1..30})}"
-  text="${text//@XMR@/$_AURVET_XMR}"
-  text="${text//@PAYLOAD@/$_AURVET_PAYLOAD}"
+  text="$(_aur_vet_replace_all "$text" @BLOB@ "$(printf 'QUJD%.0s' {1..30})")"
+  text="$(_aur_vet_replace_all "$text" @XMR@ "$_AURVET_XMR")"
+  text="$(_aur_vet_replace_all "$text" @PAYLOAD@ "$_AURVET_PAYLOAD")"
   local when=""
-  [[ "$placement" == pkgbase && "$text" == *@* ]] && when="${text#*@}"
+  # A pkgbase case may carry a commit date: "<pkgbase>@<date>".
+  [[ "$placement" == pkgbase && "$text" == *@* ]] \
+    && when="$(printf '%s\n' "$text" | cut -d@ -f2-)"
   rm -rf "$clone_directory"; mkdir -p "$clone_directory"
   cp -r "$AUR_VET_FIXTURES/rulecase/." "$clone_directory/"
-  local pkgbuild="$clone_directory/PKGBUILD" srcinfo="$clone_directory/.SRCINFO" sum
-  _aur_vet_ins() { # <file> <after-ERE> <line>: insert after first match
-    L="$3" awk -v re="$2" \
-      '{ print } !d && $0 ~ re { print ENVIRON["L"]; d = 1 }' \
-      "$1" > "$1.new" && mv "$1.new" "$1"
-  }
-  case "$placement" in
-    build) _aur_vet_ins "$pkgbuild" '^  make$' "  $text" ;;
-    install)
-      _aur_vet_ins "$pkgbuild" '^license=' 'install=rulecase.install'
-      printf 'post_install() {\n  %s\n}\n' "$text" > "$clone_directory/rulecase.install" ;;
-    top) _aur_vet_ins "$pkgbuild" '^license=' "$text" ;;
-    file) printf '#!/bin/sh\n%s\n' "$text" > "$clone_directory/helper.sh" ;;
-    source | source-skip)
-      sum=3333333333333333333333333333333333333333333333333333333333333333
-      [[ "$placement" == source-skip ]] && sum=SKIP
-      [[ "$text" == *@SHA=* ]] && \
-        { sum="${text#*@SHA=}"; text="${text%@SHA=*}"; }
-      _aur_vet_ins "$pkgbuild" '^source=' "source+=(\"$text\")"
-      _aur_vet_ins "$pkgbuild" '^sha256sums=' "sha256sums+=('$sum')"
-      _aur_vet_ins "$srcinfo" '^\tsource = ' "	source = $text"
-      _aur_vet_ins "$srcinfo" '^\tsha256sums = ' "	sha256sums = $sum" ;;
-    nosrcinfo) rm -f "$srcinfo" ;;
-    heredoc | shheredoc)
-      local command=cat; [[ "$placement" == shheredoc ]] && command=sh
-      _aur_vet_ins "$pkgbuild" '^license=' 'install=rulecase.install'
-      printf 'post_install() {\n%s << EOF\n%s\nEOF\n}\n' "$command" "$text" \
-        > "$clone_directory/rulecase.install" ;;
-    srcvar) # a host hidden behind a variable; .SRCINFO shows a benign one
-      _aur_vet_ins "$pkgbuild" '^license=' "_h=$text"
-      _aur_vet_ins "$pkgbuild" '^source=' 'source+=("https://${_h}/rulecase/p.tgz")'
-      _aur_vet_ins "$pkgbuild" '^sha256sums=' "sha256sums+=('SKIP')"
-      _aur_vet_ins "$srcinfo" '^\tsource = ' \
-        "	source = https://github.com/rulecase/p.tgz"
-      _aur_vet_ins "$srcinfo" '^\tsha256sums = ' "	sha256sums = SKIP" ;;
-    binary) printf '\x89PNG\0\1' > "$clone_directory/icon.png" ;;
-    path) # "<relpath>::<content>": a tracked file at that path
-      mkdir -p "$clone_directory/$(dirname "${text%%::*}")"
-      printf '%s\n' "${text#*::}" > "$clone_directory/${text%%::*}" ;;
-    sums) # "<algo>[:SKIP]": swap the sha256 algorithm (and digest)
-      sed -i "s/sha256sums/${text%%:*}sums/" "$pkgbuild" "$srcinfo"
-      [[ "$text" == *:SKIP ]] && sed -i "s/2\{64\}/SKIP/" "$pkgbuild" "$srcinfo" ;;
-    srcinfo) _aur_vet_ins "$srcinfo" '^\tsource = ' "	$text" ;;
-    nulpkgbuild) printf '# \0\n' >> "$pkgbuild" ;;
-    pkgbase) ;;
-    *) echo "unknown placement: $placement" >&2; return 1 ;;
-  esac
+  _aur_vet_place "$placement" "$text" "$clone_directory" || return 1
   git -C "$clone_directory" init -q
   git -C "$clone_directory" add -A
   GIT_COMMITTER_DATE="$when" GIT_AUTHOR_DATE="$when" \
@@ -118,35 +103,128 @@ aur_vet_case() {
   printf '%s\n' "$clone_directory"
 }
 
-# Commit a change in <dir>: <file> gets <sed-expr> applied.
+# _aur_vet_place <placement> <text> <clone> — put <text> into the clone's
+# files the way <placement> says.
+_aur_vet_place() {
+  local placement="$1" text="$2" clone_directory="$3"
+  local pkgbuild="$clone_directory/PKGBUILD" srcinfo="$clone_directory/.SRCINFO"
+  local tab=$'\t' command
+  case "$placement" in
+    build) _aur_vet_insert_after "$pkgbuild" '^  make$' "  $text" ;;
+    install)
+      _aur_vet_insert_after "$pkgbuild" '^license=' 'install=rulecase.install'
+      printf 'post_install() {\n  %s\n}\n' "$text" > "$clone_directory/rulecase.install" ;;
+    top) _aur_vet_insert_after "$pkgbuild" '^license=' "$text" ;;
+    file) printf '#!/bin/sh\n%s\n' "$text" > "$clone_directory/helper.sh" ;;
+    source | source-skip) _aur_vet_place_source "$@" ;;
+    nosrcinfo) rm -f "$srcinfo" ;;
+    heredoc | shheredoc)
+      command=cat; [[ "$placement" == shheredoc ]] && command=sh
+      _aur_vet_insert_after "$pkgbuild" '^license=' 'install=rulecase.install'
+      printf 'post_install() {\n%s << EOF\n%s\nEOF\n}\n' "$command" "$text" \
+        > "$clone_directory/rulecase.install" ;;
+    srcvar) _aur_vet_place_srcvar "$@" ;;
+    binary) printf '\x89PNG\0\1' > "$clone_directory/icon.png" ;;
+    path | sums) _aur_vet_place_file "$@" ;;
+    srcinfo) _aur_vet_insert_after "$srcinfo" "^${tab}source = " "	$text" ;;
+    nulpkgbuild) printf '# \0\n' >> "$pkgbuild" ;;
+    pkgbase) ;;
+    *) echo "unknown placement: $placement" >&2; return 1 ;;
+  esac
+}
+
+# _aur_vet_place_source <placement> <text> <clone> — <text> as one more
+# source URL (source-skip: with a SKIP sum). "<url>@SHA=<sum>" sets the sum.
+_aur_vet_place_source() {
+  local placement="$1" text="$2" clone_directory="$3" sum tab=$'\t'
+  local pkgbuild="$clone_directory/PKGBUILD" srcinfo="$clone_directory/.SRCINFO"
+  sum=3333333333333333333333333333333333333333333333333333333333333333
+  [[ "$placement" == source-skip ]] && sum=SKIP
+  if [[ "$text" == *@SHA=* ]]; then
+    # The sum after "@SHA=", then the URL before it (the fixture URLs hold
+    # no other @).
+    sum="$(printf '%s\n' "$text" | cut -d@ -f2 | cut -c5-)"
+    text="$(printf '%s\n' "$text" | cut -d@ -f1)"
+  fi
+  _aur_vet_insert_after "$pkgbuild" '^source=' "source+=(\"$text\")"
+  _aur_vet_insert_after "$pkgbuild" '^sha256sums=' "sha256sums+=('$sum')"
+  _aur_vet_insert_after "$srcinfo" "^${tab}source = " "	source = $text"
+  _aur_vet_insert_after "$srcinfo" "^${tab}sha256sums = " "	sha256sums = $sum"
+}
+
+# _aur_vet_place_srcvar <placement> <text> <clone> — a source host hidden
+# behind a variable; .SRCINFO shows a benign one.
+_aur_vet_place_srcvar() {
+  local text="$2" clone_directory="$3" tab=$'\t'
+  local pkgbuild="$clone_directory/PKGBUILD" srcinfo="$clone_directory/.SRCINFO"
+  _aur_vet_insert_after "$pkgbuild" '^license=' "_h=$text"
+  _aur_vet_insert_after "$pkgbuild" '^source=' 'source+=("https://${_h}/rulecase/p.tgz")'
+  _aur_vet_insert_after "$pkgbuild" '^sha256sums=' "sha256sums+=('SKIP')"
+  _aur_vet_insert_after "$srcinfo" "^${tab}source = " \
+    "	source = https://github.com/rulecase/p.tgz"
+  _aur_vet_insert_after "$srcinfo" "^${tab}sha256sums = " "	sha256sums = SKIP"
+}
+
+# _aur_vet_place_file <placement> <text> <clone> — path: "<relpath>::<content>"
+# adds a tracked file at that path; sums: "<algo>[:SKIP]" swaps the sha256
+# algorithm (and digest).
+_aur_vet_place_file() {
+  local placement="$1" text="$2" clone_directory="$3"
+  local pkgbuild="$clone_directory/PKGBUILD" srcinfo="$clone_directory/.SRCINFO"
+  local relative_path content algorithm
+  if [[ "$placement" == path ]]; then
+    relative_path="$(printf '%s\n' "$text" | cut -d: -f1)"
+    content="$(printf '%s\n' "$text" | cut -d: -f3-)"
+    mkdir -p "$clone_directory/$(dirname "$relative_path")"
+    printf '%s\n' "$content" > "$clone_directory/$relative_path"
+    return 0
+  fi
+  algorithm="$(printf '%s\n' "$text" | cut -d: -f1)"
+  # Rename the sums arrays.
+  sed -i "s/sha256sums/${algorithm}sums/" "$pkgbuild" "$srcinfo"
+  # For :SKIP, the digests too.
+  [[ "$text" == *:SKIP ]] && sed -i "s/2\{64\}/SKIP/" "$pkgbuild" "$srcinfo"
+  return 0
+}
+
+# Commit a change in <directory>: <file> gets <sed-expr> applied.
 aur_vet_commit() {
-  local dir="$1" file="$2" expr="$3"
-  sed -i "$expr" "$dir/$file"
-  git -C "$dir" -c user.name=m -c user.email=m@aur commit -q -am change
+  local directory="$1" file="$2" expression="$3"
+  # The test's edit.
+  sed -i "$expression" "$directory/$file"
+  git -C "$directory" -c user.name=m -c user.email=m@aur commit -q -am change
 }
 
 # Interactive run: answers on stdin.
 aur_vet_hook_answer() {
-  local dir="$1" answer="$2" base="${3:-$(basename "$1")}"
+  local directory="$1" answer="$2" base="${3:-}"
+  [[ -n "$base" ]] || base="$(basename "$1")"
   _aur_vet_default_rpc "$base"
   run bash -c 'cd "$1" && printf "%s\n" "$4" | AUR_VET_INTERACTIVE=1 \
-    PKGBASE="$2" "$3"' _ "$dir" "$base" "$AUR_VET_SRC/aur-vet" "$answer"
+    PKGBASE="$2" "$3"' _ "$directory" "$base" "$AUR_VET_SRC/aur-vet" "$answer"
 }
 
 # AUR RPC fixture for <pkgbase> (ADR 0143): one `info` result. Args are
-# jq-style overrides, e.g. Maintainer=evil NumVotes=0 (values are JSON).
+# overrides, e.g. Maintainer=evil NumVotes=0 (values are JSON).
 aur_vet_rpc() {
   local base="$1"; shift
-  local now; now="$(date +%s)"
-  local j
-  j="$(jq -n --arg b "$base" --argjson t "$((now - 400 * 86400))" '{
-    Name: $b, PackageBase: $b, Maintainer: "fixture-maintainer",
-    Submitter: "fixture-maintainer", FirstSubmitted: $t, LastModified: $t,
-    OutOfDate: null, NumVotes: 100 }')"
-  local kv
-  for kv in "$@"; do
-    j="$(jq --arg k "${kv%%=*}" --argjson v "${kv#*=}" '.[$k] = $v' <<<"$j")"
+  local now submitted result override key value
+  now="$(date +%s)"
+  submitted="$(( now - 400 * 86400 ))"
+  result="$(printf '{"Name":"%s","PackageBase":"%s",' "$base" "$base")"
+  result+='"Maintainer":"fixture-maintainer",'
+  result+='"Submitter":"fixture-maintainer",'
+  result+="$(printf '"FirstSubmitted":%s,"LastModified":%s,' \
+    "$submitted" "$submitted")"
+  result+='"OutOfDate":null,"NumVotes":100}'
+  for override in "$@"; do
+    # "<key>=<json value>"
+    key="$(printf '%s\n' "$override" | cut -d= -f1)"
+    value="$(printf '%s\n' "$override" | cut -d= -f2-)"
+    # The result with <key> set to <value>.
+    result="$(printf '%s\n' "$result" \
+      | jq -c --arg k "$key" --argjson v "$value" '.[$k] = $v')"
   done
-  jq -n --argjson r "$j" '{ resultcount: 1, results: [$r], type: "multiinfo",
-    version: 5 }' > "$AUR_VET_RPC_FIXTURE_DIR/$base.json"
+  printf '{"resultcount":1,"results":[%s],"type":"multiinfo","version":5}\n' \
+    "$result" > "$AUR_VET_RPC_FIXTURE_DIR/$base.json"
 }

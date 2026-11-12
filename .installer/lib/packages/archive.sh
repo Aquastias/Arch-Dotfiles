@@ -32,7 +32,12 @@ _PACKAGES_ARCHIVE_SH_SOURCED=1
 # Arch kernel release strings look like 6.19.10-arch1-1; the matching package
 # version is 6.19.10.arch1-1 — the hyphen before "arch" becomes a dot. Pure.
 archive_kernel_version_to_package_version() {
-  printf '%s\n' "${1/-arch/.arch}"
+  local release="$1" version rest
+  [[ "$release" == *-arch* ]] || { printf '%s\n' "$release"; return 0; }
+  # 6.19.10-arch1-1 → 6.19.10 (before the first `-`) and arch1-1 (after it).
+  version="$(printf '%s\n' "$release" | cut -d- -f1)"
+  rest="$(printf '%s\n' "$release" | cut -d- -f2-)"
+  printf '%s.%s\n' "$version" "$rest"
 }
 
 # Archive URL for an EXACT package version. archive.archlinux.org lays packages

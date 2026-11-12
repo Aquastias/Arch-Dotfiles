@@ -6,6 +6,8 @@
 # rung resolves to, all-rungs-fail abort, the skip path, and the AUR pass
 # (real install only, retried). No paru, no arch-chroot.
 
+load ../lib/text-helpers
+
 setup() {
   T="$(mktemp -d)"
   export MOUNT_ROOT=/mnt
@@ -83,8 +85,14 @@ teardown() { rm -rf "$T"; }
   _runner_aur_detect_user_helper() { return 1; }
   _runner_aur_bootstrap_rung() { printf '%s\n' "$2" >> "$T/order"; return 1; }
   run runner_bootstrap_helper alice
-  # Each rung retried 3x; collapse to first-seen order.
-  [ "$(awk '!seen[$0]++ { joined = joined (joined == "" ? "" : ",") $0 } END { print joined }' "$T/order")" = "paru,paru-bin,yay-bin" ]
+  # Each rung is retried 3x: the rungs in first-tried order, each once,
+  # comma-joined.
+  local rung
+  local -a rungs=()
+  while IFS= read -r rung; do
+    [[ " ${rungs[*]} " == *" $rung "* ]] || rungs+=("$rung")
+  done < "$T/order"
+  [ "$(printf '%s\n' "${rungs[@]}" | paste -sd,)" = "paru,paru-bin,yay-bin" ]
 }
 
 @test "ladder: skips bootstrap when a helper already exists" {
@@ -188,11 +196,12 @@ teardown() { rm -rf "$T"; }
   # run an empty script and falsely pass. Fail every try and assert each of
   # the 3 attempts saw the same non-empty script.
   program_registry_resolve() { echo "cat/prog"; }
-  arch-chroot() { LC_ALL=C awk '{ bytes += length($0) + 1 } END { print bytes + 0 }' >> "$T/sizes"; return 1; }     # consume stdin, fail
+  # Count the script's bytes (consumes stdin), then fail.
+  arch-chroot() { wc -c >> "$T/sizes"; return 1; }
   run _runner_programs_install_user_program alice prog yay
   [ "$status" -ne 0 ]                                   # all tries failed
-  [ "$(awk 'END { print NR }' "$T/sizes")" -eq 3 ]                     # ran 3 times
-  [ "$(sort -u "$T/sizes" | awk 'END { print NR }')" -eq 1 ]             # every try identical...
+  [ "$(wc -l < "$T/sizes")" -eq 3 ]                     # ran 3 times
+  [ "$(sort -u "$T/sizes" | wc -l)" -eq 1 ]           # every try identical...
   [ "$(sort -u "$T/sizes")" -gt 0 ]         # ...and non-empty
 }
 

@@ -4,6 +4,8 @@
 # its home/ — for setup that needs the final config on disk (Doom's sync bakes
 # its config dir's absolute path into the generated profile).
 
+load ../lib/text-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export MOUNT_ROOT="$TEST_DIR/mnt"
@@ -47,9 +49,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "the Config Apply pass runs the hook after placing the config" {
   grep -q 'runner_run_post_config' \
     "$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
-  run awk '/runner_apply_user_config "\$user"/ { a = NR }
-           /runner_run_post_config "\$user"/ { p = NR }
-           END { exit !(a && p && a < p) }' \
-    "$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
-  [ "$status" -eq 0 ]
+  local runner="$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh" apply hook
+  apply="$(line_number_of "$runner" 'runner_apply_user_config "$user"')"
+  hook="$(line_number_of "$runner" 'runner_run_post_config "$user"')"
+  [ -n "$apply" ]
+  [ -n "$hook" ]
+  [ "$apply" -lt "$hook" ]
 }

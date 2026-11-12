@@ -197,3 +197,15 @@ join_words() {
   done
   printf '%s\n' "${words[*]}"
 }
+
+# json_string_array <text>… — the arguments as a compact JSON array of
+# strings, in order: json_string_array a 'b c' → ["a","b c"].
+json_string_array() {
+  local json='[]' text
+  for text in "$@"; do
+    # The array so far, with this string added at the end.
+    json="$(jq -c -n --argjson array "$json" --arg text "$text" \
+      '$array + [$text]')"
+  done
+  printf '%s\n' "$json"
+}

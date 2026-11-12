@@ -487,7 +487,7 @@ every boot without the USB.
 │   │                       # yazi, zsh
 │   └── virtualization/     # docker, podman, virt-manager
 │
-├── aur/                    # AUR Vetting: aur-vet, rules,
+├── aur/                    # AUR Vetting: aur-vet (+ aur-vet-*.sh), rules,
 │                           #   indicators, allowlist (ADR 0143/0149)
 │
 ├── extras/                 # In-chroot extras (DE + DM adapters)

@@ -13,6 +13,10 @@ exempt-file .installer/tests/vm/*.sh
 exempt-file .installer/tests/*-helpers.bash
 exempt-file .installer/tests/**/*-helpers.bash
 exempt-file .installer/programs/**/scripts/*.sh
+# aur-vet is one command (installed to /usr/local/bin) split into modules it
+# sources; its function names are words, no Prefix.
+exempt-file .installer/aur/aur-vet
+exempt-file .installer/aur/aur-vet-*.sh
 
 # Stdlibs: the base vocabulary (info, confirm, parent_directory).
 exempt-file .installer/lib/common.sh
@@ -71,6 +75,7 @@ file .installer/lib/guided/shell*.sh guided_ _guided_shell_
 file .installer/programs/**/audit.sh _probe_ _probe_
 file .installer/extras/**/audit*.sh _probe_ _probe_
 file .installer/lib/packages/package-resolver-desktop.sh package_resolver_ _package_resolver_
+file .installer/lib/packages/package-resolver-layers.sh package_resolver_ _package_resolver_
 file .installer/lib/config/install-config-groups.sh install_config_ _install_config_
 file .installer/lib/config/validation-programs.sh validation_ _validation_
 file .installer/lib/guided/controller*.sh guided_ _controller_

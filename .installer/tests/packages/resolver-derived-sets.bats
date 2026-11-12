@@ -14,7 +14,7 @@ load resolver-helpers
   while IFS=$'\t' read -r s l p; do
     [ -n "$s" ]; [ -n "$p" ]
     [[ "$l" == "authored" || "$l" == "derived" ]]
-  done <<<"$output"
+  done < <(printf '%s\n' "$output")
 }
 
 @test "the Base Package List is always present" {
@@ -40,10 +40,10 @@ load resolver-helpers
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
     package_resolver_resolve '$config'"
-  echo "$output" | grep -qP '^repo\tcore\thtop$'      # core declares it
-  echo "$output" | grep -qP '^repo\thost\tripgrep$'   # this profile adds it
-  echo "$output" | grep -qP '^aur\thost\tbrave-bin$'
-  echo "$output" | grep -qP '^base\tderived\tbase$'
+  output_has_line $'repo\tcore\thtop'      # core declares it
+  output_has_line $'repo\thost\tripgrep'   # this profile adds it
+  output_has_line $'aur\thost\tbrave-bin'
+  output_has_line $'base\tderived\tbase'
   rm -rf "$test_directory"
 }
 
@@ -53,7 +53,7 @@ load resolver-helpers
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
     package_resolver_resolve '{\"users\":[],\"packages\":{\"repo\":{\"c\":[\"htop\"]}}}'"
-  echo "$output" | grep -qP '^repo\tauthored\thtop$'
+  output_has_line $'repo\tauthored\thtop'
   rm -rf "$test_directory"
 }
 
@@ -66,9 +66,9 @@ load resolver-helpers
   nvidia="$(packages_of '{"users":[],"environment":{"gpu":["nvidia"]}}' gpu)"
   intel="$(packages_of '{"users":[],"environment":{"gpu":["intel"]}}' gpu)"
 
-  grep -qx "vulkan-radeon"    <<<"$amd"
-  grep -qx "nvidia-open-dkms" <<<"$nvidia"
-  grep -qx "intel-media-driver" <<<"$intel"
+  text_has_line "$amd" "vulkan-radeon"
+  text_has_line "$nvidia" "nvidia-open-dkms"
+  text_has_line "$intel" "intel-media-driver"
   [ "$amd" != "$nvidia" ]
   [ "$nvidia" != "$intel" ]
 }
@@ -76,9 +76,9 @@ load resolver-helpers
 @test "a hybrid GPU config resolves both vendors' drivers" {
   local both; both="$(packages_of '{"users":[],
     "environment":{"gpu":["amd","nvidia"]}}' gpu)"
-  grep -qx "vulkan-radeon"    <<<"$both"
-  grep -qx "nvidia-open-dkms" <<<"$both"
-  grep -qx "nvidia-prime"     <<<"$both" # prime-run (ADR 0161)
+  text_has_line "$both" "vulkan-radeon"
+  text_has_line "$both" "nvidia-open-dkms"
+  text_has_line "$both" "nvidia-prime" # prime-run (ADR 0161)
 }
 
 @test "changing the desktop selection changes the audio and Plasma sets" {
@@ -86,12 +86,12 @@ load resolver-helpers
   none="$(packages_of '{"users":[],"environment":{"desktop":[]}}')"
   kde="$(packages_of  '{"users":[],"environment":{"desktop":["kde"],"stock":false}}')"
 
-  ! grep -qx "pipewire"    <<<"$none"
-  ! grep -qx "plasma-meta" <<<"$none"
-  grep -qx "pipewire"    <<<"$kde"
-  grep -qx "wireplumber" <<<"$kde"
-  grep -qx "plasma-meta" <<<"$kde"
-  grep -qx "konsole"     <<<"$kde"
+  ! text_has_line "$none" "pipewire"
+  ! text_has_line "$none" "plasma-meta"
+  text_has_line "$kde" "pipewire"
+  text_has_line "$kde" "wireplumber"
+  text_has_line "$kde" "plasma-meta"
+  text_has_line "$kde" "konsole"
 }
 
 
@@ -103,8 +103,8 @@ load resolver-helpers
   got="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' niri-shell)"
   want="$(niri_core_packages | sort)"
   [ "$(printf '%s\n' "$got" | sort)" = "$want" ]
-  grep -qx "niri" <<<"$got"
-  grep -qx "seatd" <<<"$got"
+  text_has_line "$got" "niri"
+  text_has_line "$got" "seatd"
 }
 
 @test "niri-shell set is empty when niri is not selected" {
@@ -116,10 +116,10 @@ load resolver-helpers
 @test "noctalia set reports the work preset when wayland_shell defaults on" {
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
-  grep -qx "noctalia"      <<<"$noctalia_packages"
-  grep -qx "kitty"         <<<"$noctalia_packages"
-  grep -qx "brightnessctl" <<<"$noctalia_packages"
-  grep -qx "playerctl"     <<<"$noctalia_packages"   # media-key backend (ADR 0096)
+  text_has_line "$noctalia_packages" "noctalia"
+  text_has_line "$noctalia_packages" "kitty"
+  text_has_line "$noctalia_packages" "brightnessctl"
+  text_has_line "$noctalia_packages" "playerctl"   # media-key backend (ADR 0096)
 }
 
 @test "noctalia set is empty for bare niri (wayland_shell=none)" {
@@ -133,11 +133,11 @@ load resolver-helpers
 @test "noctalia set reports the shared preset on hyprland too (ADR 0097)" {
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["hyprland"],"stock":false}}' noctalia)"
-  grep -qx "noctalia"      <<<"$noctalia_packages"
-  grep -qx "kitty"         <<<"$noctalia_packages"
-  grep -qx "playerctl"     <<<"$noctalia_packages"
-  grep -qx "smartmontools" <<<"$noctalia_packages"   # drive-health: a shared-core plugin dep
-  grep -qx "socat"         <<<"$noctalia_packages"   # hypr-submap/screen-mirror: hypr-slice dep
+  text_has_line "$noctalia_packages" "noctalia"
+  text_has_line "$noctalia_packages" "kitty"
+  text_has_line "$noctalia_packages" "playerctl"
+  text_has_line "$noctalia_packages" "smartmontools"   # drive-health: a shared-core plugin dep
+  text_has_line "$noctalia_packages" "socat"   # hypr-submap/screen-mirror: hypr-slice dep
 }
 
 @test "noctalia set is empty for bare hyprland (wayland_shell=none)" {
@@ -157,7 +157,7 @@ load resolver-helpers
     '{"users":[],"environment":{"desktop":["kde"],"stock":true}}' kde-shell)"
   apps="$(packages_of \
     '{"users":[],"environment":{"desktop":["kde"],"stock":true}}' kde-apps)"
-  grep -qx "plasma-meta" <<<"$shell"
+  text_has_line "$shell" "plasma-meta"
   [ -z "$apps" ]
 }
 
@@ -172,20 +172,20 @@ load resolver-helpers
   # bitwarden left the default set; its CLI backend must no longer resolve
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
-  ! grep -qx "bitwarden-cli" <<<"$noctalia_packages"
+  ! text_has_line "$noctalia_packages" "bitwarden-cli"
 }
 
 @test "noctalia set reports enriched plugin tool deps (ADR 0093/0094)" {
   # committed install-noctalia.jsonc enables the curated plugin set by default
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
-  grep -qx "smartmontools" <<<"$noctalia_packages"   # drive-health
-  grep -qx "wl-mirror"     <<<"$noctalia_packages"    # wl-screen-mirror
-  grep -qx "fzf"           <<<"$noctalia_packages"    # file-search
-  grep -qx "ollama"        <<<"$noctalia_packages"    # llamanager
-  grep -qx "iw"            <<<"$noctalia_packages"    # hotspot
-  grep -qx "bind"          <<<"$noctalia_packages"    # dns-switcher
-  ! grep -qx "docker"      <<<"$noctalia_packages"    # mini-docker was dropped (ADR 0094)
+  text_has_line "$noctalia_packages" "smartmontools"   # drive-health
+  text_has_line "$noctalia_packages" "wl-mirror"    # wl-screen-mirror
+  text_has_line "$noctalia_packages" "fzf"    # file-search
+  text_has_line "$noctalia_packages" "ollama"    # llamanager
+  text_has_line "$noctalia_packages" "iw"    # hotspot
+  text_has_line "$noctalia_packages" "bind"    # dns-switcher
+  ! text_has_line "$noctalia_packages" "docker"    # mini-docker was dropped (ADR 0094)
 }
 
 @test "noctalia set reports upower from the base preset, not the battery pair" {
@@ -193,7 +193,7 @@ load resolver-helpers
   # still reports no battery plugin of its own
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["niri"],"stock":false}}' noctalia)"
-  [ "$(grep -cx "upower" <<<"$noctalia_packages")" -eq 1 ]
+  [ "$(printf '%s\n' "$noctalia_packages" | grep -cx upower)" -eq 1 ]
 }
 
 @test "noctalia set reports battery deps when laptop is forced true" {
@@ -205,7 +205,7 @@ load resolver-helpers
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
     package_resolver_resolve '{\"users\":[],\"environment\":{\"desktop\":[\"niri\"],\"stock\":false}}'"
-  echo "$output" | grep -qP '^noctalia\tderived\tupower$'
+  output_has_line $'noctalia\tderived\tupower'
   rm -rf "$test_directory"
 }
 
@@ -215,8 +215,8 @@ load resolver-helpers
 @test "display-manager set: auto on a kde-only box resolves to sddm" {
   local display_manager_packages
   display_manager_packages="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' display-manager)"
-  grep -qx "sddm" <<<"$display_manager_packages"
-  ! grep -qx "greetd" <<<"$display_manager_packages"
+  text_has_line "$display_manager_packages" "sddm"
+  ! text_has_line "$display_manager_packages" "greetd"
 }
 
 @test "display-manager set: auto on a Noctalia hyprland box is noctalia-greeter" {
@@ -252,8 +252,8 @@ load resolver-helpers
   local display_manager_packages
   display_manager_packages="$(packages_of \
     '{"users":[],"environment":{"desktop":["kde","hyprland"],"stock":false}}' display-manager)"
-  grep -qx "sddm" <<<"$display_manager_packages"
-  ! grep -qx "greetd" <<<"$display_manager_packages"
+  text_has_line "$display_manager_packages" "sddm"
+  ! text_has_line "$display_manager_packages" "greetd"
 }
 
 @test "display-manager set: an explicit greetd on a kde box wins over auto" {
@@ -261,9 +261,9 @@ load resolver-helpers
   display_manager_packages="$(packages_of \
     '{"users":[],"environment":{"desktop":["kde"],"stock":false,"display_manager":"greetd"}}' \
     display-manager)"
-  grep -qx "greetd"          <<<"$display_manager_packages"
-  grep -qx "greetd-tuigreet" <<<"$display_manager_packages"
-  ! grep -qx "sddm" <<<"$display_manager_packages"
+  text_has_line "$display_manager_packages" "greetd"
+  text_has_line "$display_manager_packages" "greetd-tuigreet"
+  ! text_has_line "$display_manager_packages" "sddm"
 }
 
 @test "display-manager set: explicit noctalia-greeter is greetd + the greeter" {
@@ -283,8 +283,8 @@ load resolver-helpers
 @test "sddm is no longer reported inside the kde-shell set" {
   local kdeshell
   kdeshell="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
-  grep -qx "sddm-kcm" <<<"$kdeshell"
-  ! grep -qx "sddm" <<<"$kdeshell"
+  text_has_line "$kdeshell" "sddm-kcm"
+  ! text_has_line "$kdeshell" "sddm"
 }
 
 # Drift guard (Candidate 5): the KDE adapter installs shell_packages from
@@ -292,13 +292,15 @@ load resolver-helpers
 # kde-shell set equals the jsonc data, so install and query cannot diverge.
 @test "kde-shell source == install-kde.jsonc shell + curated shell packages" {
   source "$INSTALLER_DIR/lib/config/categorized-list.sh"
-  local json expected got stock_expected stock_got
+  local json expected got stock_expected stock_got shell_json curated_json
   json="$(jsonc_strip "$INSTALLER_DIR/extras/desktop/kde/install-kde.jsonc")"
-  stock_expected="$(categorized_list_parse \
-    "$(jq -c '.shell_packages' <<<"$json")" bool shell_packages | sort -u)"
+  # The adapter's two shell lists.
+  shell_json="$(printf '%s\n' "$json" | jq -c '.shell_packages')"
+  curated_json="$(printf '%s\n' "$json" | jq -c '.curated_shell_packages')"
+  stock_expected="$(categorized_list_parse "$shell_json" bool shell_packages \
+    | sort -u)"
   expected="$({ printf '%s\n' "$stock_expected"; categorized_list_parse \
-    "$(jq -c '.curated_shell_packages' <<<"$json")" bool \
-    curated_shell_packages; } | sort -u)"
+    "$curated_json" bool curated_shell_packages; } | sort -u)"
   got="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
   diff <(printf '%s\n' "$expected") <(printf '%s\n' "$got")
   # stock KDE reports the shell_packages alone (ADR 0157)
@@ -309,7 +311,7 @@ load resolver-helpers
 @test "kde-shell set includes the packaged weather widget (ADR 0120)" {
   local shell
   shell="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' kde-shell)"
-  grep -qx "plasma-applets-weather-widget-3" <<<"$shell" \
+  text_has_line "$shell" "plasma-applets-weather-widget-3" \
     || { echo "kde-shell missing plasma-applets-weather-widget-3"; return 1; }
 }
 
@@ -317,15 +319,15 @@ load resolver-helpers
   local apps
   apps="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' \
     kde-apps-extra)"
-  grep -qx "orca" <<<"$apps" || { echo "extra-apps missing orca"; return 1; }
-  grep -qx "vlc"  <<<"$apps" || { echo "extra-apps missing vlc";  return 1; }
+  text_has_line "$apps" "orca" || { echo "extra-apps missing orca"; return 1; }
+  text_has_line "$apps" "vlc" || { echo "extra-apps missing vlc";  return 1; }
 }
 
 @test "the derived audio set covers the formerly hand-declared packages" {
   local audio_packages; audio_packages="$(packages_of '{"users":[],"environment":{"desktop":["kde"],"stock":false}}' audio)"
   local package
   for package in gst-plugin-pipewire pipewire-jack libpulse; do
-    grep -qx "$package" <<<"$audio_packages" || { echo "audio set missing: $package"; return 1; }
+    text_has_line "$audio_packages" "$package" || { echo "audio set missing: $package"; return 1; }
   done
 }
 
@@ -335,25 +337,25 @@ load resolver-helpers
   btrfs="$(packages_of '{"users":[],"filesystem":"btrfs"}')"
   xfs="$(packages_of   '{"users":[],"filesystem":"xfs"}')"
 
-  grep -qx "zfs-dkms"    <<<"$zfs"
-  ! grep -qx "zfs-dkms"  <<<"$btrfs"
-  grep -qx "btrfs-progs" <<<"$btrfs"
-  grep -qx "xfsprogs"    <<<"$xfs"
+  text_has_line "$zfs" "zfs-dkms"
+  ! text_has_line "$btrfs" "zfs-dkms"
+  text_has_line "$btrfs" "btrfs-progs"
+  text_has_line "$xfs" "xfsprogs"
 }
 
 @test "a per-group filesystem contributes its tools too" {
   local packages; packages="$(packages_of '{"users":[],"filesystem":"zfs",
     "data_pools":[{"name":"t","filesystem":"btrfs"}]}')"
-  grep -qx "zfs-dkms"    <<<"$packages"
-  grep -qx "btrfs-progs" <<<"$packages"
+  text_has_line "$packages" "zfs-dkms"
+  text_has_line "$packages" "btrfs-progs"
 }
 
 @test "changing the bootloader changes the bootloader package" {
   local systemd_boot_packages grub
   systemd_boot_packages="$(packages_of   '{"users":[],"options":{"bootloader":"systemd-boot"}}')"
   grub="$(packages_of '{"users":[],"options":{"bootloader":"grub"}}')"
-  ! grep -qx "grub" <<<"$systemd_boot_packages"
-  grep -qx "grub"   <<<"$grub"
+  ! text_has_line "$systemd_boot_packages" "grub"
+  text_has_line "$grub" "grub"
 }
 
 @test "new loaders resolve their manifest package (ADR 0077)" {
@@ -361,12 +363,12 @@ load resolver-helpers
   limine="$(packages_of  '{"users":[],"options":{"bootloader":"limine"}}')"
   refind="$(packages_of  '{"users":[],"options":{"bootloader":"refind"}}')"
   efistub="$(packages_of '{"users":[],"options":{"bootloader":"efistub"}}')"
-  grep -qx "limine" <<<"$limine"
-  grep -qx "refind" <<<"$refind"
+  text_has_line "$limine" "limine"
+  text_has_line "$refind" "refind"
   # efistub needs no extra package beyond efibootmgr (already in base)
-  ! grep -qx "grub"   <<<"$efistub"
-  ! grep -qx "limine" <<<"$efistub"
-  ! grep -qx "refind" <<<"$efistub"
+  ! text_has_line "$efistub" "grub"
+  ! text_has_line "$efistub" "limine"
+  ! text_has_line "$efistub" "refind"
 }
 
 @test "changing the kernel selection changes the kernel packages" {
@@ -375,8 +377,8 @@ load resolver-helpers
   zen="$(packages_of   '{"users":[],"options":{"kernel":["zen"]}}' kernel)"
   multi="$(packages_of '{"users":[],"options":{"kernel":["lts","zen"]}}' kernel)"
   [ "$lts" = "$(printf 'linux-lts\nlinux-lts-headers')" ]
-  grep -qx "linux-zen" <<<"$zen"
-  [ "$(awk 'END { print NR }' <<<"$multi")" -eq 4 ]
+  text_has_line "$zen" "linux-zen"
+  [ "$(printf '%s\n' "$multi" | wc -l)" -eq 4 ]
 }
 
 @test "Security and Backup Extras resolve from post_install" {
@@ -386,10 +388,10 @@ load resolver-helpers
     "backup":{"zfs_auto_snapshot":true,"borg":true}}}'
   local security_packages bak
   security_packages="$(packages_of "$config" security)"; bak="$(packages_of "$config" backup)"
-  grep -qx "firewalld" <<<"$security_packages"
-  grep -qx "clamav"    <<<"$security_packages"
-  grep -qx "borg"      <<<"$bak"
-  grep -qx "zfs-auto-snapshot" <<<"$bak"
+  text_has_line "$security_packages" "firewalld"
+  text_has_line "$security_packages" "clamav"
+  text_has_line "$bak" "borg"
+  text_has_line "$bak" "zfs-auto-snapshot"
 }
 
 @test "toggling a security tool changes the resolved set" {
@@ -398,7 +400,7 @@ load resolver-helpers
     {"firewall":"firewalld","apparmor":true}}}' security)"
   off="$(packages_of '{"users":["a"],"post_install":{"security":
     {"firewall":"none","apparmor":false}}}' security)"
-  grep -qx "firewalld" <<<"$on"
+  text_has_line "$on" "firewalld"
   [ -z "$off" ]
 }
 
@@ -470,6 +472,6 @@ load resolver-helpers
   local gpu_packages
   gpu_packages="$(packages_of \
     '{"users":[],"environment":{"gpu":"nvidia"},"options":{"optional_repos":[]}}' gpu)"
-  grep -qx "nvidia-utils" <<<"$gpu_packages"
-  ! grep -q "^lib32-" <<<"$gpu_packages"
+  text_has_line "$gpu_packages" "nvidia-utils"
+  [[ $'\n'"$gpu_packages" != *$'\nlib32-'* ]]  # no lib32-* package
 }

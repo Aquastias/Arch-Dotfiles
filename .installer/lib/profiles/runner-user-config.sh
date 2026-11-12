@@ -39,11 +39,13 @@ CHROOT_DOTFILES
 runner_apply_sysctl() {
   local host_json="$1"
   local sysctl_json
+  # The host's sysctl object (nothing when absent).
   sysctl_json="$(printf '%s' "$host_json" \
     | jq -c '.sysctl // empty' 2>/dev/null)"
   [[ -n "$sysctl_json" ]] || return 0
   info "Writing sysctl defaults to /etc/sysctl.d/99-os.conf"
   mkdir -p "${MOUNT_ROOT}/etc/sysctl.d"
+  # One "<key> = <value>" line per setting.
   printf '%s' "$sysctl_json" \
     | jq -r 'to_entries[] | "\(.key) = \(.value)"' \
     > "${MOUNT_ROOT}/etc/sysctl.d/99-os.conf"
@@ -55,11 +57,12 @@ runner_apply_sysctl() {
 # lives once.
 _runner_user_config_names_to_relative_paths() {
   local name relative_path
+  # Each name in the array.
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     relative_path="$(program_registry_resolve "$name" 2>/dev/null)" || continue
     printf '%s\n' "$relative_path"
-  done < <(jq -r '.[]' <<<"$1")
+  done < <(printf '%s\n' "$1" | jq -r '.[]')
 }
 
 # _runner_user_config_plan_relative_paths <user-json> <ships-home-json>
@@ -69,11 +72,13 @@ _runner_user_config_names_to_relative_paths() {
 #   user's config_exclude. Pure planning delegated to config_apply_plan.
 _runner_user_config_plan_relative_paths() {
   local user_json="$1" ships="$2" sysprogs="$3"
-  local selected exclude plan
-  selected="$(jq -c -n \
-    --argjson u "$(jq -c '.programs // []' <<<"$user_json")" \
-    --argjson s "$sysprogs" '$s + $u')"
-  exclude="$(jq -c '.config_exclude // []' <<<"$user_json")"
+  local user_programs selected exclude plan
+  # The user's programs and config_exclude ([] when absent).
+  user_programs="$(printf '%s\n' "$user_json" | jq -c '.programs // []')"
+  exclude="$(printf '%s\n' "$user_json" | jq -c '.config_exclude // []')"
+  # The host programs, then the user's.
+  selected="$(jq -c -n --argjson u "$user_programs" --argjson s "$sysprogs" \
+    '$s + $u')"
   plan="$(config_apply_plan "$selected" "$ships" "$exclude")"
   _runner_user_config_names_to_relative_paths "$plan"
 }

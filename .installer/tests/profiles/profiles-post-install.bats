@@ -20,11 +20,11 @@ setup() {
 
 # secure_baseline — every extra on: the fleet hosts' selection, a full fixture.
 secure_baseline() {
-  jq -nc '{
-    security: { firewall: "firewalld", antivirus: true, rootkit: true,
-                apparmor: true },
-    backup:   { zfs_auto_snapshot: true, borg: true }
-  }'
+  cat <<'JSON'
+{"security": {"firewall": "firewalld", "antivirus": true, "rootkit": true,
+              "apparmor": true},
+ "backup":   {"zfs_auto_snapshot": true, "borg": true}}
+JSON
 }
 
 @test "a tool in both post_install and the user's programs installs once" {

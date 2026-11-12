@@ -18,7 +18,9 @@ teardown() { aur_vet_teardown; }
 
 @test "hardening: a hostile .SRCINFO pkgname never reaches the RPC URL" {
   local clone_directory; clone_directory="$(aur_vet_clone electron-benign)"
-  sed -i 's/^pkgname = .*/pkgname = x{a,b}\&arg[]=evil#/' "$clone_directory/.SRCINFO"
+  local hostile='s/^pkgname = .*/pkgname = x{a,b}\&arg[]=evil#/'
+  # Give the pkgname URL and shell metacharacters.
+  sed -i "$hostile" "$clone_directory/.SRCINFO"
   git -C "$clone_directory" -c user.name=m -c user.email=m@aur commit -q -am name
   mkdir -p "$T/bin"
   printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> "%s/curl.args"\nexit 7\n' "$T" \

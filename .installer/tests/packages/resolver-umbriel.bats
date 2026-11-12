@@ -15,8 +15,8 @@ load resolver-helpers
 @test "umbriel-aur set reports the AUR compositor and its portal" {
   local got
   got="$(packages_of '{"users":[],"environment":{"desktop":["umbriel"],"stock":true}}' umbriel-aur)"
-  grep -qx umbriel-git <<<"$got"
-  grep -qx xdg-desktop-portal-umbriel-git <<<"$got"
+  text_has_line "$got" umbriel-git
+  text_has_line "$got" xdg-desktop-portal-umbriel-git
 }
 
 @test "umbriel sets are empty when Umbriel is not selected" {
@@ -28,7 +28,7 @@ load resolver-helpers
 @test "noctalia set reports the work preset on a Noctalia Umbriel box" {
   local noctalia_packages
   noctalia_packages="$(packages_of '{"users":[],"environment":{"desktop":["umbriel"],"stock":false}}' noctalia)"
-  grep -qx noctalia <<<"$noctalia_packages"
+  text_has_line "$noctalia_packages" noctalia
 }
 
 @test "noctalia set is empty for stock Umbriel" {

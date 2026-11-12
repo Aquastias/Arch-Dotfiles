@@ -72,8 +72,10 @@ NOT_OURS='^(\.installer/|\.scratch/|\.agents/skills/)'
 
 scanned_files() {
   local installer_files other_files
+  # aur-vet is installed as a command, so it has no .sh.
   installer_files="$(git ls-files '.installer/*.sh' '.installer/*.bash' \
-    '.installer/*.bats' '.installer/*.jq' '.installer/*.awk')"
+    '.installer/*.bats' '.installer/*.jq' '.installer/*.awk' \
+    '.installer/aur/aur-vet')"
   other_files="$(git ls-files '*.sh' '.local/bin/*' \
     | grep -vE "$NOT_OURS" || true)"
   printf '%s\n' "$installer_files" "$other_files" \

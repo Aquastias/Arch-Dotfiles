@@ -4,6 +4,19 @@
 # vets its clone before makepkg; paru carries the PreBuildCommand hook; AUR
 # builds refuse to run under yay.
 
+load ../lib/text-helpers
+
+# hook_section <paru.conf> — the [section] header above each PreBuildCommand
+# line.
+hook_section() {
+  local line section=""
+  while IFS= read -r line; do
+    [[ "$line" == "["* ]] && section="$line"
+    [[ "$line" == PreBuildCommand* ]] && printf '%s\n' "$section"
+  done < "$1"
+  return 0
+}
+
 setup() {
   T="$(mktemp -d)"
   export MOUNT_ROOT="$T/mnt"
@@ -26,7 +39,9 @@ teardown() { rm -rf "$T"; }
   runner_install_aur_vet
   [ -x "$MOUNT_ROOT/usr/local/bin/aur-vet" ]
   local installed_file
-  for installed_file in scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv; do
+  for installed_file in scan.awk rules.tsv indicators.tsv campaigns.tsv \
+    sources.tsv aur-vet-scan.sh aur-vet-trust.sh aur-vet-allowlist.sh \
+    aur-vet-maintenance.sh; do
     [ -f "$MOUNT_ROOT/usr/local/share/aur-vet/$installed_file" ]
   done
   [ ! -e "$MOUNT_ROOT/etc/aur-vet/vetted.tsv" ]   # no pin store (ADR 0149)
@@ -67,8 +82,8 @@ SH
   _fake_rung_env 0
   run _runner_aur_bootstrap_rung alice paru-bin
   [ "$status" -eq 0 ]
-  [ "$(awk '/aur-vet/ { print NR }' "$CALLS")" -lt \
-    "$(awk '/makepkg/ { print NR }' "$CALLS")" ]
+  [ "$(line_number_of "$CALLS" aur-vet)" -lt \
+    "$(line_number_of "$CALLS" makepkg)" ]
   grep -q "aur-vet UNATTENDED=1 PKGBASE=paru-bin" "$CALLS"
 }
 
@@ -126,8 +141,7 @@ SH
     > "$T/paru.conf"
   runner_wire_paru_hook "$T/paru.conf"
   [ "$(grep -c PreBuildCommand "$T/paru.conf")" -eq 1 ]
-  [ "$(awk '/^\[/ { s = $0 } /^PreBuildCommand/ { print s }' \
-    "$T/paru.conf")" = "[bin]" ]
+  [ "$(hook_section "$T/paru.conf")" = "[bin]" ]
   runner_wire_paru_hook "$T/paru.conf"
   [ "$(grep -c PreBuildCommand "$T/paru.conf")" -eq 1 ]
 }
@@ -135,8 +149,7 @@ SH
 @test "paru.conf: a config without [bin] gains one (a #[bin] doesn't count)" {
   printf '[options]\nBottomUp\n\n#[bin]\n#Sudo = doas\n' > "$T/paru.conf"
   runner_wire_paru_hook "$T/paru.conf"
-  [ "$(awk '/^\[/ { s = $0 } /^PreBuildCommand/ { print s }' \
-    "$T/paru.conf")" = "[bin]" ]
+  [ "$(hook_section "$T/paru.conf")" = "[bin]" ]
   grep -qx 'BottomUp' "$T/paru.conf"
 }
 

@@ -4,6 +4,7 @@
 # tests/, ../lib/text-helpers from a subdirectory).
 #
 #   output_has_line <line>        — one line of $output is exactly <line>
+#   text_has_line <text> <line>   — one line of <text> is exactly <line>
 #   first_line_matching <file> <re> — first line matching <re>, by number
 #   last_line_matching <file> <re>  — last line matching <re>, by number
 #   function_body <file> <name>     — one function definition of <file>
@@ -30,6 +31,15 @@ output_has_line() {
   for line in "${lines[@]}"; do
     [[ "$line" == "$1" ]] && return 0
   done
+  return 1
+}
+
+# text_has_line <text> <line> — 0 when one line of <text> is exactly <line>.
+text_has_line() {
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == "$2" ]] && return 0
+  done < <(printf '%s\n' "$1")
   return 1
 }
 

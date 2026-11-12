@@ -101,7 +101,8 @@ _package_list_add_kernels() {
   # archzfs-safe kernel. No-op when unset — the happy path stays
   # byte-identical.
   if [[ -n "${LTS_PIN_SPECS:-}" ]]; then
-    local -a pin_specs; read -ra pin_specs <<<"$LTS_PIN_SPECS"
+    local -a pin_specs
+    read -ra pin_specs < <(printf '%s\n' "$LTS_PIN_SPECS")
     local i
     for i in "${!kernel_packages[@]}"; do
       case "${kernel_packages[$i]}" in
@@ -137,7 +138,8 @@ _package_list_add_config_packages() {
   # silently dropped. AUR packages (packages.aur) are handled separately in
   # profiles.sh via paru.
   local repo_json
-  repo_json="$(jq -c '.packages.repo // {}' <<<"$config_json")"
+  # The packages.repo object (an empty one when absent).
+  repo_json="$(printf '%s\n' "$config_json" | jq -c '.packages.repo // {}')"
   while IFS= read -r package; do
     [[ -n "$package" ]] && packages+=("$package")
   done < <(categorized_list_parse "$repo_json" string "packages.repo")
@@ -159,7 +161,7 @@ _package_list_add_config_packages() {
 _package_list_add_zfs_userland() {
   [[ "$(install_config_any_zfs)" == "true" ]] || return 0
   local -a zfs_packages
-  read -ra zfs_packages <<<"$(filesystem_userland_packages zfs)"
+  read -ra zfs_packages < <(filesystem_userland_packages zfs)
   # archzfs prebuilt for a pure-lts install (ADR 0137): archzfs's zfs-dkms
   # source fails to build even at the ceiling, but its prebuilt zfs-linux-lts
   # for the pinned linux-lts works. Swap zfs-dkms -> zfs-linux-lts when one is
@@ -187,14 +189,14 @@ _package_list_add_zfs_userland() {
 _package_list_add_filesystem_userland() {
   local -a tools
   if [[ "$(install_config_any_nonzfs_luks)" == "true" ]]; then
-    read -ra tools <<<"$(filesystem_luks_userland_packages)"
+    read -ra tools < <(filesystem_luks_userland_packages)
     packages+=("${tools[@]}")
   fi
   local filesystem
   for filesystem in xfs btrfs; do
     [[ "$(install_config_uses_filesystem "$filesystem")" == "true" ]] \
       || continue
-    read -ra tools <<<"$(filesystem_userland_packages "$filesystem")"
+    read -ra tools < <(filesystem_userland_packages "$filesystem")
     packages+=("${tools[@]}")
   done
 }
@@ -212,8 +214,9 @@ package_list_reflector_country_arguments() {
   mapfile -t countries < <(install_config_mirror_countries)
   # No countries: no --country, so reflector ranks every mirror (ADR 0157).
   ((${#countries[@]})) || return 0
-  local joined; printf -v joined '%s,' "${countries[@]}"
-  printf '%s\n' "--country" "${joined%,}"
+  local joined
+  joined="$(printf '%s\n' "${countries[@]}" | paste -sd,)"
+  printf '%s\n' "--country" "$joined"
 }
 
 # package_list_prepend_custom_mirror_servers — write the operator's custom
@@ -323,9 +326,10 @@ _package_list_clean_target_cache() {
       "$cache_directory"*.pkg.tar.xz \
       "$cache_directory"*.pkg.tar.gz \
       "$cache_directory"*.pkg.tar 2>/dev/null || true
-    info "Package cache cleared" \
-         "($(du -sh "$cache_directory" 2>/dev/null \
-            | awk '{ print $1 }') remaining)."
+    # du -sh prints "<size><TAB><directory>".
+    local remaining
+    remaining="$(du -sh "$cache_directory" 2>/dev/null | cut -f1)"
+    info "Package cache cleared (${remaining} remaining)."
   fi
 
 }

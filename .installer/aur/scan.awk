@@ -12,7 +12,8 @@
 # =============================================================================
 BEGIN {
   FS = "\t"
-  # Clone-derived inputs come via the environment (aur-vet _scan_tree).
+  # Clone-derived inputs come via the environment (aur-vet-scan.sh
+  # scan_tree).
   root = ENVIRON["AV_ROOT"]; pkgbase = ENVIRON["AV_PKGBASE"]
   days = ENVIRON["AV_DAYS"]; binaries = ENVIRON["AV_BINARIES"]
   tracked = ENVIRON["AV_TRACKED"]
@@ -81,6 +82,9 @@ FNR == 1 {
   if (kind == "srcinfo") have_srcinfo = 1
   repo_file(f)
 }
+
+# Every line of every file: classify it, then run each rules.tsv
+# rule whose scope fits and print its finding.
 {
   line = $0
   comment = (line ~ /^[[:space:]]*#/)
@@ -124,6 +128,8 @@ FNR == 1 {
   if (kind == "pkgbuild") pkgbuild_post(line)
 }
 
+# After the last file: the clone-wide checks (binaries, -bin package,
+# pkgbase Indicators, checksums, references, sources, hosts).
 END {
   if (list_trust || list_indicators) exit
   binaries_emit()
@@ -168,6 +174,8 @@ function norm(s,   out) {
   return out s
 }
 
+# Print one finding of builtin rule <id> (TSV: severity id file line
+# description, then " [detail]" if any). An id rules.tsv lacks prints nothing.
 function emit(id, file, ln, detail) {
   if (id in bsev)
     printf "%s\t%s\t%s\t%d\t%s%s\n", bsev[id], id, file, ln, bdesc[id], \
@@ -204,6 +212,9 @@ function indicators_pkgbase(   c, k, nd, d) {
     }
   emit("indicator-pkgbase-past", "PKGBUILD", 0, c)
 }
+
+# Does <w> occur in <s> as a whole word? Not when a letter, digit, _, . or -
+# comes before it, or a letter, digit, _ or - after it.
 function has_word(s, w,   p, i, a, b) {
   p = 0
   while ((i = index(substr(s, p + 1), w)) > 0) {
@@ -213,6 +224,10 @@ function has_word(s, w,   p, i, a, b) {
   }
   return 0
 }
+
+# Does host <h> occur in <s> as a host? It must end there (no letter, digit,
+# _ or - after) and follow /, @ or . (as in a URL or subdomain). A bare IP or
+# .onion also counts at the start or after any other character.
 function has_host(s, h,   p, i, a, b, bare) {
   bare = (h ~ /^[0-9.]+$/ || h ~ /\.onion$/)
   p = 0
@@ -258,6 +273,9 @@ function pkgbuild_pre(l,   m) {
   }
   curtop = 1
 }
+
+# After a PKGBUILD line: count its braces, so the end of the current
+# function's body is known.
 function pkgbuild_post(l,   t, o, cl) {
   if (!infn) return
   t = l; o = gsub(/\{/, "", t); t = l; cl = gsub(/\}/, "", t)
@@ -283,9 +301,13 @@ function hosts_of(l, arr, ln,   s, h) {
     s = substr(s, RSTART + RLENGTH)
   }
 }
+
+# Does <l> assign a source array (source= or source_<arch>=)?
 function is_source(l) {
   return l ~ /^[[:space:]]*source(_[[:alnum:]_]+)?[[:space:]]*=/
 }
+
+# The URL of a source line: after the `=`, without a `name::` prefix.
 function source_url(l,   u) {
   u = l; sub(/^[^=]*=[[:space:]]*/, "", u); sub(/^[^:\/]*::/, "", u)
   return u
@@ -401,6 +423,9 @@ function pvar_set(name, l,   v) {
   if (v ~ /^".*"$/ || v ~ /^'.*'$/) v = substr(v, 2, length(v) - 2)
   pvar[name] = v
 }
+
+# <s> with each $var / ${var} replaced by the PKGBUILD's value for it
+# (pvar); three passes, for variables built from variables.
 function expand(s,   pass, out, v, n) {
   for (pass = 0; pass < 3; pass++) {
     out = ""
@@ -413,6 +438,9 @@ function expand(s,   pass, out, v, n) {
   }
   return s
 }
+
+# The hosts of every PKGBUILD code line, variables expanded. A URL whose
+# host is still a variable is a srcinfo-mismatch.
 function pkgbuild_hosts(   k, e) {
   for (k = 1; k <= npb; k++) {
     e = expand(pbl[k])

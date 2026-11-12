@@ -50,13 +50,21 @@ ARCHZFS_LTS_API=\
 
 # Emit archzfs release asset names, one per line.
 _archzfs_kernel_fetch_lts_assets() {
+  # The name of every file attached to the release.
   curl -fsSL "$ARCHZFS_LTS_API" 2>/dev/null | jq -r '.assets[]?.name'
 }
 
 # The current mirror's linux-lts package version (e.g. 6.19.3-1). Requires the
 # core db synced (it is, by the time package_list_install_base runs pacstrap).
+# pacman -Si prints "Version         : 6.19.3-1" among its fields.
 _archzfs_kernel_mirror_lts_package_version() {
-  pacman -Si linux-lts 2>/dev/null | awk '/^Version/{print $3; exit}'
+  local key _colon value
+  while read -r key _colon value; do
+    if [[ "$key" == Version ]]; then
+      printf '%s\n' "$value"
+      return 0
+    fi
+  done < <(pacman -Si linux-lts 2>/dev/null)
 }
 
 # ── Ceiling lookup ───────────────────────────────────────────────────────────
@@ -74,34 +82,40 @@ archzfs_kernel_lts_package_version() {
     printf '%s\n' "$ARCHZFS_LTS_CEILING_OVERRIDE"
     return 0
   fi
-  local dotted
-  dotted="$(_archzfs_kernel_fetch_lts_assets \
-    | awk '/^zfs-linux-lts-[0-9.]+_.+-[0-9]+-x86_64\.pkg\.tar\.zst$/ {
-        sub(/^zfs-linux-lts-[0-9.]+_/, "")
-        sub(/-[0-9]+-x86_64\.pkg\.tar\.zst$/, "")
-        print
-      }' \
-    | sort -uV | awk 'END { print }')"
+  local asset_pattern names versions dotted version
+  local -a parts
+  asset_pattern='^zfs-linux-lts-[0-9.]+_.+-[0-9]+-x86_64\.pkg\.tar\.zst$'
+  names="$(_archzfs_kernel_fetch_lts_assets | grep -E "$asset_pattern")" \
+    || return 0
+  # Each name's dotted kernel version: the part between `_` and the next `-`.
+  versions="$(printf '%s\n' "$names" | cut -d_ -f2- | cut -d- -f1)"
+  # The newest of them.
+  dotted="$(printf '%s\n' "$versions" | sort -uV | tail -n 1)"
   [[ -n "$dotted" ]] || return 0
-  printf '%s\n' "${dotted%.*}-${dotted##*.}"
+  # 6.18.52.1 → 6.18.52 (every field but the last) and 1 (the last).
+  IFS=. read -ra parts < <(printf '%s\n' "$dotted")
+  version="$(printf '%s\n' "$dotted" | cut -d. -f"1-$(( ${#parts[@]} - 1 ))")"
+  printf '%s-%s\n' "$version" "${parts[-1]}"
 }
 
 # Seam: list linux-lts pkgvers available on the Arch Linux Archive, one per
 # line. Overridable in tests.
 _archzfs_kernel_fetch_archive_lts_versions() {
-  curl -fsSL "https://archive.archlinux.org/packages/l/linux-lts/" 2>/dev/null |
-    grep -oE 'linux-lts-[0-9][^"<> ]*-x86_64\.pkg\.tar\.zst' |
-    awk '{ sub(/^linux-lts-/, ""); sub(/-x86_64\.pkg\.tar\.zst$/, "")
-          print }' |
-    sort -uV
+  local names
+  # Every linux-lts package file the archive's index page links to.
+  names="$(curl -fsSL "https://archive.archlinux.org/packages/l/linux-lts/" \
+    2>/dev/null | grep -oE 'linux-lts-[0-9][^"<> ]*-x86_64\.pkg\.tar\.zst')" \
+    || return 0
+  # Each file's pkgver: linux-lts-6.18.52-1-x86_64… → 6.18.52-1.
+  printf '%s\n' "$names" | cut -d- -f3,4 | sort -uV
 }
 
 # _archzfs_kernel_minor_at_or_below <version> <ceiling> — rc 0 when
 # <version>'s major.minor is at or below <ceiling>'s. Numeric, so 6.9 < 6.18.
 _archzfs_kernel_minor_at_or_below() {
   local version_major version_minor ceiling_major ceiling_minor
-  IFS='.' read -r version_major version_minor _ <<<"${1%%-*}"
-  IFS='.' read -r ceiling_major ceiling_minor _ <<<"${2%%-*}"
+  IFS='.-' read -r version_major version_minor _ < <(printf '%s\n' "$1")
+  IFS='.-' read -r ceiling_major ceiling_minor _ < <(printf '%s\n' "$2")
   (( 10#${version_major:-0} < 10#${ceiling_major:-0} )) && return 0
   (( 10#${version_major:-0} == 10#${ceiling_major:-0} )) \
     && (( 10#${version_minor:-0} <= 10#${ceiling_minor:-0} ))
@@ -139,16 +153,19 @@ archzfs_kernel_pick_lts_version() {
 
 # _archzfs_kernel_version_newer <a> <b> — rc 0 when pkgver <a> is newer than
 # <b>: numeric per field over major.minor.patch, then pkgrel (6.18.9 < 6.18.52).
+# A missing field counts as 0.
 _archzfs_kernel_version_newer() {
-  awk -v a="$1" -v b="$2" 'BEGIN {
-    count_a = split(a, left, /[.-]/); count_b = split(b, right, /[.-]/)
-    count = count_a > count_b ? count_a : count_b
-    for (i = 1; i <= count; i++) {
-      if (left[i] + 0 > right[i] + 0) exit 0
-      if (left[i] + 0 < right[i] + 0) exit 1
-    }
-    exit 1
-  }'
+  local -a left right
+  local count index
+  IFS='.-' read -ra left < <(printf '%s\n' "$1")
+  IFS='.-' read -ra right < <(printf '%s\n' "$2")
+  count="${#left[@]}"
+  (( ${#right[@]} > count )) && count="${#right[@]}"
+  for (( index = 0; index < count; index++ )); do
+    (( 10#${left[index]:-0} > 10#${right[index]:-0} )) && return 0
+    (( 10#${left[index]:-0} < 10#${right[index]:-0} )) && return 1
+  done
+  return 1
 }
 
 # ── Orchestration ────────────────────────────────────────────────────────────
@@ -273,7 +290,8 @@ archzfs_kernel_lts_pin_prepare() {
   local specs; specs="$(archzfs_kernel_resolve_lts_pin)"
   [[ -n "$specs" ]] || return 0
 
-  local version="${specs#linux-lts=}"; version="${version%% *}"
+  # specs is "linux-lts=<version> linux-lts-headers=<version>".
+  local version; version="$(first_word "$specs" | cut -d= -f2)"
   local mirror; mirror="$(_archzfs_kernel_mirror_lts_package_version)"
   warn "archzfs LTS ceiling: holding linux-lts back" \
        "${mirror:+from ${mirror} }to ${version} (or closest available)."
@@ -301,13 +319,24 @@ archzfs_kernel_lts_pin_prepare() {
 # Call on the HOST conf after pacstrap (so the chroot copy is clean) and on the
 # target conf defensively (ADR 0137).
 archzfs_kernel_lts_pin_cleanup() {
-  local pacman_config_file="${1:-/etc/pacman.conf}"
+  local pacman_config_file="${1:-/etc/pacman.conf}" edited line in_block=0
   [[ -f "$pacman_config_file" ]] || return 0
   grep -q '^\[archzfs-lts-pin\]' "$pacman_config_file" || return 0
-  # Delete our comment header through the Server line (the whole appended
-  # block).
-  sed -i '/^# archzfs LTS ceiling pin (ADR 0137)/,\#^Server = file://.*archzfs-lts-pin#d' \
-    "$pacman_config_file"
-  # Belt-and-suspenders: drop a bare header/directives if the comment drifted.
-  sed -i '/^\[archzfs-lts-pin\]/,/^Server = /d' "$pacman_config_file"
+  edited="$(mktemp)"
+  # Drop the appended block: from our comment header (or, if the comment
+  # drifted, the bare [archzfs-lts-pin] header) through its Server line.
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if (( in_block )); then
+      [[ "$line" == "Server = "* ]] && in_block=0
+      continue
+    fi
+    if [[ "$line" == "# archzfs LTS ceiling pin (ADR 0137)"* \
+          || "$line" == "[archzfs-lts-pin]"* ]]; then
+      in_block=1
+      continue
+    fi
+    printf '%s\n' "$line"
+  done < "$pacman_config_file" > "$edited"
+  cat "$edited" > "$pacman_config_file"
+  rm -f "$edited"
 }
