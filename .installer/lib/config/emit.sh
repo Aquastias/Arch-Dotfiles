@@ -17,6 +17,9 @@
 # Used by: lib/guided/save.sh, lib/guided/shell.sh, lib/matrix/assemble.sh.
 # =============================================================================
 
+# shellcheck source=../common.sh
+declare -F json_string_array >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
 # shellcheck source=./config-state.sh
 declare -F config_state_emit >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config-state.sh"
@@ -48,63 +51,30 @@ declare -F mirrors_inject >/dev/null 2>&1 \
 # committed artifact never carries operator-picked devices (ADR 0036's invariant)
 # yet still re-installs via `install.sh --profile <name>`. Pure: JSON in/out.
 emit_profile_delta() {
-  jq -c '
-    del(.disk)
-    | if .os_pool then .os_pool |= del(.disks) else . end
-    | if .storage_groups then .storage_groups |= map(del(.disks)) else . end
-    | if .data_pools then .data_pools |= map(del(.disks)) else . end
-  ' <<<"$1"
+  local strip='del(.disk)'
+  strip+=' | if .os_pool then .os_pool |= del(.disks) else . end'
+  strip+=' | if .storage_groups then .storage_groups |= map(del(.disks))'
+  strip+=' else . end'
+  strip+=' | if .data_pools then .data_pools |= map(del(.disks)) else . end'
+  # The config without its device paths.
+  printf '%s\n' "$1" | jq -c "$strip"
 }
 
-# emit_core_delta <effective> — the effective config reduced to what it adds
-# OVER Host Core, so a saved profile stays layered rather than freezing a
-# snapshot (ADR 0056, PRD story 32).
-#
-# The menu baseline loads Host Core, so the effective view contains core's whole
-# package list, Host Programs and sysctl; writing that verbatim would bake them
-# into every saved profile and decouple it from core on the next edit.
-#
-# The reduction is the inverse of the Layer Resolver's fold, key-class by
-# key-class, so `layer_resolver_resolve host <core> <delta>` reproduces
-# <effective>:
-#   additive array → subtract core's members
-#   object         → drop keys whose value core already provides
-#   everything else→ drop when identical to core's value
-# Pure: JSON in, JSON out.
+# emit_core_delta <effective> <core> — the effective config reduced to what
+# it adds OVER Host Core, so a saved profile stays layered rather than
+# freezing a snapshot (ADR 0056, PRD story 32). The menu baseline loads Host
+# Core, so the effective view holds core's whole package list, Host Programs
+# and sysctl; writing that verbatim would bake them into every saved profile.
+# `layer_resolver_resolve host <core> <delta>` reproduces <effective>
+# (emit-core-delta.jq). Pure: JSON in, JSON out.
 emit_core_delta() {
-  local effective="$1" core="$2" additive
+  local effective="$1" core="$2" additive program
   additive="$(layer_resolver_additive_json host)"
-
+  program="$(layer_resolver_jq_prelude)"
+  program+="$(cat "${BASH_SOURCE[0]%/*}/emit-core-delta.jq")"
+  # What the effective config adds over core.
   jq -n --argjson eff "$effective" --argjson core "$core" \
-        --argjson additive "$additive" "$(layer_resolver_jq_prelude)"'
-    def prune($e; $c; $path):
-      if   ($c == null) then $e
-      elif ($e == null) then null
-      elif ($e | type) == "object" and ($c | type) == "object"
-        then reduce ($e | keys_unsorted[]) as $k
-          ({}; . as $acc
-           | prune($e[$k]; $c[$k]; $path + [$k]) as $v
-           | if $v == null then $acc else $acc + {($k): $v} end)
-      elif ($e | type) == "array" and ($c | type) == "array"
-        then if is_additive($path)
-             # subtracting core leaving nothing means the layer adds nothing
-             then ([$e[] | select(. as $x | $c | index($x) | not)]
-                   | if length == 0 then null else . end)
-             # a replace key is dropped only when IDENTICAL to the core
-             # value; an empty array is a deliberate choice (e.g. no
-             # desktop) and must survive, not be read as "nothing to say".
-             else (if $e == $c then null else $e end)
-             end
-      else (if $e == $c then null else $e end)
-      end;
-
-    prune($eff; $core; [])
-    # an object that pruned empty carries no information — drop it
-    | walk(if type == "object"
-           then with_entries(select((.value | type != "object")
-                                    or (.value | length > 0)))
-           else . end)
-  '
+    --argjson additive "$additive" "$program"
 }
 
 # emit_user_profile <form> — author a User Profile delta (issue 07) from an
@@ -113,18 +83,17 @@ emit_core_delta() {
 # so the result is a sparse delta over User Core — only what the operator set,
 # closed-schema-valid. Pure: form JSON in → profile JSON out.
 emit_user_profile() {
-  jq -c '
-    del(.name)
-    | with_entries(select(
-        (.value != null) and (.value != "") and (.value != false)
-        and (.value != []) and (.value != {})))
-  ' <<<"$1"
+  local prune='del(.name) | with_entries(select((.value != null)'
+  prune+=' and (.value != "") and (.value != false)'
+  prune+=' and (.value != []) and (.value != {})))'
+  # The form without its name and its empty values.
+  printf '%s\n' "$1" | jq -c "$prune"
 }
 
 # _emit_json_array <item...> — a JSON string array of the args ([] when none).
 _emit_json_array() {
   (($#)) || { printf '[]'; return 0; }
-  printf '%s\n' "$@" | jq -R . | jq -s -c .
+  json_string_array "$@"
 }
 
 # emit_effective <state> <assignment> — Effective Config on stdout.

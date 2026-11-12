@@ -55,11 +55,29 @@ declare -F fonts_default_selection_json >/dev/null 2>&1 \
 # config_state_new — the initial state: an empty override map.
 config_state_new() { printf '%s\n' '{}'; }
 
+# _config_state_jq_path <path> — the jq path of a dotted state path:
+# system.hostname → .["system"]["hostname"]. Keys are the installer's own
+# field names; one holding a quote or backslash is refused.
+_config_state_jq_path() {
+  local key jq_path=""
+  local -a keys
+  IFS=. read -ra keys < <(printf '%s\n' "$1")
+  for key in "${keys[@]}"; do
+    if [[ "$key" == *'"'* || "$key" == *"\\"* ]]; then
+      echo "config-state: bad path key: $key" >&2
+      return 1
+    fi
+    jq_path+="[\"${key}\"]"
+  done
+  printf '.%s\n' "$jq_path"
+}
+
 # config_state_set <state> <path> <json-value> — record an override at <path>.
 config_state_set() {
-  local state="$1" path="$2" value="$3"
-  jq --arg p "$path" --argjson v "$value" \
-    'setpath($p | split("."); $v)' <<<"$state"
+  local state="$1" path="$2" value="$3" jq_path
+  jq_path="$(_config_state_jq_path "$path")" || return 1
+  # The state with <path> set to the value.
+  printf '%s\n' "$state" | jq --argjson v "$value" "${jq_path} = \$v"
 }
 
 # config_state_get <state> <path> — the raw value at <path>, empty when unset.
@@ -67,31 +85,46 @@ config_state_set() {
 # round-trip ("false"), so this is an explicit null check, not `// empty` (jq's
 # // treats false as empty and would swallow a false bool).
 config_state_get() {
-  local state="$1" path="$2"
-  jq -r --arg p "$path" \
-    'getpath($p | split(".")) | if . == null then empty else . end' <<<"$state"
+  local state="$1" path="$2" jq_path
+  jq_path="$(_config_state_jq_path "$path")" || return 1
+  # The value at <path>, unless it is null.
+  printf '%s\n' "$state" | jq -r "${jq_path} | select(. != null)"
 }
 
 # config_state_unset <state> <path> — drop the override at <path>. Ancestor
 # objects emptied by the deletion are pruned, so a reset field leaves no trace
 # in the sparse map (the section disappears when its last override is gone).
 config_state_unset() {
-  local state="$1" path="$2"
-  jq --arg p "$path" '
-    delpaths([$p | split(".")])
-    | walk(if type == "object" then with_entries(select(.value != {})) else . end)
-  ' <<<"$state"
+  local state="$1" path="$2" jq_path parent
+  local -a keys
+  jq_path="$(_config_state_jq_path "$path")" || return 1
+  # The state without <path>.
+  state="$(printf '%s\n' "$state" | jq -c "del(${jq_path})")"
+  IFS=. read -ra keys < <(printf '%s\n' "$path")
+  # Each ancestor, nearest first, while the deletion left it empty.
+  while ((${#keys[@]} > 1)); do
+    unset 'keys[-1]'
+    parent="$(printf '%s\n' "${keys[@]}" | paste -sd.)"
+    jq_path="$(_config_state_jq_path "$parent")"
+    # Is the ancestor now an empty object? Then drop it too.
+    printf '%s\n' "$state" | jq -e "${jq_path} == {}" >/dev/null || break
+    state="$(printf '%s\n' "$state" | jq -c "del(${jq_path})")"
+  done
+  # Pretty-printed, as before.
+  printf '%s\n' "$state" | jq '.'
 }
 
 # config_state_is_overridden <state> <path> — rc 0 when <path> carries an
 # override, rc 1 otherwise. Drives the menu's ● flag.
 config_state_is_overridden() {
-  local state="$1" path="$2"
-  jq -e --arg p "$path" 'getpath($p | split(".")) != null' <<<"$state" >/dev/null
+  local state="$1" path="$2" jq_path
+  jq_path="$(_config_state_jq_path "$path")" || return 1
+  # Is there a value at <path>?
+  printf '%s\n' "$state" | jq -e "${jq_path} != null" >/dev/null
 }
 
 # config_state_emit <state> — the sparse override map (a profile delta).
-config_state_emit() { jq '.' <<<"$1"; }
+config_state_emit() { printf '%s\n' "$1" | jq '.'; }
 
 # config_state_host_core — Host Core as JSON ({} when absent/unreadable).
 # The menu's baseline is LOADED from Host Core rather than hand-copying a few
@@ -161,12 +194,16 @@ _CONFIG_STATE_SCHEMA_SEEDED=(
 # config_state_install_defaults <state> — the schema defaults laid over
 # <state>; locale / keymap / gpu seed their primary as a scalar (menu shape).
 config_state_install_defaults() {
-  local state="$1" path name
-  state="$(jq -c --argjson d "$(install_config_default_object \
-    "${_CONFIG_STATE_SCHEMA_SEEDED[@]}")" '. * $d' <<<"$state")"
+  local state="$1" path name defaults primary
+  defaults="$(install_config_default_object "${_CONFIG_STATE_SCHEMA_SEEDED[@]}")"
+  # The state with the defaults merged over it.
+  state="$(printf '%s\n' "$state" | jq -c --argjson d "$defaults" '. * $d')"
   while read -r path name; do
-    state="$(config_state_set "$state" "$path" \
-      "$(install_config_default "$name" | jq -Rn 'input')")"
+    # The list default's first entry.
+    primary="$(install_config_default "$name" | head -n 1)"
+    # It as a JSON string.
+    primary="$(jq -n --arg value "$primary" '$value')"
+    state="$(config_state_set "$state" "$path" "$primary")"
   done <<'UNIONS'
 system.locale locales
 system.keymap keymaps

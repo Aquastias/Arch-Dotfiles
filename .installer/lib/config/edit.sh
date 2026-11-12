@@ -16,16 +16,23 @@
 #
 # Used by: lib/guided/controller.sh, lib/guided/shell.sh.
 # =============================================================================
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
 
 # shellcheck source=./config-state.sh
 declare -F config_state_set >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config-state.sh"
+
+# shellcheck source=../common.sh
+declare -F json_string_array >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
 
 # edit_set_scalar <state> <path> <str> — a string scalar at a dotted path.
 # rc 1 (unchanged) on empty input.
 edit_set_scalar() {
   local state="$1" path="$2" value="$3"
   [[ -n "$value" ]] || { printf '%s' "$state"; return 1; }
+  # The value as a JSON string.
   config_state_set "$state" "$path" "$(jq -n --arg x "$value" '$x')"
 }
 
@@ -43,8 +50,7 @@ edit_set_bool() {
 edit_set_array() {
   local state="$1" path="$2"; shift 2
   (($#)) || { printf '%s' "$state"; return 1; }
-  config_state_set "$state" "$path" \
-    "$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
+  config_state_set "$state" "$path" "$(json_string_array "$@")"
 }
 
 # edit_set_gpu <state> <val...> — environment.gpu: `auto` is mutually exclusive
@@ -58,8 +64,7 @@ edit_set_gpu() {
     [[ "$vendor" == "auto" ]] \
       && { config_state_set "$state" environment.gpu '"auto"'; return 0; }
   done
-  config_state_set "$state" environment.gpu \
-    "$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
+  config_state_set "$state" environment.gpu "$(json_string_array "$@")"
 }
 
 # edit_set_sysctl <state> <key> <value> — set/override one sysctl pair. The key
@@ -68,8 +73,9 @@ edit_set_gpu() {
 edit_set_sysctl() {
   local state="$1" key="$2" value="$3"
   [[ -n "$key" ]] || { printf '%s' "$state"; return 1; }
-  jq --arg k "$key" --arg v "$value" \
-    '.sysctl[$k] = ($v | (tonumber? // .))' <<<"$state"
+  # The state with sysctl[key] set (a number when the value is one).
+  printf '%s\n' "$state" | jq --arg k "$key" --arg v "$value" \
+    '.sysctl[$k] = ($v | (tonumber? // .))'
 }
 
 # edit_append_packages <state> <raw> — whitespace-split package name(s) appended
@@ -77,11 +83,12 @@ edit_set_sysctl() {
 # The former top-level packages.extra was packages.repo without a category, so
 # the row now writes into the one repo slot and stays canonical for Save/Export.
 edit_append_packages() {
-  local state="$1" raw="$2" slot="${3:-repo}"
+  local state="$1" raw="$2" slot="${3:-repo}" append
   [[ -n "$raw" ]] || { printf '%s' "$state"; return 1; }
-  jq --arg s "$raw" --arg slot "$slot" \
-    '.packages[$slot].extra = ((.packages[$slot].extra // [])
-      + ($s | split(" ") | map(select(length > 0))))' <<<"$state"
+  append='.packages[$slot].extra = ((.packages[$slot].extra // [])'
+  append+=' + ($s | split(" ") | map(select(length > 0))))'
+  # The state with the space-separated names added to the slot's extra list.
+  printf '%s\n' "$state" | jq --arg s "$raw" --arg slot "$slot" "$append"
 }
 
 # edit_append_host_programs <state> <name...> — dedup-append host System
@@ -89,8 +96,10 @@ edit_append_packages() {
 edit_append_host_programs() {
   local state="$1"; shift
   (($#)) || { printf '%s' "$state"; return 1; }
-  jq --argjson add "$(printf '%s\n' "$@" | jq -R . | jq -s .)" \
-    '.host_programs = ((.host_programs // []) + $add | unique)' <<<"$state"
+  local append='.host_programs = ((.host_programs // []) + $add | unique)'
+  # The state with the names added to host_programs (sorted, each once).
+  printf '%s\n' "$state" \
+    | jq --argjson add "$(json_string_array "$@")" "$append"
 }
 
 # edit_append_persist <state> <dir> — append one absolute directory to
@@ -98,8 +107,9 @@ edit_append_host_programs() {
 edit_append_persist() {
   local state="$1" directory="$2"
   [[ -n "$directory" ]] || { printf '%s' "$state"; return 1; }
-  jq --arg p "$directory" \
-    '.persist.directories = ((.persist.directories // []) + [$p])' <<<"$state"
+  local append='.persist.directories = ((.persist.directories // []) + [$p])'
+  # The state with the directory added to persist.directories.
+  printf '%s\n' "$state" | jq --arg p "$directory" "$append"
 }
 
 # edit_remove_persist <state> <dir> — drop one directory from
@@ -108,10 +118,13 @@ edit_append_persist() {
 edit_remove_persist() {
   local state="$1" directory="$2"
   [[ -n "$directory" ]] || { printf '%s' "$state"; return 1; }
-  jq -e --arg p "$directory" '(.persist.directories // []) | index($p)' \
-    <<<"$state" >/dev/null || { printf '%s' "$state"; return 1; }
-  jq --arg p "$directory" \
-    '.persist.directories = ((.persist.directories // []) - [$p])' <<<"$state"
+  local find='(.persist.directories // []) | index($p)'
+  local remove='.persist.directories = ((.persist.directories // []) - [$p])'
+  # Is the directory in the list?
+  printf '%s\n' "$state" | jq -e --arg p "$directory" "$find" >/dev/null \
+    || { printf '%s' "$state"; return 1; }
+  # The state without it.
+  printf '%s\n' "$state" | jq --arg p "$directory" "$remove"
 }
 
 # edit_apply_skeleton <state> <skeleton-json> — drop any previous pool-skeleton
@@ -119,54 +132,72 @@ edit_remove_persist() {
 # group behind).
 edit_apply_skeleton() {
   local state="$1" skeleton="$2"
-  jq --argjson sk "$skeleton" \
-    'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$state"
+  local apply='del(.os_pool, .storage_groups, .data_pools) * $sk'
+  # The state with the new skeleton in place of the old one.
+  printf '%s\n' "$state" | jq --argjson sk "$skeleton" "$apply"
 }
 
 # edit_add_sysctl_pair <state> <key=value> — parse a "key=value" entry and set
 # the pair via edit_set_sysctl. rc 1 (unchanged) on a malformed entry (no `=`).
 edit_add_sysctl_pair() {
-  local state="$1" raw="$2"
+  local state="$1" raw="$2" key value
   [[ "$raw" == *=* ]] || { printf '%s' "$state"; return 1; }
-  edit_set_sysctl "$state" "${raw%%=*}" "${raw#*=}"
+  # The key before the first `=`, the value after it.
+  key="$(printf '%s\n' "$raw" | cut -d= -f1)"
+  value="$(printf '%s\n' "$raw" | cut -d= -f2-)"
+  edit_set_sysctl "$state" "$key" "$value"
 }
 
 # edit_add_mirror_server <state> <url> — dedup-append a custom mirror Server=
 # URL to options.mirror_servers (ADR 0072). rc 1 (unchanged) on empty input.
 edit_add_mirror_server() {
-  local state="$1" url="$2"
+  local state="$1" url="$2" servers
   [[ -n "$url" ]] || { printf '%s' "$state"; return 1; }
-  config_state_set "$state" options.mirror_servers "$(jq -cn \
-    --argjson a "$(jq -c '.options.mirror_servers // []' <<<"$state")" \
-    --arg v "$url" 'if any($a[]; . == $v) then $a else $a + [$v] end')"
+  local add='if any($a[]; . == $v) then $a else $a + [$v] end'
+  # The current servers, then them with the URL added (once).
+  servers="$(printf '%s\n' "$state" | jq -c '.options.mirror_servers // []')"
+  servers="$(jq -cn --argjson a "$servers" --arg v "$url" "$add")"
+  config_state_set "$state" options.mirror_servers "$servers"
 }
 
 # edit_add_custom_repository <state> <"name url [sign_check] [sign_option]"> —
 # an archinstall-style custom repo appended dedup by name (ADR 0072); sign_check
 # / sign_option default to Required / TrustedOnly. rc 1 on fewer than 2 tokens.
 edit_add_custom_repository() {
-  local state="$1" raw="$2"
-  local -a fields; read -ra fields <<<"$raw"
+  local state="$1" raw="$2" repositories
+  local -a fields
+  read -ra fields < <(printf '%s\n' "$raw")
   [[ ${#fields[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
-  config_state_set "$state" options.custom_repositories "$(jq -cn \
-    --argjson a "$(jq -c '.options.custom_repositories // []' <<<"$state")" \
+  local add='if any($a[]; .name == $n) then $a'
+  add+=' else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end'
+  # The current repositories, then them with this one added (by name, once).
+  repositories="$(printf '%s\n' "$state" \
+    | jq -c '.options.custom_repositories // []')"
+  repositories="$(jq -cn --argjson a "$repositories" \
     --arg n "${fields[0]}" --arg u "${fields[1]}" \
     --arg c "${fields[2]:-Required}" --arg o "${fields[3]:-TrustedOnly}" \
-    'if any($a[]; .name == $n) then $a
-     else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')"
+    "$add")"
+  config_state_set "$state" options.custom_repositories "$repositories"
 }
 
 # edit_set_users <state> <name...> — set .users to the order-preserving dedup of
 # the names (users[0] = Primary User). With NO names the key is unset (a host
 # may carry no user). Always rc 0 — clearing is a real edit, not a no-op.
 edit_set_users() {
-  local state="$1"; shift
+  local state="$1" name kept
+  shift
   if (($# == 0)); then
     config_state_unset "$state" users
     return 0
   fi
-  config_state_set "$state" users "$(printf '%s\n' "$@" | jq -R . | jq -s -c \
-    'reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end)')"
+  local -a users=()
+  for name in "$@"; do
+    for kept in "${users[@]}"; do
+      [[ "$kept" == "$name" ]] && continue 2
+    done
+    users+=("$name")
+  done
+  config_state_set "$state" users "$(json_string_array "${users[@]}")"
 }
 
 # edit_user_name_problem <name> — rc 0 for a login useradd accepts and the

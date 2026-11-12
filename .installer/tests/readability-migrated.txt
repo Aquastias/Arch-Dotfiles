@@ -62,3 +62,21 @@
 .installer/tests/explain-packages.bats
 .installer/tests/pkglist-profile.bats
 .installer/tests/commons-json-string-array.bats
+
+# Ticket 10 — config part A (store, state, edits, history, emit, lifecycle),
+# with their tests.
+.installer/lib/config/config-store.sh
+.installer/lib/config/config-state.sh
+.installer/lib/config/edit.sh
+.installer/lib/config/history.sh
+.installer/lib/config/emit.sh
+.installer/lib/config/emit-core-delta.jq
+.installer/lib/config/lifecycle.sh
+.installer/tests/config/store.bats
+.installer/tests/config/guided-state.bats
+.installer/tests/config/guided-edits.bats
+.installer/tests/config/guided-history.bats
+.installer/tests/config/guided-seed.bats
+.installer/tests/config/guided-users.bats
+.installer/tests/config/lifecycle-summary.bats
+.installer/tests/guided/emit.bats

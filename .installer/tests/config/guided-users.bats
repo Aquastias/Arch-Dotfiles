@@ -7,6 +7,8 @@
 #
 # Pure: a form JSON in → a profile JSON out, no TTY.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -25,9 +27,9 @@ setup() {
 
   run emit_user_profile "$form"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.shell == "/bin/zsh"'
-  echo "$output" | jq -e '.sudo == true'
-  echo "$output" | jq -e 'has("name") | not'   # the dir basename is the username
+  output_satisfies '.shell == "/bin/zsh"'
+  output_satisfies '.sudo == true'
+  output_satisfies 'has("name") | not'   # the dir basename is the username
 }
 
 # ── a fuller form: arrays + git kept, empty/false fields pruned, schema-clean ─
@@ -40,12 +42,12 @@ setup() {
 
   run emit_user_profile "$form"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'has("shell") | not'                 # "" pruned
-  echo "$output" | jq -e 'has("sudo") | not'                  # false pruned
-  echo "$output" | jq -e '.groups == ["docker"]'
-  echo "$output" | jq -e '.programs == ["git"]'
-  echo "$output" | jq -e '.git.name == "Bob" and .git.email == "b@x.io"'
-  echo "$output" | jq -e 'has("ssh_authorized_keys") | not'   # [] pruned
+  output_satisfies 'has("shell") | not'                 # "" pruned
+  output_satisfies 'has("sudo") | not'                  # false pruned
+  output_satisfies '.groups == ["docker"]'
+  output_satisfies '.programs == ["git"]'
+  output_satisfies '.git.name == "Bob" and .git.email == "b@x.io"'
+  output_satisfies 'has("ssh_authorized_keys") | not'   # [] pruned
 
   run profile_loader_validate_schema user "$(emit_user_profile "$form")"
   [ "$status" -eq 0 ]
@@ -57,12 +59,13 @@ setup() {
   # a non-empty config_exclude survives the pruner
   run emit_user_profile \
     '{"name":"c","config_exclude":["kitty"],"programs":["kitty"]}'
-  echo "$output" | jq -e '.config_exclude == ["kitty"]'
-  echo "$output" | jq -e 'has("name") | not'
+  output_satisfies '.config_exclude == ["kitty"]'
+  output_satisfies 'has("name") | not'
 
   # the create form re-attaches programs_inherit:false after pruning (the pruner
   # drops `false`); the resulting delta carrying both keys is schema-valid.
   local delta
+  # The pruned profile, with programs_inherit:false put back.
   delta="$(emit_user_profile '{"name":"c","config_exclude":["kitty"]}' \
     | jq -c '. + {programs_inherit:false}')"
   run profile_loader_validate_schema user "$delta"

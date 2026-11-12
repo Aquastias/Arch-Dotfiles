@@ -9,6 +9,8 @@
 # Behaviour under test (external only — the Config State a history surfaces and
 # the undo/redo availability it reports), never internal structure.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -29,7 +31,7 @@ host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
 
   run history_present "$h"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.system.hostname == "eterniox"'
 
   run history_can_undo "$h"
   [ "$status" -ne 0 ]
@@ -43,7 +45,7 @@ host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
 
   run history_present "$h"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.system.hostname == "eterniox"'
 
   run history_can_undo "$h"
   [ "$status" -eq 0 ]
@@ -58,7 +60,7 @@ host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
 
   run history_present "$h"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '. == {}'        # back to the empty seed
+  output_satisfies '. == {}'        # back to the empty seed
 
   run history_can_undo "$h"
   [ "$status" -ne 0 ]                       # nothing earlier to undo
@@ -77,7 +79,7 @@ host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
 
   run history_present "$h"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.system.hostname == "eterniox"'
 
   run history_can_redo "$h"
   [ "$status" -ne 0 ]                       # nothing left to redo
@@ -99,7 +101,7 @@ host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
   [ "$status" -ne 0 ]                        # the abandoned edit is gone
 
   run history_present "$h"
-  echo "$output" | jq -e '.mode == "mirror"'
+  output_satisfies '.mode == "mirror"'
 }
 
 # ── Reset-all is a commit of the fresh baseline, so it is itself undoable ────
@@ -111,9 +113,9 @@ host() { config_state_set "$(config_state_new)" system.hostname '"eterniox"'; }
   h="$(history_commit "$h" "$base")"            # Reset-all → back to the baseline
 
   run history_present "$h"
-  echo "$output" | jq -e '. == {}'           # reset took effect
+  output_satisfies '. == {}'           # reset took effect
 
   h="$(history_undo "$h")"                       # undo the Reset-all
   run history_present "$h"
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.system.hostname == "eterniox"'
 }

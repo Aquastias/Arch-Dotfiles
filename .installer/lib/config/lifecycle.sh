@@ -61,6 +61,7 @@ lifecycle_load_config() {
   fi
   command_exists jq ||
     error "'jq' not found. Run 01-bootstrap-zfs.sh first."
+  # Does the config parse as JSON?
   jsonc_strip "$CONFIG_FILE" | jq empty 2>/dev/null ||
     error "Invalid JSON: $CONFIG_FILE"
   info "Loaded: $CONFIG_FILE"
@@ -79,6 +80,7 @@ _lifecycle_mode_matches() {
 
   if [[ "$signature" == *.disks ]]; then
     local disk_count
+    # How many disks the signature lists.
     disk_count="$(jsonc_strip "$CONFIG_FILE" | jq "${signature} | length // 0")"
     ((disk_count >= 1))
   else
@@ -159,6 +161,7 @@ _lifecycle_disk_size() {
 # _lifecycle_print_os_disks — one "<disk>  (<size>)" line per OS-pool disk.
 _lifecycle_print_os_disks() {
   local disk
+  # Each OS pool disk.
   while IFS= read -r disk; do
     printf "    %s  (%s)\n" "$disk" "$(_lifecycle_disk_size "$disk")"
   done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
@@ -221,6 +224,7 @@ _lifecycle_print_zfs_os_pool() {
 
 _lifecycle_print_zfs_data_pool() {
   local storage_group_count has_leftover=false
+  # How many storage groups the config declares.
   storage_group_count="$(jsonc_strip "$CONFIG_FILE" \
     | jq '.storage_groups | length')"
   layout_has_leftover && has_leftover=true
@@ -252,7 +256,7 @@ _lifecycle_print_standalone_data_pools() {
     printf "    '%-12s  → %-20s  topology: %s\n" \
       "${data_pool}'" "$(layout_data_pool_mount "$data_pool")" \
       "$(layout_data_pool_topology "$data_pool")"
-  done <<<"$data_pool_names"
+  done < <(printf '%s\n' "$data_pool_names")
 }
 
 # Packages — one line per packages.repo category (the sole authored repo
@@ -260,26 +264,29 @@ _lifecycle_print_standalone_data_pools() {
 _lifecycle_print_packages() {
   echo ""
   echo -e "  ${BOLD}Packages:${NC}"
-  local category names
+  local category names rows
+  rows='(.packages.repo // {}) | to_entries[] | select(.value | type == "array")'
+  rows+=' | "\(.key)\t\(.value | join(", "))"'
+  # One "<category><TAB><names, comma-joined>" row per packages.repo list.
   while IFS=$'\t' read -r category names; do
     [[ -n "$names" ]] && printf "    %s: %s\n" "$category" "$names"
-  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
-    (.packages.repo // {}) | to_entries[]
-    | select(.value | type == "array")
-    | "\(.key)\t\(.value | join(", "))"')
+  done < <(jsonc_strip "$CONFIG_FILE" | jq -r "$rows")
 }
 
 # Security & Backup Extras (ADR 0041) — the resolved program list installed
 # via the Primary User's paru pass. Empty when nothing is selected.
 _lifecycle_print_extras() {
-  local post_install_json extras
+  local post_install_json extras="" program
+  local -a programs
+  # The post_install selection ({} when absent).
   post_install_json="$(jsonc_strip "$CONFIG_FILE" \
     | jq -c '.post_install // {}')"
+  mapfile -t programs < <(post_install_programs "$post_install_json" \
+    "$(install_config_any_zfs)")
   # Comma-joined ("a, b, c").
-  extras="$(post_install_programs "$post_install_json" \
-      "$(install_config_any_zfs)" \
-    | awk '{ printf "%s%s", (NR == 1 ? "" : ", "), $0 }
-           END { if (NR) print "" }')"
+  for program in "${programs[@]}"; do
+    extras+="${extras:+, }${program}"
+  done
   echo ""
   echo -e "  ${BOLD}Security & Backup Extras:${NC}"
   printf "    %-12s %s\n" "install:" "${extras:-(none)}"

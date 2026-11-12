@@ -12,6 +12,8 @@
 # Behaviour under test (external only — the effective config the emitter
 # produces), never internal structure.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export INSTALLER_DIR="$TEST_DIR"
@@ -44,6 +46,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 # effective <state> — overrides over the seeded (Host Core) baseline, the same
 # shape guided.sh passes to emit_effective.
 effective() {
+  # The seeded baseline with the overrides merged over it.
   jq -n --argjson b "$(config_state_seed_defaults "$(config_state_new)")" \
         --argjson o "$1" '$b * $o'
 }
@@ -61,13 +64,13 @@ effective() {
 
   run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
-  echo "$output" | jq -e '.mode == "single"'
-  echo "$output" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
+  output_satisfies '.system.hostname == "eterniox"'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
   # Host Core still applies (grub authored); printing (on by default) injects
   # cups and the Mirrors section always injects reflector (ADR 0089).
-  echo "$output" | jq -e '.host_programs == ["grub","cups","reflector"]'
-  echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
+  output_satisfies '.host_programs == ["grub","cups","reflector"]'
+  output_satisfies '.sysctl["vm.swappiness"] == 10'
 }
 
 # ── Options + Environment overrides ride through to the Effective Config ────
@@ -87,13 +90,13 @@ effective() {
 
   run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.options.kernel == ["zen","lts"]'
-  echo "$output" | jq -e '.options.bootloader == "grub"'
-  echo "$output" | jq -e '.options.swap == false'
-  echo "$output" | jq -e '.options.swap_size == "8G"'
-  echo "$output" | jq -e '.options.ssh.enabled == true'
-  echo "$output" | jq -e '.environment.desktop == ["kde"]'
-  echo "$output" | jq -e '.environment.gpu == ["amd","nvidia"]'
+  output_satisfies '.options.kernel == ["zen","lts"]'
+  output_satisfies '.options.bootloader == "grub"'
+  output_satisfies '.options.swap == false'
+  output_satisfies '.options.swap_size == "8G"'
+  output_satisfies '.options.ssh.enabled == true'
+  output_satisfies '.environment.desktop == ["kde"]'
+  output_satisfies '.environment.gpu == ["amd","nvidia"]'
 
   # the guided output stays as schema-clean as a hand-authored profile.
   run profile_loader_validate_schema host "$(emit_effective "$state" "$assignment")"
@@ -117,10 +120,10 @@ effective() {
 
   run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.packages.repo.extra == ["htop"]'
-  echo "$output" | jq -e '.host_programs | index("grub")'   # core kept
-  echo "$output" | jq -e '.host_programs | index("cups")'   # printing-derived
-  echo "$output" | jq -e '.host_programs | index("htop") | not'
+  output_satisfies '.packages.repo.extra == ["htop"]'
+  output_satisfies '.host_programs | index("grub")'   # core kept
+  output_satisfies '.host_programs | index("cups")'   # printing-derived
+  output_satisfies '.host_programs | index("htop") | not'
 }
 
 # ── the menu and the installer produce the same set (ADR 0058) ──────────────
@@ -133,8 +136,8 @@ effective() {
 # materialised only at emit, mirroring GPU/audio/security derived sets.
 @test "the print daemon is toggle-derived, not a baseline System Program" {
   local base; base="$(config_state_seed_defaults "$(config_state_new)")"
-  jq -e '.host_programs | index("cups") | not' <<<"$base"
-  jq -e '.options.printing.enabled == true' <<<"$base"
+  json_satisfies "$base" '.host_programs | index("cups") | not'
+  json_satisfies "$base" '.options.printing.enabled == true'
 }
 
 @test "printing on injects cups at emit; off omits it" {
@@ -148,14 +151,14 @@ effective() {
   # always injected by Mirrors (ADR 0089)
   run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs == ["grub","cups","reflector"]'
+  output_satisfies '.host_programs == ["grub","cups","reflector"]'
 
   # turned off → cups absent, the authored core program untouched; reflector
   # still lands (state-independent)
   local off; off="$(config_state_set "$state" options.printing.enabled 'false')"
   run emit_effective "$(effective "$off")" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs == ["grub","reflector"]'
+  output_satisfies '.host_programs == ["grub","reflector"]'
 }
 
 @test "menu view and installed set agree, aside from the derived cups" {
@@ -172,15 +175,13 @@ effective() {
   # packages/sysctl survive the emit unchanged (disks aside); the only
   # host_programs differences are the section-derived cups (printing) and
   # reflector (mirrors) the emit injects.
-  local shown installed
-  shown="$(jq -cS '{packages, sysctl}' <<<"$view")"
-  installed="$(jq -cS '{packages, sysctl}' <<<"$output")"
-  [ "$shown" = "$installed" ]
-  local shown_programs installed_programs
-  shown_programs="$(jq -cS '.host_programs' <<<"$view")"
-  installed_programs="$(jq -cS \
-    '(.host_programs - ["cups","reflector"])' <<<"$output")"
-  [ "$shown_programs" = "$installed_programs" ]
+  local same_sections same_programs
+  same_sections='($v | {packages, sysctl}) == ($o | {packages, sysctl})'
+  same_programs='$v.host_programs == ($o.host_programs - ["cups","reflector"])'
+  # Do the view and the emitted config hold the same packages and sysctl?
+  jq -en --argjson v "$view" --argjson o "$output" "$same_sections" >/dev/null
+  # And the same host programs, the injected ones aside?
+  jq -en --argjson v "$view" --argjson o "$output" "$same_programs" >/dev/null
 }
 
 # Deselecting a core-inherited entry must actually deselect it — the old emit
@@ -197,8 +198,8 @@ effective() {
   run emit_effective "$(effective "$state")" \
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs | index("grub") | not'
-  echo "$output" | jq -e '.host_programs == ["cups","reflector"]'
+  output_satisfies '.host_programs | index("grub") | not'
+  output_satisfies '.host_programs == ["cups","reflector"]'
 }
 
 # ── Save writes a DELTA over Host Core, not a snapshot (ADR 0056) ───────────
@@ -215,25 +216,25 @@ effective() {
               "system":{"hostname":"eterniox"}}'
   run emit_core_delta "$effective" "$core"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs == ["grub"]'
-  echo "$output" | jq -e '.packages.repo.shell == ["btop"]'
-  echo "$output" | jq -e 'has("sysctl") | not'
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.host_programs == ["grub"]'
+  output_satisfies '.packages.repo.shell == ["btop"]'
+  output_satisfies 'has("sysctl") | not'
+  output_satisfies '.system.hostname == "eterniox"'
 }
 
 @test "emit_core_delta: a replace key equal to core's is dropped" {
   run emit_core_delta '{"options":{"kernel":["lts"],"bootloader":"grub"}}' \
                         '{"options":{"kernel":["lts"]}}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '(.options | has("kernel")) | not'
-  echo "$output" | jq -e '.options.bootloader == "grub"'
+  output_satisfies '(.options | has("kernel")) | not'
+  output_satisfies '.options.bootloader == "grub"'
 }
 
 @test "emit_core_delta: a replace key differing from core's is kept whole" {
   run emit_core_delta '{"options":{"kernel":["zen"]}}' \
                         '{"options":{"kernel":["lts"]}}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.options.kernel == ["zen"]'
+  output_satisfies '.options.kernel == ["zen"]'
 }
 
 # The contract that makes "stays layered" true: resolving the saved delta back
@@ -249,7 +250,8 @@ effective() {
   local delta round
   delta="$(emit_core_delta "$effective" "$core")"
   round="$(layer_resolver_resolve host "$core" "$delta")"
-  [ "$(jq -cS . <<<"$round")" = "$(jq -cS . <<<"$effective")" ]
+  # Does the round trip give back the effective config?
+  jq -en --argjson a "$round" --argjson b "$effective" '$a == $b' >/dev/null
 }
 
 @test "Save writes a delta: core's packages are not baked into the profile" {
@@ -267,12 +269,12 @@ JSON
 
   local saved; saved="$(cat "$INSTALLER_DIR/hosts/newbox/profile.jsonc")"
   # core's inherited payload is absent from the committed delta …
-  jq -e '(.packages // {}) == {}'          <<<"$saved"
-  jq -e 'has("host_programs") | not'     <<<"$saved"
-  jq -e 'has("sysctl") | not'              <<<"$saved"
+  json_satisfies "$saved" '(.packages // {}) == {}'
+  json_satisfies "$saved" 'has("host_programs") | not'
+  json_satisfies "$saved" 'has("sysctl") | not'
   # … but the operator's own choices are there
-  jq -e '.system.hostname == "newbox"'     <<<"$saved"
-  jq -e '.mode == "single"'                <<<"$saved"
+  json_satisfies "$saved" '.system.hostname == "newbox"'
+  json_satisfies "$saved" '.mode == "single"'
 }
 
 # ── safety: the guided output is as schema-clean as a hand-authored profile ─

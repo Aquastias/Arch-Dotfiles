@@ -6,6 +6,8 @@
 # Behaviour under test (external only — the state a verb produces and the
 # override map it emits), never internal structure.
 
+load ../lib/json-helpers
+
 setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
@@ -21,7 +23,7 @@ setup() {
 
   run config_state_emit "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
+  output_satisfies '.system.hostname == "eterniox"'
 }
 
 # ── get: read back a set override (raw value) ──────────────────────────────
@@ -62,8 +64,8 @@ setup() {
 
   run config_state_emit "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'has("system") | not'
-  echo "$output" | jq -e '.mode == "single"'
+  output_satisfies 'has("system") | not'
+  output_satisfies '.mode == "single"'
 }
 
 # ── is_overridden: the ● predicate the menu model reads ────────────────────
@@ -88,8 +90,8 @@ setup() {
 
   run config_state_unset "$state" system.hostname
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system | has("hostname") | not'
-  echo "$output" | jq -e '.system.locale == "de_DE.UTF-8"'
+  output_satisfies '.system | has("hostname") | not'
+  output_satisfies '.system.locale == "de_DE.UTF-8"'
 }
 
 @test "reset(section): unset a prefix drops the whole subtree, others remain" {
@@ -99,8 +101,8 @@ setup() {
 
   run config_state_unset "$state" system
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'has("system") | not'      # whole section gone
-  echo "$output" | jq -e '.filesystem == "zfs"'      # sibling section intact
+  output_satisfies 'has("system") | not'      # whole section gone
+  output_satisfies '.filesystem == "zfs"'      # sibling section intact
 }
 
 @test "reset(all): a fresh state carries none of the overrides" {
@@ -109,5 +111,5 @@ setup() {
 
   run config_state_emit "$(config_state_new)"        # reset-all == a fresh state
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '. == {}'
+  output_satisfies '. == {}'
 }
