@@ -92,9 +92,10 @@ _flow_persistent_run_installer() {
 
   section "Waiting for installer to complete"
   info "Watching for the installer exit sentinel" \
-       "(max ${INSTALL_TIMEOUT_SEC}s — install takes 10-30 min)."
+       "(gives up after ${INSTALL_TIMEOUT_SEC}s without progress —" \
+       "install takes 10-30 min)."
   set +e
-  vm_sentinel_watcher_wait "$console_log" "$INSTALL_TIMEOUT_SEC"
+  _flow_persistent_wait_for_installer "$console_log" "$vm_ip"
   install_rc=$?
   set -e
   _core_stop_console_capture
@@ -105,13 +106,46 @@ _flow_persistent_run_installer() {
   return 0
 }
 
+# _flow_persistent_wait_for_installer <console-log> <vm-ip> — wait for the
+# installer's exit sentinel and return its exit code (124 = gave up).
+# INSTALL_TIMEOUT_SEC is a stall timeout: while the guest's install log keeps
+# growing (a slow mirror), the wait goes on, window after window, up to
+# INSTALL_HARD_TIMEOUT_SEC in total (default: three windows).
+_flow_persistent_wait_for_installer() {
+  local console_log="$1" vm_ip="$2" started="$SECONDS" status
+  local hard_timeout="${INSTALL_HARD_TIMEOUT_SEC:-$((INSTALL_TIMEOUT_SEC * 3))}"
+  local size previous_size
+  previous_size="$(_flow_persistent_install_log_size "$vm_ip")"
+  while true; do
+    vm_sentinel_watcher_wait "$console_log" "$INSTALL_TIMEOUT_SEC"
+    status=$?
+    ((status == 124)) || return "$status"
+    ((SECONDS - started < hard_timeout)) || return 124
+    size="$(_flow_persistent_install_log_size "$vm_ip")"
+    [[ -n "$size" && "$size" -gt "${previous_size:-0}" ]] || return 124
+    info "Install log still growing (${size} bytes) — waiting another" \
+         "${INSTALL_TIMEOUT_SEC}s."
+    previous_size="$size"
+  done
+}
+
+# _flow_persistent_install_log_size <vm-ip> — the live ISO's install log size
+# in bytes, over the seed's root SSH ("" when unreachable).
+_flow_persistent_install_log_size() {
+  ssh -i "$(_flow_persistent_key_path)" -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes \
+    -o ConnectTimeout=10 "root@$1" 'stat -c %s /root/install.log' \
+    2>/dev/null || true
+}
+
 # _flow_persistent_hold_failed_install <rc> — failure (installer exit N) or
 # timeout (124): HOLD the live ISO up. Never eject/reboot — that would discard
 # the evidence — and never auto-destroy.
 _flow_persistent_hold_failed_install() {
   local rc="$1"
   if ((rc == 124)); then
-    warn "Installer did not finish within ${INSTALL_TIMEOUT_SEC}s" \
+    warn "Installer made no progress for ${INSTALL_TIMEOUT_SEC}s (or hit" \
+         "the hard cap)" \
          "— holding the VM for inspection."
   else
     warn "Installer FAILED (exit ${rc}) — holding the VM for inspection."

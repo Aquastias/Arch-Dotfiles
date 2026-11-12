@@ -221,3 +221,53 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'_try _clone'* ]]
   [[ "$output" == *'tee -a /root/install.log'* ]]
 }
+
+# ── installer wait: a stall timeout, not a total cap ─────────────────────────
+
+# wait_setup <sentinel-results…> — stub the sentinel watcher to return each
+# result in turn (one per window) and the guest log to grow by 1 KiB a check.
+wait_setup() {
+  printf '%s\n' "$@" > "$BATS_TEST_TMPDIR/results"
+  printf '0\n' > "$BATS_TEST_TMPDIR/size"
+  vm_sentinel_watcher_wait() {
+    local result
+    result="$(head -n 1 "$BATS_TEST_TMPDIR/results")"
+    tail -n +2 "$BATS_TEST_TMPDIR/results" > "$BATS_TEST_TMPDIR/rest"
+    mv "$BATS_TEST_TMPDIR/rest" "$BATS_TEST_TMPDIR/results"
+    return "$result"
+  }
+  _flow_persistent_install_log_size() {
+    local size; size="$(cat "$BATS_TEST_TMPDIR/size")"
+    [[ -n "${GROWING:-}" ]] && size=$((size + 1024))
+    printf '%s\n' "$size" > "$BATS_TEST_TMPDIR/size"
+    printf '%s\n' "$size"
+  }
+  info() { :; }
+  INSTALL_TIMEOUT_SEC=60
+}
+
+@test "installer wait: the sentinel's exit code comes back" {
+  wait_setup 0
+  run _flow_persistent_wait_for_installer console.log 10.0.0.1
+  [ "$status" -eq 0 ]
+}
+
+@test "installer wait: a growing install log keeps waiting past the window" {
+  GROWING=1 wait_setup 124 124 3
+  GROWING=1 run _flow_persistent_wait_for_installer console.log 10.0.0.1
+  [ "$status" -eq 3 ]
+}
+
+@test "installer wait: a log that stopped growing gives up (124)" {
+  wait_setup 124 0
+  run _flow_persistent_wait_for_installer console.log 10.0.0.1
+  [ "$status" -eq 124 ]
+}
+
+@test "installer wait: the hard cap ends even a growing install (124)" {
+  GROWING=1 wait_setup 124 124 124 0
+  SECONDS=1000
+  GROWING=1 INSTALL_HARD_TIMEOUT_SEC=0 \
+    run _flow_persistent_wait_for_installer console.log 10.0.0.1
+  [ "$status" -eq 124 ]
+}

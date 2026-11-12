@@ -63,7 +63,9 @@ Options:
 
 Profile hardware/timeouts are defaults; matching env vars (VM_RAM_MB,
 VM_VCPUS, INSTALL_TIMEOUT_SEC, TIMEOUT_SEC, BOOT_TIMEOUT_SEC, ISO_URL_OVERRIDE,
-REPO_URL) still win at run time.
+INSTALL_HARD_TIMEOUT_SEC, REPO_URL) still win at run time.
+INSTALL_TIMEOUT_SEC is a stall timeout: a still-growing install log keeps
+the wait going, up to INSTALL_HARD_TIMEOUT_SEC (default 3x) in total.
 USAGE
 }
 

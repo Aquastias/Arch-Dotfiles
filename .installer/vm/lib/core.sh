@@ -28,6 +28,8 @@ source "${CORE_LIB_DIR}/packages/iso-resolver.sh"
 source "${CORE_DIR}/host-capacity.sh"
 # shellcheck source=./repo-source.sh
 source "${CORE_DIR}/repo-source.sh"
+# shellcheck source=./vm-lease.sh
+source "${CORE_DIR}/vm-lease.sh"
 
 # =============================================================================
 # SHARED DEFAULTS (env overrides win)
@@ -100,12 +102,8 @@ blocks the socket, retry with the sandbox disabled (docs/agents/vm-sandbox.md)."
 # =============================================================================
 # VM STATE PREDICATES
 # =============================================================================
-# Current DHCP lease of the domain's first NIC, or empty if none yet.
-_core_vm_ip_now() {
-  virsh domifaddr "$VM_NAME" 2>/dev/null \
-    | awk \
-    'NR>2 { split($4, a, "/"); if (a[1] ~ /^[0-9]/) { print a[1]; exit } }'
-}
+# The newest DHCP lease of the domain's first NIC, or empty if none yet.
+_core_vm_ip_now() { vm_lease_ip "$VM_NAME"; }
 
 _core_vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
 _core_vm_running() {

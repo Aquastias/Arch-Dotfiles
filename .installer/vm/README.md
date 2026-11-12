@@ -84,7 +84,8 @@ Profile hardware/timeouts are defaults; matching env vars still win:
 ISO_URL_OVERRIDE=https://… bash vm/vm.sh --profile desktop/kde  # pin an ISO
 VM_RAM_MB=16384            bash vm/vm.sh --profile desktop/kde   # more RAM
 BOOT_TIMEOUT_SEC=600       bash vm/vm.sh --profile desktop/kde   # slow hardware
-INSTALL_TIMEOUT_SEC=7200   bash vm/vm.sh --profile desktop/kde   # longer install
+INSTALL_TIMEOUT_SEC=7200   bash vm/vm.sh --profile desktop/kde   # longer stall window
+INSTALL_HARD_TIMEOUT_SEC=14400 bash vm/vm.sh …               # higher total cap
 ```
 
 ---

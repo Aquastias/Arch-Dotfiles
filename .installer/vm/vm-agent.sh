@@ -67,14 +67,13 @@ usage() {
 source "$SELF_DIR/lib/agent-commands.sh"
 # shellcheck source=lib/agent-lifecycle.sh
 source "$SELF_DIR/lib/agent-lifecycle.sh"
+# shellcheck source=lib/vm-lease.sh
+source "$SELF_DIR/lib/vm-lease.sh"
 
 # ── connection (libvirt + ssh) ───────────────────────────────────────────────
 
-_vm_ip() {
-  virsh domifaddr "$VM_NAME" 2>/dev/null \
-    | awk \
-    'NR>2 { split($4, a, "/"); if (a[1] ~ /^[0-9]/) { print a[1]; exit } }'
-}
+# The current address: the newest DHCP lease (vm-lease.sh).
+_vm_ip() { vm_lease_ip "$VM_NAME"; }
 
 # _preflight [any-state] — confirm libvirt is reachable and (unless any-state)
 # the VM is running, emitting the vm-sandbox.md signal so the agent knows to
