@@ -39,7 +39,9 @@ UMB="$BATS_TEST_DIRNAME/../../../.config/umbriel"
 }
 
 @test "umbriel is click-to-focus (ADR 0147)" {
-  grep -qx 'follows_mouse = false' "$UMB/conf.d/input.toml"
+  # Upstream fabf400 made follows_mouse a choice: the old `false` no longer
+  # validates (Audit Run 20261113, umbriel-config).
+  grep -qx 'follows_mouse = "off"' "$UMB/conf.d/input.toml"
 }
 
 @test "umbriel routes Qt through qt6ct (ADR 0102)" {

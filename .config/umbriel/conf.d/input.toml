@@ -23,4 +23,4 @@ size = 24
 # Click-to-focus (ADR 0147): focus stays put until a click, so menus survive
 # the pointer crossing another window. Umbriel's default, pinned explicitly.
 [input.focus]
-follows_mouse = false
+follows_mouse = "off"
