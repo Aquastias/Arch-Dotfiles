@@ -11,8 +11,10 @@ set -eu
 guard="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/installer-plugins-enabled"
 [ -f "$guard" ] && exit 0
 dir="${XDG_DATA_HOME:-$HOME/.local/share}/noctalia/plugins"
-ids="$(sed -nE 's/^[[:space:]]*id[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
-  "$dir"/*/plugin.toml 2>/dev/null)" || true
+id_line='^[[:space:]]*id[[:space:]]*=[[:space:]]*"[^"]+"'
+# Each vendored plugin's id: the quoted value of its `id = "…"` line.
+ids="$(cat "$dir"/*/plugin.toml 2>/dev/null | grep -E "$id_line" \
+  | cut -d'"' -f2)" || true
 [ -n "$ids" ] || exit 0
 i=0
 for id in $ids; do

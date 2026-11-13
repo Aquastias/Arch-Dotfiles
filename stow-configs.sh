@@ -23,11 +23,14 @@ set -Eeuo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROGRAMS="${REPO}/.installer/programs"
+# shellcheck source=.installer/lib/common.sh
+source "${REPO}/.installer/lib/common.sh"   # json_string_array
 # shellcheck source=.installer/lib/config/config-apply.sh
 source "${REPO}/.installer/lib/config/config-apply.sh"
 
-usage() {
-  sed -n '5,/^# ====/{/^# ====/d;p}' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+stow_configs_usage() {
+  # The header comment (lines 5-19) without its leading "# ".
+  head -n 19 "${BASH_SOURCE[0]}" | tail -n +5 | cut -c3-
   exit "${1:-0}"
 }
 
@@ -42,24 +45,19 @@ mode="only"
 while (($#)); do
   case "$1" in
   --except) mode="except" ;;
-  -h | --help) usage 0 ;;
-  -*) echo "stow-configs.sh: unknown flag '$1'" >&2; usage 1 ;;
+  -h | --help) stow_configs_usage 0 ;;
+  -*) echo "stow-configs.sh: unknown flag '$1'" >&2; stow_configs_usage 1 ;;
   *) if [[ "$mode" == "except" ]]; then except+=("$1"); else only+=("$1"); fi ;;
   esac
   shift
 done
 
-# Bash array → compact JSON array ([] when empty).
-_json_arr() {
-  (($#)) || { printf '[]'; return 0; }
-  printf '%s\n' "$@" | jq -R . | jq -s -c .
-}
-
 ships="$(config_apply_ships_home_list "$PROGRAMS")"
-selection="$(config_apply_stow_selection "$ships" \
-  "$(_json_arr "${except[@]+"${except[@]}"}")" \
-  "$(_json_arr "${only[@]+"${only[@]}"}")" \
-  "$(config_apply_stow_opted_in_programs "$PROGRAMS")")"
+except_json="$(json_string_array "${except[@]+"${except[@]}"}")"
+only_json="$(json_string_array "${only[@]+"${only[@]}"}")"
+opted_in="$(config_apply_stow_opted_in_programs "$PROGRAMS")"
+selection="$(config_apply_stow_selection "$ships" "$except_json" "$only_json" \
+  "$opted_in")"
 
 count=0
 while IFS= read -r name; do
@@ -69,6 +67,7 @@ while IFS= read -r name; do
   stow -d "$(dirname "$home")" -t "$HOME" --adopt --no-folding home
   echo "stow-configs.sh: stowed ${name}"
   count=$((count + 1))
-done < <(jq -r '.[]' <<<"$selection")
+# The selected program names, one per line.
+done < <(printf '%s\n' "$selection" | jq -r '.[]')
 
 echo "stow-configs.sh: ${count} program(s) stowed into ${HOME}"

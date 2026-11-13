@@ -115,3 +115,7 @@
 .installer/tests/*
 .installer/tests/lib/*
 .githooks/*
+
+# Ticket 17 — the tracked shell outside the installer.
+.local/bin/*
+stow-configs.sh

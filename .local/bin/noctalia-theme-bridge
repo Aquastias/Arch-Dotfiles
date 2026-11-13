@@ -32,11 +32,12 @@ qt_conf="$cfg/qt6ct/qt6ct.conf"
 # first writes there.
 mkdir -p "$data/color-schemes" 2>/dev/null || true
 dirs=""
-for d in "$data/color-schemes" "$cfg/qt6ct/colors" "$cfg/gtk-3.0" "$cfg/gtk-4.0"; do
-	if [ -d "$d" ]; then dirs="$dirs $d"; fi
+for directory in "$data/color-schemes" "$cfg/qt6ct/colors" "$cfg/gtk-3.0" \
+	"$cfg/gtk-4.0"; do
+	if [ -d "$directory" ]; then dirs="$dirs $directory"; fi
 done
 
-nudge() {
+noctalia_theme_bridge_nudge() {
 	if [ -f "$qt_conf" ]; then
 		# qt6ct watches its config DIRECTORY, so a bare mtime touch does NOT fire
 		# it — an atomic rename INTO the dir does. Rewrite qt6ct.conf in place so
@@ -50,12 +51,12 @@ nudge() {
 	# running GTK3 app re-reads gtk.css/noctalia.css without us overriding the
 	# mode/theme Noctalia set. GTK4/libadwaita ignores the name (relaunch-only).
 	if command -v gsettings >/dev/null 2>&1; then
-		local key=org.gnome.desktop.interface cur alt=Adwaita
-		cur="$(gsettings get "$key" gtk-theme 2>/dev/null | tr -d \")"
-		if [ -n "$cur" ]; then
-			[ "$cur" = "$alt" ] && alt=Default
+		local key=org.gnome.desktop.interface current alt=Adwaita
+		current="$(gsettings get "$key" gtk-theme 2>/dev/null | tr -d \")"
+		if [ -n "$current" ]; then
+			[ "$current" = "$alt" ] && alt=Default
 			gsettings set "$key" gtk-theme "$alt" 2>/dev/null || true
-			gsettings set "$key" gtk-theme "$cur" 2>/dev/null || true
+			gsettings set "$key" gtk-theme "$current" 2>/dev/null || true
 		fi
 	fi
 }
@@ -64,7 +65,7 @@ command -v inotifywait >/dev/null 2>&1 || exit 0
 [ -n "$dirs" ] || exit 0
 
 # Reconcile once at session start (ADR 0116 Q3), then follow every later change.
-nudge
+noctalia_theme_bridge_nudge
 
 # shellcheck disable=SC2086  # word-split $dirs into separate path args
 inotifywait -m -q -e close_write -e moved_to \
@@ -74,5 +75,5 @@ while true; do
 	# files, so drain the burst (trailing debounce) and repaint exactly once.
 	read -r _ || exit 0
 	while read -r -t 0.5 _; do :; done
-	nudge
+	noctalia_theme_bridge_nudge
 done
