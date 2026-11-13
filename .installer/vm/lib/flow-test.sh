@@ -370,7 +370,7 @@ flow_run() {
   _flow_test_start_fixture_http_server
 
   section "Resolving Arch ISO"
-  local iso; iso="$(vm_resolve_iso "$ISO_DIR")"
+  local iso; iso="$(vm_resolve_iso "$ISO_DIR")" || exit 1
 
   section "Building cloud-init seed"
   local seed; seed="$(_flow_build_seed)"

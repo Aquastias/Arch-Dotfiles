@@ -13,9 +13,13 @@ Observed 2026-10-16 (guided run, 90 min lost); retry with
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Empty resolved ISO aborts before VM creation with a clear message
-- [ ] bats: resolver returning empty → non-zero, no virt-install call
+- [x] Empty resolved ISO aborts before VM creation with a clear message
+- [x] bats: resolver returning empty → non-zero, no virt-install call
 
 ## Comments
+
+Guard lives in `vm_resolve_iso` (empty or missing file → error naming
+`ISO_URL_OVERRIDE`); each flow stops on the failed resolve with
+`|| exit 1`, before the seed and the VM. No retry added.

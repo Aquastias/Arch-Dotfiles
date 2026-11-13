@@ -32,7 +32,7 @@ flow_run() {
     | jq -r '.users[0] // "aquastias"')"
 
   section "Resolving Arch ISO"
-  local iso; iso="$(vm_resolve_iso "$ISO_DIR")"
+  local iso; iso="$(vm_resolve_iso "$ISO_DIR")" || exit 1
 
   section "Building seed CDROM"
   # The seed authorizes this key on the live ISO + sets up serial autologin, so
@@ -189,7 +189,7 @@ vm_flow_persistent_rescue() {
   _core_vm_exists || error "No VM '${VM_NAME}' to rescue — create one first."
 
   section "Resolving Arch ISO"
-  local iso; iso="$(vm_resolve_iso "$ISO_DIR")"
+  local iso; iso="$(vm_resolve_iso "$ISO_DIR")" || exit 1
 
   section "Rebuilding live-ISO access seed"
   local public_key; public_key="$(cat "$(_flow_persistent_key_path).pub")"

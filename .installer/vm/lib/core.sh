@@ -150,6 +150,11 @@ vm_resolve_iso() {
     iso="$(iso_resolver_get_zfs_compatible "$iso_directory")"
     info "ISO (archzfs-compatible): ${iso}" >&2
   fi
+  # No medium means a VM that never boots the installer and waits out the
+  # whole install timeout: stop before creating it.
+  [[ -n "$iso" && -f "$iso" ]] || error "No Arch ISO resolved" \
+    "(${iso:-empty}; the releases lookup may have failed). Retry, or pin" \
+    "one: ISO_URL_OVERRIDE=file:///path/to/archlinux-x86_64.iso"
   printf '%s\n' "$iso"
 }
 
