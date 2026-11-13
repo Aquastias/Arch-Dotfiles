@@ -34,12 +34,17 @@ feature_audit_selected_programs() {
     # shellcheck source=../profiles/runner.sh
     source "$INSTALLER_DIR/lib/profiles/runner.sh"
   }
+  local post_install
+  # The config's extras selection.
+  post_install="$(printf '%s\n' "$config" | jq -c '.post_install // {}')"
+  # The host programs, every user's programs and the extras' programs, each
+  # once.
   {
-    jq -r '.host_programs[]?' <<<"$config"
-    for user in $(jq -r '.users[]?' <<<"$config"); do
+    printf '%s\n' "$config" | jq -r '.host_programs[]?'
+    for user in $(printf '%s\n' "$config" | jq -r '.users[]?'); do
       profile_loader_load_user "$user" | jq -r '.programs[]?'
     done
-    runner_resolve_post_install "$(jq -c '.post_install // {}' <<<"$config")" \
+    runner_resolve_post_install "$post_install" \
       "$(install_config_from_json "$config" any_zfs)"
   } | sort -u
 }
@@ -49,7 +54,7 @@ feature_audit_selected_programs() {
 feature_audit_probe_gate_split() {
   local selected=$'\n'"$1"$'\n' directory name; shift
   for directory in "$@"; do
-    name="${directory%/}"; name="${name##*/}"
+    name="$(basename "$directory")"
     if [[ "$selected" == *$'\n'"$name"$'\n'* ]]; then printf 'run\t%s\n' \
       "$directory"
     else printf 'skip\t%s\n' "$name"; fi

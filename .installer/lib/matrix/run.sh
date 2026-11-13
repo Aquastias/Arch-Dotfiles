@@ -33,6 +33,7 @@ declare -F matrix_emit >/dev/null 2>&1 \
 matrix_run() {
   local id="${1:-zfs-single-plain}"
   local cell profile bootv
+  # The cell with that id.
   cell="$(matrix_all_cells "${MATRIX_SEED:-0}" \
     | jq -c --arg id "$id" 'select(.id == $id)')"
   [[ -n "$cell" ]] || { echo "matrix: unknown cell-id '$id'" >&2; return 1; }

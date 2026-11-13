@@ -6,6 +6,8 @@
 # assembled. Behaviour under test: the emitted profile is schema-valid to the
 # VM Harness and carries the cell's config.
 
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   export INSTALLER_DIR
@@ -28,7 +30,9 @@ setup() {
 
 @test "emit: the profile passes VM Profile schema validation" {
   local path; path="$(bash "$MATRIX_SH" emit zfs-single-plain)"
-  local json; json="$(jq '.' "$path")"
+  local json
+  # The emitted file, parsed (a parse error fails here).
+  json="$(jq '.' "$path")"
   run profile_validate "$json" "$INSTALLER_DIR/hosts"
   [ "$status" -eq 0 ]
 }
@@ -37,10 +41,10 @@ setup() {
 
 @test "emit: .install carries the assembled Effective Config for the cell" {
   local path; path="$(bash "$MATRIX_SH" emit zfs-single-plain)"
-  jq -e '.install | type == "object"'        "$path"
-  jq -e '.install.filesystem == "zfs"'        "$path"
-  jq -e '.install.mode == "single"'           "$path"
-  jq -e '.install.disk | type == "string"'    "$path"
+  file_satisfies "$path" '.install | type == "object"'
+  file_satisfies "$path" '.install.filesystem == "zfs"'
+  file_satisfies "$path" '.install.mode == "single"'
+  file_satisfies "$path" '.install.disk | type == "string"'
 }
 
 # ── an unknown cell-id is rejected ──────────────────────────────────────────

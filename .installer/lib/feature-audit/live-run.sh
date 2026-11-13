@@ -13,6 +13,9 @@
 # through the harness HTTP root. Base still exercises the real mirrors, AUR
 # builds and AUR Vetting.
 
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 FA_CACHE_SOURCE=base   # the variant that installs uncached and fills it
 
 feature_audit_cache_directory() { printf '%s\n' "$CACHE_DIR/audit-cache"; }
@@ -101,9 +104,9 @@ feature_audit_destroy_vm() {
 # Only the install and boot phases apply; it is not agent-controllable.
 feature_audit_run_guided() {
   local directory="$1" reference="$2" guided_name rc=0
+  # The guided VM profile's name.
   guided_name="$(jsonc_strip \
-    "$INSTALLER_DIR/tests/vm/profiles/$reference.jsonc" \
-    | jq -r .name)"
+    "$INSTALLER_DIR/tests/vm/profiles/$reference.jsonc" | jq -r .name)"
   mkdir -p "$directory/install" "$directory/boot1"
   LOG_FILE="$directory/install/installer.log" \
     BOOT_LOG_FILE="$directory/boot1/serial.log" REPO_URL="$FA_REPO_URL" \
@@ -139,12 +142,14 @@ feature_audit_run_variant() {
   mkdir -p "$directory"
   section "Audit Variant: $id"
   variant="$(feature_audit_variant_json "$id")"
-  jq --arg sha "$(git -C "$INSTALLER_DIR" rev-parse HEAD)" \
-    --arg at "$(date -Is)" \
-    '{variant: .id, adrs: (.adrs // []), commit: $sha, started: $at}' \
-    <<<"$variant" > "$directory/variant.json"
+  local record='{variant: .id, adrs: (.adrs // []), commit: $sha, started: $at}'
+  # The variant's record: its id, ADRs, the commit and the start time.
+  printf '%s\n' "$variant" \
+    | jq --arg sha "$(git -C "$INSTALLER_DIR" rev-parse HEAD)" \
+      --arg at "$(date -Is)" "$record" > "$directory/variant.json"
   local guided
-  guided="$(jq -r '.guided // empty' <<<"$variant")"
+  # The guided profile reference, empty for a plain variant.
+  guided="$(printf '%s\n' "$variant" | jq -r '.guided // empty')"
   if [[ -n "$guided" ]]; then feature_audit_run_guided "$directory" \
     "$guided"; return; fi
   profile="$directory/vm-profile.json"
@@ -153,13 +158,17 @@ feature_audit_run_variant() {
     "variant does not resolve"; return 1; }
   config="$(feature_audit_variant_config "$id")" || config='{}'
   # the Fleet gate the probes read (feature_audit_fleet)
-  config="$(jq -c \
-    --argjson fleet "$(feature_audit_variant_fleet "$id" || echo true)" \
-    '. + {_audit: {fleet: $fleet}}' <<<"$config")"
+  local fleet
+  fleet="$(feature_audit_variant_fleet "$id" || echo true)"
+  # The config, marked with the Fleet gate.
+  config="$(printf '%s\n' "$config" \
+    | jq -c --argjson fleet "$fleet" '. + {_audit: {fleet: $fleet}}')"
   # shellcheck disable=SC2034 # read by live-phases.sh / live-probes.sh
-  FA_USER="$(jq -r '.users[0] // "aquastias"' <<<"$config")"
+  # The primary user, aquastias by default.
+  FA_USER="$(printf '%s\n' "$config" | jq -r '.users[0] // "aquastias"')"
   FA_VARIANT_PHASES="$(feature_audit_variant_phases "$id")"
-  VM_RAM_MB="$(jq -r '.hardware.ram_mb' "$profile")"   # capacity preflight
+  # The VM's RAM, for the capacity preflight.
+  VM_RAM_MB="$(jq -r '.hardware.ram_mb' "$profile")"
   export VM_RAM_MB
 
   _live_bring_up_variant "$directory" "$profile" "$id" || return 1
@@ -228,6 +237,7 @@ feature_audit_run() {
     esac
   done
   _core_ensure_libvirt_reachable
+  # The audit VM's name.
   VM_NAME="$(feature_audit_manifest_json | jq -r .vm_name)"
   export VM_NAME
   local -a ids

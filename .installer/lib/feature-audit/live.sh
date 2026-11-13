@@ -124,7 +124,8 @@ feature_audit_wait_until() {
   end=$((SECONDS + timeout))
   # wall clock, not the sleeps: a slow guest check counts toward the cap
   while ((SECONDS < end)); do
-    if feature_audit_agent sudo <<<"$check" >/dev/null 2>&1; then
+    if feature_audit_agent sudo < <(printf '%s\n' "$check") >/dev/null 2>&1
+    then
       ok=$((ok + 1)); ((ok >= 2)) && return 0
     else ok=0; fi
     sleep 5
@@ -176,8 +177,9 @@ feature_audit_boot() {
 
 # _live_boot_silent <phase-dir> — the serial capture holds no guest output.
 _live_boot_silent() {
-  ! grep -q -v -e '^Script ' -e '^Connected to domain' -e '^Escape character' \
-    -e '^\s*$' "$1/serial.log" 2>/dev/null
+  local harness='^Script |^Connected to domain|^Escape character|^\s*$'
+  # No line but the console harness's own (or blank ones).
+  ! grep -q -v -E "$harness" "$1/serial.log" 2>/dev/null
 }
 
 _live_boot_fatal() {
@@ -232,30 +234,16 @@ feature_audit_reboot() {
   feature_audit_wait_until "$FA_SETTLE_SEC" "$(_live_settled)"
 }
 
-# _FA_FOLD_HUNG_TASKS — awk: join a kernel hung-task report (header … </TASK>)
-# into one journal line, so Known Noise can judge it whole by its stack (a
-# virgl stall vs a real hang); every other line passes through.
-# shellcheck disable=SC2016 # an awk program, not shell
-_FA_FOLD_HUNG_TASKS='
-  / kernel: INFO: task .* blocked for more than / {
-    if (on) print b
-    b = $0; on = 1; next
-  }
-  on && / kernel: / {
-    l = $0; sub(/^.* kernel: +/, "", l); b = b " | " l
-    if (l ~ /^<\/TASK>/) { print b; on = 0 }
-    next
-  }
-  on { print b; on = 0 }
-  { print }
-  END { if (on) print b }'
+# _FA_FOLD_HUNG_TASKS — the awk file that folds each kernel hung-task report
+# into one journal line (see its header).
+_FA_FOLD_HUNG_TASKS="${BASH_SOURCE[0]%/*}/fold-hung-tasks.awk"
 
 # _live_collect_script [since-epoch] — guest-side (root) signal collector.
 # With a since-epoch only that window's journal/coredumps are taken, so an
 # in-boot phase reports its own lines, not the whole boot's again.
 _live_collect_script() {
   printf 'SINCE=%q\n' "${1:-}"
-  printf 'FOLD=%q\n' "$_FA_FOLD_HUNG_TASKS"
+  printf 'FOLD=%q\n' "$(cat "$_FA_FOLD_HUNG_TASKS")"
   cat <<'SH'
 set -u
 o=/tmp/fa-collect
@@ -289,8 +277,8 @@ SH
 # feature_audit_guest_now — the guest's epoch (phase windows are guest-clock
 # based).
 feature_audit_guest_now() {
-  feature_audit_agent sudo date +%s 2>/dev/null \
-    | awk '{ gsub(/[^0-9]/, ""); printf "%s", $0 }'
+  # The guest's `date +%s`, digits only.
+  feature_audit_agent sudo date +%s 2>/dev/null | tr -cd '0-9'
 }
 
 # feature_audit_pull_into <guest-dir> <host-dir> — pull a guest dir's files
@@ -299,7 +287,7 @@ feature_audit_pull_into() {
   local staging_directory; staging_directory="$(mktemp -d)"
   if feature_audit_agent pull "$1" "$staging_directory" >/dev/null 2>&1; then
     mkdir -p "$2"
-    cp -rf "$staging_directory/${1##*/}/." "$2/" 2>/dev/null || true
+    cp -rf "$staging_directory/$(basename "$1")/." "$2/" 2>/dev/null || true
     rm -rf "$staging_directory"; return 0
   fi
   rm -rf "$staging_directory"; return 1
@@ -318,7 +306,7 @@ feature_audit_collect() {
     _live_collect_script "${2:-}" \
       | feature_audit_agent sudo >/dev/null 2>>"$error_file" || {
       feature_audit_fatal "$directory" "collector failed to run in the guest:\
- $(awk 'END { print }' "$error_file")"
+ $(tail -n 1 "$error_file")"
       return 1
     }
   fi

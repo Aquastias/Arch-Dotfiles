@@ -11,6 +11,9 @@
 
 # feature_audit_push_binds_lib — stage binds-guest.sh (the guest half of the
 # keybind engine) where feature_audit_guest_execute sources it.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 feature_audit_push_binds_lib() {
   feature_audit_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" \
     /tmp/fa-binds >/dev/null 2>&1
@@ -34,9 +37,11 @@ _live_compositor_process() {
 _live_send() {
   case "$1" in
     click:*)
-      local coordinates="${1#click:}"
-      feature_audit_agent mouse move "${coordinates%,*}" \
-        "${coordinates#*,}" >/dev/null 2>&1
+      local x y
+      # The x and y after "click:" (6 characters), comma-separated.
+      x="$(printf '%s\n' "${1:6}" | cut -d, -f1)"
+      y="$(printf '%s\n' "${1:6}" | cut -d, -f2)"
+      feature_audit_agent mouse move "$x" "$y" >/dev/null 2>&1
       feature_audit_agent mouse btn left down >/dev/null 2>&1
       feature_audit_agent mouse btn left up >/dev/null 2>&1 ;;
     *) feature_audit_agent key "$1" >/dev/null 2>&1 ;;
@@ -48,7 +53,8 @@ _live_bind_recover() {
   case "$1" in
     escape)  feature_audit_agent key Escape >/dev/null 2>&1 ;;
     toggle)  feature_audit_agent key "$2" >/dev/null 2>&1 ;;
-    key:*)   feature_audit_agent key "${1#key:}" >/dev/null 2>&1 ;;
+    # the key after "key:"
+    key:*)   feature_audit_agent key "${1:4}" >/dev/null 2>&1 ;;
     unlock)  feature_audit_agent unlock >/dev/null 2>&1 ;;
     session) feature_audit_agent session "$3" >/dev/null 2>&1
              feature_audit_agent idle off >/dev/null 2>&1
@@ -64,8 +70,10 @@ _live_bind_recover() {
 # left (272) / right (273) button: real pointer input, like a hand would.
 _live_mouse_chord() {
   local chord="$1" modifiers button
-  modifiers="${chord%+mouse*}"; button="${chord##*+}"
-  [[ "$modifiers" == "$chord" ]] && modifiers=""
+  local all_but_last='$c | split("+") | .[:-1] | join("+")'
+  # The keys before the last "+" (none for a bare button), and the last one.
+  modifiers="$(jq -r -n --arg c "$chord" "$all_but_last")"
+  button="$(jq -r -n --arg c "$chord" '$c | split("+") | .[-1]')"
   feature_audit_agent mouse move 16384 16384 >/dev/null 2>&1
   if [[ -n "$modifiers" ]]; then
     feature_audit_agent keydown "$modifiers" >/dev/null 2>&1 || return 1
@@ -76,11 +84,7 @@ _live_mouse_chord() {
     mouse_up)   feature_audit_agent mouse wheel up ;;
     mouse:272|mouse:273)
       local button_side=left; [[ "$button" == mouse:273 ]] && button_side=right
-      feature_audit_agent mouse move 16384 16384 && sleep 0.2 \
-        && feature_audit_agent mouse btn "$button_side" down && sleep 0.2 \
-        && feature_audit_agent mouse move 18000 17500 && sleep 0.2 \
-        && feature_audit_agent mouse move 20000 19000 && sleep 0.2 \
-        && feature_audit_agent mouse btn "$button_side" up ;;
+      _live_mouse_drag "$button_side" ;;
     *) [[ -n "$modifiers" ]] \
       && feature_audit_agent keyup "$modifiers" >/dev/null 2>&1
        return 1 ;;
@@ -90,19 +94,41 @@ _live_mouse_chord() {
   return 0
 }
 
+# _live_mouse_drag <left|right> — press the button at screen centre, drag it
+# down-right in two steps, release; stops at the first step that fails.
+_live_mouse_drag() {
+  feature_audit_agent mouse move 16384 16384 || return 1
+  sleep 0.2
+  feature_audit_agent mouse btn "$1" down || return 1
+  sleep 0.2
+  feature_audit_agent mouse move 18000 17500 || return 1
+  sleep 0.2
+  feature_audit_agent mouse move 20000 19000 || return 1
+  sleep 0.2
+  feature_audit_agent mouse btn "$1" up
+}
+
+# _live_row_field <row-json> <filter> — one field of a plan row, as text.
+_live_row_field() {
+  # The filter's value in the row.
+  printf '%s\n' "$1" | jq -r "$2"
+}
+
 # _live_bind_one <plan-row-json> <desktop> — one bind as real input; prints its
 # PASS/FAIL/SKIP line.
 _live_bind_one() {
   local row="$1" desktop="$2" chord effect argument needs recovery settle id
   local before after rc screenshot_directory pid=""
-  chord="$(jq -r .chord <<<"$row")"; effect="$(jq -r .effect <<<"$row")"
-  argument="$(jq -r '.arg // ""' <<<"$row")"
-  needs="$(jq -r '.needs // ""' <<<"$row")"
-  recovery="$(jq -r '.recovery // ""' <<<"$row")"
-  settle="$(jq -r '.settle // 1.5' <<<"$row")"
-  id="bind-$(jq -r .source <<<"$row")-$chord"
+  chord="$(_live_row_field "$row" .chord)"
+  effect="$(_live_row_field "$row" .effect)"
+  argument="$(_live_row_field "$row" '.arg // ""')"
+  needs="$(_live_row_field "$row" '.needs // ""')"
+  recovery="$(_live_row_field "$row" '.recovery // ""')"
+  settle="$(_live_row_field "$row" '.settle // 1.5')"
+  id="bind-$(_live_row_field "$row" .source)-$chord"
   if [[ "$effect" == unverifiable ]]; then
-    echo "SKIP $id unverifiable: $(jq -r '.reason // "no reason"' <<<"$row")"
+    echo "SKIP $id unverifiable:" \
+      "$(_live_row_field "$row" '.reason // "no reason"')"
     return
   fi
   screenshot_directory="Pictures/Screenshots"
@@ -133,14 +159,21 @@ _live_bind_one() {
   feature_audit_guest_execute feature_audit_binds_evaluate "$effect" \
     "$argument" \
     "$before" "$after" >/dev/null || rc=$?
+  _live_bind_verdict "$rc" "$id" "$row" "$effect" "$argument"
+  [[ -n "$recovery" ]] && _live_bind_recover "$recovery" "$chord" "$desktop"
+  feature_audit_guest_execute feature_audit_binds_teardown >/dev/null
+}
+
+# _live_bind_verdict <rc> <id> <row> <effect> <argument> — the bind's result
+# line from feature_audit_binds_evaluate's exit code.
+_live_bind_verdict() {
+  local rc="$1" id="$2" row="$3" effect="$4" argument="$5"
   case "$rc" in
     0) echo "PASS $id $effect" ;;
     3) echo "SKIP $id $effect not observable here (no audio device)" ;;
-    *) echo "FAIL $id ($(jq -r .action <<<"$row")) expected" \
+    *) echo "FAIL $id ($(_live_row_field "$row" .action)) expected" \
          "$effect${argument:+ $argument}, not observed" ;;
   esac
-  [[ -n "$recovery" ]] && _live_bind_recover "$recovery" "$chord" "$desktop"
-  feature_audit_guest_execute feature_audit_binds_teardown >/dev/null
 }
 
 # _live_send_steps <row> <pre|then> <send-then-wait|wait-then-send> — type the
@@ -154,7 +187,7 @@ _live_send_steps() {
     else
       sleep 1; _live_send "$step"
     fi
-  done < <(jq -r ".${field}[]?" <<<"$row")
+  done < <(_live_row_field "$row" ".${field}[]?")
 }
 
 # _live_compositor_pid <desktop> — the running compositor's PID (the oldest, so
@@ -174,7 +207,7 @@ _live_bind_session_end() {
     sleep 1
   done
   if feature_audit_agent sudo "test -d /proc/$pid" >/dev/null 2>&1; then
-    echo "FAIL $id ($(jq -r .action <<<"$row")) did not end the session"
+    echo "FAIL $id ($(_live_row_field "$row" .action)) did not end the session"
   else echo "PASS $id session ended"; fi
   _live_bind_recover "${recovery:-session}" "$chord" "$desktop"
 }
@@ -184,7 +217,10 @@ _live_bind_session_end() {
 feature_audit_phase_keybinds() {
   local variant_directory="$1" config="$2" desktop source_name directory \
     since out row first="" why
-  first="$(feature_audit_desktops "$config" | awk 'NR == 1 { print; exit }')"
+  local skipped='select(.effect != null)'
+  skipped+=' | "SKIP bind-\(.source)-\(.chord) \($w)"'
+  local session_ending_last='sort_by(.session_ending // false) | .[]'
+  first="$(feature_audit_desktops "$config" | head -n 1)"
   while IFS= read -r desktop; do
     [[ -n "$desktop" ]] || continue
     directory="$variant_directory/keybinds-$desktop"; mkdir -p "$directory"
@@ -205,16 +241,16 @@ feature_audit_phase_keybinds() {
       out="$directory/probe-binds-$source_name@$FA_USER.probe"
       # Probe Gate: binds this variant does not deploy are SKIPped, not judged
       if why="$(feature_audit_bind_gate "$desktop" "$config")"; then
-        feature_audit_binds_plan "$source_name" | jq -r --arg w "$why" \
-          'select(.effect != null) | "SKIP bind-\(.source)-\(.chord) \($w)"' \
-          >> "$out"
+        # A SKIP line, with the gate's reason, per testable bind.
+        feature_audit_binds_plan "$source_name" \
+          | jq -r --arg w "$why" "$skipped" >> "$out"
         continue
       fi
       while IFS= read -r row; do
         _live_bind_one "$row" "$desktop" >> "$out"
+      # The plan's testable binds, the session-ending ones last.
       done < <(feature_audit_binds_plan "$source_name" \
-        | jq -c 'select(.effect != null)' \
-                 | jq -s -c 'sort_by(.session_ending // false) | .[]')
+        | jq -c 'select(.effect != null)' | jq -s -c "$session_ending_last")
     done
     feature_audit_collect "$directory" "$since"
   done < <(feature_audit_desktops "$config")

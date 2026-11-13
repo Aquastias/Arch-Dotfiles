@@ -520,6 +520,17 @@ SH
   [[ "$output" != *"sudo"* ]]
 }
 
+@test "flag-reference: setsid's flags stay its own, the command's are checked" {
+  make_reference_repo
+  printf '\n### `setsid`\nRuns a program in a new session.\n\n- `-f` — fork\n' \
+    >> docs/tool-reference.md
+  printf 'setsid -f wc --class x\n' > .installer/lib/a.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool-reference: .installer/lib/a.sh:1: wc has no"* ]]
+  [[ "$output" != *"setsid --class"* ]]
+}
+
 @test "flag-reference: arch-chroot's command after the root gets the flags" {
   make_reference_repo
   printf '\n### `arch-chroot`\nRuns a command in a root.\n' \

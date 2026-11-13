@@ -7,6 +7,8 @@
 # matrix-registry.bats, the coverage summary in matrix-records.bats, and the
 # cell-set properties in matrix-generator.bats.
 
+load ../lib/json-helpers
+
 setup() {
   MATRIX_SH="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)/tools/matrix.sh"
   export INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
@@ -24,7 +26,7 @@ setup() {
   [ -f "$MATRIX_COVERAGE_PATH" ]
   [ "$(grep -c . "$MATRIX_MANIFEST_PATH")" -gt 1 ]
   while IFS= read -r c; do
-    echo "$c" | jq -e '.id and (.axes | type == "object")'
+    json_satisfies "$c" '.id and (.axes | type == "object")'
   done <"$MATRIX_MANIFEST_PATH"
 }
 
@@ -33,9 +35,9 @@ setup() {
 @test "gen: the manifest includes the pinned seeds" {
   run bash "$MATRIX_SH" gen
   [ "$status" -eq 0 ]
-  jq -e 'select(.id == "seed-xfs-root")' "$MATRIX_MANIFEST_PATH" >/dev/null
-  jq -e 'select(.id == "seed-zfs-root-btrfs-pool")' \
-    "$MATRIX_MANIFEST_PATH" >/dev/null
+  file_satisfies "$MATRIX_MANIFEST_PATH" 'select(.id == "seed-xfs-root")'
+  file_satisfies "$MATRIX_MANIFEST_PATH" \
+    'select(.id == "seed-zfs-root-btrfs-pool")'
 }
 
 # ── gen is reproducible for a fixed seed ────────────────────────────────────

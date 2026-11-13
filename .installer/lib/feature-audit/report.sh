@@ -24,6 +24,9 @@
 # =============================================================================
 
 # Phase order for grouping; unknown phases sort last.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 FA_PHASES=(check install boot1 sessions probes-offline probes-online keybinds
            timers boot2 upgrade power)
 
@@ -38,10 +41,7 @@ feature_audit_known_noise_path() {
 _report_noise_tsv() {
   local noise_file; noise_file="$(feature_audit_known_noise_path)"
   [[ -f "$noise_file" ]] || return 0
-  jsonc_strip "$noise_file" | jq -r '.[] | [(.regex | if type == "array"
-      then join("") else . end), (.source // ""), (.phase // ""),
-    ((.variants // []) | join(","))]
-    | join("\t")'  # not @tsv: it escapes the regexes' backslashes
+  jsonc_strip "$noise_file" | jq -r -f "${BASH_SOURCE[0]%/*}/report-noise.jq"
 }
 
 # _report_candidates <run-dir> — one aggregated Finding per line (TSV):
@@ -67,7 +67,9 @@ _report_candidates() {
 }
 
 feature_audit_report() {
-  local run="${1%/}"
+  local run="$1"
+  # Without a trailing slash.
+  [[ "$run" == */ ]] && run="${run:0:${#run}-1}"
   if [[ ! -d "$run" ]]; then
     echo "feature-audit: no run folder: $run" >&2; return 2
   fi
@@ -76,21 +78,13 @@ feature_audit_report() {
   rm -f "$jsonl" "$markdown" "$advisories"
   FA_NOISE_TSV="$(mktemp)"
   _report_noise_tsv > "$FA_NOISE_TSV"
-  # stable sort: phase rank, then source; first-seen order within a group
+  local adr_map
+  adr_map="$(_report_variant_adr_map "$run")"
+  # The candidates, stable-sorted by phase rank then source (first-seen order
+  # within a group), each as a Finding object.
   all="$(_report_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
-    | jq -R -c --arg run "$run" \
-        --argjson va "$(_report_variant_adr_map "$run")" '
-        split("\t") as $f
-        | { phase: ($f[4] | split(",")[0]), phases: ($f[4] | split(",")),
-            source: $f[1], program: (if $f[2] == "" then null else $f[2] end),
-            check: (if $f[3] == "" then null else $f[3] end),
-            variants: ($f[5] | split(",")), count: ($f[6] | tonumber),
-            total: ($f[7] | tonumber), excerpt: $f[8],
-            logs: ($f[9] | split(",") | map($run + "/" + .)),
-            adrs: ([($f[5] | split(","))[] | $va[.] // [] | .[]] | unique),
-            repro: ("tools/feature-audit.sh run --variant "
-                    + ($f[5] | split(",")[0]) + " --keep"),
-            severity: $f[10] }')"
+    | jq -R -c --arg run "$run" --argjson va "$adr_map" \
+      -f "${BASH_SOURCE[0]%/*}/report-finding.jq")"
   rm -f "$FA_NOISE_TSV"
   _report_numbered "$all" blocking F > "$jsonl"
   _report_numbered "$all" advisory A > "$advisories"
@@ -103,10 +97,9 @@ feature_audit_report() {
 # <entries> (JSON lines), numbered <prefix>NNN in order (width ≥ 3).
 _report_numbered() {
   [[ -n "$1" ]] || return 0
-  jq -c -s --arg sev "$2" --arg p "$3" 'map(select(.severity == $sev))
-    | ([length, 999] | max | tostring | length) as $w
-    | to_entries | map(.value + {id: ($p + ((.key + 1) | tostring
-    | ("0" * $w + .) | .[-$w:]))}) | .[]' <<<"$1"
+  # The entries of that severity, numbered.
+  printf '%s\n' "$1" | jq -c -s --arg sev "$2" --arg p "$3" \
+    -f "${BASH_SOURCE[0]%/*}/report-numbered.jq"
 }
 
 # _report_render_markdown <jsonl> <run-dir> — agent-ready findings list + the
@@ -122,21 +115,7 @@ _report_render_markdown() {
   echo "$count finding(s). Fix each, or propose a Known Noise entry (regex +"
   echo "reason) for maintainer approval. Repro: rerun the variant with"
   echo "\`--keep\`, then inspect the listed log on the held VM."
-  jq -r -s '
-    group_by(.phase) | sort_by(.[0].id) | .[] |
-    "\n## \(.[0].phase)\n" + (
-      group_by(.source) | sort_by(.[0].id) | map(
-        "\n### \(.[0].source)\n" + (map(
-          "\n- **\(.id)** [\(.variants | join(", "))] "
-          + (if .program then "program=\(.program) " else "" end)
-          + (if .check then "check=\(.check) " else "" end)
-          + "seen \(.count)/\(.total) (\(.phases | join(", ")))\n"
-          + "  ```\n  \(.excerpt)\n  ```\n"
-          + "  logs: \(.logs | join(" "))\n"
-          + "  repro: `\(.repro)`"
-        ) | join("\n"))
-      ) | join("\n"))
-  ' "$jsonl"
+  jq -r -s -f "${BASH_SOURCE[0]%/*}/report-markdown.jq" "$jsonl"
   _report_render_advisories "$run"
   _report_render_skips "$run"
   _report_render_visual "$run"
@@ -152,9 +131,10 @@ _report_render_advisories() {
   echo
   echo "Warning-level lines: reported, never failing the run."
   echo
-  jq -r '"- **\(.id)** [\(.variants | join(", "))] \(.source) seen "
-    + "\(.count)/\(.total) (\(.phases | join(", "))): `\(.excerpt)`"' \
-    "$advisories"
+  local bullet='"- **\(.id)** [\(.variants | join(", "))] \(.source) seen "'
+  bullet+=' + "\(.count)/\(.total) (\(.phases | join(", "))): `\(.excerpt)`"'
+  # One bullet per advisory.
+  jq -r "$bullet" "$advisories"
 }
 
 # _report_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR
@@ -164,21 +144,7 @@ _report_render_skips() {
   mapfile -t probes < <(find "$run" -mindepth 3 -maxdepth 3 -name '*.probe' \
     | sort)
   ((${#probes[@]})) || return 0
-  awk -v run="$run/" '
-    /^SKIP / {
-      rel = substr(FILENAME, length(run) + 1); split(rel, p, "/")
-      k = substr($0, 6)
-      if (!(k in v)) { order[++n] = k; v[k] = "" }
-      if (index("," v[k] ",", "," p[1] ",") == 0)
-        v[k] = v[k] (v[k] == "" ? "" : ",") p[1]
-    }
-    END {
-      if (!n) exit
-      print "\n## Skipped checks\n"
-      print "Gated off by the variant (Probe Gate) or not provable here."
-      print ""
-      for (i = 1; i <= n; i++) printf "- %s [%s]\n", order[i], v[order[i]]
-    }' "${probes[@]}"
+  awk -v run="$run/" -f "${BASH_SOURCE[0]%/*}/report-skips.awk" "${probes[@]}"
 }
 
 # _report_render_visual <run-dir> — screenshots for visual review (theming,
@@ -203,5 +169,6 @@ _report_variant_adr_map() {
   mapfile -t variant_files < <(find "$1" -mindepth 2 -maxdepth 2 \
     -name variant.json)
   ((${#variant_files[@]})) || { echo '{}'; return; }
+  # Every variant's ADRs, merged into one map.
   jq -s -c 'map({(.variant): (.adrs // [])}) | add' "${variant_files[@]}"
 }

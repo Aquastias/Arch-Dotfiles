@@ -98,3 +98,9 @@
 # guided tests.
 .installer/lib/guided/**
 .installer/tests/guided/*
+
+# Ticket 14 — the Feature Audit and the Combination Matrix, with their tests.
+.installer/lib/feature-audit/*
+.installer/lib/matrix/*
+.installer/tests/feature-audit/*
+.installer/tests/matrix/*

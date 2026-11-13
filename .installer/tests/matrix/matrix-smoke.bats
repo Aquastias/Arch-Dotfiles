@@ -20,7 +20,9 @@ setup() {
 # ── selection: exactly the curated cells, drawn from the real generator ───────
 
 @test "smoke_cells: exactly the four curated cell ids" {
-  local ids; ids="$(matrix_smoke_cells 0 | jq -r '.id' | sort)"
+  local ids
+  # The smoke cells' ids, sorted.
+  ids="$(matrix_smoke_cells 0 | jq -r '.id' | sort)"
   local want; want="$(printf '%s\n' \
     zfs-mirror-plain zfs-single-enc zfs-single-plain zfs-single-plain-imp)"
   [ "$ids" = "$want" ]
@@ -40,8 +42,9 @@ setup() {
 # cell passing — the exact failure a live serialized smoke run hit.
 @test "smoke: VM stdout does not pollute the result summary" {
   matrix_smoke_cells() {
-    jq -c -n '{id:"zfs-single-plain", axes:{filesystem:"zfs",
-      topology:"single", encryption:false, impermanence:false}}'
+    local cell='{"id":"zfs-single-plain","axes":{"filesystem":"zfs",'
+    cell+='"topology":"single","encryption":false,"impermanence":false}}'
+    printf '%s\n' "$cell"
   }
   _driver_preflight()  { return 0; }
   _driver_guard_gate() { return 0; }
@@ -59,8 +62,10 @@ setup() {
 @test "smoke: runs every curated cell; a failure doesn't abort; nonzero exit" {
   local test_directory="$BATS_TEST_TMPDIR"
   _plain_cell() {
-    jq -c -n --arg id "$1" '{id:$id, axes:{filesystem:"zfs",
-      topology:"single", encryption:false, impermanence:false}}'
+    local plain='{id: $id, axes: {filesystem: "zfs", topology: "single",'
+    plain+=' encryption: false, impermanence: false}}'
+    # A plain zfs cell with that id.
+    jq -c -n --arg id "$1" "$plain"
   }
   # stub selection → four plain cells (real generator not needed here).
   matrix_smoke_cells() {
@@ -70,7 +75,9 @@ setup() {
   _driver_preflight()  { return 0; }
   _driver_guard_gate() { return 0; }
   _driver_run_cell() {
-    local id; id="$(jq -r .id <<<"$1")"
+    local id
+    # The cell's id.
+    id="$(printf '%s\n' "$1" | jq -r .id)"
     echo "$id" >>"$test_directory/attempts"
     [[ "$id" == zfs-mirror-plain ]] && return 1 || return 0   # one fails
   }
@@ -81,5 +88,5 @@ setup() {
   [[ "$output" == *zfs-single-plain-imp* ]]
   [[ "$output" == *zfs-single-enc* ]]
   [[ "$output" == *"matrix.sh run zfs-mirror-plain"* ]]  # re-run hint on fail
-  [ "$(sort -u "$test_directory/attempts" | awk 'END { print NR }')" -eq 4 ]         # all four attempted
+  [ "$(sort -u "$test_directory/attempts" | wc -l)" -eq 4 ]         # all four attempted
 }

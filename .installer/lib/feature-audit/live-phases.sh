@@ -104,8 +104,9 @@ feature_audit_phase_boot2() {
   # get: the authored toggle, as the boot2 check expects it
   impermanence="$(install_config_from_json "$config" \
     get impermanence_enabled)"
-  sops="$(jq -r 'if (.options.age_key_url // "") != "" then true
-                 else false end' <<<"$config")"
+  local has_age_key='(.options.age_key_url // "") != ""'
+  # Whether the variant fetches an age key (true/false).
+  sops="$(printf '%s\n' "$config" | jq -r "$has_age_key")"
   _live_boot2_prep_script "$FA_USER" \
     | feature_audit_agent sudo >/dev/null 2>&1 || true
   feature_audit_reboot "$directory" || return 1
@@ -270,8 +271,10 @@ feature_audit_phase_upgrade() {
 
 # feature_audit_desktops <cfg> — the variant's desktop set, one per line.
 feature_audit_desktops() {
-  jq -r '.environment.desktop // [] | if type == "string" then [.] else . end
-    | .[]' <<<"$1"
+  local desktop_list='.environment.desktop // []'
+  desktop_list+=' | if type == "string" then [.] else . end | .[]'
+  # The desktops, a lone one counted as one.
+  printf '%s\n' "$1" | jq -r "$desktop_list"
 }
 
 # _live_session_logs_script <user> — compositor/session logs the journal lacks

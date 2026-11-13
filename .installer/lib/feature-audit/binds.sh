@@ -60,7 +60,8 @@ feature_audit_binds_sources() { printf '%s\n' "${!FA_BIND_SOURCES[@]}" | sort; }
 _binds_field() {
   local spec="${FA_BIND_SOURCES[$1]:-}"
   [[ -n "$spec" ]] || return 1
-  awk -F'|' -v field="$2" '{ print $field }' <<<"$spec"
+  # The spec's <n>th |-separated field.
+  printf '%s\n' "$spec" | cut -d'|' -f"$2"
 }
 
 feature_audit_binds_session() { _binds_field "$1" 1; }
@@ -74,9 +75,11 @@ feature_audit_binds_expect_file() {
 _binds_files() {
   local file_globs; file_globs="$(_binds_field "$1" 2)" || return 1
   if [[ "$file_globs" == find:* ]]; then
-    file_globs="${file_globs#find:}"
-    find "$FA_REPO_ROOT/${file_globs%%:*}" -name "${file_globs#*:}" -type f \
-      | sort
+    local directory name
+    # find:<dir>:<name-glob> — the directory and the glob after "find:".
+    directory="$(printf '%s\n' "${file_globs:5}" | cut -d: -f1)"
+    name="$(printf '%s\n' "${file_globs:5}" | cut -d: -f2-)"
+    find "$FA_REPO_ROOT/$directory" -name "$name" -type f | sort
     return
   fi
   # shellcheck disable=SC2086 # intentional glob expansion
@@ -85,31 +88,7 @@ _binds_files() {
 
 # _binds_parse_niri <file…> — KDL `binds { Chord [props] { action; } }` blocks.
 _binds_parse_niri() {
-  awk '
-    function flush() {
-      gsub(/[;[:space:]]+$/, "", act); gsub(/^[[:space:]]+/, "", act)
-      gsub(/;[[:space:]]*/, "; ", act); sub(/; $/, "", act)
-      if (chord != "") printf "niri\t%s\t%s\n", chord, act
-      chord = ""; act = ""
-    }
-    { sub(/^[[:space:]]*\/\/.*$/, "") }
-    /^[[:space:]]*binds[[:space:]]*\{/ { inb = 1; depth = 1; next }
-    !inb { next }
-    {
-      line = $0
-      if (depth == 1) {
-        if (line ~ /^[[:space:]]*\}/) { inb = 0; next }
-        if (line !~ /\{/) next
-        split(line, f, " "); chord = f[1]; sub(/^[[:space:]]+/, "", chord)
-        body = line; sub(/^[^{]*\{/, "", body)
-        depth = 2
-      } else body = line
-      if (body ~ /\}[[:space:]]*$/) {
-        sub(/\}[[:space:]]*$/, "", body); act = act " " body; flush()
-        depth = 1
-      } else act = act " " body
-    }
-  ' "$@"
+  awk -f "$INSTALLER_DIR/lib/feature-audit/binds-niri.awk" "$@"
 }
 
 # _binds_parse_umbriel <file…> — TOML `[keybinds]` (ADR 0159): a plain
@@ -129,21 +108,7 @@ _binds_parse_hyprland() {
 # _binds_parse_kde <kglobalshortcutsrc…> — `Action=Active\tAlt,Default,Label`
 # per [component]; every active shortcut (not `none`) is a row.
 _binds_parse_kde() {
-  awk '
-    /^\[/ { g = substr($0, 2, length($0) - 2); next }
-    /^_k_friendly_name=/ { next }
-    index($0, "=") {
-      name = substr($0, 1, index($0, "=") - 1)
-      a = substr($0, index($0, "=") + 1); sub(/,.*$/, "", a)
-      if (a == "none" || a == "") next
-      n = split(a, ks, /\\t/)
-      for (i = 1; i <= n; i++) {
-        k = ks[i]
-        if (k ~ /\+\+$/) k = substr(k, 1, length(k) - 2) "+Plus"
-        if (k != "" && k != "none") printf "kde\t%s\t%s/%s\n", k, g, name
-      }
-    }
-  ' "$@"
+  awk -f "$INSTALLER_DIR/lib/feature-audit/binds-kde.awk" "$@"
 }
 
 # _binds_parse_nvim <lua…> — see binds-nvim.awk.
@@ -162,33 +127,13 @@ _binds_parse_emacs() {
 # _binds_parse_kitty <conf…> — `map <keys> <action>`; kitty_mod is ctrl+shift
 # (kitty's default; the curated config does not rebind it).
 _binds_parse_kitty() {
-  awk '
-    /^[ \t]*map[ \t]/ {
-      k = $2; sub(/^[ \t]*map[ \t]+[^ \t]+[ \t]+/, "")
-      gsub(/kitty_mod/, "ctrl+shift", k)
-      n = split(k, p, "+"); o = ""
-      for (i = 1; i <= n; i++) {
-        t = p[i]
-        if (t == "ctrl") t = "Ctrl"; else if (t == "shift") t = "Shift"
-        else if (t == "alt") t = "Alt"; else if (t == "super") t = "Super"
-        o = o (o == "" ? "" : "+") t
-      }
-      printf "kitty\t%s\t%s\n", o, $0
-    }' "$@"
+  awk -f "$INSTALLER_DIR/lib/feature-audit/binds-kitty.awk" "$@"
 }
 
 # _binds_parse_zsh <rc…> — explicit `bindkey [-M map] <seq> <widget>` lines
 # (a bare `bindkey -e/-v` keymap switch is not a bind).
 _binds_parse_zsh() {
-  awk '
-    { sub(/[ \t]+#.*$/, "") }
-    /^[ \t]*bindkey[ \t]/ {
-      m = "main"; i = 2
-      if ($2 == "-M") { m = $3; i = 4 }
-      if ($i ~ /^-/ || NF < i + 1) next
-      s = $i; gsub(/^[\x27"]|[\x27"]$/, "", s)
-      printf "zsh\t%s\t%s %s\n", s, m, $(i + 1)
-    }' "$@"
+  awk -f "$INSTALLER_DIR/lib/feature-audit/binds-zsh.awk" "$@"
 }
 # feature_audit_binds_parse <src> <file…>
 feature_audit_binds_parse() {
@@ -227,17 +172,20 @@ feature_audit_binds_plan() {
     rows="$(feature_audit_binds_rows "$source_name")" || return 1
   fi
   local expect_json='{"expect":[]}'
+  # The expectations file exists, and is not valid JSONC.
   if [[ -f "$expected" ]] \
     && ! expect_json="$(jsonc_strip "$expected" | jq -c . 2>/dev/null)"; then
     echo "feature-audit: $expected is not valid JSONC" >&2; return 1
   fi
-  jq -R -c --argjson e "$expect_json" \
-    -f "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" <<<"$rows"
+  # Each row matched to its expectation.
+  printf '%s\n' "$rows" | jq -R -c --argjson e "$expect_json" \
+    -f "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq"
 }
 
 feature_audit_binds_untested() {
-  feature_audit_binds_plan "$@" | jq -r 'select(.effect == null)
-    | "\(.source)\t\(.chord)\t\(.action)"'
+  local untested='select(.effect == null) | "\(.source)\t\(.chord)\t\(.action)"'
+  # The binds with no expectation, as source<TAB>chord<TAB>action.
+  feature_audit_binds_plan "$@" | jq -r "$untested"
 }
 
 # feature_audit_binds_program_sources <program> — bind sources a program's probe

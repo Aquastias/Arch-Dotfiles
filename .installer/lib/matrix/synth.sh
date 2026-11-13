@@ -49,16 +49,19 @@ declare -F matrix_cell_assemble >/dev/null 2>&1 \
 # matrix_cell_disk_count <cell> — Σ disk_count over the root topology and a
 # data pool (the cell already carries each group's disk_count).
 matrix_cell_disk_count() {
-  jq -r '(.axes.disk_count // 1)
-         + (.axes.data_pool.disk_count // 0)' <<<"$1"
+  local total='(.axes.disk_count // 1) + (.axes.data_pool.disk_count // 0)'
+  # The root's disks plus the data pool's.
+  printf '%s\n' "$1" | jq -r "$total"
 }
 
 # matrix_cell_is_heavy <cell> — "true" iff the cell pulls a heavy install (any
 # desktop or the nvidia driver); AUR is baseline for every cell so it does not
 # tip the band.
 matrix_cell_is_heavy() {
-  jq -r '((.axes.desktop // "none") != "none")
-         or ((.axes.gpu // "auto") == "nvidia")' <<<"$1"
+  local heavy='((.axes.desktop // "none") != "none")'
+  heavy+=' or ((.axes.gpu // "auto") == "nvidia")'
+  # A desktop, or the nvidia driver.
+  printf '%s\n' "$1" | jq -r "$heavy"
 }
 
 # matrix_cell_timeout <cell> — the install timeout for the cell's band (seconds).
@@ -75,18 +78,20 @@ matrix_cell_timeout() {
 # passphrase over serial. Only gpu≠auto stays install-only — a virtual GPU can't
 # exercise a real driver.
 matrix_cell_boot_verify() {
-  jq -r 'if ((.axes.gpu // "auto") != "auto") then false
-         else true end' <<<"$1"
+  # No real-driver gpu (true/false).
+  printf '%s\n' "$1" | jq -r '(.axes.gpu // "auto") == "auto"'
 }
 
 # matrix_cell_verify <cell> — the profile's verify block per the oracle table,
 # or "null" for install-only cells. Encryption no longer forces install-only
 # (the Answerer drives the unlock); gpu≠auto still does.
 matrix_cell_verify() {
-  jq -c 'if ((.axes.gpu // "auto") != "auto") then null         # install-only
-         elif (.axes.impermanence == true)
-            then {boot:true, rollback:true}                     # two-boot proof
-         else {boot:true} end' <<<"$1"                          # first-boot
+  local verify='if (.axes.gpu // "auto") != "auto" then null'   # install-only
+  verify+=' elif .axes.impermanence == true'
+  verify+=' then {boot: true, rollback: true}'                  # two-boot proof
+  verify+=' else {boot: true} end'                              # first-boot
+  # The verify block for the cell's oracle.
+  printf '%s\n' "$1" | jq -c "$verify"
 }
 
 # matrix_cell_synthesize <cell> [disk_gib] — the ephemeral VM Profile JSON.
@@ -97,18 +102,11 @@ matrix_cell_synthesize() {
   timeout="$(matrix_cell_timeout "$cell")"
   install="$(matrix_cell_assemble "$cell")"
 
-  jq -n \
-    --arg name "matrix-$(jq -r '.id' <<<"$cell")" \
-    --argjson ram "$MATRIX_VM_RAM_MB" \
+  local id
+  # The cell's id.
+  id="$(printf '%s\n' "$cell" | jq -r '.id')"
+  jq -n --arg name "matrix-$id" --argjson ram "$MATRIX_VM_RAM_MB" \
     --argjson n "$disk_count" --argjson gib "$gib" \
     --argjson verify "$verify" --argjson timeout "$timeout" \
-    --argjson install "$install" '
-    {
-      name: $name,
-      hardware: { disks: [range(0; $n) | $gib], ram_mb: $ram, vcpus: 2 },
-      timeouts: { install: $timeout },
-      install: $install
-    }
-    | if $verify != null then . + { verify: $verify } else . end
-  '
+    --argjson install "$install" -f "${BASH_SOURCE[0]%/*}/synth-profile.jq"
 }

@@ -3,6 +3,9 @@
 # feature-audit/11+). Parsers turn a shipped config into normalized
 # `source<TAB>chord<TAB>action` rows; `check` demands an expectation per row.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   export INSTALLER_DIR
@@ -14,44 +17,42 @@ setup() {
 @test "niri parser: one row per bind, single- and multi-line actions" {
   run feature_audit_binds_parse niri "$FIX/niri-binds.kdl"
   [ "$status" -eq 0 ]
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 5 ]
-  grep -qxF $'niri\tMod+Return\tspawn "kitty"' <<<"$output"
-  grep -qxF $'niri\tMod+D\tspawn-sh "noctalia msg panel-toggle launcher"' \
-    <<<"$output"
-  grep -qxF $'niri\tMod+1\tfocus-workspace 1' <<<"$output"
+  [ "${#lines[@]}" -eq 5 ]
+  text_has_line "$output" $'niri\tMod+Return\tspawn "kitty"'
+  text_has_line "$output" $'niri\tMod+D\tspawn-sh "noctalia msg panel-toggle launcher"'
+  text_has_line "$output" $'niri\tMod+1\tfocus-workspace 1'
   local mute='spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"'
-  grep -qxF "niri"$'\t'"XF86AudioMute"$'\t'"$mute" \
-    <<<"$output"
+  text_has_line "$output" "niri"$'\t'"XF86AudioMute"$'\t'"$mute"
 }
 
 @test "niri parser: the shipped config parses to its binds" {
   run feature_audit_binds_rows niri
   [ "$status" -eq 0 ]
-  grep -qxF $'niri\tMod+X\tclose-window' <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -gt 100 ]
+  text_has_line "$output" $'niri\tMod+X\tclose-window'
+  [ "${#lines[@]}" -gt 100 ]
 }
 
 # Umbriel (ADR 0159): TOML [keybinds] — plain, inline-table and sub-table forms.
 @test "umbriel parser: one row per bind across every TOML bind form" {
   run feature_audit_binds_parse umbriel "$FIX/umbriel-binds.toml"
   [ "$status" -eq 0 ]
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 6 ]
-  grep -qxF $'umbriel\tMod+Return\tspawn kitty' <<<"$output"
-  grep -qxF $'umbriel\tMod+X\twindow-close' <<<"$output"
-  grep -qxF $'umbriel\tMod+1\tworkspace-switch 1' <<<"$output"
-  grep -qxF $'umbriel\tMod+Escape\tshortcuts-inhibit-toggle' <<<"$output"
+  [ "${#lines[@]}" -eq 6 ]
+  text_has_line "$output" $'umbriel\tMod+Return\tspawn kitty'
+  text_has_line "$output" $'umbriel\tMod+X\twindow-close'
+  text_has_line "$output" $'umbriel\tMod+1\tworkspace-switch 1'
+  text_has_line "$output" $'umbriel\tMod+Escape\tshortcuts-inhibit-toggle'
   local mute='spawn wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle'
-  grep -qxF "umbriel"$'\t'"XF86AudioMute"$'\t'"$mute" <<<"$output"
+  text_has_line "$output" "umbriel"$'\t'"XF86AudioMute"$'\t'"$mute"
   local shot='spawn grim -g "$(umbriel windows --json | jq -r '
   shot+="'.[] | select(.active)')\" out.png"
-  grep -qxF "umbriel"$'\t'"Shift+Print"$'\t'"$shot" <<<"$output"
+  text_has_line "$output" "umbriel"$'\t'"Shift+Print"$'\t'"$shot"
 }
 
 @test "umbriel parser: the shipped config parses to its binds" {
   run feature_audit_binds_rows umbriel
   [ "$status" -eq 0 ]
-  grep -qxF $'umbriel\tMod+X\twindow-close' <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -gt 100 ]
+  text_has_line "$output" $'umbriel\tMod+X\twindow-close'
+  [ "${#lines[@]}" -gt 100 ]
 }
 
 @test "plan: chord match wins over action glob; {arg} substitutes" {
@@ -64,77 +65,74 @@ setup() {
 J
   run feature_audit_binds_plan niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
   [ "$status" -eq 0 ]
-  jq -e 'select(.chord == "Mod+1") | .effect == "workspace" and .arg == "1"' \
-    <<<"$output"
-  jq -e 'select(.chord == "Mod+Shift+E") | .session_ending == true' \
-    <<<"$output"
-  jq -e 'select(.chord == "Mod+D") | .effect == null' <<<"$output"
+  output_satisfies 'select(.chord == "Mod+1") | .effect == "workspace" and .arg == "1"'
+  output_satisfies 'select(.chord == "Mod+Shift+E") | .session_ending == true'
+  output_satisfies 'select(.chord == "Mod+D") | .effect == null'
 }
 
 @test "untested: rows with no expectation are listed" {
   echo '{ "expect": [ { "action": "focus-workspace *", "effect": "workspace",
     "arg": "{arg}" } ] }' > "$BATS_TEST_TMPDIR/b.jsonc"
   run feature_audit_binds_untested niri "$FIX/niri-binds.kdl" "$BATS_TEST_TMPDIR/b.jsonc"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 4 ]
-  grep -q 'Mod+Return' <<<"$output"
-  ! grep -q 'Mod+1' <<<"$output"
+  [ "${#lines[@]}" -eq 4 ]
+  echo "$output" | grep -q 'Mod+Return'
+  ! echo "$output" | grep -q 'Mod+1'
 }
 
 @test "hyprland parser: locals, concatenation, for-loops, opts" {
   run feature_audit_binds_parse hyprland "$FIX/hypr-binds.lua"
   [ "$status" -eq 0 ]
-  grep -qxF $'hyprland\tSuper+Return\texec_cmd("kitty")' <<<"$output"
-  grep -qxF $'hyprland\tSuper+Shift+E\texit()' <<<"$output"
-  grep -qxF $'hyprland\tCtrl+Alt+Delete\texit()' <<<"$output"
-  grep -qxF $'hyprland\tSuper+left\tfocus({ direction = "left" })' <<<"$output"
-  grep -qxF $'hyprland\tSuper+1\tfocus({ workspace = 1 })' <<<"$output"
-  grep -qxF $'hyprland\tSuper+2\tfocus({ workspace = 2 })' <<<"$output"
-  grep -qxF $'hyprland\tSuper+mouse:272\twindow.drag()' <<<"$output"
-  grep -qxF $'hyprland\tXF86AudioMute\texec_cmd("wpctl mute")' \
-    <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 8 ]
+  text_has_line "$output" $'hyprland\tSuper+Return\texec_cmd("kitty")'
+  text_has_line "$output" $'hyprland\tSuper+Shift+E\texit()'
+  text_has_line "$output" $'hyprland\tCtrl+Alt+Delete\texit()'
+  text_has_line "$output" $'hyprland\tSuper+left\tfocus({ direction = "left" })'
+  text_has_line "$output" $'hyprland\tSuper+1\tfocus({ workspace = 1 })'
+  text_has_line "$output" $'hyprland\tSuper+2\tfocus({ workspace = 2 })'
+  text_has_line "$output" $'hyprland\tSuper+mouse:272\twindow.drag()'
+  text_has_line "$output" $'hyprland\tXF86AudioMute\texec_cmd("wpctl mute")'
+  [ "${#lines[@]}" -eq 8 ]
 }
 
 @test "kde parser: every active shortcut of every component, none skipped" {
   run feature_audit_binds_parse kde "$FIX/kglobalshortcutsrc"
   [ "$status" -eq 0 ]
-  grep -qxF $'kde\tAlt+F4\tkwin/Window Close' <<<"$output"
-  grep -qxF $'kde\tMeta+X\tkwin/Window Close' <<<"$output"
-  grep -qxF $'kde\tMeta+W\tkwin/Overview' <<<"$output"
-  grep -qxF $'kde\tMeta+Plus\tkwin/view_zoom_in' <<<"$output"
-  grep -qxF $'kde\tMeta+=\tkwin/view_zoom_in' <<<"$output"
-  grep -qxF $'kde\tMeta\tplasmashell/activate application launcher' <<<"$output"
-  ! grep -q 'Cycle Overview' <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 7 ]
+  text_has_line "$output" $'kde\tAlt+F4\tkwin/Window Close'
+  text_has_line "$output" $'kde\tMeta+X\tkwin/Window Close'
+  text_has_line "$output" $'kde\tMeta+W\tkwin/Overview'
+  text_has_line "$output" $'kde\tMeta+Plus\tkwin/view_zoom_in'
+  text_has_line "$output" $'kde\tMeta+=\tkwin/view_zoom_in'
+  text_has_line "$output" $'kde\tMeta\tplasmashell/activate application launcher'
+  ! echo "$output" | grep -q 'Cycle Overview'
+  [ "${#lines[@]}" -eq 7 ]
 }
 
 @test "hyprland + kde: shipped configs parse" {
   run feature_audit_binds_rows hyprland
   [ "$status" -eq 0 ]
-  grep -qxF $'hyprland\tSuper+X\twindow.close()' <<<"$output"
+  text_has_line "$output" $'hyprland\tSuper+X\twindow.close()'
   run feature_audit_binds_rows kde
   [ "$status" -eq 0 ]
-  grep -qxF $'kde\tMeta+X\tkwin/Window Close' <<<"$output"
+  text_has_line "$output" $'kde\tMeta+X\tkwin/Window Close'
 }
 
 @test "plan: {num} substitutes the action's first number" {
   echo '{ "expect": [ { "action": "focus({ workspace = *", "effect":
     "workspace", "arg": "{num}" } ] }' > "$BATS_TEST_TMPDIR/b.jsonc"
   run feature_audit_binds_plan hyprland "$FIX/hypr-binds.lua" "$BATS_TEST_TMPDIR/b.jsonc"
-  jq -e 'select(.chord == "Super+2") | .arg == "2"' <<<"$output"
+  output_satisfies 'select(.chord == "Super+2") | .arg == "2"'
 }
 
 @test "nvim parser: map/keymap.set calls and lazy keys specs" {
   run feature_audit_binds_parse nvim "$FIX/nvim-keys.lua"
   [ "$status" -eq 0 ]
-  grep -qxF $'nvim\t<leader>w\tn Write buffer' <<<"$output"
-  grep -qxF $'nvim\t<C-/>\tn,t Toggle terminal' <<<"$output"
-  grep -qxF $'nvim\tJ\tv Move selection down' <<<"$output"
-  grep -qxF $'nvim\t<leader>xx\tn Diags' <<<"$output"
-  grep -qxF $'nvim\ts\tn,x Flash' <<<"$output"
+  text_has_line "$output" $'nvim\t<leader>w\tn Write buffer'
+  text_has_line "$output" $'nvim\t<C-/>\tn,t Toggle terminal'
+  text_has_line "$output" $'nvim\tJ\tv Move selection down'
+  text_has_line "$output" $'nvim\t<leader>xx\tn Diags'
+  text_has_line "$output" $'nvim\ts\tn,x Flash'
   # a dynamically built lhs is left to the live keymap dump
-  ! grep -q $'\t<leader>\t' <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 5 ]
+  ! echo "$output" | grep -q $'\t<leader>\t'
+  [ "${#lines[@]}" -eq 5 ]
 }
 
 @test "program sources: nvim binds are driven by the nvim probe" {
@@ -147,17 +145,17 @@ J
 @test "kitty parser: map lines, kitty_mod = Ctrl+Shift" {
   run feature_audit_binds_parse kitty "$FIX/kitty-keys.conf"
   [ "$status" -eq 0 ]
-  grep -qxF $'kitty\tCtrl+Shift+t\tnew_tab_with_cwd' <<<"$output"
-  grep -qxF $'kitty\tCtrl+Alt+enter\tlaunch --cwd=current' <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 2 ]
+  text_has_line "$output" $'kitty\tCtrl+Shift+t\tnew_tab_with_cwd'
+  text_has_line "$output" $'kitty\tCtrl+Alt+enter\tlaunch --cwd=current'
+  [ "${#lines[@]}" -eq 2 ]
 }
 
 @test "zsh parser: explicit bindkey lines, not keymap switches" {
   run feature_audit_binds_parse zsh "$FIX/zshrc"
   [ "$status" -eq 0 ]
-  grep -qxF $'zsh\t^[[1;5C\tmain forward-word' <<<"$output"
-  grep -qxF $'zsh\t^R\tviins history-incremental-search-backward' <<<"$output"
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 2 ]
+  text_has_line "$output" $'zsh\t^[[1;5C\tmain forward-word'
+  text_has_line "$output" $'zsh\t^R\tviins history-incremental-search-backward'
+  [ "${#lines[@]}" -eq 2 ]
 }
 
 @test "plan: a source with no binds plans nothing, without error" {
@@ -184,23 +182,21 @@ L
 J
   run feature_audit_binds_plan nvim "$BATS_TEST_TMPDIR/k.lua" "$BATS_TEST_TMPDIR/b.jsonc"
   [ "$status" -eq 0 ]
-  jq -e 'select(.action == "n Hover") | .effect == "window-opens"' \
-    <<<"$output"
-  jq -e 'select(.action == "v Move selection up") | .effect == "text-changes"' \
-    <<<"$output"
+  output_satisfies 'select(.action == "n Hover") | .effect == "window-opens"'
+  output_satisfies 'select(.action == "v Move selection up") | .effect == "text-changes"'
 }
 
 @test "emacs parser: Doom map! state and leader binds, unbinds skipped" {
   run feature_audit_binds_parse emacs "$FIX/emacs-keys.el"
   [ "$status" -eq 0 ]
-  [ "$(awk 'END { print NR }' <<<"$output")" -eq 7 ]
-  grep -qxF $'emacs\t]d\tm flymake-goto-next-error' <<<"$output"
-  grep -qxF $'emacs\ts\tn avy-goto-char-timer' <<<"$output"
-  grep -qxF $'emacs\tC-SPC\tnv er/expand-region' <<<"$output"
-  grep -qxF $'emacs\tJ\tv +parity/move-lines-down' <<<"$output"
-  grep -qxF $'emacs\tSPC w\tleader save-buffer' <<<"$output"
-  grep -qxF $'emacs\tSPC 1\tleader harpoon-go-to-1' <<<"$output"
-  grep -qxF $'emacs\tSPC g g\tleader +parity/lazygit' <<<"$output"
+  [ "${#lines[@]}" -eq 7 ]
+  text_has_line "$output" $'emacs\t]d\tm flymake-goto-next-error'
+  text_has_line "$output" $'emacs\ts\tn avy-goto-char-timer'
+  text_has_line "$output" $'emacs\tC-SPC\tnv er/expand-region'
+  text_has_line "$output" $'emacs\tJ\tv +parity/move-lines-down'
+  text_has_line "$output" $'emacs\tSPC w\tleader save-buffer'
+  text_has_line "$output" $'emacs\tSPC 1\tleader harpoon-go-to-1'
+  text_has_line "$output" $'emacs\tSPC g g\tleader +parity/lazygit'
 }
 
 @test "program sources: emacs binds are driven by the emacs probe" {
@@ -213,7 +209,7 @@ J
 @test "emacs: every shipped bind has an expectation" {
   run feature_audit_binds_rows emacs
   [ "$status" -eq 0 ]
-  grep -qxF $'emacs\tSPC g g\tleader +parity/lazygit' <<<"$output"
+  text_has_line "$output" $'emacs\tSPC g g\tleader +parity/lazygit'
   run feature_audit_binds_untested emacs
   [ "$status" -eq 0 ]
   [ -z "$output" ]

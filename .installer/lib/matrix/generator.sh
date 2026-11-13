@@ -30,6 +30,9 @@
 
 # menu option functions (the source of truth for reachability).
 # shellcheck source=../guided/controller.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F _controller_topologies_for_filesystem >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../guided/controller.sh"
 # shellcheck source=./pairwise.sh
@@ -81,15 +84,19 @@ _generator_topology_disk_count() {
 # _generator_tier1_slug <axes_json> — a stable, readable cell-id from a Tier-1
 # cell's storage axes. zfs/single/plain/no-pool ⇒ "zfs-single-plain".
 _generator_tier1_slug() {
-  jq -r '
-    .filesystem as $fs | .topology as $topo
-    | (if .encryption then "enc" else "plain" end) as $enc
-    | (if .impermanence then "-imp" else "" end) as $imp
-    | (if .data_pool == null then ""
-       else "-pool-" + .data_pool.filesystem
-            + (if .data_pool.encryption then "-penc" else "" end) end) as $pool
-    | "\($fs)-\($topo)-\($enc)\($imp)\($pool)"
-  ' <<<"$1"
+  printf '%s\n' "$1" | jq -r -f "${BASH_SOURCE[0]%/*}/generator-tier1-slug.jq"
+}
+
+# _generator_json_array <text>… — the arguments as a compact JSON array of
+# strings, in order.
+_generator_json_array() {
+  local json='[]' text
+  for text in "$@"; do
+    # The array so far, with this string added at the end.
+    json="$(jq -c -n --argjson array "$json" --arg text "$text" \
+      '$array + [$text]')"
+  done
+  printf '%s\n' "$json"
 }
 
 # ── data-pool options (per-group fs × encryption, incl. mixed-fs) ────────────
@@ -98,15 +105,18 @@ _generator_tier1_slug() {
 # the empty pool (null) plus each built filesystem × {plaintext, encrypted}. A
 # single-disk pool (disk_count 1, topology single) keeps the cross-product
 # tractable while still exercising mixed-fs and per-group encryption.
+_GENERATOR_POOL='{filesystem: $fs, encryption: $enc, topology: $topo,'
+_GENERATOR_POOL+=' disk_count: 1}'
+
 _generator_data_pool_specs() {
   printf 'null\n'
   local pool_filesystem pool_encryption topology
   for pool_filesystem in $(_generator_root_filesystems); do
     topology="$(_generator_single_topology "$pool_filesystem")"
     for pool_encryption in false true; do
+      # A single-disk pool of that filesystem and encryption.
       jq -c -n --arg fs "$pool_filesystem" --argjson enc "$pool_encryption" \
-        --arg topo "$topology" \
-        '{filesystem:$fs, encryption:$enc, topology:$topo, disk_count:1}'
+        --arg topo "$topology" "$_GENERATOR_POOL"
     done
   done
 }
@@ -135,25 +145,29 @@ matrix_tier1_cells() {
 # encryption × impermanence × data-pool cell for one root topology.
 _generator_tier1_topology_cells() {
   local filesystem="$1" mode="$2" topology="$3" encryption impermanence pool
-  local axes id
+  local axes id root disk_count
+  local axes_of='{filesystem: $fs, mode: $mode, topology: $topo,'
+  axes_of+=' disk_count: $dc, encryption: $enc, impermanence: $imp,'
+  axes_of+=' data_pool: $pool}'
+  disk_count="$(_generator_topology_disk_count "$topology")"
+  # The root as the menu sees it: filesystem and mode.
+  root="$(jq -c -n --arg fs "$filesystem" --arg mode "$mode" \
+    '{filesystem: $fs, mode: $mode}')"
   for encryption in false true; do
     # the menu locks encryption off on some roots (btrfs raid): never emitted
-    [[ "$encryption" == true ]] && menu_state_encryption_locked \
-      "$(jq -c -n --arg fs "$filesystem" --arg mode "$mode" \
-        '{filesystem:$fs, mode:$mode}')" && continue
+    [[ "$encryption" == true ]] && menu_state_encryption_locked "$root" \
+      && continue
     for impermanence in $(_generator_impermanence_values "$filesystem"); do
       while IFS= read -r pool; do
+        # The cell's storage axes.
         axes="$(jq -c -n \
           --arg fs "$filesystem" --arg mode "$mode" --arg topo "$topology" \
           --argjson enc "$encryption" --argjson imp "$impermanence" \
-          --argjson pool "$pool" \
-          --argjson dc "$(_generator_topology_disk_count "$topology")" '{
-            filesystem:$fs, mode:$mode, topology:$topo, disk_count:$dc,
-            encryption:$enc, impermanence:$imp, data_pool:$pool
-          }')"
+          --argjson pool "$pool" --argjson dc "$disk_count" "$axes_of")"
         id="$(_generator_tier1_slug "$axes")"
+        # The Tier-1 cell.
         jq -c -n --arg id "$id" --argjson axes "$axes" \
-          '{id:$id, tier:1, axes:$axes}'
+          '{id: $id, tier: 1, axes: $axes}'
       done < <(_generator_data_pool_specs)
     done
   done
@@ -170,21 +184,13 @@ _MATRIX_TIER2_TOPOLOGIES=(single mirror raidz1 raidz2 stripe raid0 raid1 raid10)
 
 # _generator_tier2_axes — the install-affecting pairwise axes as an axes JSON.
 _generator_tier2_axes() {
-  local topologies
-  topologies="$(printf '%s\n' "${_MATRIX_TIER2_TOPOLOGIES[@]}" \
-    | jq -R . | jq -s -c .)"
-  local fss; fss="$(_generator_root_filesystems | jq -R . | jq -s -c .)"
-  jq -c -n --argjson fs "$fss" --argjson topo "$topologies" '{
-    filesystem:   $fs,
-    topology:     $topo,
-    encryption:   [false, true],
-    impermanence: [false, true],
-    kernel:       ["lts", "zen"],
-    bootloader:   ["systemd-boot", "grub", "efistub", "limine", "refind"],
-    desktop:      ["none", "kde", "hyprland"],
-    gpu:          ["auto", "amd", "nvidia", "intel"],
-    swap:         [true, false]
-  }'
+  local topologies filesystems
+  local -a root_filesystems
+  mapfile -t root_filesystems < <(_generator_root_filesystems)
+  topologies="$(_generator_json_array "${_MATRIX_TIER2_TOPOLOGIES[@]}")"
+  filesystems="$(_generator_json_array "${root_filesystems[@]}")"
+  jq -c -n --argjson fs "$filesystems" --argjson topo "$topologies" \
+    -f "${BASH_SOURCE[0]%/*}/generator-tier2-axes.jq"
 }
 
 # _generator_tier2_constraints — the exclusion set, derived from the menu
@@ -196,40 +202,41 @@ _generator_tier2_axes() {
 _generator_tier2_constraints() {
   local filesystem topology allowed cons=()
   for filesystem in $(_generator_root_filesystems); do
+    # Its topologies, space-padded: single plus the menu's multi ones.
     allowed=" single $(_generator_multi_topologies "$filesystem" \
-      | awk '{ printf "%s ", $0 }') "
+      | paste -sd' ' -) "
     for topology in "${_MATRIX_TIER2_TOPOLOGIES[@]}"; do
       [[ "$allowed" == *" $topology "* ]] && continue
+      # A forbidden filesystem + topology pair.
       cons+=("$(jq -c -n --arg fs "$filesystem" --arg t "$topology" \
-        '{filesystem:$fs, topology:$t}')")
+        '{filesystem: $fs, topology: $t}')")
     done
+    local multi_root
+    # The filesystem as a multi-disk root.
+    multi_root="$(jq -c -n --arg fs "$filesystem" \
+      '{filesystem: $fs, mode: "multi"}')"
     for topology in "${_MATRIX_TIER2_TOPOLOGIES[@]}"; do
       [[ "$allowed" == *" $topology "* && "$topology" != single ]] || continue
-      menu_state_encryption_locked \
-        "$(jq -c -n --arg fs "$filesystem" '{filesystem:$fs, mode:"multi"}')" \
-        || continue
+      menu_state_encryption_locked "$multi_root" || continue
+      # A forbidden encrypted multi-disk root.
       cons+=("$(jq -c -n --arg fs "$filesystem" --arg t "$topology" \
-        '{filesystem:$fs, topology:$t, encryption:true}')")
+        '{filesystem: $fs, topology: $t, encryption: true}')")
     done
     case "$filesystem" in
     ext4 | xfs)
+      # No impermanence without native snapshots.
       cons+=("$(jq -c -n --arg fs "$filesystem" \
-        '{filesystem:$fs, impermanence:true}')")
+        '{filesystem: $fs, impermanence: true}')")
       ;;
     esac
   done
+  # The constraints as one array.
   printf '%s\n' "${cons[@]}" | jq -s -c .
 }
 
 # _generator_tier2_slug <row_json> — a stable id for a pairwise cell.
 _generator_tier2_slug() {
-  jq -r '
-    "t2-\(.filesystem)-\(.topology)"
-    + (if .encryption then "-enc" else "-plain" end)
-    + (if .impermanence then "-imp" else "" end)
-    + "-k\(.kernel)-b\(.bootloader)-d\(.desktop)-g\(.gpu)"
-    + (if .swap then "-swap" else "-noswap" end)
-  ' <<<"$1"
+  printf '%s\n' "$1" | jq -r -f "${BASH_SOURCE[0]%/*}/generator-tier2-slug.jq"
 }
 
 # _generator_pairwise_row_to_cell <row_json> — a pairwise row → a Tier-2 cell.
@@ -237,53 +244,27 @@ _generator_tier2_slug() {
 # + seeds, so a pairwise cell has none.
 _generator_pairwise_row_to_cell() {
   local row="$1" topology mode disk_count id
-  topology="$(jq -r '.topology' <<<"$row")"
+  local cell='{id: $id, tier: 2,'
+  cell+=' axes: ($row + {mode: $mode, disk_count: $dc, data_pool: null})}'
+  # The row's topology.
+  topology="$(printf '%s\n' "$row" | jq -r '.topology')"
   [[ "$topology" == single ]] && mode=single || mode=multi
   disk_count="$(_generator_topology_disk_count "$topology")"
   id="$(_generator_tier2_slug "$row")"
+  # The Tier-2 cell: the row plus its mode, disk count and no data pool.
   jq -c -n --arg id "$id" --arg mode "$mode" --argjson dc "$disk_count" \
-    --argjson row "$row" '{
-      id:$id, tier:2,
-      axes:($row + {mode:$mode, disk_count:$dc, data_pool:null})
-    }'
+    --argjson row "$row" "$cell"
 }
 
 # _generator_tier2_seeds — the pinned historical-bug cells, unioned
 # unconditionally so a known regression can never silently drop out of the
 # Tier-2 set (ADR 0046).
 _generator_tier2_seeds() {
-  # zfs root + btrfs data pool (mixed-fs, the classic bug-dense case).
-  jq -c -n '{id:"seed-zfs-root-btrfs-pool", tier:2, axes:{
-    filesystem:"zfs", mode:"single", topology:"single", disk_count:1,
-    encryption:false, impermanence:false,
-    data_pool:{filesystem:"btrfs", encryption:false, topology:"single",
-               disk_count:1}}}'
-  # ext4 root + zfs data pool (mixed-fs, the other direction).
-  jq -c -n '{id:"seed-ext4-root-zfs-pool", tier:2, axes:{
-    filesystem:"ext4", mode:"single", topology:"single", disk_count:1,
-    encryption:false, impermanence:false,
-    data_pool:{filesystem:"zfs", encryption:false, topology:"none",
-               disk_count:1}}}'
-  # xfs root (the modprobe-before-root-mount case).
-  jq -c -n '{id:"seed-xfs-root", tier:2, axes:{
-    filesystem:"xfs", mode:"single", topology:"single", disk_count:1,
-    encryption:false, impermanence:false, data_pool:null}}'
-  # zfs keyfile-on-root + encrypted pool (root plaintext, pool key on root).
-  jq -c -n '{id:"seed-zfs-keyfile-root-enc-pool", tier:2, axes:{
-    filesystem:"zfs", mode:"single", topology:"single", disk_count:1,
-    encryption:false, impermanence:false,
-    data_pool:{filesystem:"zfs", encryption:true, topology:"none",
-               disk_count:1}}}'
-  # nvidia × kernel: pin the DKMS-against-headers build for each kernel.
-  local kernel
-  for kernel in lts zen; do
-    jq -c -n --arg k "$kernel" '{id:("seed-nvidia-k"+$k), tier:2, axes:{
-      filesystem:"zfs", mode:"single", topology:"single", disk_count:1,
-      encryption:false, impermanence:false, data_pool:null,
-      kernel:$k, bootloader:"systemd-boot", desktop:"kde", gpu:"nvidia",
-      swap:true}}'
-  done
+  jq -c -n -f "${BASH_SOURCE[0]%/*}/generator-seeds.jq"
 }
+
+# The cells (read as one array) each once, by id, one per line.
+_GENERATOR_UNIQUE='unique_by(.id) | .[]'
 
 # matrix_tier2_cells [seed] — the pairwise cover ∪ the pinned seeds. Seeds are
 # de-duplicated against the cover by id (a seed that coincides with a drawn row
@@ -298,10 +279,13 @@ matrix_tier2_cells() {
       _generator_pairwise_row_to_cell "$row"
     done < <(matrix_pairwise "$axes" "$cons" "$seed")
     _generator_tier2_seeds
-  } | jq -c -s 'unique_by(.id) | .[]'
+  # Each cell once, by id.
+  } | jq -c -s "$_GENERATOR_UNIQUE"
 }
 
 # matrix_all_cells [seed] — Tier-1 ∪ Tier-2 (for emit/run cell-id resolution).
 matrix_all_cells() {
-  { matrix_tier1_cells; matrix_tier2_cells "${1:-0}"; } | jq -c -s 'unique_by(.id) | .[]'
+  # Each cell once, by id.
+  { matrix_tier1_cells; matrix_tier2_cells "${1:-0}"; } \
+    | jq -c -s "$_GENERATOR_UNIQUE"
 }

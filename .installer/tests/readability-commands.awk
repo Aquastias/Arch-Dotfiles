@@ -255,7 +255,7 @@ BEGIN {
   for (n in list) shell_keyword[list[n]] = 1
 
   # Commands that run the command written after them.
-  split("sudo exec command nohup env timeout xargs arch-chroot", list, " ")
+  split("sudo exec command nohup env timeout xargs arch-chroot setsid", list, " ")
   for (n in list) wrapper_command[list[n]] = 1
   split("bash sh zsh", list, " ")
   for (n in list) shell_command[list[n]] = 1

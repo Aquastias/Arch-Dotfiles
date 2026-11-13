@@ -9,6 +9,8 @@
 #   *.warnings journal priority warning: every line is an Advisory
 #   *.probe   probe output: FAIL lines are Findings (PASS/SKIP are not)
 
+load ../lib/text-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   TOOL="$INSTALLER_DIR/tools/feature-audit.sh"
@@ -29,6 +31,13 @@ art() {
 report() { run bash "$TOOL" report "$RUN"; }
 jsonl() { cat "$RUN/findings.jsonl"; }
 
+# finding_satisfies <jq-test> — jq -e over every finding line makes
+# <jq-test> true (the last result decides, so a select() needs one match).
+finding_satisfies() {
+  # Whether the findings make the test true.
+  jsonl | jq -e "$1" >/dev/null
+}
+
 @test "clean run folder: exit 0, no findings" {
   art base install installer.log "[INFO]  Installing base" "[INFO]  Done"
   art base boot1 failed-units-system.lines ""
@@ -47,13 +56,11 @@ jsonl() { cat "$RUN/findings.jsonl"; }
     "[INFO]  0 packages to remove"
   report
   [ "$status" -ne 0 ]
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  [ "$(awk 'END { print NR }' "$RUN/advisories.jsonl")" -eq 2 ]
-  jq -e 'select(.excerpt == "[WARN]  mirror slow")' \
-    "$RUN/advisories.jsonl" >/dev/null
-  jsonl | jq -e 'select(.excerpt == "[ERROR] zpool create failed")' >/dev/null
-  jsonl | jq -e 'select(.phase == "install" and .source == "installer")' \
-    >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  [ "$(wc -l < "$RUN/advisories.jsonl")" -eq 2 ]
+  advisory_satisfies 'select(.excerpt == "[WARN]  mirror slow")'
+  finding_satisfies 'select(.excerpt == "[ERROR] zpool create failed")'
+  finding_satisfies 'select(.phase == "install" and .source == "installer")'
 }
 
 @test ".lines source: every non-empty line is a finding" {
@@ -61,16 +68,16 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art base boot1 coredumps.lines "Mon 2026-09-28 10:00 1234 SIGSEGV /usr/bin/f"
   report
   [ "$status" -ne 0 ]
-  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
+  [ "$(jsonl | wc -l)" -eq 2 ]
 }
 
 @test ".probe source: only FAIL lines are findings, with program" {
   art base probes-offline probe-zsh@aquastias.probe \
     "PASS zsh-starts ok" "SKIP zsh-x n/a" "FAIL zsh-plugins autosuggest missing"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.program == "zsh" and .check == "zsh-plugins"
-    and .source == "probe"' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.program == "zsh" and .check == "zsh-plugins"
+    and .source == "probe"'
 }
 
 @test "probe stderr is a finding; hyphenated program; users merge" {
@@ -78,23 +85,23 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art base probes-offline probe-power-profiles-daemon@aquastias.err.lines \
     "boom"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.program == "power-profiles-daemon"
-    and .source == "probe-stderr" and (.logs | length) == 2' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.program == "power-profiles-daemon"
+    and .source == "probe-stderr" and (.logs | length) == 2'
 }
 
 @test "finding carries id, variants, phase, source, excerpt, logs, repro" {
   art base boot1 journal-system.lines \
     "Sep 29 10:00:01 arch-audit foo[812]: bad thing"
   report
-  jsonl | jq -e '
+  finding_satisfies '
     (.id | test("^F[0-9]{3}$")) and .variants == ["base"]
     and .phase == "boot1" and .source == "journal-system"
     and (.excerpt | contains("bad thing"))
     and (.logs[0] | endswith("base/boot1/journal-system.lines"))
     and (.repro | contains("--variant base"))
     and has("program") and has("adrs") and .count == 1 and .total == 1
-  ' >/dev/null
+  '
 }
 
 @test "same finding in two variants → one entry listing both" {
@@ -103,9 +110,8 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art grub boot1 journal-system.lines \
     "Sep 29 11:22:33 arch-audit foo[977]: bad thing"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.variants == ["base","grub"] and (.logs | length) == 2' \
-    >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.variants == ["base","grub"] and (.logs | length) == 2'
 }
 
 @test "intermittent finding shows frequency across boots" {
@@ -113,8 +119,8 @@ jsonl() { cat "$RUN/findings.jsonl"; }
   art base boot2 journal-system.lines "Sep 29 10:10:01 h foo[2]: race"
   art base upgrade journal-system.lines "Sep 29 10:20:01 h bar[3]: other"
   report
-  jsonl | jq -e 'select(.excerpt | contains("race"))
-    | .count == 2 and .total == 3 and .phases == ["boot1","boot2"]' >/dev/null
+  finding_satisfies 'select(.excerpt | contains("race"))
+    | .count == 2 and .total == 3 and .phases == ["boot1","boot2"]'
   grep -q '2/3' "$RUN/findings.md"
 }
 
@@ -132,8 +138,8 @@ EOF
     "Sep 29 10:00:01 h a[1]: scoped"
   art base boot2 journal-system.lines "Sep 29 10:00:01 h a[1]: scoped"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.phase == "boot2"' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.phase == "boot2"'
 }
 
 @test "findings.md is grouped by phase in phase order, then source" {
@@ -141,8 +147,8 @@ EOF
   art base install installer.log "[ERROR] early"
   report
   local install_line upgrade_line
-  install_line="$(awk '/^## install/ { print NR }' "$RUN/findings.md")"
-  upgrade_line="$(awk '/^## upgrade/ { print NR }' "$RUN/findings.md")"
+  install_line="$(line_number_of "$RUN/findings.md" "## install")"
+  upgrade_line="$(line_number_of "$RUN/findings.md" "## upgrade")"
   [ -n "$install_line" ] && [ -n "$upgrade_line" ] && [ "$install_line" -lt "$upgrade_line" ]
   grep -q '^### installer' "$RUN/findings.md"
   grep -q 'F001' "$RUN/findings.md"
@@ -151,7 +157,7 @@ EOF
 @test "report is re-runnable: stale outputs are replaced, not appended" {
   art base install installer.log "[ERROR] early"
   report; report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
+  [ "$(jsonl | wc -l)" -eq 1 ]
 }
 
 @test "missing run folder is a usage error" {
@@ -163,7 +169,7 @@ EOF
   art base sessions-hyprland hyprland.log "[LOG] ok" "[ERR] shader compile" \
     "[CRITICAL] oops" "[INFO] all good"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
+  [ "$(jsonl | wc -l)" -eq 2 ]
 }
 
 @test "per-desktop session phases group under sessions order" {
@@ -171,7 +177,8 @@ EOF
   art base sessions-kde journal.lines "Sep 29 10:00:01 h b[1]: kde"
   art base boot1 journal.lines "Sep 29 10:00:01 h c[1]: early"
   report
-  [ "$(jsonl | jq -r .phase | awk '{ printf "%s ", $0 }')" = 'boot1 sessions-kde upgrade ' ]
+  # The findings' phases, in order, space-joined.
+  [ "$(jsonl | jq -r .phase | paste -sd' ' -)" = 'boot1 sessions-kde upgrade' ]
 }
 
 @test "screenshots are listed in a visual-review section" {
@@ -197,12 +204,12 @@ EOF
   art base probes-online probe-nvim@aquastias.probe \
     "PASS nvim-treesitter ok" "FAIL nvim-lsp broken"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
-  jsonl | jq -e 'select(.source == "runtime-fetch")
+  [ "$(jsonl | wc -l)" -eq 2 ]
+  finding_satisfies 'select(.source == "runtime-fetch")
     | .program == "nvim" and .check == "nvim-treesitter"
-      and (.excerpt | contains("parser download failed"))' >/dev/null
+      and (.excerpt | contains("parser download failed"))'
   # the genuinely broken check stays a plain probe finding
-  jsonl | jq -e 'select(.source == "probe") | .check == "nvim-lsp"' >/dev/null
+  finding_satisfies 'select(.source == "probe") | .check == "nvim-lsp"'
 }
 
 @test "log kind: package names containing error/warn are not findings" {
@@ -212,8 +219,8 @@ EOF
     "installing libgpg-error..." \
     "error: failed to prepare transaction"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.excerpt == "error: failed to prepare transaction"' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.excerpt == "error: failed to prepare transaction"'
 }
 
 @test "runtime fetch is judged per account, not across users" {
@@ -221,8 +228,8 @@ EOF
   art base probes-online probe-nvim@alice.probe "FAIL nvim-x broke offline"
   art base probes-online probe-nvim@bob.probe "PASS nvim-x ok"
   report
-  jsonl | jq -e 'select(.check == "nvim-x") | .source == "probe"' >/dev/null
-  ! jsonl | jq -e 'select(.source == "runtime-fetch")' >/dev/null
+  finding_satisfies 'select(.check == "nvim-x") | .source == "probe"'
+  ! finding_satisfies 'select(.source == "runtime-fetch")'
 }
 
 @test "findings carry the ADRs their variants cover (variant.json)" {
@@ -230,7 +237,7 @@ EOF
   echo '{"variant":"grub","adrs":["0038","0078"]}' > "$RUN/grub/variant.json"
   art grub install installer.log "[ERROR] esp too small"
   report
-  jsonl | jq -e '.adrs == ["0038","0078"]' >/dev/null
+  finding_satisfies '.adrs == ["0038","0078"]'
 }
 
 # ── one journal entry, one Finding (Audit Run 20260929 inflation) ───────────
@@ -241,8 +248,8 @@ EOF
     '                                    Qt depends on a UTF-8 locale.' \
     '                                    See the locale(1) manual'
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.excerpt | startswith("spectacle")' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.excerpt | startswith("spectacle")'
 }
 
 @test "dedup normalises hex ids: busy unmounts differing by hash merge" {
@@ -250,14 +257,14 @@ EOF
     '[  1.2] (sd-umoun: Failed to unmount /run/shutdown/mounts/a3f9c01e: busy' \
     '[  3.4] (sd-umoun: Failed to unmount /run/shutdown/mounts/9bd4e2ff7a: busy'
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
+  [ "$(jsonl | wc -l)" -eq 1 ]
 }
 
 @test "dedup keeps hex-free words distinct (no false merge)" {
   art base boot1 journal.lines 'x: failed to load facade' \
     'x: failed to load decade'
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 2 ]
+  [ "$(jsonl | wc -l)" -eq 2 ]
 }
 
 @test "installer log: pacman 'is up to date -- skipping' is not a finding" {
@@ -280,12 +287,15 @@ EOF
   done
   art base boot1 journal.lines "${lines[@]}"
   report
-  local count; count="$(jsonl | awk 'END { print NR }')"
+  local count; count="$(jsonl | wc -l)"
   [ "$count" -gt 999 ]
-  [ "$(jsonl | jq -r .id | sort -u | awk 'END { print NR }')" -eq "$count" ]
-  jsonl | jq -e 'select(.id == "F0001")' >/dev/null
-  [ "$(grep -o '^- \*\*F[0-9]*\*\*' "$RUN/findings.md" | sort -u | awk 'END { print NR }')" \
-    -eq "$count" ]
+  local ids listed
+  # The distinct finding ids, in the JSON and in findings.md.
+  ids="$(jsonl | jq -r .id | sort -u)"
+  listed="$(grep -o '^- \*\*F[0-9]*\*\*' "$RUN/findings.md" | sort -u)"
+  [ "$(printf '%s\n' "$ids" | wc -l)" -eq "$count" ]
+  finding_satisfies 'select(.id == "F0001")'
+  [ "$(printf '%s\n' "$listed" | wc -l)" -eq "$count" ]
 }
 
 @test "known noise scoped to variants mutes only there" {
@@ -296,8 +306,8 @@ EOF2
   art hyprland-pure sessions-hyprland hyprland.lines "No config file found"
   art base sessions-hyprland hyprland.lines "No config file found"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.variants == ["base"]' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.variants == ["base"]'
 }
 
 @test "skipped checks are listed in findings.md, never findings" {
@@ -305,7 +315,7 @@ EOF2
     "SKIP apparmor-selected not selected in this variant (Probe Gate)"
   art base probes-offline probe-zsh@aquastias.probe "FAIL zsh-x broken"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
+  [ "$(jsonl | wc -l)" -eq 1 ]
   grep -q '^## Skipped checks' "$RUN/findings.md"
   grep -q 'apparmor-selected.*not selected in this variant.*base' \
     "$RUN/findings.md"
@@ -338,8 +348,8 @@ EOF2
   art base boot1 journal.lines "alpha[1]: one thing" "beta: two things" \
     "gamma: failed"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e '.excerpt | startswith("gamma")' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies '.excerpt | startswith("gamma")'
 }
 
 # _retry marks each attempt; a failed attempt a later one recovered is folded
@@ -354,9 +364,8 @@ EOF2
     "installing zfs-utils..." \
     "[ERROR] later, outside the attempt"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e 'select(.excerpt == "[ERROR] later, outside the attempt")' \
-    >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies 'select(.excerpt == "[ERROR] later, outside the attempt")'
 }
 
 @test "installer log: the last attempt's errors stay findings" {
@@ -365,13 +374,19 @@ EOF2
     "[RETRY] attempt 1/2 of pacstrap returned 1; trying again" \
     "[ATTEMPT] 2/2 pacstrap" "error: two"
   report
-  [ "$(jsonl | awk 'END { print NR }')" -eq 1 ]
-  jsonl | jq -e 'select(.excerpt == "error: two")' >/dev/null
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  finding_satisfies 'select(.excerpt == "error: two")'
 }
 
 # ── severity: blocking Findings vs Advisory warnings (ADR 0165) ─────────────
 
 advisories() { cat "$RUN/advisories.jsonl"; }
+
+# advisory_satisfies <jq-test> — like finding_satisfies, over the advisories.
+advisory_satisfies() {
+  # Whether the advisories make the test true.
+  advisories | jq -e "$1" >/dev/null
+}
 
 @test "log kind: warning-only lines are advisories; the run passes" {
   art base install installer.log \
@@ -380,16 +395,15 @@ advisories() { cat "$RUN/advisories.jsonl"; }
   report
   [ "$status" -eq 0 ]
   [ ! -s "$RUN/findings.jsonl" ]
-  [ "$(advisories | awk 'END { print NR }')" -eq 2 ]
-  advisories | jq -e 'select(.excerpt == "[WARN]  mirror slow")' >/dev/null
+  [ "$(advisories | wc -l)" -eq 2 ]
+  advisory_satisfies 'select(.excerpt == "[WARN]  mirror slow")'
 }
 
 @test "log kind: a warn line that also says failed stays blocking" {
   art base install installer.log "[WARN]  unit foo failed to start"
   report
   [ "$status" -ne 0 ]
-  jsonl | jq -e 'select(.excerpt == "[WARN]  unit foo failed to start")' \
-    >/dev/null
+  finding_satisfies 'select(.excerpt == "[WARN]  unit foo failed to start")'
 }
 
 @test ".warnings source: every line is an advisory under its journal name" {
@@ -397,8 +411,7 @@ advisories() { cat "$RUN/advisories.jsonl"; }
   art base boot1 journal.lines ""
   report
   [ "$status" -eq 0 ]
-  advisories | jq -e 'select(.source == "journal" and .phase == "boot1")' \
-    >/dev/null
+  advisory_satisfies 'select(.source == "journal" and .phase == "boot1")'
 }
 
 @test "known noise drops advisories too" {
@@ -413,6 +426,9 @@ advisories() { cat "$RUN/advisories.jsonl"; }
   art base install installer.log "[ERROR] boom" "[WARN]  meh"
   report
   grep -q '^## Advisory warnings' "$RUN/findings.md"
-  awk '/\[ERROR\] boom/ { e = NR } /\[WARN\]  meh/ { w = NR }
-       END { exit !(e && w && e < w) }' "$RUN/findings.md"
+  local error_line warn_line
+  error_line="$(line_number_of "$RUN/findings.md" "[ERROR] boom")"
+  warn_line="$(line_number_of "$RUN/findings.md" "[WARN]  meh")"
+  [ -n "$error_line" ] && [ -n "$warn_line" ]
+  [ "$error_line" -lt "$warn_line" ]
 }

@@ -21,6 +21,9 @@
 # =============================================================================
 
 # shellcheck source=../config/config-state.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F config_state_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/config-state.sh"
 # shellcheck source=../config/emit.sh
@@ -43,16 +46,23 @@ _assemble_mode_for_topology() {
 # _assemble_cell_mode <cell> — the cell's install mode (its own `mode`, else
 # derived from the topology).
 _assemble_cell_mode() {
-  local mode; mode="$(jq -r '.axes.mode // empty' <<<"$1")"
+  local mode; mode="$(_assemble_field "$1" '.axes.mode // empty')"
   [[ -n "$mode" ]] && { printf '%s\n' "$mode"; return 0; }
-  _assemble_mode_for_topology "$(jq -r '.axes.topology' <<<"$1")"
+  _assemble_mode_for_topology "$(_assemble_field "$1" '.axes.topology')"
+}
+
+# _assemble_field <cell> <filter> — one field of a cell, as text (JSON for a
+# list or an object).
+_assemble_field() {
+  # The filter's value in the cell.
+  printf '%s\n' "$1" | jq -r "$2"
 }
 
 # _assemble_disk_devices <count> — /dev/sda, /dev/sdb, … as a JSON array.
 _assemble_disk_devices() {
   local i letters="abcdefghijklmnopqrstuvwxyz" out=()
   for ((i = 0; i < $1; i++)); do out+=("/dev/sd${letters:i:1}"); done
-  printf '%s\n' "${out[@]}" | jq -R . | jq -s -c .
+  json_string_array "${out[@]}"
 }
 
 # matrix_cell_state <cell> — the Config State the assembler consumes: the
@@ -60,14 +70,15 @@ _assemble_disk_devices() {
 matrix_cell_state() {
   local cell="$1" filesystem encryption mode impermanence state desktop \
     topology dcroot
-  filesystem="$(jq -r '.axes.filesystem' <<<"$cell")"
-  encryption="$(jq -r '.axes.encryption' <<<"$cell")"
-  impermanence="$(jq -r '.axes.impermanence // false' <<<"$cell")"
+  filesystem="$(_assemble_field "$cell" '.axes.filesystem')"
+  encryption="$(_assemble_field "$cell" '.axes.encryption')"
+  impermanence="$(_assemble_field "$cell" '.axes.impermanence // false')"
   mode="$(_assemble_cell_mode "$cell")"
 
   state="$(config_state_seed_defaults "$(config_state_new)")"
-  state="$(config_state_set "$state" filesystem "$(jq -n --arg f \
-    "$filesystem" '$f')")"
+  # The filesystem and the mode as JSON strings.
+  state="$(config_state_set "$state" filesystem \
+    "$(jq -n --arg f "$filesystem" '$f')")"
   state="$(config_state_set "$state" mode "$(jq -n --arg m "$mode" '$m')")"
   state="$(config_state_set "$state" options.encryption "$encryption")"
   # impermanence rides the enabled bool; the dataset (rpool/persist) and mount
@@ -78,22 +89,25 @@ matrix_cell_state() {
   # multi mode needs the os_pool skeleton (topology + root disk count) so the
   # picker can bake the picked devices onto it.
   if [[ "$mode" == multi ]]; then
-    topology="$(jq -r '.axes.topology' <<<"$cell")"
-    dcroot="$(jq -r '.axes.disk_count // 2' <<<"$cell")"
-    state="$(config_state_set "$state" os_pool "$(jq -c -n \
-      --arg t "$topology" --argjson dc "$dcroot" \
-      '{pool_name:"rpool", topology:$t, disk_count:$dc}')")"
+    local os_pool='{pool_name: "rpool", topology: $t, disk_count: $dc}'
+    topology="$(_assemble_field "$cell" '.axes.topology')"
+    dcroot="$(_assemble_field "$cell" '.axes.disk_count // 2')"
+    # The root pool skeleton.
+    state="$(config_state_set "$state" os_pool \
+      "$(jq -c -n --arg t "$topology" --argjson dc "$dcroot" "$os_pool")")"
   fi
 
   # desktop: only when the cell carries the axis. A Tier-2 scalar ("kde"/"none")
   # maps onto the config's desktop array ([] for "none"); a Tier-1 storage cell
   # has no desktop axis, so the seeded default stands untouched.
-  desktop="$(jq -c '.axes.desktop // empty' <<<"$cell")"
+  local as_list='if type == "array" then .'
+  as_list+=' elif . == "none" then [] else [.] end'
+  # The cell's desktop axis as JSON, empty when it has none.
+  desktop="$(printf '%s\n' "$cell" | jq -c '.axes.desktop // empty')"
   if [[ -n "$desktop" ]]; then
+    # The desktop as the config's list.
     state="$(config_state_set "$state" environment.desktop \
-      "$(jq -c 'if type=="array" then .
-                elif . == "none" then []
-                else [.] end' <<<"$desktop")")"
+      "$(printf '%s\n' "$desktop" | jq -c "$as_list")")"
   fi
   state="$(_assemble_scalar_axes "$cell" "$state")"
   printf '%s\n' "$state"
@@ -104,9 +118,10 @@ matrix_cell_state() {
 # these once made every cell install lts + systemd-boot + gpu auto (20261022).
 _assemble_scalar_axes() {
   local cell="$1" state="$2" axis path value
+  local axis_value='if (.axes | has($a)) then .axes[$a] else empty end'
   while IFS='|' read -r axis path; do
-    value="$(jq -c --arg a "$axis" \
-      'if (.axes | has($a)) then .axes[$a] else empty end' <<<"$cell")"
+    # The axis's value as JSON, empty when the cell lacks it.
+    value="$(printf '%s\n' "$cell" | jq -c --arg a "$axis" "$axis_value")"
     [[ -n "$value" ]] || continue
     # the kernel axis is one kernel; the config holds a list
     [[ "$axis" == kernel ]] && value="[$value]"
@@ -130,10 +145,11 @@ matrix_cell_assemble() {
   state="$(matrix_cell_state "$cell")"
   mode="$(_assemble_cell_mode "$cell")"
   if [[ "$mode" == multi ]]; then
-    disk_count="$(jq -r '.axes.disk_count // 2' <<<"$cell")"
+    disk_count="$(_assemble_field "$cell" '.axes.disk_count // 2')"
+    # The root pool on the first disk_count disks.
     assignment="$(jq -c -n \
       --argjson d "$(_assemble_disk_devices "$disk_count")" \
-      '{mode:"multi", os_pool:$d}')"
+      '{mode: "multi", os_pool: $d}')"
   else
     assignment='{"mode":"single","disk":"/dev/sda"}'
   fi

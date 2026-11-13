@@ -4,6 +4,8 @@
 # coverage gaps are Findings. Pure: no VM. Fixture manifests are written per
 # test; the real hosts/ tree is the data root.
 
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   TOOL="$INSTALLER_DIR/tools/feature-audit.sh"
@@ -15,12 +17,12 @@ setup() {
 
 # manifest <variants-json> [unverifiable-json]
 manifest() {
-  jq -n --argjson v "$1" --argjson u "${2:-[]}" '{
-    vm_name: "arch-audit",
-    base: { host: "arch-audit",
-            hardware: { disks: [60, 60, 20], ram_mb: 10240, vcpus: 8 },
-            fixtures: ["fixtures/key.age"] },
-    variants: $v, unverifiable: $u }' > "$M"
+  local manifest='{vm_name: "arch-audit", base: {host: "arch-audit",'
+  manifest+=' hardware: {disks: [60, 60, 20], ram_mb: 10240, vcpus: 8},'
+  manifest+=' fixtures: ["fixtures/key.age"]},'
+  manifest+=' variants: $v, unverifiable: $u}'
+  # A manifest with the given variants and unverifiable list.
+  jq -n --argjson v "$1" --argjson u "${2:-[]}" "$manifest" > "$M"
 }
 
 variant_config() {
@@ -40,15 +42,16 @@ variant_config() {
   manifest '[{"id":"limine","patch":{"options":{"bootloader":"limine"}}}]'
   run variant_config limine
   [ "$status" -eq 0 ]
-  jq -e '.options.bootloader == "limine"' <<<"$output"
+  output_satisfies '.options.bootloader == "limine"'
 }
 
 @test "patch applies before assembly: derived power daemon follows it" {
   manifest '[{"id":"ppd",
     "patch":{"options":{"power":{"profile":"power-profiles-daemon"}}}}]'
   run variant_config ppd
-  jq -e '(.host_programs | index("power-profiles-daemon"))
-    and (.host_programs | index("tuned") | not)' <<<"$output"
+  local ppd_only='(.host_programs | index("power-profiles-daemon"))'
+  ppd_only+=' and (.host_programs | index("tuned") | not)'
+  output_satisfies "$ppd_only"
 }
 
 @test "real host variant resolves through its own profile" {
@@ -56,7 +59,7 @@ variant_config() {
     "hardware":{"disks":[40],"ram_mb":6144,"vcpus":4}}]'
   run variant_config kde-pure
   [ "$status" -eq 0 ]
-  jq -e '.environment.stock == true' <<<"$output"
+  output_satisfies '.environment.stock == true'
 }
 
 @test "invalid patched config is a Finding naming the variant" {
@@ -273,7 +276,7 @@ noise() {
           {"regex":"(","reason":"r"}]'
   run bash "$TOOL" check
   [ "$status" -ne 0 ]
-  [ "$(grep -c '^noise:' <<<"$output")" -eq 3 ]
+  [ "$(printf '%s\n' "$output" | grep -c '^noise:')" -eq 3 ]
 }
 
 @test "noise: a valid regex with backslash escapes passes" {

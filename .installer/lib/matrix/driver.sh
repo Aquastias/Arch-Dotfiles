@@ -25,6 +25,9 @@
 # =============================================================================
 
 # shellcheck source=./generator.sh
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 declare -F matrix_tier2_cells >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/generator.sh"
 # shellcheck source=./guard.sh
@@ -49,6 +52,7 @@ declare -F matrix_run >/dev/null 2>&1 \
 matrix_run_select() {
   local mode="$1" seed="${2:-0}"
   case "$mode" in
+    # The pinned seed cells only.
     smoke) matrix_tier2_cells "$seed" \
              | jq -c 'select(.id | startswith("seed-"))' ;;
     full)  matrix_tier2_cells "$seed" ;;
@@ -75,7 +79,9 @@ matrix_run_classify() {
 # cell fails the run without hiding the others (they are already in the record).
 matrix_run_exit_code() {
   local failures
-  failures="$(jq -s '[.[] | select(.status == "FAIL")] | length')" || return 2
+  local failed='[.[] | select(.status == "FAIL")] | length'
+  # How many cells failed.
+  failures="$(jq -s "$failed")" || return 2
   (( failures == 0 ))
 }
 
@@ -84,43 +90,24 @@ matrix_run_exit_code() {
 # oracle) followed by a re-run hint under every FAIL, then a PASS/FAIL/SKIP
 # tally. Every cell appears, so one failure never hides the rest.
 matrix_summary_format() {
-  jq -r -s '
-    (.[] | "\(.status)\t\(.id)\t\(.axes)\t\(.oracle)"
-       + (if .status == "FAIL"
-          then "\n      re-run: matrix.sh run \(.id)" else "" end)),
-    "----",
-    "totals: PASS=\([.[]|select(.status=="PASS")]|length)"
-      + " FAIL=\([.[]|select(.status=="FAIL")]|length)"
-      + " SKIP=\([.[]|select(.status=="SKIP")]|length)"
-  ' | _driver_align_columns
+  # The summary rows, aligned.
+  jq -r -s -f "${BASH_SOURCE[0]%/*}/driver-summary.jq" | _driver_align_columns
 }
 
 # _driver_align_columns — align TAB-separated rows like `column -t`: every
 # column padded to its widest entry plus two spaces (short rows padded too),
 # the last left unpadded, empty lines dropped.
-_driver_align_columns() {
-  awk '
-    { line[NR] = $0; count = split($0, field, "\t")
-      if (count > columns) columns = count
-      for (i = 1; i <= count; i++)
-        if (length(field[i]) > width[i]) width[i] = length(field[i]) }
-    END {
-      for (n = 1; n <= NR; n++) {
-        if (line[n] == "") continue
-        split(line[n], field, "\t"); out = ""
-        for (i = 1; i <= columns; i++)
-          out = out (i < columns \
-            ? sprintf("%-" (width[i] + 2) "s", field[i]) : field[i])
-        print out
-      }
-    }'
-}
+_driver_align_columns() { awk -f "${BASH_SOURCE[0]%/*}/driver-align.awk"; }
 
 # ── IO seams (overridable in tests) ──────────────────────────────────────────
 
 # _driver_memory_available_kib — the host's free RAM (KiB) from /proc/meminfo.
 _driver_memory_available_kib() {
-  awk '/^MemAvailable:/ {print $2; exit}' /proc/meminfo
+  local line kib
+  # The number on the MemAvailable line.
+  line="$(grep '^MemAvailable:' /proc/meminfo)"
+  read -r _ kib _ < <(printf '%s\n' "$line")
+  printf '%s\n' "$kib"
 }
 
 # _driver_preflight — abort with a reason (nonzero) if the host cannot run any
@@ -182,10 +169,13 @@ _driver_guard_gate() {
 _driver_run_cell() {
   # A raised cap is the opt-in to stacked VMs, so lift vm.sh's own
   # one-VM-at-a-time guard for the cells this scheduler admits (ADR 0155).
+  local id
+  # The cell's id.
+  id="$(printf '%s\n' "$1" | jq -r '.id')"
   if (( MATRIX_MAX_PARALLEL > 1 )); then
-    VM_ALLOW_PARALLEL=true matrix_run "$(jq -r '.id' <<<"$1")"
+    VM_ALLOW_PARALLEL=true matrix_run "$id"
   else
-    matrix_run "$(jq -r '.id' <<<"$1")"
+    matrix_run "$id"
   fi
 }
 
@@ -206,10 +196,14 @@ _driver_cleanup_cell() {
 # otherwise it pollutes the record and the summary jq chokes.
 _driver_run_one() {
   local cell="$1" id boot_verify encryption impermanence rc oracle axes status
-  id="$(jq -r '.id' <<<"$cell")"
+  local axes_label='.axes | "\(.filesystem)/\(.topology // "single")/"'
+  axes_label+=' + (if .encryption then "enc" else "plain" end)'
+  local record='{id: $id, axes: $axes, oracle: $oracle, status: $status}'
   boot_verify="$(matrix_cell_boot_verify "$cell")"
-  encryption="$(jq -r '.axes.encryption // false' <<<"$cell")"
-  impermanence="$(jq -r '.axes.impermanence // false' <<<"$cell")"
+  # The cell's id, encryption and impermanence.
+  id="$(printf '%s\n' "$cell" | jq -r '.id')"
+  encryption="$(printf '%s\n' "$cell" | jq -r '.axes.encryption // false')"
+  impermanence="$(printf '%s\n' "$cell" | jq -r '.axes.impermanence // false')"
   # `|| rc=$?`: under the caller's `set -e` a bare failing call would kill
   # this subshell before the record is written, dropping the cell (20261022).
   rc=0; _driver_run_cell "$cell" >&2 || rc=$?
@@ -220,10 +214,10 @@ _driver_run_one() {
   else
     oracle="install-only"
   fi
-  axes="$(jq -r '.axes | "\(.filesystem)/\(.topology // "single")/"
-    + (if .encryption then "enc" else "plain" end)' <<<"$cell")"
+  # "filesystem/topology/enc|plain", then the result record.
+  axes="$(printf '%s\n' "$cell" | jq -r "$axes_label")"
   jq -c -n --arg id "$id" --arg axes "$axes" --arg oracle "$oracle" \
-    --arg status "$status" '{id:$id,axes:$axes,oracle:$oracle,status:$status}'
+    --arg status "$status" "$record"
 }
 
 # _driver_record_cell <cell> <out> — run one cell into <out>; a cell that left
@@ -233,7 +227,9 @@ _driver_record_cell() {
   local cell="$1" out="$2"
   _driver_run_one "$cell" >"$out" || true
   [[ -s "$out" ]] && return 0
-  jq -c '{id, axes:"?", oracle:"?", status:"FAIL"}' <<<"$cell" >"$out"
+  local failed='{id, axes: "?", oracle: "?", status: "FAIL"}'
+  # A FAIL record for the cell.
+  printf '%s\n' "$cell" | jq -c "$failed" >"$out"
 }
 
 # _driver_orchestrate — read JSON cells on stdin, preflight the host, then
@@ -292,10 +288,15 @@ MATRIX_SMOKE_IDS=(
 # exists in the generator — e.g. after a cell-id rename.
 matrix_smoke_cells() {
   local seed="${1:-0}" ids out count
-  ids="$(printf '%s\n' "${MATRIX_SMOKE_IDS[@]}" | jq -R . | jq -sc .)"
-  out="$(matrix_all_cells "$seed" \
-    | jq -c --argjson ids "$ids" 'select(.id as $i | $ids | index($i))')"
-  count="$(grep -c . <<<"$out")"
+  local id curated='select(.id as $i | $ids | index($i))'
+  ids='[]'
+  for id in "${MATRIX_SMOKE_IDS[@]}"; do
+    # The ids so far, with this one.
+    ids="$(jq -c -n --argjson a "$ids" --arg i "$id" '$a + [$i]')"
+  done
+  # The cells with a curated id.
+  out="$(matrix_all_cells "$seed" | jq -c --argjson ids "$ids" "$curated")"
+  count="$(printf '%s\n' "$out" | grep -c .)"
   if (( count != ${#MATRIX_SMOKE_IDS[@]} )); then
     echo \
       "matrix: smoke selected $count cells, expected ${#MATRIX_SMOKE_IDS[@]}" \

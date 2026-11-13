@@ -25,10 +25,10 @@ setup() {
 # _base_cells — plaintext, non-impermanent, no-data-pool cells: the fs ×
 # topology core, derived from the generator (not hand-listed).
 _base_cells() {
-  matrix_tier1_cells | jq -r '
-    select(.axes.data_pool == null
-      and .axes.encryption == false
-      and .axes.impermanence == false) | .id'
+  local base='select(.axes.data_pool == null and .axes.encryption == false'
+  base+=' and .axes.impermanence == false) | .id'
+  # The ids of the plain, single-root cells.
+  matrix_tier1_cells | jq -r "$base"
 }
 
 # _summary_unbound <cell-id> — assemble the cell and render
@@ -38,6 +38,7 @@ _base_cells() {
 # hanging; the summary body renders in full before it.
 _summary_unbound() {
   local cell config
+  # The cell with that id.
   cell="$(matrix_tier1_cells | jq -c --arg id "$1" 'select(.id == $id)')"
   config="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
   matrix_cell_assemble "$cell" > "$config"
@@ -53,7 +54,7 @@ _summary_unbound() {
     set -u
     local out
     out="$(lifecycle_print_summary </dev/null 2>&1)"
-    grep -q 'unbound variable' <<<"$out" && echo unbound || true
+    if printf '%s\n' "$out" | grep -q 'unbound variable'; then echo unbound; fi
   )
 }
 
@@ -77,6 +78,7 @@ _summary_unbound() {
 # too — not just the accessors in isolation.
 @test "lifecycle_print_summary is set-u-clean for the none+leftover branch" {
   local cell config
+  # The zfs mirror cell.
   cell="$(matrix_tier1_cells | jq -c 'select(.id == "zfs-mirror-plain")')"
   config="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
   matrix_cell_assemble "$cell" > "$config"

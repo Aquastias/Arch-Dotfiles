@@ -37,6 +37,7 @@ matrix_emit() {
   local id="${1:-}"
   [[ -n "$id" ]] || { echo "matrix: emit requires a <cell-id>" >&2; return 2; }
   local cell
+  # The cell with that id.
   cell="$(matrix_all_cells "${MATRIX_SEED:-0}" \
     | jq -c --arg id "$id" 'select(.id == $id)')"
   [[ -n "$cell" ]] || { echo "matrix: unknown cell-id '$id'" >&2; return 1; }

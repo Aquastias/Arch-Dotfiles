@@ -5,6 +5,10 @@ Accepted — not yet implemented. Supersedes the Tool Tiers of [ADR 0153];
 its names, sizes, prefixes and ADR-link rules stay.
 Amended 2026-11-12: grep also allows `-w` (whole words): its regex spelling
 reads worse than the flag.
+Amended 2026-11-13: grep also allows `-i` (ignore case), and jq `-s` and `-R`
+(slurp a JSON-lines file into one array; read each text line as a string):
+the findings, matrix records and parsed keybinds are line streams, and a
+bash loop rebuilding the array reads worse.
 
 ## Context
 The owner architected the installer but cannot read many of its lines

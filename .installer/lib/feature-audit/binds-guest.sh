@@ -14,9 +14,14 @@
 #   (focus or layout) | screen-changes | file-created <dir> | audio-changes |
 #   session-ends
 #
+# The file is sourced alone in the guest, so its jq programs live here, in
+# named variables, rather than in separate .jq files.
+#
 # Used by: pushed into the guest session by lib/feature-audit/live-keybinds.sh
 # (feature_audit_push_binds_lib); run via feature_audit_guest_execute.
 # =============================================================================
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
 
 FA_BIND_CLASS=fa-bind
 
@@ -28,23 +33,35 @@ _binds_guest_compositor() {
   echo none
 }
 
+# The normalized window list, per compositor: [{id, app, ws, focused, geo}].
+_BINDS_GUEST_NIRI_WINDOWS='map({id, app: .app_id, ws: .workspace_id,
+  focused: .is_focused, geo: {f: .is_floating, l: .layout}})'
+# $a is the active window's address.
+_BINDS_GUEST_HYPRLAND_WINDOWS='map({id: .address, app: .class,
+  ws: .workspace.id, focused: (.address == $a),
+  geo: {at, size, floating, fullscreen}})'
+# `active` is seat focus; Umbriel's `focused` is per-workspace memory.
+_BINDS_GUEST_UMBRIEL_WINDOWS='map({id, app: .app_id, ws: .workspace,
+  focused: .active, geo: {x, y, w, h, floating, fullscreen,
+  maximized_to_edges, pinned, column, row, tabbed, scratchpad, visible}})'
+
 # _binds_guest_windows — normalized window list JSON: [{id, app, ws, focused,
 # geo}].
 _binds_guest_windows() {
+  local active
   case "$(_binds_guest_compositor)" in
-    niri) niri msg -j windows 2>/dev/null | jq -c 'map({id, app: .app_id,
-            ws: .workspace_id, focused: .is_focused,
-            geo: {f: .is_floating, l: .layout}})' ;;
-    Hyprland) hyprctl -j clients 2>/dev/null | jq -c --arg a \
-            "$(hyprctl -j activewindow 2>/dev/null | jq -r '.address // ""')" \
-            'map({id: .address, app: .class, ws: .workspace.id,
-                  focused: (.address == $a),
-                  geo: {at, size, floating, fullscreen}})' ;;
-    # `active` is seat focus; Umbriel's `focused` is per-workspace memory
-    umbriel) umbriel windows --json 2>/dev/null | jq -c 'map({id,
-            app: .app_id, ws: .workspace, focused: .active,
-            geo: {x, y, w, h, floating, fullscreen, maximized_to_edges,
-                  pinned, column, row, tabbed, scratchpad, visible}})' ;;
+    niri)
+      # The windows, normalized.
+      niri msg -j windows 2>/dev/null | jq -c "$_BINDS_GUEST_NIRI_WINDOWS" ;;
+    Hyprland)
+      # The active window's address, then the windows, normalized.
+      active="$(hyprctl -j activewindow 2>/dev/null | jq -r '.address // ""')"
+      hyprctl -j clients 2>/dev/null \
+        | jq -c --arg a "$active" "$_BINDS_GUEST_HYPRLAND_WINDOWS" ;;
+    umbriel)
+      # The windows, normalized.
+      umbriel windows --json 2>/dev/null \
+        | jq -c "$_BINDS_GUEST_UMBRIEL_WINDOWS" ;;
     kwin_wayland) _binds_guest_kwin_windows ;;
     *) echo '[]' ;;
   esac
@@ -78,30 +95,38 @@ JS
   qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript "$marker" \
     >/dev/null 2>&1
   rm -f "$script"
-  journalctl --user -q -o cat --since "-10s" 2>/dev/null \
-    | MARKER="$marker" awk '
-        index($0, ENVIRON["MARKER"]) {
-          last = substr($0, index($0, ENVIRON["MARKER"]) \
-            + length(ENVIRON["MARKER"]))
-        }
-        END { print (last == "" ? "[]" : last) }'
+  local line last=""
+  while IFS= read -r line; do
+    [[ "$line" == *"$marker"* ]] || continue
+    # The text after the marker: this line's window list.
+    last="$(jq -r -n --arg l "$line" --arg m "$marker" '$l | split($m)[1]')"
+  done < <(journalctl --user -q -o cat --since "-10s" 2>/dev/null)
+  printf '%s\n' "${last:-[]}"
 }
+
+# The focused output's active workspace, per compositor: {idx, id, count}.
+_BINDS_GUEST_NIRI_WORKSPACE='(map(select(.is_focused))[0]) as $f
+  | {idx: $f.idx, id: $f.id,
+     count: (map(select(.output == $f.output)) | length)}'
+_BINDS_GUEST_UMBRIEL_WORKSPACE='(map(select(.focused))[0]) as $f
+  | {idx: $f.index, id: $f.id,
+     count: (map(select(.output == $f.output)) | length)}'
 
 # _binds_guest_workspace — {idx, id, count} of the focused output's active
 # workspace.
 _binds_guest_workspace() {
   case "$(_binds_guest_compositor)" in
-    niri) niri msg -j workspaces 2>/dev/null | jq -c '
-            (map(select(.is_focused))[0]) as $f
-            | {idx: $f.idx, id: $f.id,
-               count: (map(select(.output == $f.output)) | length)}' ;;
+    niri)
+      # The focused workspace and how many its output has.
+      niri msg -j workspaces 2>/dev/null \
+        | jq -c "$_BINDS_GUEST_NIRI_WORKSPACE" ;;
     # Hyprland creates a numbered workspace on demand: no clamp
     Hyprland) hyprctl -j activeworkspace 2>/dev/null \
             | jq -c '{idx: .id, id: .id, count: 99}' ;;
-    umbriel) umbriel workspaces --json 2>/dev/null | jq -c '
-            (map(select(.focused))[0]) as $f
-            | {idx: $f.index, id: $f.id,
-               count: (map(select(.output == $f.output)) | length)}' ;;
+    umbriel)
+      # The focused workspace and how many its output has.
+      umbriel workspaces --json 2>/dev/null \
+        | jq -c "$_BINDS_GUEST_UMBRIEL_WORKSPACE" ;;
     kwin_wayland)
       local compositor number
       compositor="$(qdbus6 org.kde.KWin /KWin org.kde.KWin.currentDesktop \
@@ -109,6 +134,7 @@ _binds_guest_workspace() {
       number="$(qdbus6 org.kde.KWin /VirtualDesktopManager \
         org.freedesktop.DBus.Properties.Get org.kde.KWin.VirtualDesktopManager \
         count 2>/dev/null)"
+      # The current desktop and the desktop count.
       jq -cn --argjson c "${compositor:-0}" --argjson n "${number:-0}" \
         '{idx: $c, id: $c, count: $n}' ;;
     *) echo '{}' ;;
@@ -121,30 +147,36 @@ _binds_guest_shot_hash() {
     kwin_wayland) timeout 15 spectacle -bnf -o "$shot_file" >/dev/null 2>&1 ;;
     *) timeout 10 grim "$shot_file" >/dev/null 2>&1 ;;
   esac
-  sha1sum "$shot_file" 2>/dev/null | awk '{ print substr($0, 1, 12) }'
+  # The first 12 characters of the screenshot's checksum.
+  sha1sum "$shot_file" 2>/dev/null | cut -c1-12
   rm -f "$shot_file"
 }
 
 _binds_guest_audio() {
+  # The sink's and the source's volume lines, space-joined.
   { wpctl get-volume @DEFAULT_AUDIO_SINK@
-    wpctl get-volume @DEFAULT_AUDIO_SOURCE@; } \
-    2>/dev/null | awk '{ printf "%s ", $0 }'
+    wpctl get-volume @DEFAULT_AUDIO_SOURCE@; } 2>/dev/null | paste -sd' ' -
 }
+
+# The keybind snapshot: everything an effect can observe.
+_BINDS_GUEST_STATE='{comp: $comp, windows: $w, ws: $ws, shot: $shot,
+  audio: $audio, files: ($files | tonumber),
+  focused: ([$w[] | select(.focused)][0].id // null),
+  layout: ($w | map({id, ws, geo}) | tostring)}'
 
 # feature_audit_binds_state [home-rel-dir] — snapshot JSON of everything an
 # effect can observe (the dir is where file-created counts new files).
 feature_audit_binds_state() {
-  local directory="$HOME/${1:-Pictures/Screenshots}"
-  jq -cn --arg comp "$(_binds_guest_compositor)" --argjson w \
-    "$(_binds_guest_windows)" \
-    --argjson ws "$(_binds_guest_workspace)" --arg shot \
-    "$(_binds_guest_shot_hash)" \
+  local directory="$HOME/${1:-Pictures/Screenshots}" files
+  # How many files the directory holds.
+  files="$(find "$directory" -type f 2>/dev/null | grep -c .)"
+  # The snapshot.
+  jq -cn --arg comp "$(_binds_guest_compositor)" \
+    --argjson w "$(_binds_guest_windows)" \
+    --argjson ws "$(_binds_guest_workspace)" \
+    --arg shot "$(_binds_guest_shot_hash)" \
     --arg audio "$(_binds_guest_audio)" \
-    --arg files "$(find "$directory" -type f 2>/dev/null | grep -c .)" '
-    { comp: $comp, windows: $w, ws: $ws, shot: $shot, audio: $audio,
-      files: ($files | tonumber),
-      focused: ([$w[] | select(.focused)][0].id // null),
-      layout: ($w | map({id, ws, geo}) | tostring) }'
+    --arg files "$files" "$_BINDS_GUEST_STATE"
 }
 
 # feature_audit_binds_setup <needs> <effect> <arg> — reset to a known scene
@@ -156,9 +188,15 @@ _binds_guest_hyprland() { hyprctl dispatch "$1" >/dev/null 2>&1; }
 
 feature_audit_binds_setup() {
   local needs="$1" effect="$2" argument="${3:-}" compositor want=2 direction=""
+  local token
   compositor="$(_binds_guest_compositor)"
-  [[ "$needs" =~ windows:([0-9]+) ]] && want="${BASH_REMATCH[1]}"
-  [[ "$needs" =~ dir:([a-z]+) ]] && direction="${BASH_REMATCH[1]}"
+  # windows:<n> (how many test windows) and dir:<direction> (focus target).
+  for token in $needs; do
+    case "$token" in
+      windows:*) want="${token:8}" ;;    # after "windows:"
+      dir:*)     direction="${token:4}" ;;   # after "dir:"
+    esac
+  done
   # Hyprland's dwindle needs a third window for a vertical neighbour
   [[ -n "$direction" && "$compositor" == Hyprland && "$want" -lt 3 ]] \
     && want=3
@@ -203,10 +241,12 @@ _binds_guest_go_to_workspace() {
 # _binds_guest_open_test_windows <want> — open test kitty windows until the
 # first (current) workspace holds <want> of them.
 _binds_guest_open_test_windows() {
-  local want="$1" count
-  count="$(_binds_guest_windows | jq --arg c "$FA_BIND_CLASS" \
-    --argjson w "$(_binds_guest_workspace | jq .id)" \
-    '[.[] | select(.app == $c and .ws == $w)] | length')"
+  local want="$1" count workspace
+  local on_workspace='[.[] | select(.app == $c and .ws == $w)] | length'
+  # The current workspace's id, then how many test windows it holds.
+  workspace="$(_binds_guest_workspace | jq .id)"
+  count="$(_binds_guest_windows \
+    | jq --arg c "$FA_BIND_CLASS" --argjson w "$workspace" "$on_workspace")"
   while ((count < want)); do
     setsid -f kitty --class "$FA_BIND_CLASS" >/dev/null 2>&1
     sleep 1.5; count=$((count + 1))
@@ -257,15 +297,26 @@ _binds_guest_apply_need_tokens() {
   for token in $needs; do
     case "$token" in
       desktop:*)          # start on workspace/desktop N (grid navigation)
-        _binds_guest_go_to_workspace "$compositor" "${token#desktop:}" ;;
+        _binds_guest_go_to_workspace "$compositor" "${token:8}" ;;
       maximized)
         [[ "$compositor" == kwin_wayland ]] && _binds_guest_kwin_run \
           "workspace.activeWindow.setMaximize(true, true);" ;;
-      launch:*) setsid -f "${token#launch:}" >/dev/null 2>&1; sleep 4 ;;
-      clip:*) printf '%s' "${token#clip:}" | wl-copy >/dev/null 2>&1 ;;
+      # the app after "launch:", the text after "clip:"
+      launch:*) setsid -f "${token:7}" >/dev/null 2>&1; sleep 4 ;;
+      clip:*) printf '%s' "${token:5}" | wl-copy >/dev/null 2>&1 ;;
     esac
   done
 }
+
+# The test window to focus on Hyprland's dwindle (A left half, B top-right,
+# C bottom-right) so a bind in direction $d has a neighbour.
+_BINDS_GUEST_HYPRLAND_PICK='[.[] | select(.class == $c and .workspace.id == 1)]
+  | (map(.size[1]) | max) as $H
+  | (if $d == "right" then min_by(.at[0])
+     elif $d == "left" then max_by(.at[0])
+     elif $d == "up" then max_by(.at[1])
+     else (map(select(.size[1] < $H)) | min_by(.at[1])) end)
+  | .address // empty'
 
 # _binds_guest_focus_for_directory <comp> <dir> — focus a test window that HAS a
 # neighbour in <dir>, so a directional focus/move bind can prove it did
@@ -289,16 +340,9 @@ _binds_guest_focus_for_directory() {
         down)  _binds_guest_umbriel window-focus-up ;;
       esac ;;
     Hyprland)
-      # dwindle with 3 windows: A left half, B top-right, C bottom-right
+      # The address of the window with a neighbour in that direction.
       pick="$(hyprctl -j clients 2>/dev/null | jq -r --arg c "$FA_BIND_CLASS" \
-        --arg d "$direction" '
-          [.[] | select(.class == $c and .workspace.id == 1)]
-        | (map(.size[1]) | max) as $H
-        | (if $d == "right" then min_by(.at[0])
-           elif $d == "left" then max_by(.at[0])
-           elif $d == "up" then max_by(.at[1])
-           else (map(select(.size[1] < $H)) | min_by(.at[1])) end)
-        | .address // empty')"
+        --arg d "$direction" "$_BINDS_GUEST_HYPRLAND_PICK")"
       [[ -n "$pick" ]] \
         && _binds_guest_hyprland \
         "hl.dsp.focus({ window = \"address:$pick\" })" ;;
@@ -346,6 +390,7 @@ if (ws.length >= 2) {
 # …).
 feature_audit_binds_baseline() {
   mkdir -p /tmp/fa-binds
+  # The open windows' ids, one per line.
   _binds_guest_windows | jq -r '.[].id | tostring' > /tmp/fa-binds/baseline
 }
 
@@ -353,11 +398,15 @@ feature_audit_binds_baseline() {
 # bind) and every window a bind opened since the baseline.
 feature_audit_binds_teardown() {
   local compositor id
+  local -A in_baseline=()
   pkill -f -- "--class $FA_BIND_CLASS" >/dev/null 2>&1 || true
   compositor="$(_binds_guest_compositor)"
   [[ -f /tmp/fa-binds/baseline ]] || { sleep 0.5; return 0; }
   while IFS= read -r id; do
-    [[ -n "$id" ]] || continue
+    [[ -n "$id" ]] && in_baseline["$id"]=1
+  done < /tmp/fa-binds/baseline
+  while IFS= read -r id; do
+    [[ -n "$id" && -z "${in_baseline["$id"]:-}" ]] || continue
     case "$compositor" in
       niri) niri msg action close-window --id "$id" >/dev/null 2>&1 ;;
       umbriel) _binds_guest_umbriel window-close "$id" ;;
@@ -367,43 +416,40 @@ feature_audit_binds_teardown() {
         function (w) { if (w.internalId.toString() == '$id')
           w.closeWindow(); });" ;;
     esac
-  done < <(_binds_guest_windows | jq -r --rawfile b /tmp/fa-binds/baseline '
-    ($b | split("\n")) as $k
-    | .[] | (.id | tostring) as $i | select($k | index($i) | not) | $i')
+  # The open windows' ids, one per line.
+  done < <(_binds_guest_windows | jq -r '.[].id | tostring')
   sleep 0.5
 }
 
 # feature_audit_binds_evaluate <effect> <arg> <before-json> <after-json> — exit
 # 0 iff observed.
 feature_audit_binds_evaluate() {
-  local effect="$1" argument="$2" before="$3" after="$4"
+  local effect="$1" argument="$2" before="$3" after="$4" observed
   case "$effect" in
-    window-opens) jq -e -n --argjson b "$before" --argjson a "$after" \
-      --arg r "$argument" '
-        ([$a.windows[] | select(.app | test($r; "i"))] | length)
-        > ([$b.windows[] | select(.app | test($r; "i"))] | length)' ;;
-    window-closes) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '($a.windows | length) < ($b.windows | length)' ;;
-    workspace) jq -e -n --argjson b "$before" --argjson a "$after" \
-      --argjson n "$argument" \
-        '$a.ws.idx == ([$n, $b.ws.count] | min)' ;;
-    workspace-changes) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '$a.ws.id != $b.ws.id or $a.ws.idx != $b.ws.idx' ;;
-    focus-changes) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '$a.focused != $b.focused' ;;
-    window-changes) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '$a.layout != $b.layout or $a.focused != $b.focused' ;;
-    layout-changes) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '$a.layout != $b.layout' ;;
-    screen-changes) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '$a.shot != $b.shot and $a.shot != ""' ;;
-    file-created) jq -e -n --argjson b "$before" --argjson a "$after" \
-        '$a.files > $b.files' ;;
+    window-opens)
+      observed='([$a.windows[] | select(.app | test($r; "i"))] | length)'
+      observed+=' > ([$b.windows[] | select(.app | test($r; "i"))] | length)' ;;
+    window-closes) observed='($a.windows | length) < ($b.windows | length)' ;;
+    workspace)
+      observed='$a.ws.idx == ([($r | tonumber), $b.ws.count] | min)' ;;
+    workspace-changes)
+      observed='$a.ws.id != $b.ws.id or $a.ws.idx != $b.ws.idx' ;;
+    focus-changes) observed='$a.focused != $b.focused' ;;
+    window-changes)
+      observed='$a.layout != $b.layout or $a.focused != $b.focused' ;;
+    layout-changes) observed='$a.layout != $b.layout' ;;
+    screen-changes) observed='$a.shot != $b.shot and $a.shot != ""' ;;
+    file-created) observed='$a.files > $b.files' ;;
     audio-changes)
       # no sink: can't tell
-      [[ -n "$(jq -r .audio <<<"$before")" ]] || return 3
-      jq -e -n --argjson b "$before" --argjson a \
-        "$after" '$a.audio != $b.audio' ;;
+      local audio
+      # The audio volumes before the bind.
+      audio="$(printf '%s\n' "$before" | jq -r .audio)"
+      [[ -n "$audio" ]] || return 3
+      observed='$a.audio != $b.audio' ;;
     *) return 2 ;;
-  esac >/dev/null
+  esac
+  # Whether the before/after snapshots show the effect.
+  jq -e -n --argjson b "$before" --argjson a "$after" --arg r "$argument" \
+    "$observed" >/dev/null
 }

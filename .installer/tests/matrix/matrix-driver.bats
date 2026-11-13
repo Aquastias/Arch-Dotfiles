@@ -17,7 +17,9 @@ setup() {
 # ── AC4: --smoke runs only the pinned seeds ──────────────────────────────────
 
 @test "run_select smoke: only the pinned seed-* cells" {
-  local ids; ids="$(matrix_run_select smoke 0 | jq -r '.id')"
+  local ids
+  # The smoke cells' ids.
+  ids="$(matrix_run_select smoke 0 | jq -r '.id')"
   [ -n "$ids" ]
   # every selected cell is a pinned seed…
   run bash -c "printf '%s\n' \"$ids\" | grep -cv '^seed-'"
@@ -28,15 +30,17 @@ setup() {
 }
 
 @test "run_select full: whole pairwise cover ∪ seeds (superset of smoke)" {
-  local full smoke; full="$(matrix_run_select full 0 | jq -r '.id')"
+  local full smoke
+  # The full and the smoke selections' ids.
+  full="$(matrix_run_select full 0 | jq -r '.id')"
   smoke="$(matrix_run_select smoke 0 | jq -r '.id')"
   # the pairwise rows (t2-*) are present…
   printf '%s\n' "$full" | grep -q '^t2-'
   # …the seeds are still there…
   printf '%s\n' "$full" | grep -qx 'seed-xfs-root'
   # …and full strictly outnumbers smoke.
-  [ "$(printf '%s\n' "$full" | awk 'END { print NR }')" -gt \
-    "$(printf '%s\n' "$smoke" | awk 'END { print NR }')" ]
+  [ "$(printf '%s\n' "$full" | wc -l)" -gt \
+    "$(printf '%s\n' "$smoke" | wc -l)" ]
 }
 
 # ── AC5: per-cell status classification (boot_verify × encryption × exit) ─────
@@ -69,9 +73,9 @@ setup() {
   fail="$(printf '%s\n' '{"id":"a","status":"PASS"}' \
     '{"id":"b","status":"FAIL"}' '{"id":"c","status":"SKIP"}')"
 
-  run matrix_run_exit_code <<<"$ok"
+  run matrix_run_exit_code < <(printf '%s\n' "$ok")
   [ "$status" -eq 0 ]
-  run matrix_run_exit_code <<<"$fail"
+  run matrix_run_exit_code < <(printf '%s\n' "$fail")
   [ "$status" -ne 0 ]
 }
 
@@ -79,8 +83,10 @@ setup() {
 
 # _rec <id> <axes> <oracle> <status> — a result record JSON line.
 _rec() {
+  local record='{id: $id, axes: $axes, oracle: $oracle, status: $status}'
+  # One record line from the four fields.
   jq -c -n --arg id "$1" --arg axes "$2" --arg oracle "$3" --arg status "$4" \
-    '{id:$id, axes:$axes, oracle:$oracle, status:$status}'
+    "$record"
 }
 
 @test "summary_format: lists all cells; FAIL row has a re-run hint, SKIP≠FAIL" {
@@ -88,7 +94,7 @@ _rec() {
     "$(_rec seed-xfs-root xfs/single/plain firstboot PASS)" \
     "$(_rec t2-zfs-mirror zfs/mirror/plain firstboot FAIL)" \
     "$(_rec seed-btrfs-raid1-enc-multi btrfs/raid1/enc install-only SKIP)")"
-  run matrix_summary_format <<<"$records"
+  run matrix_summary_format < <(printf '%s\n' "$records")
   [ "$status" -eq 0 ]
   # every cell id is present
   [[ "$output" == *seed-xfs-root* ]]
@@ -108,8 +114,10 @@ _rec() {
   local test_directory="$BATS_TEST_TMPDIR"
   # a plain cell fixture (the axes the driver reads).
   _plain_cell() {
-    jq -c -n --arg id "$1" --arg fs "$2" '{id:$id, axes:{filesystem:$fs,
-      topology:"single", encryption:false, impermanence:false}}'
+    local plain='{id: $id, axes: {filesystem: $fs, topology: "single",'
+    plain+=' encryption: false, impermanence: false}}'
+    # A plain single-disk cell with that id and filesystem.
+    jq -c -n --arg id "$1" --arg fs "$2" "$plain"
   }
   # stub selection: three plain cells (real generator not needed here).
   matrix_run_select() {
@@ -120,7 +128,9 @@ _rec() {
   _driver_guard_gate() { return 0; }
   # stub the per-cell VM launch: record the attempt, fail only c2.
   _driver_run_cell() {
-    local id; id="$(jq -r .id <<<"$1")"
+    local id
+    # The cell's id.
+    id="$(printf '%s\n' "$1" | jq -r .id)"
     echo "$id" >>"$test_directory/attempts"
     [[ "$id" == c2 ]] && return 1 || return 0
   }
@@ -128,7 +138,7 @@ _rec() {
   [ "$status" -ne 0 ]                                  # c2 failed the run
   [[ "$output" == *c1* ]] && [[ "$output" == *c2* ]] && [[ "$output" == *c3* ]]
   [[ "$output" == *"matrix.sh run c2"* ]]        # re-run hint for the fail
-  [ "$(sort -u "$test_directory/attempts" | awk 'END { print NR }')" -eq 3 ]      # every cell was attempted
+  [ "$(sort -u "$test_directory/attempts" | wc -l)" -eq 3 ]      # every cell was attempted
 }
 
 # 20261021: `run --local` backgrounds the repo server in this shell; counting
@@ -149,8 +159,9 @@ _rec() {
   _driver_memory_available_kib() { echo $((64 * 1024 * 1024)); }
   _driver_preflight() { return 0; }
   matrix_run_select() {
-    jq -c -n '{id:"c1", axes:{filesystem:"zfs", topology:"single",
-      encryption:false, impermanence:false}}'
+    local cell='{"id":"c1","axes":{"filesystem":"zfs","topology":"single",'
+    cell+='"encryption":false,"impermanence":false}}'
+    printf '%s\n' "$cell"
   }
   _driver_run_cell() { return 0; }
   sleep 30 &
@@ -177,7 +188,7 @@ _rec() {
     }
     _driver_preflight() { return 0; }
     _driver_guard_gate() { return 0; }
-    _driver_run_cell() { [[ "$(jq -r .id <<<"$1")" != c2 ]]; }
+    _driver_run_cell() { [[ "$(printf '%s\n' "$1" | jq -r .id)" != c2 ]]; }
     _driver_cleanup_cell() { :; }
     matrix_run_all --smoke' _ "$INSTALLER_DIR"
   [ "$status" -ne 0 ]
@@ -187,8 +198,9 @@ _rec() {
 
 @test "run_all: a cell that left no record is a FAIL row" {
   matrix_run_select() {
-    jq -c -n '{id:"c9", axes:{filesystem:"zfs", topology:"single",
-      encryption:false, impermanence:false}}'
+    local cell='{"id":"c9","axes":{"filesystem":"zfs","topology":"single",'
+    cell+='"encryption":false,"impermanence":false}}'
+    printf '%s\n' "$cell"
   }
   _driver_preflight() { return 0; }
   _driver_guard_gate() { return 0; }
@@ -204,15 +216,16 @@ _rec() {
 @test "run_all: a passing cell's VM is cleaned up, a failing one kept" {
   local test_directory="$BATS_TEST_TMPDIR"
   matrix_run_select() {
-    local id
+    local id plain='{id: $id, axes: {filesystem: "zfs", topology: "single",'
+    plain+=' encryption: false, impermanence: false}}'
     for id in ok1 bad1; do
-      jq -c -n --arg id "$id" '{id:$id, axes:{filesystem:"zfs",
-        topology:"single", encryption:false, impermanence:false}}'
+      # A plain zfs cell with that id.
+      jq -c -n --arg id "$id" "$plain"
     done
   }
   _driver_preflight() { return 0; }
   _driver_guard_gate() { return 0; }
-  _driver_run_cell() { [[ "$(jq -r .id <<<"$1")" == ok1 ]]; }
+  _driver_run_cell() { [[ "$(printf '%s\n' "$1" | jq -r .id)" == ok1 ]]; }
   _driver_cleanup_cell() { echo "$1" >>"$test_directory/cleaned"; }
   run matrix_run_all --smoke
   [ "$(cat "$test_directory/cleaned")" = ok1 ]

@@ -7,6 +7,8 @@
 # exclusion-respect, determinism) — never how the array is built (minimality is
 # an implementation detail, not asserted).
 
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   # shellcheck source=../../lib/matrix/pairwise.sh
@@ -17,9 +19,14 @@ setup() {
 # valA/valB are JSON tokens ("zfs" / false / 2).
 _covered() {
   local rows="$1" first_key="$2" first_value="$3" kb="$4" second_value="$5"
-  jq -e -n --argjson rows "[$(printf '%s' "$rows" | jq -s '.')]" \
-    --arg ka "$first_key" --argjson va "$first_value" --arg kb "$kb" --argjson vb "$second_value" \
-    '$rows[0] | any(.[]; .[$ka] == $va and .[$kb] == $vb)' >/dev/null
+  local both='any($rows[]; .[$ka] == $va and .[$kb] == $vb)'
+  local rows_json
+  # The rows (one JSON object per line) as one array.
+  rows_json="$(printf '%s' "$rows" | jq -s -c '.')"
+  # Some row assigns both values.
+  jq -e -n --argjson rows "$rows_json" \
+    --arg ka "$first_key" --argjson va "$first_value" \
+    --arg kb "$kb" --argjson vb "$second_value" "$both" >/dev/null
 }
 
 # ── tracer: two 2-value axes, no constraints → all four pairs appear ────────
@@ -30,8 +37,8 @@ _covered() {
   [ "$status" -eq 0 ]
   # each emitted row assigns both axes
   while IFS= read -r row; do
-    echo "$row" | jq -e 'has("fs") and has("enc")'
-  done <<<"$output"
+    json_satisfies "$row" 'has("fs") and has("enc")'
+  done < <(printf '%s\n' "$output")
   # every value-pair is covered
   _covered "$output" fs '"zfs"'  enc false
   _covered "$output" fs '"zfs"'  enc true

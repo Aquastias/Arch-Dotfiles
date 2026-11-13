@@ -5,6 +5,9 @@
 # resolved axes → values → exclusions + per-tier cell counts, so a silent shrink
 # (fewer valid cells) shows as a one-line change, not a wall of vanished rows.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   export INSTALLER_DIR
@@ -30,13 +33,21 @@ setup() {
     = "$(MATRIX_SEED=2 matrix_coverage_summary)" ]
 }
 
+# _summary_value <summary> <key> — the value on the summary's "<key>: " line.
+_summary_value() {
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" == "$2: "* ]]; then printf '%s\n' "${line:${#2}+2}"; fi
+  done < <(printf '%s\n' "$1")
+}
+
 @test "coverage: counts equal the actually generated sets" {
   local summary; summary="$(matrix_coverage_summary 0)"
   local tier1 tier2 tier2_pairwise tier2_seeds
-  tier1="$(printf '%s\n' "$summary" | awk 'sub(/^tier1: /, "")')"
-  tier2="$(printf '%s\n' "$summary" | awk 'sub(/^tier2-total: /, "")')"
-  tier2_pairwise="$(printf '%s\n' "$summary" | awk 'sub(/^tier2-pairwise: /, "")')"
-  tier2_seeds="$(printf '%s\n' "$summary" | awk 'sub(/^tier2-seeds: /, "")')"
+  tier1="$(_summary_value "$summary" tier1)"
+  tier2="$(_summary_value "$summary" tier2-total)"
+  tier2_pairwise="$(_summary_value "$summary" tier2-pairwise)"
+  tier2_seeds="$(_summary_value "$summary" tier2-seeds)"
   [ "$tier1" -eq "$(matrix_tier1_cells | grep -c .)" ]
   [ "$tier2" -eq "$(matrix_tier2_cells 0 | grep -c .)" ]
   [ "$((tier2_pairwise + tier2_seeds))" -eq "$tier2" ]          # breakdown sums to the total
@@ -46,7 +57,7 @@ setup() {
 # ── AC4: a dropped topology value is a one-line summary change, not a wall ────
 
 # extract the [axes] section (between its header and the blank line).
-_axes_section() { printf '%s\n' "$1" | awk '/^\[axes\]$/, /^$/'; }
+_axes_section() { printf '%s\n' "$1" | lines_between '^\[axes\]$' '^$'; }
 
 @test "coverage: dropping a topology value → one [axes] line changes" {
   local full reduced
@@ -54,15 +65,17 @@ _axes_section() { printf '%s\n' "$1" | awk '/^\[axes\]$/, /^$/'; }
   # shrink the constraint model: drop raidz2 from the pairwise topology domain.
   _TEST_BASE_AXES="$(_generator_tier2_axes)"
   _generator_tier2_axes() {
-    jq -c '.topology -= ["raidz2"]' <<<"$_TEST_BASE_AXES"
+    # The base axes without raidz2.
+    printf '%s\n' "$_TEST_BASE_AXES" | jq -c '.topology -= ["raidz2"]'
   }
   reduced="$(matrix_coverage_summary 0)"
   # only the topology line differs in [axes]: diff shows one < and one >.
   local changed_lines; changed_lines="$(diff <(_axes_section "$full") <(_axes_section "$reduced") \
     | grep -cE '^[<>]')"
   [ "$changed_lines" -eq 2 ]
-  printf '%s\n' "$full"    | grep -E '^topology: ' | grep -q raidz2
-  printf '%s\n' "$reduced" | grep -E '^topology: ' | grep -qv raidz2
+  # The full summary's topology line names raidz2; the reduced one's does not.
+  _summary_value "$full" topology | grep -q raidz2
+  ! _summary_value "$reduced" topology | grep -q raidz2
 }
 
 # ── the manifest is the Tier-2 set, one cell per line, sorted by id ──────────
@@ -71,8 +84,8 @@ _axes_section() { printf '%s\n' "$1" | awk '/^\[axes\]$/, /^$/'; }
   local manifest; manifest="$(matrix_manifest 0)"
   [ "$(printf '%s\n' "$manifest" | grep -c .)" -gt 1 ]
   while IFS= read -r c; do
-    echo "$c" | jq -e '.id and (.axes | type == "object")'
-  done <<<"$manifest"
+    json_satisfies "$c" '.id and (.axes | type == "object")'
+  done < <(printf '%s\n' "$manifest")
   # ids are in a stable, deterministic order for clean diffs (jq unique_by
   # sorts by codepoint; compare with byte-order sort, not locale collation).
   local ids; ids="$(printf '%s\n' "$manifest" | jq -r '.id')"
@@ -92,7 +105,8 @@ _axes_section() { printf '%s\n' "$1" | awk '/^\[axes\]$/, /^$/'; }
   # simulate a menu/constraint change: drop raidz2 from the pairwise axes.
   _TEST_BASE_AXES="$(_generator_tier2_axes)"
   _generator_tier2_axes() {
-    jq -c '.topology -= ["raidz2"]' <<<"$_TEST_BASE_AXES"
+    # The base axes without raidz2.
+    printf '%s\n' "$_TEST_BASE_AXES" | jq -c '.topology -= ["raidz2"]'
   }
   matrix_coverage_summary 0 >"$BATS_TEST_TMPDIR/c"
   # the regen now diverges from the committed snapshot → CI would fail.

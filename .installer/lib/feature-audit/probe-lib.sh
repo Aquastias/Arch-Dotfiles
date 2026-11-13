@@ -25,8 +25,10 @@ feature_audit_check() {
   local id="$1" message="$2" out why
   shift 2
   if out="$("$@" 2>&1)"; then feature_audit_pass "$id" "$message"; return; fi
-  why="$(grep -iE -m1 'error|fail|denied|not |cannot|can.t|missing|invalid' \
-    <<<"$out")" || why="$(awk 'END { print }' <<<"$out")"
+  local telling='error|fail|denied|not |cannot|can.t|missing|invalid'
+  # The first error-shaped line, else the last line.
+  why="$(printf '%s\n' "$out" | grep -iE "$telling" | head -n 1)"
+  [[ -n "$why" ]] || why="$(printf '%s\n' "$out" | tail -n 1)"
   feature_audit_fail "$id" "$message${why:+: $why}"
 }
 
@@ -68,7 +70,8 @@ feature_audit_no_stderr() {
 feature_audit_no_stderr_but() {
   local ere="$1" stderr_text rc=0; shift
   stderr_text="$("$@" 2>&1 >/dev/null)" || rc=$?
-  stderr_text="$(grep -vE -- "$ere" <<< "$stderr_text")"
+  # The stderr lines the known-benign pattern does not match.
+  stderr_text="$(printf '%s\n' "$stderr_text" | grep -vE -- "$ere")"
   ((rc == 0)) && [[ -z "$stderr_text" ]] && return 0
   [[ -z "$stderr_text" ]] || printf '%s\n' "$stderr_text"
   return 1

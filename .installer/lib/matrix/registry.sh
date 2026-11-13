@@ -99,15 +99,19 @@ _MATRIX_AXIS_REGISTRY=(
 
 # matrix_axis_paths — the registered paths, one per line.
 matrix_axis_paths() {
-  local spec
-  for spec in "${_MATRIX_AXIS_REGISTRY[@]}"; do printf '%s\n' "${spec%%|*}"; done
+  local spec path
+  for spec in "${_MATRIX_AXIS_REGISTRY[@]}"; do
+    # The spec's first |-separated field.
+    IFS='|' read -r path _ < <(printf '%s\n' "$spec")
+    printf '%s\n' "$path"
+  done
 }
 
 # _registry_field <path> <n> — field <n> (role=2, weight=3) for <path>.
 _registry_field() {
   local path="$1" field_index="$2" spec field_path role weight
   for spec in "${_MATRIX_AXIS_REGISTRY[@]}"; do
-    IFS='|' read -r field_path role weight <<<"$spec"
+    IFS='|' read -r field_path role weight < <(printf '%s\n' "$spec")
     if [[ "$field_path" == "$path" ]]; then
       case "$field_index" in 2) printf '%s\n' "$role" ;; 3) printf '%s\n' \
         "$weight" ;; esac
@@ -127,7 +131,8 @@ matrix_axis_weight() { _registry_field "$1" 3; }
 _registry_menu_paths() {
   local spec path
   for spec in "${_MENU_FIELDS[@]}"; do
-    IFS='|' read -r _ path _ <<<"$spec"   # section | path | label|default
+    # section | path | label|default
+    IFS='|' read -r _ path _ < <(printf '%s\n' "$spec")
     printf '%s\n' "$path"
   done
 }
@@ -144,7 +149,7 @@ matrix_registry_assert() {
     local path
     while IFS= read -r path; do
       [[ -n "$path" ]] && echo "matrix: unclassified axis $path" >&2
-    done <<<"$missing"
+    done < <(printf '%s\n' "$missing")
     rc=1
   fi
 
@@ -153,7 +158,7 @@ matrix_registry_assert() {
     local path
     while IFS= read -r path; do
       [[ -n "$path" ]] && echo "matrix: stale registry entry $path" >&2
-    done <<<"$stale"
+    done < <(printf '%s\n' "$stale")
     rc=1
   fi
 
@@ -163,6 +168,5 @@ matrix_registry_assert() {
 # _registry_only_in_first <lines> <lines> — the first list's lines absent from
 # the second, in the first's order (both are sorted-unique here).
 _registry_only_in_first() {
-  awk 'NR == FNR { seen[$0] = 1; next } !($0 in seen)' \
-    <(printf '%s\n' "$2") <(printf '%s\n' "$1")
+  comm -23 <(printf '%s\n' "$1") <(printf '%s\n' "$2")
 }

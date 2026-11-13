@@ -23,6 +23,13 @@ setup() {
 
 teardown() { rm -rf "$T"; }
 
+# sum_lines <file> — the sum of the numbers in <file>, one per line.
+sum_lines() {
+  local total=0 number
+  while IFS= read -r number; do total=$((total + number)); done < "$1"
+  printf '%s\n' "$total"
+}
+
 @test "feature_audit_vm_start keeps virsh start's error in the phase dir" {
   feature_audit_vm_start "$T/boot1"
   grep -q 'failed to start domain' "$T/boot1/virsh-start.err"
@@ -80,14 +87,14 @@ teardown() { rm -rf "$T"; }
   sleep() { SECONDS=$((SECONDS + $1)); echo "$1" >> "$T/slept"; }
   feature_audit_wait_until 90 'true'
   [ "$(cat "$T/n")" -eq 4 ]                      # fail, fail, ok, ok
-  [ "$(awk "{s+=\$1} END {print s}" "$T/slept")" -lt 90 ]
+  [ "$(sum_lines "$T/slept")" -lt 90 ]
 }
 
 @test "feature_audit_wait_until: never ready → stops at the cap" {
   feature_audit_agent() { return 1; }
   sleep() { SECONDS=$((SECONDS + $1)); echo "$1" >> "$T/slept"; }
   feature_audit_wait_until 30 'false'
-  [ "$(awk "{s+=\$1} END {print s}" "$T/slept")" -eq 30 ]
+  [ "$(sum_lines "$T/slept")" -eq 30 ]
 }
 
 @test "_live_session_client: the shell process a session should bring up" {
@@ -122,7 +129,7 @@ teardown() { rm -rf "$T"; }
   feature_audit_agent() { SECONDS=$((SECONDS + 20)); echo x >> "$T/calls"; return 1; }
   sleep() { :; }
   feature_audit_wait_until 30 'false'
-  [ "$(awk 'END { print NR }' "$T/calls")" -le 2 ]
+  [ "$(wc -l < "$T/calls")" -le 2 ]
 }
 
 @test "feature_audit_await_new_boot: unknown old id waits for the guest to go down" {
@@ -181,8 +188,8 @@ teardown() { rm -rf "$T"; }
     "$kernel_prefix       Tainted: P OE 6.18.54-2-lts #1" "$kernel_prefix Call Trace:" \
     "$kernel_prefix  <TASK>" "$kernel_prefix  virtio_gpu_queue_ctrl_sgs+0x135/0x300 [virtio_gpu]" \
     "$kernel_prefix  </TASK>" 'Oct 04 02:41:00 h sshd[1]: unrelated warning' > "$T/j"
-  awk "$_FA_FOLD_HUNG_TASKS" "$T/j" > "$T/out"
-  [ "$(awk 'END { print NR }' "$T/out")" -eq 2 ]
+  awk -f "$_FA_FOLD_HUNG_TASKS" "$T/j" > "$T/out"
+  [ "$(wc -l < "$T/out")" -eq 2 ]
   grep -q 'INFO: task noctalia.*virtio_gpu_queue_ctrl_sgs' "$T/out"
   grep -qx 'Oct 04 02:41:00 h sshd\[1\]: unrelated warning' "$T/out"
 }
@@ -256,11 +263,11 @@ teardown() { rm -rf "$T"; }
   feature_audit_stage_probes() { :; }
   feature_audit_guest_now() { echo 0; }
   feature_audit_run_probes() { echo "run $2" >> "$T/seq"; }
-  feature_audit_collect() { echo "collect ${1##*/}" >> "$T/seq"; }
+  feature_audit_collect() { echo "collect $(basename "$1")" >> "$T/seq"; }
   feature_audit_agent() { [[ "$*" == *reset-failed* ]] && echo reset >> "$T/seq"
     return 0; }
   feature_audit_phase_probes "$T/v" '{}'
-  [ "$(awk '{ joined = joined (NR > 1 ? " " : "") $0 } END { print joined }' "$T/seq")" = "run probes-offline collect probes-offline \
+  [ "$(paste -sd' ' "$T/seq")" = "run probes-offline collect probes-offline \
 reset run probes-online collect probes-online" ]
 }
 

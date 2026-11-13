@@ -11,9 +11,9 @@
 
 # feature_audit_probe_directories — every program dir shipping an audit probe.
 feature_audit_probe_directories() {
-  local directory
-  for directory in "$INSTALLER_DIR"/programs/*/*/; do
-    [[ -f "$directory/audit.sh" ]] && printf '%s\n' "${directory%/}"
+  local probe
+  for probe in "$INSTALLER_DIR"/programs/*/*/audit.sh; do
+    [[ -f "$probe" ]] && dirname "$probe"
   done
 }
 
@@ -27,7 +27,7 @@ feature_audit_stage_probes() {
     "$staging_directory/fa-probes/_lib.sh"
   printf '%s\n' "$config" > "$staging_directory/fa-probes/config.json"
   for directory in "$@"; do
-    name="${directory##*/}"
+    name="$(basename "$directory")"
     mkdir -p "$staging_directory/fa-probes/$name"
     cp "$directory/audit.sh" "$staging_directory/fa-probes/$name/"
     [[ -f "$directory/audit-binds.jsonc" ]] \
@@ -122,7 +122,8 @@ feature_audit_run_probes() {
   local directory="$1" phase="$2" online="$3" config="$4"; shift 4
   local -a accounts=("$@")
   if ((${#accounts[@]} == 0)); then
-    mapfile -t accounts < <(jq -r '.users[]?' <<<"$config")
+    # The variant's users, one per line.
+    mapfile -t accounts < <(printf '%s\n' "$config" | jq -r '.users[]?')
     accounts=(root "${accounts[@]}")
   fi
   # a failed runner still leaves every finished probe's output: pull it

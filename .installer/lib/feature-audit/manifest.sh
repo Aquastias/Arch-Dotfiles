@@ -23,6 +23,8 @@
 #
 # Used by: tools/feature-audit.sh, lib/feature-audit/{check,live-run}.sh.
 # =============================================================================
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
 
 # committed audit data (manifest, Known Noise), INSTALLER_DIR-relative
 FA_DATA=tests/vm/feature-audit
@@ -32,13 +34,18 @@ feature_audit_manifest_path() {
   printf '%s\n' "${FEATURE_AUDIT_MANIFEST:-$def}"
 }
 
-feature_audit_manifest_json() { jsonc_strip "$(feature_audit_manifest_path)" \
-  | jq -c .; }
+feature_audit_manifest_json() {
+  # The manifest, comments stripped, on one line.
+  jsonc_strip "$(feature_audit_manifest_path)" | jq -c .
+}
 
-feature_audit_variant_ids() { feature_audit_manifest_json \
-  | jq -r '.variants[].id'; }
+feature_audit_variant_ids() {
+  # The variant ids, in manifest order.
+  feature_audit_manifest_json | jq -r '.variants[].id'
+}
 
 feature_audit_variant_json() {
+  # The variant with that id (rc 1 when there is none).
   feature_audit_manifest_json \
     | jq -ce --arg id "$1" '.variants[] | select(.id == $id)'
 }
@@ -50,10 +57,10 @@ FA_VARIANT_PHASES_ALL="sessions probes keybinds timers boot2 upgrade power"
 # feature_audit_variant_phases <id> — the variant's Variant Phases (manifest
 # `phases`), space-separated; every phase when it declares none.
 feature_audit_variant_phases() {
-  local variant
+  local variant phases='(.phases // ($all | split(" "))) | join(" ")'
   variant="$(feature_audit_variant_json "$1")" || return 1
-  jq -r --arg all "$FA_VARIANT_PHASES_ALL" \
-    '(.phases // ($all | split(" "))) | join(" ")' <<<"$variant"
+  # The declared phases, else every phase.
+  printf '%s\n' "$variant" | jq -r --arg all "$FA_VARIANT_PHASES_ALL" "$phases"
 }
 
 # feature_audit_variant_fleet <id> — "true" when the variant's Host Profile is a
@@ -64,7 +71,9 @@ feature_audit_variant_fleet() {
   local manifest variant host profile_file
   manifest="$(feature_audit_manifest_json)"
   variant="$(feature_audit_variant_json "$1")" || return 1
-  host="$(jq -r --argjson v "$variant" '$v.host // .base.host' <<<"$manifest")"
+  # The variant's own host, else the base host.
+  host="$(printf '%s\n' "$manifest" \
+    | jq -r --argjson v "$variant" '$v.host // .base.host')"
   [[ "$(type -t profile_loader_directory)" == function ]] || {
     # shellcheck source=../config/profile-loader.sh
     source "$INSTALLER_DIR/lib/config/profile-loader.sh"
@@ -77,30 +86,39 @@ feature_audit_variant_fleet() {
   fi
 }
 
+# The VM Profile fields every variant shares: the VM name, the variant's
+# hardware (else the base's), and the fixtures (a real host brings its own).
+_FA_VM_PROFILE_BASE='{name: .vm_name, hardware: ($v.hardware // .base.hardware),
+  fixtures: (if $v.host then ($v.fixtures // [])
+    else .base.fixtures // [] end)}'
+
 # feature_audit_variant_vm_profile <id> — the VM Profile vm.sh provisions. The
 # base and real hosts go through host_profile (the real Profile Loader); a
 # patched variant carries its resolved config inline.
 feature_audit_variant_vm_profile() {
-  local id="$1" manifest variant
+  local id="$1" manifest variant base host
   manifest="$(feature_audit_manifest_json)"
   variant="$(feature_audit_variant_json "$id")" \
     || { echo "feature-audit: unknown variant '$id'" >&2; return 1; }
-  local base
-  base="$(jq -c --argjson v "$variant" '
-    { name: .vm_name,
-      hardware: ($v.hardware // .base.hardware),
-      fixtures: (if $v.host then ($v.fixtures // [])
-                 else .base.fixtures // [] end) }' <<<"$manifest")"
-  if jq -e '.patch' <<<"$variant" >/dev/null; then
+  # The shared VM Profile fields.
+  base="$(printf '%s\n' "$manifest" \
+    | jq -c --argjson v "$variant" "$_FA_VM_PROFILE_BASE")"
+  # The variant patches the base host.
+  if printf '%s\n' "$variant" | jq -e '.patch' >/dev/null; then
     local config; config="$(feature_audit_variant_config "$id")" || return 1
-    jq -c --argjson c "$config" '. + {install: $c}' <<<"$base"
-  elif jq -e '.host' <<<"$variant" >/dev/null; then
-    jq -c --arg h "$(jq -r .host <<<"$variant")" \
-      '. + {host_profile: $h, layout: {mode: "single"}}' <<<"$base"
+    # The profile with the resolved config inline.
+    printf '%s\n' "$base" | jq -c --argjson c "$config" '. + {install: $c}'
+  # The variant is a real host.
+  elif printf '%s\n' "$variant" | jq -e '.host' >/dev/null; then
+    host="$(printf '%s\n' "$variant" | jq -r .host)"
+    local real_host='. + {host_profile: $h, layout: {mode: "single"}}'
+    # The profile naming that host, on one disk.
+    printf '%s\n' "$base" | jq -c --arg h "$host" "$real_host"
   else
-    jq -c --arg h "$(jq -r .base.host <<<"$manifest")" \
-      '. + {host_profile: $h}' \
-      <<<"$base"
+    # The base host's name.
+    host="$(printf '%s\n' "$manifest" | jq -r .base.host)"
+    # The profile naming the base host.
+    printf '%s\n' "$base" | jq -c --arg h "$host" '. + {host_profile: $h}'
   fi
 }
 
@@ -109,15 +127,16 @@ feature_audit_variant_vm_profile() {
 # base host profile inside the loader seam).
 feature_audit_variant_config() {
   local id="$1" manifest variant host patch profile
+  local patched='{name: .vm_name, hardware: .base.hardware, host_profile: $h}'
   manifest="$(feature_audit_manifest_json)"
   variant="$(feature_audit_variant_json "$id")" \
     || { echo "feature-audit: unknown variant '$id'" >&2; return 1; }
-  host="$(jq -r '.base.host' <<<"$manifest")"
-  patch="$(jq -c '.patch // empty' <<<"$variant")"
+  # The base host and the variant's patch (empty when none).
+  host="$(printf '%s\n' "$manifest" | jq -r '.base.host')"
+  patch="$(printf '%s\n' "$variant" | jq -c '.patch // empty')"
   if [[ -n "$patch" ]]; then
-    profile="$(jq -c --arg h "$host" '
-      { name: .vm_name, hardware: .base.hardware, host_profile: $h }' \
-      <<<"$manifest")"
+    # A VM Profile of the base host on the base hardware.
+    profile="$(printf '%s\n' "$manifest" | jq -c --arg h "$host" "$patched")"
   else
     local vm_profile; vm_profile="$(feature_audit_variant_vm_profile "$id")" \
       || return 1
@@ -127,7 +146,11 @@ feature_audit_variant_config() {
     # shellcheck source=../../vm/lib/profile.sh
     source "$INSTALLER_DIR/vm/lib/profile.sh"
     if [[ -n "$patch" ]]; then
-      eval "_manifest_original_$(declare -f profile_loader_load)"
+      # A copy of the loader under a new name, so the patched loader below can
+      # still call it.
+      local copy
+      copy="_manifest_original_$(declare -f profile_loader_load)"
+      eval "$copy"  # readability-ok: rename
       profile_loader_load() {  # readability-ok: patched in a subshell only
         if [[ "$1" == "$host" ]]; then
           _manifest_original_profile_loader_load "$1" \
@@ -169,9 +192,9 @@ feature_audit_validate_config() {
     validation_check_install_context
   ) >"$config_file.log" 2>&1
   local rc=$?
-  ((rc == 0)) || awk '{ gsub(/\033\[[0-9;]*m/, ""); print }' \
-    "$config_file.log" \
-    | grep -E 'ERROR|WARN' >&2
+  # On failure: the log's errors and warnings, colours stripped.
+  ((rc == 0)) || awk -f "${BASH_SOURCE[0]%/*}/strip-colours.awk" \
+    "$config_file.log" | grep -E 'ERROR|WARN' >&2
   rm -f "$config_file" "$config_file.log"
   return "$rc"
 }

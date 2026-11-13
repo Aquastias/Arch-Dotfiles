@@ -4,6 +4,8 @@
 # block (the oracle table), and install-timeout band (light/heavy). Behaviour
 # under test is the derived profile fields, never how they're computed.
 
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   export INSTALLER_DIR
@@ -31,7 +33,7 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
 @test "verify: plain cell → first-boot sentinel only" {
   local verify; verify="$(matrix_cell_verify \
     "$(_cell '{"encryption":false,"impermanence":false}')")"
-  echo "$verify" | jq -e '.boot == true and (has("rollback") | not)'
+  json_satisfies "$verify" '.boot == true and (has("rollback") | not)'
   [ "$(matrix_cell_boot_verify \
     "$(_cell '{"encryption":false,"impermanence":false}')")" = true ]
 }
@@ -39,22 +41,22 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
 @test "verify: impermanent cell → boot + rollback (two-boot proof)" {
   local verify; verify="$(matrix_cell_verify \
     "$(_cell '{"encryption":false,"impermanence":true}')")"
-  echo "$verify" | jq -e '.boot == true and .rollback == true'
+  json_satisfies "$verify" '.boot == true and .rollback == true'
 }
 
 @test "verify: encrypted cell boot-verifies (issue 07 oracle flip)" {
   # The Console Answerer supplies the passphrase over serial, so encrypted is
   # no longer install-only — it gets the first-boot sentinel like its peer.
   local cell='{"encryption":true,"impermanence":false}'
-  echo "$(matrix_cell_verify "$(_cell "$cell")")" \
-    | jq -e '.boot == true and (has("rollback") | not)'
+  json_satisfies "$(matrix_cell_verify "$(_cell "$cell")")" \
+    '.boot == true and (has("rollback") | not)'
   [ "$(matrix_cell_boot_verify "$(_cell "$cell")")" = true ]
 }
 
 @test "verify: encrypted impermanent → boot + rollback (two-boot proof)" {
   local cell='{"encryption":true,"impermanence":true}'
-  echo "$(matrix_cell_verify "$(_cell "$cell")")" \
-    | jq -e '.boot == true and .rollback == true'
+  json_satisfies "$(matrix_cell_verify "$(_cell "$cell")")" \
+    '.boot == true and .rollback == true'
   [ "$(matrix_cell_boot_verify "$(_cell "$cell")")" = true ]
 }
 
@@ -83,11 +85,11 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
   cell="$(_cell '{"filesystem":"zfs","mode":"single","topology":"single",
     "disk_count":2,"encryption":false,"impermanence":true,"data_pool":null}')"
   local profile; profile="$(matrix_cell_synthesize "$cell")"
-  echo "$profile" | jq -e '(.hardware.disks | length) == 2'
-  echo "$profile" | jq -e '.hardware.disks | all(. == 80)'  # default size
-  echo "$profile" | jq -e '.verify.rollback == true'
-  echo "$profile" | jq -e '.timeouts.install == 4500'
-  echo "$profile" | jq -e '.install | type == "object"'
+  json_satisfies "$profile" '(.hardware.disks | length) == 2'
+  json_satisfies "$profile" '.hardware.disks | all(. == 80)'  # default size
+  json_satisfies "$profile" '.verify.rollback == true'
+  json_satisfies "$profile" '.timeouts.install == 4500'
+  json_satisfies "$profile" '.install | type == "object"'
 }
 
 @test "synthesize: VM RAM follows MATRIX_VM_RAM_MB (the knob admission uses)" {
@@ -95,5 +97,5 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
   cell="$(_cell '{"filesystem":"zfs","mode":"single","topology":"single",
     "disk_count":1,"encryption":false,"impermanence":false,"data_pool":null}')"
   profile="$(MATRIX_VM_RAM_MB=12288 matrix_cell_synthesize "$cell")"
-  echo "$profile" | jq -e '.hardware.ram_mb == 12288'
+  json_satisfies "$profile" '.hardware.ram_mb == 12288'
 }

@@ -14,11 +14,11 @@ strict there from now on.
 
 **Status:** ready-for-agent
 
-- [ ] Area added to Migrated Areas; strict Readability Lint passes
-- [ ] Tool Reference entries added for every command/flag the area keeps
-- [ ] No `parent_directory`/`base_name` calls left in the area
-- [ ] Frozen strings untouched (profile keys, CLI flags, env vars, target
+- [x] Area added to Migrated Areas; strict Readability Lint passes
+- [x] Tool Reference entries added for every command/flag the area keeps
+- [x] No `parent_directory`/`base_name` calls left in the area
+- [x] Frozen strings untouched (profile keys, CLI flags, env vars, target
       paths, grepped strings)
-- [ ] Any `readability-ok: perf` line carries a measured before→after
-- [ ] Area bats files pass (`-j 4` max); audit passes
+- [x] Any `readability-ok: perf` line carries a measured before→after
+- [x] Area bats files pass (`-j 4` max); audit passes
 - [ ] A Feature Audit run in the VM passes

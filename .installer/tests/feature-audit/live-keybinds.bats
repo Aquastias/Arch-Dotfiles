@@ -13,11 +13,12 @@ setup() {
   ROW='{"action":"session-quit"}'
   # the guest's compositor PIDs come from $PIDS
   feature_audit_agent() {
-    local command="$2"
+    local command="$2" pid
     case "$command" in
-      "pgrep -ox "*) printf '%s\n' "${PIDS%% *}" ;;
+      "pgrep -ox "*) read -r pid _ < <(printf '%s\n' "$PIDS"); echo "$pid" ;;
       "test -d /proc/"*)
-        [[ " $PIDS " == *" ${command#test -d /proc/} "* ]] ;;
+        # The PID after "test -d /proc/" (14 characters) is a listed one.
+        [[ " $PIDS " == *" ${command:14} "* ]] ;;
     esac
   }
 }

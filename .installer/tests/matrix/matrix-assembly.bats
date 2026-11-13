@@ -11,6 +11,8 @@
 # cell
 # the generator emits validates clean.
 
+load ../lib/json-helpers
+
 setup() {
   INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   export INSTALLER_DIR
@@ -27,6 +29,7 @@ setup() {
 
 # _matrix_tier1_cell <id> — the generated Tier-1 cell with the given id.
 _matrix_tier1_cell() {
+  # The cell with that id.
   matrix_tier1_cells | jq -c --arg id "$1" 'select(.id == $id)'
 }
 
@@ -102,9 +105,9 @@ _matrix_validate_cell() {
 # refused by validation, before 02-wipe touches a disk.
 @test "tier-1: an encrypted multi-disk btrfs root is refused by validation" {
   local cell
-  cell="$(jq -c -n '{id:"btrfs-raid1-enc", tier:1, axes:{filesystem:"btrfs",
-    mode:"multi", topology:"raid1", disk_count:2, encryption:true,
-    impermanence:false, data_pool:null}}')"
+  cell='{"id":"btrfs-raid1-enc","tier":1,"axes":{"filesystem":"btrfs",
+    "mode":"multi","topology":"raid1","disk_count":2,"encryption":true,
+    "impermanence":false,"data_pool":null}}'
   run _matrix_validate_cell "$cell"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Encrypted multi-disk btrfs root is unsupported"* ]]
@@ -115,13 +118,13 @@ _matrix_validate_cell() {
 # kernel, bootloader or gpu was ever installed by the matrix.
 @test "assemble: a Tier-2 cell's kernel, bootloader, gpu and swap axes apply" {
   local cell config
-  cell="$(jq -c -n '{id:"t2-x", tier:2, axes:{filesystem:"btrfs",
-    topology:"single", mode:"single", disk_count:1, encryption:false,
-    impermanence:false, data_pool:null, kernel:"zen", bootloader:"refind",
-    desktop:"none", gpu:"amd", swap:false}}')"
+  cell='{"id":"t2-x","tier":2,"axes":{"filesystem":"btrfs",
+    "topology":"single","mode":"single","disk_count":1,"encryption":false,
+    "impermanence":false,"data_pool":null,"kernel":"zen",
+    "bootloader":"refind","desktop":"none","gpu":"amd","swap":false}}'
   config="$(matrix_cell_assemble "$cell" | jsonc_strip /dev/stdin)"
-  jq -e '.options.kernel == ["zen"]' <<<"$config"
-  jq -e '.options.bootloader == "refind"' <<<"$config"
-  jq -e '.environment.gpu == "amd"' <<<"$config"
-  jq -e '.options.swap == false' <<<"$config"
+  json_satisfies "$config" '.options.kernel == ["zen"]'
+  json_satisfies "$config" '.options.bootloader == "refind"'
+  json_satisfies "$config" '.environment.gpu == "amd"'
+  json_satisfies "$config" '.options.swap == false'
 }
