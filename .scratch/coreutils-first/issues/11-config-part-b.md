@@ -20,4 +20,4 @@ the Migrated Areas list, so the rules are strict there from now on.
       paths, grepped strings)
 - [x] Any `readability-ok: perf` line carries a measured before→after
 - [x] Area bats files pass (`-j 4` max); audit passes
-- [ ] Guided-flow run passes
+- [x] Guided-flow run passes
