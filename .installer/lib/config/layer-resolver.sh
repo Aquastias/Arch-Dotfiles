@@ -100,24 +100,7 @@ layer_resolver_resolve_user() { layer_resolver_resolve user "$1" "$2"; }
 # _layer_resolver_fold_one) must classify keys identically or the two drift.
 # Needs an $additive binding.
 layer_resolver_jq_prelude() {
-  cat <<'JQ'
-    def odedup: reduce .[] as $x ([];
-      if any(.[]; . == $x) then . else . + [$x] end);
-
-    # Is <path> (an array of key strings) an additive key? A trailing "*" in a
-    # pattern matches exactly one further segment, so "packages.repo.*"
-    # matches ["packages","repo","<any category>"].
-    def is_additive($path):
-      ($path | join(".")) as $flat
-      | any($additive[];
-          . as $pat
-          | if ($pat | endswith(".*"))
-            then ($pat | rtrimstr(".*")) as $stem
-              | ($path | length) == (($stem | split(".")) | length) + 1
-                and ($flat | startswith($stem + "."))
-            else . == $flat
-            end);
-JQ
+  cat "${BASH_SOURCE[0]%/*}/layer-resolver-prelude.jq"
 }
 
 # layer_resolver_jq_exclusions — shared jq def for the fold
@@ -126,27 +109,7 @@ JQ
 # implementation. No $additive dependency, so a caller that omits it can still
 # include this.
 layer_resolver_jq_exclusions() {
-  cat <<'JQ'
-    def _drop($excl): map(select(. as $p | $excl | index($p) | not));
-    def _drop_cats($excl): with_entries(.value |=
-      (if type == "array" then _drop($excl) else . end));
-
-    # apply_exclusions($pkg; $sys; $usr) — subtract each from its slot, then
-    # strip the exclude control keys and prune an emptied packages object.
-    def apply_exclusions($pkg_excl; $sys_excl; $usr_excl):
-      (if (.packages.repo // null) != null
-       then .packages.repo |= _drop_cats($pkg_excl) else . end)
-      | (if (.packages.aur // null) != null
-         then .packages.aur |= _drop_cats($pkg_excl) else . end)
-      | (if (.host_programs // null) != null
-         then .host_programs |= _drop($sys_excl) else . end)
-      | (if (.programs // null) != null
-         then .programs |= _drop($usr_excl) else . end)
-      | del(.packages.exclude)
-      | del(.host_programs_exclude)
-      | del(.programs_exclude)
-      | if (.packages // null) == {} then del(.packages) else . end;
-JQ
+  cat "${BASH_SOURCE[0]%/*}/layer-resolver-exclusions.jq"
 }
 
 # layer_resolver_additive_json <host|user> — classification table as a JSON

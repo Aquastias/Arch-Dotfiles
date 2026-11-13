@@ -154,9 +154,11 @@ _controller_user_field_options() {
 _controller_user_form_set_strict() {
   local user="$1" key="$2" new="$3" committed="$4"
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || return 0
-  # The new value equals the committed one (jq's == ignores key order).
-  if printf '%s\n' "$new" \
-    | jq -e --argjson c "$committed" '. == $c' >/dev/null; then
+  # The new value equals the committed one: the same text, or (jq's ==
+  # ignores key order) the same JSON. An empty side is no JSON: jq fails
+  # quietly.
+  if [[ "$new" == "$committed" ]] || printf '%s\n' "$new" \
+    | jq -e --argjson c "$committed" '. == $c' >/dev/null 2>&1; then
     guided_userform_unset "$GUIDED_USERFORMS_FILE" "$user" "$key"
   else
     guided_userform_set "$GUIDED_USERFORMS_FILE" "$user" "$key" "$new"

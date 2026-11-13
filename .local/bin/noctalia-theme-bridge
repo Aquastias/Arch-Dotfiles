@@ -20,9 +20,9 @@
 # every Plasma login (ADR 0104/0116).
 set -eu
 
-cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
-data="${XDG_DATA_HOME:-$HOME/.local/share}"
-qt_conf="$cfg/qt6ct/qt6ct.conf"
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+qt_conf="$config_home/qt6ct/qt6ct.conf"
 
 # Parent dirs of Noctalia's generated color files. Watch the DIRS (not the
 # files) so an atomic write-then-rename is still caught; --include (below) keeps
@@ -30,10 +30,10 @@ qt_conf="$cfg/qt6ct/qt6ct.conf"
 # color-schemes/ holds noctalia.colors — the KColorScheme qt6ct now reads
 # (ADR 0124); mkdir it so the watch exists from first login even before Noctalia
 # first writes there.
-mkdir -p "$data/color-schemes" 2>/dev/null || true
+mkdir -p "$data_home/color-schemes" 2>/dev/null || true
 dirs=""
-for directory in "$data/color-schemes" "$cfg/qt6ct/colors" "$cfg/gtk-3.0" \
-	"$cfg/gtk-4.0"; do
+for directory in "$data_home/color-schemes" "$config_home/qt6ct/colors" \
+	"$config_home/gtk-3.0" "$config_home/gtk-4.0"; do
 	if [ -d "$directory" ]; then dirs="$dirs $directory"; fi
 done
 

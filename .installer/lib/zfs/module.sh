@@ -358,7 +358,7 @@ _module_build_dkms() {
   warn "DKMS build failed. Last 30 lines of make.log:"
   echo "─────────────────────────────────────────────"
   local missing="(log not found at ${makelog})"
-  tail -30 "$makelog" 2>/dev/null || echo "$missing"  # readability-ok: tail
+  tail -n 30 "$makelog" 2>/dev/null || echo "$missing"
   echo "─────────────────────────────────────────────"
   echo ""
   error "DKMS build failed for ZFS ${zfs_version} / kernel ${kernel_version}.

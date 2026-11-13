@@ -19,9 +19,12 @@ _controller_autocommit() {
   history="$(<"$GUIDED_HIST_FILE")"
   now="$(_controller_state)"
   previous="$(history_present "$history")"
-  # Unchanged since the last snapshot: jq's == ignores key order.
-  printf '%s\n' "$now" | jq -e --argjson p "$previous" '. == $p' >/dev/null \
-    && return 0
+  # Unchanged since the last snapshot: the same text...
+  [[ "$now" == "$previous" ]] && return 0
+  # ...or the same JSON (jq's == ignores key order; an empty side is no JSON,
+  # so jq fails quietly).
+  printf '%s\n' "$now" \
+    | jq -e --argjson p "$previous" '. == $p' >/dev/null 2>&1 && return 0
   history_commit "$history" "$now" >"$GUIDED_HIST_FILE"
   # A fresh edit voids the `+ New host` reset-undo stash: its side-state no
   # longer matches the current session, so a later undo must not resurrect it.

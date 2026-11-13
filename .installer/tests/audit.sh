@@ -69,7 +69,7 @@ _jsonc_valid() {
 
 # Strip JSONC comments → plain JSON on stdout
 _strip() {
-  awk -f "${BASH_SOURCE[0]%/*}/audit-strip-jsonc.awk" "$1"
+  awk -f "$OS/lib/jsonc-strip.awk" "$1"
 }
 
 # _jsonc_call_before_source <script> — the number of the line sourcing
@@ -233,7 +233,7 @@ _section "7. STAGED_RUNTIME_FILES  (profiles.sh → /var/tmp/.installer-runtime/
 while IFS= read -r entry; do
   _file "${OS}/${entry}" "_STAGED_RUNTIME_FILES: ${entry}"
 done < <(
-  awk -f "${BASH_SOURCE[0]%/*}/audit-staged-files.awk" \
+  awk -f "$HERE/audit-staged-files.awk" \
     "${OS}/lib/profiles/runner.sh"
 )
 
@@ -419,7 +419,7 @@ if command -v curl >/dev/null 2>&1; then
     | jq -r '.results[]?.Name' 2>/dev/null | sort -u || true)"
 fi
 _in_aur() {
-  [[ -n "$_aur_found" ]] && printf '%s\n' "$_aur_found" | grep -qxF "$1"
+  [[ -n "$_aur_found" ]] && grep -qxF "$1" < <(printf '%s\n' "$_aur_found")
 }
 
 # ── Repo packages → must resolve in the official repos (or archzfs) ──────────
@@ -429,7 +429,9 @@ if command -v pacman >/dev/null 2>&1 \
   _repo_bad=0
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
-    printf '%s\n' "$_avail" | grep -qxF "$p" && continue  # direct repo match
+    # A direct repo match. Not a pipe: grep -q quits early, and printf
+    # would die of SIGPIPE on the ~200 KB list, failing the pipefail test.
+    grep -qxF "$p" < <(printf '%s\n' "$_avail") && continue
     [[ "$_ARCHZFS_OK" == *" $p "* ]] && continue          # archzfs allowlist
     pacman -Sp --print-format '%n' "$p" >/dev/null 2>&1 && continue  # provides
     if _in_aur "$p"; then

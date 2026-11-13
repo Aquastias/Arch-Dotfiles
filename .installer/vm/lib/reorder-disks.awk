@@ -3,35 +3,40 @@
 # (ADR 0028). Fewer than three disks: the XML unchanged.
 
 # The single-quote attribute delimiter (\047), no data disk seen yet.
-BEGIN { q = "\047"; nd = 0 }
+BEGIN { quote = "\047"; disks = 0 }
 
 # Keep every line; track whether it is inside a (non-cdrom) <disk>, and note
 # each data disk's <source file=…/> line and backing file, in declared order.
 {
   lines[NR] = $0
   if ($0 ~ "<disk[ >]") {
-    iscd   = ($0 ~ ("device=" q "cdrom" q)) ? 1 : 0
-    indisk = 1
+    is_cdrom = ($0 ~ ("device=" quote "cdrom" quote)) ? 1 : 0
+    in_disk  = 1
   }
-  if (indisk && !iscd && match($0, ("file=" q "[^" q "]*" q))) {
-    nd++; idx[nd] = NR
-    files[nd] = substr($0, RSTART + 6, RLENGTH - 7)   # strip file= and delims
+  source_attribute = "file=" quote "[^" quote "]*" quote
+  if (in_disk && !is_cdrom && match($0, source_attribute)) {
+    disks++
+    source_line[disks] = NR
+    # The path without `file=` and its quotes.
+    files[disks] = substr($0, RSTART + 6, RLENGTH - 7)
   }
-  if ($0 ~ "</disk>") { indisk = 0; iscd = 0 }
+  if ($0 ~ "</disk>") { in_disk = 0; is_cdrom = 0 }
 }
 
 # Print the XML with the data disks' files swapped into reverse order.
 END {
-  if (nd < 3) { for (i = 1; i <= NR; i++) print lines[i]; exit }
-  neworder[1] = files[1]; j = 2
-  for (i = nd; i >= 2; i--) neworder[j++] = files[i]
-  for (k = 1; k <= nd; k++) repl[idx[k]] = neworder[k]
+  if (disks < 3) { for (i = 1; i <= NR; i++) print lines[i]; exit }
+  new_order[1] = files[1]
+  j = 2
+  for (i = disks; i >= 2; i--) new_order[j++] = files[i]
+  for (k = 1; k <= disks; k++) replacement[source_line[k]] = new_order[k]
   for (i = 1; i <= NR; i++) {
-    if (i in repl) {
-      r = repl[i]; gsub(/[&\\]/, "\\\\&", r)          # escape sub() replacement
-      s = lines[i]
-      sub(("file=" q "[^" q "]*" q), ("file=" q r q), s)
-      print s
-    } else print lines[i]
+    if (!(i in replacement)) { print lines[i]; continue }
+    path = replacement[i]
+    # Escape the characters sub() treats specially in a replacement.
+    gsub(/[&\\]/, "\\\\&", path)
+    text = lines[i]
+    sub(("file=" quote "[^" quote "]*" quote), ("file=" quote path quote), text)
+    print text
   }
 }

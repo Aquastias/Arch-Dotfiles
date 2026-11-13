@@ -7,27 +7,30 @@
 def empty_label($path):
   {"options.mirror_countries": "worldwide"}[$path] // "";
 
-# render($v; $d) — one line for a value: an array comma-joined (an object
-# element by its .name), an object as "key=value" pairs, a scalar as text;
-# <d> when the result is null or empty.
-def render($v; $d):
-  (if   $v == null            then null
-   elif ($v | type) == "array"  then
-     ($v | map(if type == "string" then . else (.name // tostring) end)
+# render($value; $default) — one line for a value: an array comma-joined (an
+# object element by its .name), an object as "key=value" pairs, a scalar as
+# text; <default> when the result is null or empty.
+def render($value; $default):
+  (if   $value == null              then null
+   elif ($value | type) == "array"  then
+     ($value | map(if type == "string" then . else (.name // tostring) end)
          | join(", "))
-   elif ($v | type) == "object" then
-     ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
-   else ($v | tostring) end) as $r
-  | if ($r == null or $r == "") then $d else $r end;
+   elif ($value | type) == "object" then
+     ([$value | to_entries[] | "\(.key)=\(.value)"] | join(", "))
+   else ($value | tostring) end) as $text
+  | if ($text == null or $text == "") then $default else $text end;
 
 # Locale projection (ADR 0076): the canonical system.locale (element 0 when an
 # array) split into its language identity (.CODESET dropped, @modifier kept)
-# and its encoding (the CODESET). loc0 falls back to <fallback> (the schema
-# install default) so the two leaves render their defaults on a fresh state.
-def loc0($src; $fallback): ($src.system.locale) as $l
-  | (if ($l | type) == "array" then ($l[0] // "") else ($l // "") end)
+# and its encoding (the CODESET). locale_first falls back to <fallback> (the
+# schema install default) so the two leaves render their defaults on a fresh
+# state.
+def locale_first($src; $fallback): ($src.system.locale) as $locale
+  | (if ($locale | type) == "array" then ($locale[0] // "")
+     else ($locale // "") end)
   | if . == "" then $fallback else . end;
-def loc_lang($l): ($l | sub("\\.[^.@]+"; ""));
-def loc_enc($l):
-  (if ($l | test("\\.[^.@]+")) then ($l | capture("\\.(?<e>[^.@]+)").e)
+def locale_language($locale): ($locale | sub("\\.[^.@]+"; ""));
+def locale_encoding($locale):
+  (if ($locale | test("\\.[^.@]+"))
+   then ($locale | capture("\\.(?<encoding>[^.@]+)").encoding)
    else "" end);

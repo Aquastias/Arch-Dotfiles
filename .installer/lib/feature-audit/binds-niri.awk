@@ -4,33 +4,41 @@
 
 # flush() — print the collected bind (its action tidied) and start a new one.
 function flush() {
-  gsub(/[;[:space:]]+$/, "", act); gsub(/^[[:space:]]+/, "", act)
-  gsub(/;[[:space:]]*/, "; ", act); sub(/; $/, "", act)
-  if (chord != "") printf "niri\t%s\t%s\n", chord, act
-  chord = ""; act = ""
+  gsub(/[;[:space:]]+$/, "", action)
+  gsub(/^[[:space:]]+/, "", action)
+  gsub(/;[[:space:]]*/, "; ", action)
+  sub(/; $/, "", action)
+  if (chord != "") printf "niri\t%s\t%s\n", chord, action
+  chord = ""
+  action = ""
 }
 
 # Drop a line comment.
 { sub(/^[[:space:]]*\/\/.*$/, "") }
 
 # The binds block opens.
-/^[[:space:]]*binds[[:space:]]*\{/ { inb = 1; depth = 1; next }
+/^[[:space:]]*binds[[:space:]]*\{/ { in_binds = 1; depth = 1; next }
 
 # Outside it: nothing to read.
-!inb { next }
+!in_binds { next }
 
 # Inside it: a chord line opens a bind; its body runs until the closing brace.
 {
   line = $0
   if (depth == 1) {
-    if (line ~ /^[[:space:]]*\}/) { inb = 0; next }
+    if (line ~ /^[[:space:]]*\}/) { in_binds = 0; next }
     if (line !~ /\{/) next
-    split(line, f, " "); chord = f[1]; sub(/^[[:space:]]+/, "", chord)
-    body = line; sub(/^[^{]*\{/, "", body)
+    split(line, words, " ")
+    chord = words[1]
+    sub(/^[[:space:]]+/, "", chord)
+    body = line
+    sub(/^[^{]*\{/, "", body)
     depth = 2
   } else body = line
   if (body ~ /\}[[:space:]]*$/) {
-    sub(/\}[[:space:]]*$/, "", body); act = act " " body; flush()
+    sub(/\}[[:space:]]*$/, "", body)
+    action = action " " body
+    flush()
     depth = 1
-  } else act = act " " body
+  } else action = action " " body
 }

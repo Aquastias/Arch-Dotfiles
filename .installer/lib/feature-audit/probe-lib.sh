@@ -26,8 +26,11 @@ feature_audit_check() {
   shift 2
   if out="$("$@" 2>&1)"; then feature_audit_pass "$id" "$message"; return; fi
   local telling='error|fail|denied|not |cannot|can.t|missing|invalid'
-  # The first error-shaped line, else the last line.
-  why="$(printf '%s\n' "$out" | grep -iE "$telling" | head -n 1)"
+  local -a telling_lines=()
+  # The error-shaped lines, read whole (head would SIGPIPE a long output).
+  mapfile -t telling_lines < <(printf '%s\n' "$out" | grep -iE "$telling")
+  # The first of them, else the last line.
+  why="${telling_lines[0]:-}"
   [[ -n "$why" ]] || why="$(printf '%s\n' "$out" | tail -n 1)"
   feature_audit_fail "$id" "$message${why:+: $why}"
 }
