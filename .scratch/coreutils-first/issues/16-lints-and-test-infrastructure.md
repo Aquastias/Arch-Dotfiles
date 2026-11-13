@@ -20,5 +20,5 @@ Areas list, so the rules are strict there from now on.
 - [x] Frozen strings untouched (profile keys, CLI flags, env vars, target
       paths, grepped strings)
 - [x] Any `readability-ok: perf` line carries a measured before→after
-- [ ] Area bats files pass (`-j 4` max); audit passes
+- [x] Area bats files pass (`-j 4` max); audit passes
 - [x] Pre-commit gate still blocks a seeded violation and passes clean

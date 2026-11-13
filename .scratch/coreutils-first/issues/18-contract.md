@@ -14,6 +14,6 @@ Stdlib) now that no caller remains. ADR 0167's status becomes
 - [x] Migrated Areas mechanism and its tests removed
 - [x] Strict Readability Lint passes on the whole repo
 - [x] Path helpers deleted; no reference left outside ADRs/`.scratch/`
-- [ ] Full bats suite (`-j 4` max) and audit pass
-- [ ] One final VM install passes
+- [x] Full bats suite (`-j 4` max) and audit pass
+- [x] One final VM install passes
 - [x] ADR 0167 status set to implemented
