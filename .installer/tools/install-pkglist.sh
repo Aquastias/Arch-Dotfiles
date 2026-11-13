@@ -14,7 +14,7 @@ set -euo pipefail
 script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
-INSTALLER_DIR="${SCRIPT_DIR%/*}"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 
 # shellcheck source=../lib/aur-helper.sh
 source "${INSTALLER_DIR}/lib/aur-helper.sh"
@@ -61,7 +61,7 @@ _list_packages() {
 # AUR builds need paru: its PreBuildCommand runs AUR Vetting, yay has no such
 # hook (ADR 0143). Under yay the repo pass is repo-only and the AUR pass is
 # refused rather than built unvetted.
-read -ra repo_helper <<<"$(aur_helper_repo_command "$helper")"
+read -ra repo_helper < <(aur_helper_repo_command "$helper")
 
 echo "Installing repo packages for profile ${profile}..."
 _list_packages "$repo_list" | "${repo_helper[@]}" -S --needed -

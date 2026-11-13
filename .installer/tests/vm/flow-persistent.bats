@@ -5,6 +5,8 @@
 # enables sshd for the INSTALLED guest, and the harness key is generated on
 # demand.
 
+load ../lib/text-helpers
+
 setup() {
   FLOW="$BATS_TEST_DIRNAME/../../vm/lib/flow-persistent.sh"
   CACHE_DIR="$(mktemp -d)"
@@ -159,8 +161,8 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'/root/.log-pulled'* ]]
   # the hold sits before poweroff
   local hold pow
-  hold="$(awk '/log-pulled/ { print NR; exit }' <<<"$output")"
-  pow="$(awk '/^  poweroff/ { print NR }' <<<"$output")"
+  hold="$(first_line_matching <(printf '%s\n' "$output") 'log-pulled')"
+  pow="$(last_line_matching <(printf '%s\n' "$output") '^  poweroff')"
   [ "$hold" -lt "$pow" ]
 }
 
@@ -199,8 +201,11 @@ teardown() { rm -rf "$CACHE_DIR"; }
   touch "${by_id_directory}0" "${by_id_directory}1"
   echo '{"os_pool":{"disks":["/dev/sda","/dev/sdb"]},"x":["/dev/sdc"]}' \
     > "$test_directory/c.json"
-  eval "$(_flow_persistent_pin_disks_function)"
-  pin_disks "$test_directory/c.json" "$test_directory/by-id"
+  # The pin_disks function the flow ships into the guest.
+  source <(_flow_persistent_pin_disks_function)
+  pin_disks "$test_directory/c.json" \
+    "$test_directory/by-id"  # readability-ok: sourced above
+  # Every pinned disk, space-joined.
   run jq -r '[.os_pool.disks[], .x[]] | join(" ")' "$test_directory/c.json"
   [ "$output" = "${by_id_directory}0 ${by_id_directory}1 /dev/sdc" ]
 }

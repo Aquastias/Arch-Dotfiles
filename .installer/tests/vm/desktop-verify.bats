@@ -98,6 +98,7 @@ stub() {
 }
 
 @test "wlroots session: idle lock disabled is IDLE-FAIL" {
+  # The idle lock turned off.
   sed -i 's/enabled = true/enabled = false/' \
     "$T/home/.config/noctalia/config.toml"
   run "$PROBER"

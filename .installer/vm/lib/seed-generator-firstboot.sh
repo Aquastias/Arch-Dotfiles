@@ -122,7 +122,7 @@ _seed_generator_firstboot_block() {
   # KDE+Hyprland install produced a launchable session for each.
   local desktop_check=""
   if [[ -n "$verify_desktops" ]]; then
-    local -a _des; read -ra _des <<< "$verify_desktops"
+    local -a _des; read -ra _des < <(printf '%s\n' "$verify_desktops")
     desktop_check="$(_seed_generator_desktop_check "${_des[@]}")"
   fi
   # Security & Backup Extras check (issue 04/05): every named unit must be

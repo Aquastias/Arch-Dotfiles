@@ -48,11 +48,13 @@ vm_repo_source_commit() {
   local url="$1" root commit=""
   root="http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/"
   if [[ "$url" == "$root"* ]]; then
-    commit="$(git -C "$CACHE_DIR/${url#"$root"}" rev-parse --short HEAD \
+    # The staged clone is the path below the HTTP root.
+    commit="$(git -C "$CACHE_DIR/${url:${#root}}" rev-parse --short HEAD \
       2>/dev/null)"
   else
+    # The first 7 characters of the remote HEAD's hash.
     commit="$(GIT_TERMINAL_PROMPT=0 timeout 20 git ls-remote "$url" HEAD \
-      2>/dev/null | awk '{ print substr($1, 1, 7) }')"
+      2>/dev/null | cut -c1-7)"
   fi
   printf '%s\n' "${commit:-unknown}"
 }

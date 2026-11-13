@@ -11,6 +11,9 @@
 # =============================================================================
 
 # agent_key_path — the harness SSH key, identical to flow-persistent's.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 agent_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
 
 # agent_ssh_mux_options <dir> — client ssh options that ride a shared master
@@ -37,6 +40,7 @@ agent_resolve_name() {
   if [[ "$reference" == /* && -f "$reference" ]]; then file="$reference"
   else file="$INSTALLER_DIR/vm/profiles/$reference.jsonc"; fi
   [[ -f "$file" ]] || die "profile not found: $file"
+  # The profile's name (rc 1 when it has none).
   jsonc_strip "$file" | jq -er '.name' \
     || die "profile has no .name: $file"
 }
@@ -102,10 +106,11 @@ agent_shot_tool() {
 # tar (relative to its parent) so `pull` lands it under the host dir by
 # basename.
 agent_pull_command() {
-  local path="${1%/}" parent
-  [[ "$path" == /* && "$path" != / ]] || return 1
-  parent="${path%/*}"
-  printf "tar -C '%s' -cf - '%s'\n" "${parent:-/}" "${path##*/}"
+  local path="$1"
+  # Without a trailing slash.
+  [[ "$path" == */ ]] && path="${path:0:${#path}-1}"
+  [[ "$path" == /* && -n "$path" ]] || return 1
+  printf "tar -C '%s' -cf - '%s'\n" "$(dirname "$path")" "$(basename "$path")"
 }
 
 # agent_network_command <on|off> — guest (root) command cutting/restoring
@@ -130,15 +135,17 @@ agent_network_command() {
 # cannot inject (brightness, mic-mute, ...), so a caller can mark it SKIP.
 agent_key_qcodes() {
   local token qcode; local -a qcodes=()
+  local -l key   # -l: kept in lower case
   local IFS=+
   for token in $1; do
-    token="${token// /}"
-    case "${token,,}" in
+    # The key without spaces, in lower case.
+    key="$(printf '%s' "$token" | tr -d ' ')"
+    case "$key" in
       mod|super|meta|win|logo) qcode=meta_l ;;
       ctrl|control) qcode=ctrl ;;  shift) qcode="shift" ;;  alt) qcode=alt ;;
       return|enter) qcode=ret ;;  escape|esc) qcode=esc ;;  space) qcode=spc ;;
       tab) qcode=tab ;;  backspace) qcode=backspace ;;  delete) qcode=delete ;;
-      left|right|up|down|home|end|insert) qcode="${token,,}" ;;
+      left|right|up|down|home|end|insert) qcode="$key" ;;
       page_up|prior|pageup|pgup) qcode=pgup ;;
       page_down|next|pagedown|pgdown|pgdn) qcode=pgdn ;;
       print) qcode=print ;;  minus) qcode=minus ;;  equal) qcode=equal ;;
@@ -156,8 +163,8 @@ agent_key_qcodes() {
       plus) qcode="shift equal" ;;  '~'|asciitilde) \
         qcode="shift grave_accent" ;;
       '`') qcode=grave_accent ;;  '=') qcode=equal ;;  '-') qcode=minus ;;
-      [a-z0-9]) qcode="${token,,}" ;;
-      f[0-9]|f1[0-2]) qcode="${token,,}" ;;
+      [a-z0-9]) qcode="$key" ;;
+      f[0-9]|f1[0-2]) qcode="$key" ;;
       *) return 1 ;;
     esac
     qcodes+=("$qcode")
@@ -170,34 +177,40 @@ agent_key_qcodes() {
 # releases go in reverse so modifiers are held around the key.
 agent_key_qmp() {
   local direction="$1" codes="$2"
-  jq -cn --arg d "$direction" --arg c "$codes" '
-    ($c | split(" ") | if $d == "up" then reverse else . end) as $k
-    | { execute: "input-send-event",
-        arguments: { events: [ $k[] | { type: "key",
-          data: { down: ($d == "down"),
-                  key: { type: "qcode", data: . } } } ] } }'
+  # The key events: each qcode pressed, or released in reverse order.
+  jq -cn --arg d "$direction" --arg c "$codes" "$_AGENT_QMP_KEYS"
 }
+
+# The QMP input-send-event batches. $d: down|up, $c: the space-separated
+# qcodes; $x/$y: the absolute pointer position; $b: the button.
+_AGENT_QMP_KEYS='($c | split(" ") | if $d == "up" then reverse else . end) as $k
+  | {execute: "input-send-event",
+     arguments: {events: [$k[] | {type: "key",
+       data: {down: ($d == "down"), key: {type: "qcode", data: .}}}]}}'
+_AGENT_QMP_MOVE='{execute: "input-send-event", arguments: {events: [
+  {type: "abs", data: {axis: "x", value: $x}},
+  {type: "abs", data: {axis: "y", value: $y}}]}}'
+_AGENT_QMP_BUTTON='{execute: "input-send-event", arguments: {events: [
+  {type: "btn", data: {down: ($d == "down"), button: $b}}]}}'
+_AGENT_QMP_WHEEL='{execute: "input-send-event", arguments: {events: [
+  {type: "btn", data: {down: true, button: $b}},
+  {type: "btn", data: {down: false, button: $b}}]}}'
 
 # agent_mouse_qmp move <x> <y> | btn <left|right|middle> <down|up>
 #   | wheel <up|down> — QMP pointer events (absolute tablet, 0..32767).
 agent_mouse_qmp() {
   case "$1" in
     move)
-      jq -cn --argjson x "$2" --argjson y "$3" '{ execute: "input-send-event",
-        arguments: { events: [
-          { type: "abs", data: { axis: "x", value: $x } },
-          { type: "abs", data: { axis: "y", value: $y } } ] } }' ;;
+      # The pointer moved to x, y.
+      jq -cn --argjson x "$2" --argjson y "$3" "$_AGENT_QMP_MOVE" ;;
     btn)
       [[ "$2" =~ ^(left|right|middle)$ && "$3" =~ ^(down|up)$ ]] || return 1
-      jq -cn --arg b "$2" --arg d "$3" '{ execute: "input-send-event",
-        arguments: { events: [ { type: "btn",
-          data: { down: ($d == "down"), button: $b } } ] } }' ;;
+      # The button pressed or released.
+      jq -cn --arg b "$2" --arg d "$3" "$_AGENT_QMP_BUTTON" ;;
     wheel)
       [[ "$2" =~ ^(up|down)$ ]] || return 1
-      jq -cn --arg b "wheel-$2" '{ execute: "input-send-event",
-        arguments: { events: [
-          { type: "btn", data: { down: true, button: $b } },
-          { type: "btn", data: { down: false, button: $b } } ] } }' ;;
+      # One wheel click: the wheel button pressed and released.
+      jq -cn --arg b "wheel-$2" "$_AGENT_QMP_WHEEL" ;;
     *) return 1 ;;
   esac
 }

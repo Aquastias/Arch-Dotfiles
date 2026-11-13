@@ -30,7 +30,6 @@ _GUIDED_STATE="$(config_state_new)"
 _GUIDED_DISK=""
 _guided_shell_set_identity
 _guided_shell_users_reset
-_guided_shell_seed_primary_user
 
 if guided_run_persistent; then
   printf '\n=== chosen action: %s ===\n' "$_GUIDED_ACTION"

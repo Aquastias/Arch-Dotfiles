@@ -60,7 +60,13 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  awk 'NR >= 4 && NR <= 39 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
+  local line
+  # Lines 4-39 of this file: the header comment.
+  while IFS= read -r line; do
+    # Without the leading "# " (or a bare "#").
+    if [[ "$line" == "# "* ]]; then printf '%s\n' "${line:2}"
+    else printf '%s\n' "${line:1}"; fi
+  done < <(head -n 39 "${BASH_SOURCE[0]}" | tail -n +4)
 }
 
 # shellcheck source=lib/agent-commands.sh
@@ -133,8 +139,9 @@ REMOTE
 
 # ── guest DM detection (for session control) ─────────────────────────────────
 _guest_display_manager() {
+  # The first sddm/greetd in the display-manager unit's target.
   _ssh 'readlink -f /etc/systemd/system/display-manager.service 2>/dev/null' \
-    | awk 'match($0, /sddm|greetd/) { print substr($0, RSTART, RLENGTH); exit }'
+    | grep -oE 'sddm|greetd' | head -n 1
 }
 
 # ── verbs ────────────────────────────────────────────────────────────────────
@@ -352,11 +359,10 @@ verb_push() {
   [[ -e "$source_path" && -n "$destination" ]] \
     || die "push needs <host-path> <guest-dir>"
   while [[ "$source_path" == */ && "$source_path" != / ]]; do
-    source_path="${source_path%/}"
+    source_path="${source_path:0:${#source_path}-1}"
   done
-  parent=.
-  [[ "$source_path" == */* ]] && parent="${source_path%/*}"
-  tar -C "${parent:-/}" -cf - "${source_path##*/}" \
+  parent="$(dirname "$source_path")"
+  tar -C "$parent" -cf - "$(basename "$source_path")" \
     | _ssh "mkdir -p '$destination' && tar -C '$destination' -xf -" \
     || die "push failed: $source_path"
 }
@@ -379,7 +385,12 @@ verb_key() {
     || die "key: '${1:-}' is not injectable by QEMU"
   virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp down "$codes")" \
     >/dev/null || die "key press failed"
-  sleep "$(awk -v m="${2:-120}" 'BEGIN { printf "%.3f", m / 1000 }')"
+  local hold_millis="${2:-120}"
+  local seconds
+  # The hold time in seconds, from milliseconds.
+  seconds="$(printf '%d.%03d' "$((hold_millis / 1000))" \
+    "$((hold_millis % 1000))")"
+  sleep "$seconds"
   virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp up "$codes")" \
     >/dev/null || die "key release failed"
 }
@@ -443,10 +454,12 @@ main() {
     case "$1" in
       --profile) selection_kind=profile; selection_reference="${2:-}"; shift \
         2 ;;
-      --profile=*) selection_kind=profile; selection_reference="${1#*=}"; \
+      # the reference after "--profile=" (10 characters)
+      --profile=*) selection_kind=profile; selection_reference="${1:10}"; \
         shift ;;
       --vm) selection_kind=vm; selection_reference="${2:-}"; shift 2 ;;
-      --vm=*) selection_kind=vm; selection_reference="${1#*=}"; shift ;;
+      # the name after "--vm=" (5 characters)
+      --vm=*) selection_kind=vm; selection_reference="${1:5}"; shift ;;
       --user) AGENT_USER="${2:-}"; shift 2 ;;
       --help|-h) usage; return 0 ;;
       --) shift; break ;;

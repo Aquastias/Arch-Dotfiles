@@ -46,7 +46,8 @@ else
 fi
 
 # Flow defaults (env overrides win; timeouts also resolved env>profile>here).
-: "${TEST_VM_DIR:=${FLOW_TEST_DIR%/vm/lib}/tests/vm}"
+# The repo's tests/vm, two levels above vm/lib.
+: "${TEST_VM_DIR:=$(dirname "$(dirname "$FLOW_TEST_DIR")")/tests/vm}"
 : "${CACHE_DIR:=${TEST_VM_DIR}/.vm-test}"
 : "${LOG_FILE:=${TEST_VM_DIR}/${VM_NAME}.log}"
 : "${BOOT_LOG_FILE:=${TEST_VM_DIR}/${VM_NAME}-boot.log}"

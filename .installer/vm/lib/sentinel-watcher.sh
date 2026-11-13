@@ -53,12 +53,12 @@ vm_sentinel_watcher_wait() {
 
   while ((SECONDS < deadline)); do
     if [[ -f "$log_path" ]]; then
-      # Find the first matching line. grep -m1 stops scanning on first hit;
-      # combined with the regex anchor it's a strict O(n) scan.
-      line="$(grep -E -m1 "$SENTINEL_WATCHER_REGEX" "$log_path" \
-        2>/dev/null || true)"
+      # The first matching line.
+      line="$(grep -E "$SENTINEL_WATCHER_REGEX" "$log_path" 2>/dev/null \
+        | head -n 1)"
       if [[ "$line" =~ $SENTINEL_WATCHER_REGEX ]]; then
-        code="${BASH_REMATCH[1]}"
+        # The exit code: the digits after "===INSTALLER-EXIT-" (18 characters).
+        code="$(printf '%s' "${line:18}" | tr -cd '0-9')"
         # Defensive: if the value somehow exceeds the bash exit-status range,
         # bash will modulo the rest. The test contract only asserts [0,255].
         return "$code"

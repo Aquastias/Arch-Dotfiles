@@ -76,3 +76,13 @@ vm_host_capacity_others_running() {
   done
   return 0
 }
+
+# vm_host_capacity_listed <names> — the newline-separated names as one
+# ", "-joined line (for a message).
+vm_host_capacity_listed() {
+  local listed="" name
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && listed+="${listed:+, }${name}"
+  done < <(printf '%s\n' "$1")
+  printf '%s\n' "$listed"
+}

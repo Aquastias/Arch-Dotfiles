@@ -28,8 +28,8 @@ flow_run() {
   _flow_persistent_prepare
   vm_repo_source_resolve
   # Primary user (users[0]) owns the authorized harness key + the ssh command.
-  PRIMARY_USER="$(jq -r '.users[0] // "aquastias"' \
-    <<<"${INSTALL_CONFIG_CONTENT}")"
+  PRIMARY_USER="$(printf '%s\n' "${INSTALL_CONFIG_CONTENT}" \
+    | jq -r '.users[0] // "aquastias"')"
 
   section "Resolving Arch ISO"
   local iso; iso="$(vm_resolve_iso "$ISO_DIR")"

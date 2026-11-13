@@ -18,7 +18,8 @@ _healthy_stubs() {
     local dataset="${*: -1}" prop="${*: -2:1}"
     case "$prop" in
     mounted)    echo yes ;;
-    mountpoint) echo "/data/${dataset%/data}" ;;  # tank0/data → /data/tank0
+    # tank0/data → /data/tank0
+    mountpoint) echo "/data/$(dirname "$dataset")" ;;
     esac
   }
 }
@@ -47,7 +48,7 @@ _healthy_stubs() {
     local dataset="${*: -1}" prop="${*: -2:1}"
     case "$prop" in
     mounted)    [[ "$dataset" == tank1/data ]] && echo no || echo yes ;;
-    mountpoint) echo "/data/${dataset%/data}" ;;
+    mountpoint) echo "/data/$(dirname "$dataset")" ;;
     esac
   }
   VM_VERIFY_POOLS=(tank0 tank1)
@@ -163,7 +164,7 @@ OUT
     case "$prop" in
     mounted)    echo yes ;;
     mountpoint) [[ "$dataset" == tank0/data ]] && echo /mnt/wrong \
-                  || echo "/data/${dataset%/data}" ;;
+                  || echo "/data/$(dirname "$dataset")" ;;
     esac
   }
   VM_VERIFY_POOLS=(tank0)

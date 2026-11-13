@@ -42,19 +42,20 @@ teardown() { rm -rf "$TEST_DIR"; }
 # Decrypt a passphrase-encrypted age file non-interactively via a pty.
 _decrypt_key_age() {
   local path="$1"
-  script -qc "age -d '$path'" /dev/null <<< "${PASSPHRASE}"$'\n' \
-    | awk '{ sub(/\r$/, "") } /AGE-SECRET-KEY-1/'
+  local decrypted passphrase_file="$TEST_DIR/passphrase"
+  # script reads the answer from a regular file (a pipe makes it hang).
+  printf '%s\n' "$PASSPHRASE" > "$passphrase_file"
+  # age's pty output, carriage returns dropped.
+  decrypted="$(script -qc "age -d '$path'" /dev/null < "$passphrase_file" \
+    | tr -d '\r')"
+  # The secret key line.
+  printf '%s\n' "$decrypted" | grep 'AGE-SECRET-KEY-1'
 }
 
 # The VM-fixture rule's age recipient (no python): the age1… line after the
 # `/vm/` path_regex block.
 _sops_yaml_test_recipient() {
-  awk '
-    /path_regex:.*\/vm\// { found = 1; next }
-    found && /^[[:space:]]*age1[a-z0-9]+[[:space:]]*$/ {
-      gsub(/[[:space:]]/, ""); print; exit
-    }
-  ' "$1"
+  awk -f "$BATS_TEST_DIRNAME/sops-vm-recipient.awk" "$1"
 }
 
 # Decrypt a SOPS file using a freshly-decrypted Test Age private key.
@@ -136,7 +137,7 @@ setup_file() { :; }
 @test "regenerate.sh re-keys every hosts/vm/*/secrets.json fixture" {
   TMP_SOPS="$(mktemp -d)"
   local extra="$TEST_DIR/.installer/hosts/vm/arch-extra/secrets.json"
-  mkdir -p "${extra%/*}"
+  mkdir -p "$(dirname "$extra")"
   printf '{"root_password":"vmtest"}\n' > "$extra"
 
   bash "$REGEN"

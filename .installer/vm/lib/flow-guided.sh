@@ -29,11 +29,22 @@ declare -F install_config_use_json >/dev/null 2>&1 \
 # options.encryption / options.impermanence.enabled are translated into guided
 # answers so the replayed menu exercises the filesystem-first Disks section
 # (issue 03 L4) end-to-end.
+# _flow_guided_config_field / _flow_guided_config_json <filter> — one field of
+# the Install Config, as text / as compact JSON.
+_flow_guided_config_field() {
+  # The filter's value in the config.
+  printf '%s\n' "${INSTALL_CONFIG_CONTENT}" | jq -r "$1"
+}
+_flow_guided_config_json() {
+  # The filter's value in the config, as JSON.
+  printf '%s\n' "${INSTALL_CONFIG_CONTENT}" | jq -c "$1"
+}
+
 _flow_render_user_data() {
   local repo_url="$1" hostname encryption impermanence layout disk_count=1
   # the flow's own fallback name — hostname has no Install Default
   local name_filter='.system.hostname // "arch-guided"'  # raw-config-ok
-  hostname="$(jq -r "$name_filter" <<<"${INSTALL_CONFIG_CONTENT}")"
+  hostname="$(_flow_guided_config_field "$name_filter")"
   # get: the seed's authored toggles, replayed as guided answers as written
   encryption="$(install_config_from_json "${INSTALL_CONFIG_CONTENT}" \
     get encryption_enabled)"
@@ -41,7 +52,7 @@ _flow_render_user_data() {
     get impermanence_enabled)"
   # guided_layout (issue 04) names a multi-disk ZFS preset for the guided menu to
   # replay; the guest then resolves Σ disk_count disks in-guest. Default single.
-  layout="$(jq -r '.guided_layout // "single"' <<<"${INSTALL_CONFIG_CONTENT}")"
+  layout="$(_flow_guided_config_field '.guided_layout // "single"')"
   if [[ "$layout" != "single" ]]; then
     # shellcheck source=../../lib/config/skeleton.sh
     [[ "$(type -t skeleton_total_disks)" == function ]] \
@@ -51,20 +62,20 @@ _flow_render_user_data() {
   # guided_user (issue 07) names an ad-hoc user + passwords the replay authors;
   # the seed appends the create-user form keys + the USER-OK boot check.
   local guided_user
-  guided_user="$(jq -c '.guided_user // empty' <<<"${INSTALL_CONFIG_CONTENT}")"
+  guided_user="$(_flow_guided_config_json '.guided_user // empty')"
   # guided_extras (issue 04/05) drives the Security & Backup categories: re-pick a
   # minimal committed user, toggle overrides, and the daemons-enabled boot check.
   local guided_extras
-  guided_extras="$(jq -c '.guided_extras // empty' <<<"${INSTALL_CONFIG_CONTENT}")"
+  guided_extras="$(_flow_guided_config_json '.guided_extras // empty')"
   # guided_bind (issue 07): drive the In-Menu Disk Binding replay — the resolved
   # disks are bound to the OS pool (os_pool_devices) so the bound assignment path
   # runs with no summed flat pick and no ACCEPT. Default false (flat-pick path).
   local bind_devices
-  bind_devices="$(jq -r '.guided_bind // false' <<<"${INSTALL_CONFIG_CONTENT}")"
+  bind_devices="$(_flow_guided_config_field '.guided_bind // false')"
   # guided_manual (ADR 0073): script a partition table, replay Manual
   # Partitioning onto it (the cfdisk stand-in).
   local manual
-  manual="$(jq -r '.guided_manual // false' <<<"${INSTALL_CONFIG_CONTENT}")"
+  manual="$(_flow_guided_config_field '.guided_manual // false')"
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
     "$encryption" "$impermanence" "$layout" "$disk_count" "$guided_user" \

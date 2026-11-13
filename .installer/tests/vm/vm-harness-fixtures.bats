@@ -22,7 +22,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 _stage() {
   local arguments=""
   local argument
-  for argument in "$@"; do arguments+=" '${argument//\'/\'\\\'\'}'"; done
+  # Each argument shell-quoted, space-joined.
+  for argument in "$@"; do arguments+=" $(printf '%q' "$argument")"; done
   run bash -c "
     set +e
     VM_SCRIPT_DIR='$VM_SCRIPT_DIR'

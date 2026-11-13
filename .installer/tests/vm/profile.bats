@@ -3,6 +3,8 @@
 # Prior art: tests/config/profile-loader-*.bats (profile_loader_load +
 # profile_loader_assemble_config), tests/config/install-config.bats.
 
+load ../lib/json-helpers
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   HOSTS_DIR="$TEST_DIR/hosts"
@@ -38,9 +40,9 @@ teardown() { rm -rf "$TEST_DIR"; }
   }'
   run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "inline-host" ]
-  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
+  output_satisfies '.system.hostname == "inline-host"'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
 }
 
 # ── "repo" install source ────────────────────────────────────────────────────
@@ -72,10 +74,11 @@ JSONC
   [ "$status" -eq 0 ]
   # identical to resolving the default host directly, single-disk
   expected="$(vm_profile_resolve_config "$via_host")"
-  [ "$(echo "$output" | jq -S .)" = "$(echo "$expected" | jq -S .)" ]
-  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups","reflector"]' ]
-  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
+  # The same config (jq's == ignores key order).
+  output_satisfies ". == $expected"
+  output_satisfies '.host_programs == ["cups","reflector"]'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
 }
 
 # ── host_profile resolves the unified profile.jsonc (profile_loader_load) ───────────
@@ -100,14 +103,14 @@ JSONC
   }'
   run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
   # hostname falls back to the host-dir name (ADR 0036: dir ≡ hostname)
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
+  output_satisfies '.system.hostname == "myhost"'
   # software arrives via profile_loader_load's core merge — impossible on the old
   # template-only path; reflector is section-derived by Mirrors (ADR 0089)
-  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups","reflector"]' ]
-  [ "$(echo "$output" | jq -c '.environment.desktop')" = '["kde"]' ]
+  output_satisfies '.host_programs == ["cups","reflector"]'
+  output_satisfies '.environment.desktop == ["kde"]'
 }
 
 @test "vm_profile_resolve_config: host_profile pinned multi uses the profile topology" {
@@ -127,10 +130,10 @@ JSONC
   }'
   run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
-  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
-  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/sda","/dev/sdb"]' ]
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "securehost" ]
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.topology == "mirror"'
+  output_satisfies '.os_pool.disks == ["/dev/sda","/dev/sdb"]'
+  output_satisfies '.system.hostname == "securehost"'
 }
 
 @test "vm_profile_resolve_config: host_profile multi slices disks per disk_count" {
@@ -158,11 +161,10 @@ JSONC
   }'
   run vm_profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
-  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/sda"]' ]
-  [ "$(echo "$output" | jq -c '.data_pools[0].disks')" = '["/dev/sdb"]' ]
-  [ "$(echo "$output" | jq -c '.data_pools[1].disks')" \
-      = '["/dev/sdc","/dev/sdd"]' ]
+  output_satisfies '.mode == "multi"'
+  output_satisfies '.os_pool.disks == ["/dev/sda"]'
+  output_satisfies '.data_pools[0].disks == ["/dev/sdb"]'
+  output_satisfies '.data_pools[1].disks == ["/dev/sdc","/dev/sdd"]'
 }
 
 @test "vm_profile_resolve_config: VM disk count != sum(disk_count) aborts" {

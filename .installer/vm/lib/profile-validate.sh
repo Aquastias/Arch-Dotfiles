@@ -13,15 +13,17 @@
 # _profile_validate_int <profile> <jq_path> <min> <max> <label> required|optional
 #   Asserts the value at <jq_path> is an integer in [min,max]. When `optional`,
 #   an absent value passes; when `required`, an absent value is rejected.
+# The jq programs held in single-quoted variables use jq's $names.
+# shellcheck disable=SC2016
+
 _profile_validate_int() {
   local profile="$1" path="$2" min="$3" max="$4" label="$5" req="$6" verdict
-  verdict="$(jq -r --argjson lo "$min" --argjson hi "$max" "
-    ($path) as \$v
-    | if   \$v == null              then \"absent\"
-      elif (\$v | type) != \"number\"
-           or \$v != (\$v | floor)
-           or \$v < \$lo or \$v > \$hi then \"bad\"
-      else \"ok\" end" <<<"$profile")"
+  local judged="($path) as \$v | if \$v == null then \"absent\""
+  judged+=' elif ($v | type) != "number" or $v != ($v | floor)'
+  judged+=' or $v < $lo or $v > $hi then "bad" else "ok" end'
+  # absent, bad (not an integer in range) or ok.
+  verdict="$(printf '%s\n' "$profile" \
+    | jq -r --argjson lo "$min" --argjson hi "$max" "$judged")"
   if [[ "$verdict" == "absent" ]]; then
     [[ "$req" == required ]] || return 0
     echo "profile: $label is required" >&2
@@ -38,7 +40,8 @@ profile_validate() {
   local profile="$1" hosts_directory="$2"
 
   local name
-  name="$(jq -r '.name // empty' <<<"$profile")"
+  # The profile's name, empty when unset.
+  name="$(printf '%s\n' "$profile" | jq -r '.name // empty')"
   [[ -n "$name" ]] || { echo "profile: missing 'name'" >&2; return 1; }
 
   _profile_validate_hardware "$profile" || return 1
@@ -50,12 +53,13 @@ profile_validate() {
 _profile_validate_hardware() {
   local profile="$1"
   local disks_check
-  disks_check="$(jq -r '
-    if   (.hardware.disks | type) != "array"      then "type"
-    elif (.hardware.disks | length) == 0          then "empty"
-    elif any(.hardware.disks[];
-             (type != "number") or (. != floor) or (. <= 0)) then "int"
-    else "ok" end' <<<"$profile")"
+  local checked='if (.hardware.disks | type) != "array" then "type"'
+  checked+=' elif (.hardware.disks | length) == 0 then "empty"'
+  checked+=' elif any(.hardware.disks[];'
+  checked+=' (type != "number") or (. != floor) or (. <= 0)) then "int"'
+  checked+=' else "ok" end'
+  # type, empty, int (a size not a positive integer) or ok.
+  disks_check="$(printf '%s\n' "$profile" | jq -r "$checked")"
   [[ "$disks_check" == "ok" ]] || {
     echo "profile: hardware.disks must be a non-empty array of positive" \
          "integers (GiB)" >&2
@@ -77,10 +81,10 @@ _profile_validate_hardware() {
 _profile_validate_install_source() {
   local profile="$1" hosts_directory="$2"
   local sources
-  sources="$(jq -r '
-    [ (if (.host_profile // "") != "" then 1 else empty end),
-      (if has("install")            then 1 else empty end) ] | length
-  ' <<<"$profile")"
+  local counted='[(if (.host_profile // "") != "" then 1 else empty end),'
+  counted+=' (if has("install") then 1 else empty end)] | length'
+  # How many install sources the profile sets.
+  sources="$(printf '%s\n' "$profile" | jq -r "$counted")"
   if (( sources == 0 )); then
     echo "profile: no install source — set host_profile or install" >&2
     return 1
@@ -95,7 +99,8 @@ _profile_validate_install_source() {
   # exists, so a typo'd reference still fails fast before any VM is
   # provisioned (ADR 0036).
   local host_profile
-  host_profile="$(jq -r '.host_profile // empty' <<<"$profile")"
+  # The named host, empty when none.
+  host_profile="$(printf '%s\n' "$profile" | jq -r '.host_profile // empty')"
   if [[ -n "$host_profile" ]] \
      && [[ ! -d "$hosts_directory/$host_profile" \
      && ! -d "$hosts_directory/vm/$host_profile" ]]; then
@@ -111,14 +116,17 @@ _profile_validate_install_source() {
 _profile_validate_verify_entries() {
   local profile="$1"
   local bad
-  bad="$(jq -r '
-    (.verify.mounts // [])[] | select(test("^[^:]+:/.+") | not)' <<<"$profile")"
+  local bad_mounts='(.verify.mounts // [])[] | select(test("^[^:]+:/.+") | not)'
+  local bad_owned='(.verify.owned // [])[]'
+  bad_owned+=' | select(test("^/[^:]+:[^:]+$") | not)'
+  # The mount entries not shaped dataset:/mount.
+  bad="$(printf '%s\n' "$profile" | jq -r "$bad_mounts")"
   [[ -z "$bad" ]] || {
     echo "profile: verify.mounts entry '$bad' must be dataset:/mount" >&2
     return 1
   }
-  bad="$(jq -r '
-    (.verify.owned // [])[] | select(test("^/[^:]+:[^:]+$") | not)' <<<"$profile")"
+  # The owned entries not shaped /mount:user.
+  bad="$(printf '%s\n' "$profile" | jq -r "$bad_owned")"
   [[ -z "$bad" ]] || {
     echo "profile: verify.owned entry '$bad' must be /mount:user" >&2
     return 1

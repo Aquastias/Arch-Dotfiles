@@ -84,8 +84,8 @@ vm_pool_verify() {
     fi
   done
   for entry in "${VM_VERIFY_MOUNTS[@]}"; do
-    dataset="${entry%%:*}"
-    mountpoint="${entry#*:}"
+    # dataset:/mount — the dataset before the first ":", the mount after it.
+    IFS=: read -r dataset mountpoint < <(printf '%s\n' "$entry")
     if ! vm_dataset_mounted_at "$dataset" "$mountpoint"; then
       echo "NOT MOUNTED: $dataset at $mountpoint" >&2
       rc=1
@@ -100,8 +100,9 @@ vm_pool_verify() {
   done
   for entry in "${VM_VERIFY_OWNED[@]:-}"; do
     [[ -n "$entry" ]] || continue
-    mountpoint="${entry%:*}"
-    local user="${entry##*:}"
+    local user
+    # /mount:user — the mount before the ":", the user after it.
+    IFS=: read -r mountpoint user < <(printf '%s\n' "$entry")
     if ! vm_directory_owned_by "$mountpoint" "$user"; then
       echo "NOT OWNED: $mountpoint by $user" >&2
       rc=1

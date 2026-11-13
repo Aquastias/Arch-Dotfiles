@@ -18,36 +18,4 @@
 # =============================================================================
 set -euo pipefail
 
-exec awk '
-BEGIN { q = "\047"; nd = 0 }                 # \047 = the single-quote attr delim
-{
-  lines[NR] = $0
-  if ($0 ~ "<disk[ >]") {                     # a disk element opens here
-    iscd   = ($0 ~ ("device=" q "cdrom" q)) ? 1 : 0
-    indisk = 1
-  }
-  # The <source file=.../> of a data disk (cdroms skipped): record its position
-  # and backing file, in declared order.
-  if (indisk && !iscd && match($0, ("file=" q "[^" q "]*" q))) {
-    nd++; idx[nd] = NR
-    files[nd] = substr($0, RSTART + 6, RLENGTH - 7)   # strip file= and delims
-  }
-  if ($0 ~ "</disk>") { indisk = 0; iscd = 0 }
-}
-END {
-  # Need the OS disk + at least two data disks for a meaningful swap.
-  if (nd < 3) { for (i = 1; i <= NR; i++) print lines[i]; exit }
-  # Keep disk 0 (OS) fixed; reverse the backing files of the rest.
-  neworder[1] = files[1]; j = 2
-  for (i = nd; i >= 2; i--) neworder[j++] = files[i]
-  for (k = 1; k <= nd; k++) repl[idx[k]] = neworder[k]
-  for (i = 1; i <= NR; i++) {
-    if (i in repl) {
-      r = repl[i]; gsub(/[&\\]/, "\\\\&", r)          # escape sub() replacement
-      s = lines[i]
-      sub(("file=" q "[^" q "]*" q), ("file=" q r q), s)
-      print s
-    } else print lines[i]
-  }
-}
-'
+exec awk -f "${BASH_SOURCE[0]%/*}/reorder-disks.awk"

@@ -43,7 +43,7 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
 @test "guided user-data: cloud-config header + sentinel + poweroff" {
   run render
   [ "$status" -eq 0 ]
-  [ "${output%%$'\n'*}" = "#cloud-config" ]
+  [ "${lines[0]}" = "#cloud-config" ]
   [[ "$output" =~ "===INSTALLER-EXIT-%d===" ]]
   [[ "$output" =~ "poweroff -f" ]]
 }

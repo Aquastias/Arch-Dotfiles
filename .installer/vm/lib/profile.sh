@@ -30,19 +30,26 @@ VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-arch-kde}"
 #   Emits the resolved install.jsonc on stdout. Assumes the profile already
 #   passed profile_validate (exactly one install source). Hosts resolve through
 #   the unified loader/assembler under INSTALLER_DIR.
+# _profile_field <json> <filter> — one field of a profile, as text.
+_profile_field() {
+  # The filter's value in the profile.
+  printf '%s\n' "$1" | jq -r "$2"
+}
+
 vm_profile_resolve_config() {
   local profile="$1"
   local host_profile install_type install_text
-  host_profile="$(jq -r '.host_profile // empty' <<<"$profile")"
+  host_profile="$(_profile_field "$profile" '.host_profile // empty')"
   if [[ -n "$host_profile" ]]; then
     _profile_resolve_host "$profile" "$host_profile"
     return
   fi
-  install_type="$(jq -r '.install | type' <<<"$profile")"
+  install_type="$(_profile_field "$profile" '.install | type')"
   if [[ "$install_type" == "object" ]]; then
-    jq '.install' <<<"$profile"
+    # The inline install block.
+    printf '%s\n' "$profile" | jq '.install'
   elif [[ "$install_type" == "string" ]]; then
-    install_text="$(jq -r '.install' <<<"$profile")"
+    install_text="$(_profile_field "$profile" '.install')"
     if [[ "$install_text" == "repo" ]]; then
       _profile_resolve_repo "$profile"
     else
@@ -77,19 +84,20 @@ _profile_resolve_host() {
   # A multi host pins mode in its profile (its os_pool.topology then drives the
   # assignment). An unpinned host takes the VM's layout.mode, defaulting to
   # single; a multi topology there is rejected — pin os_pool in the profile.
-  pin="$(jq -r '.mode // empty' <<<"$loaded")"
+  pin="$(_profile_field "$loaded" '.mode // empty')"
   case "$pin" in
     single | multi) mode="$pin" ;;
-    *)              mode="$(jq -r '.layout.mode // "single"' <<<"$profile")" ;;
+    *) mode="$(_profile_field "$profile" '.layout.mode // "single"')" ;;
   esac
 
-  count="$(jq -r '.hardware.disks | length' <<<"$profile")"
+  count="$(_profile_field "$profile" '.hardware.disks | length')"
   local -a disks; mapfile -t disks < <(vm_profile_disk_devices "$count")
 
   local assignment
   case "$mode" in
     single)
-      assignment="$(jq -n --arg d "${disks[0]}" '{ mode: "single", disk: $d }')"
+      # The single-disk assignment on the first disk.
+      assignment="$(jq -n --arg d "${disks[0]}" '{mode: "single", disk: $d}')"
       ;;
     multi)
       # Slice the VM's /dev/sdX list onto every declared group by disk_count,
@@ -114,7 +122,8 @@ _profile_resolve_host() {
 #   default has always been single-disk).
 _profile_resolve_repo() {
   local profile="$1" synth
-  synth="$(jq '.layout = (.layout // {}) | .layout.mode = "single"' \
-    <<<"$profile")"
+  local single='.layout = (.layout // {}) | .layout.mode = "single"'
+  # The profile with a single-disk layout.
+  synth="$(printf '%s\n' "$profile" | jq "$single")"
   _profile_resolve_host "$synth" "$VM_DEFAULT_HOST_PROFILE"
 }

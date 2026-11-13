@@ -27,7 +27,7 @@ load seed-generator-helpers
 @test "user-data: starts with #cloud-config header" {
   run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE"
   [ "$status" -eq 0 ]
-  first_line="${output%%$'\n'*}"
+  first_line="${lines[0]}"
   [ "$first_line" = "#cloud-config" ]
 }
 
@@ -90,8 +90,7 @@ load seed-generator-helpers
   [ "$status" -eq 0 ]
   [[ "$output" =~ "/etc/zfs/zpool.cache" ]]
   # the garbage write must be chained ahead of the installer
-  pre="${output%%./install.sh*}"
-  [[ "$pre" =~ "/etc/zfs/zpool.cache" ]]
+  [[ "$output" =~ /etc/zfs/zpool\.cache.*\./install\.sh ]]
 }
 
 

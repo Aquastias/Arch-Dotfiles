@@ -21,7 +21,7 @@ set -euo pipefail
 script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
-INSTALLER_DIR="${SCRIPT_DIR%/*}"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 
 profile="${1:-${SAVE_PKGLIST_PROFILE:-$(hostname)}}"
 host_directory="${INSTALLER_DIR}/hosts/${profile}"
@@ -37,7 +37,7 @@ if [[ ! -d "$host_directory" ]]; then
     for directory in "${INSTALLER_DIR}"/hosts/*/ \
                      "${INSTALLER_DIR}"/hosts/vm/*/; do
       [[ -f "${directory}profile.jsonc" ]] || continue
-      name="${directory%/}"; name="${name##*/}"
+      name="$(basename "$directory")"
       [[ "$name" == core || "$name" == fleet ]] && continue
       echo "  - $name"
     done

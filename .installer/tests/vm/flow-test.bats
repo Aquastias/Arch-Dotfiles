@@ -76,7 +76,7 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
 }
 
 @test "flow: every console capture is given its log path (regression)" {
-  run grep -nE '^[[:space:]]*_core_start_console_capture[[:space:]]*$' \
+  run grep -E '^[[:space:]]*_core_start_console_capture[[:space:]]*$' \
     "$BATS_TEST_DIRNAME/../../vm/lib/flow-test.sh" \
     "$BATS_TEST_DIRNAME/../../vm/lib/flow-persistent.sh"
   [ "$status" -eq 1 ]

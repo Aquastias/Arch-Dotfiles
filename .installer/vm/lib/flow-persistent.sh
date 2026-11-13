@@ -52,7 +52,8 @@ else
 fi
 
 # Flow defaults (env overrides win; timeouts also resolved env>profile>here).
-: "${CACHE_DIR:=${FLOW_PERSIST_DIR%/lib}/.vm-cache}"
+# The cache sits beside lib/, in the vm directory.
+: "${CACHE_DIR:=$(dirname "$FLOW_PERSIST_DIR")/.vm-cache}"
 : "${HTTP_PORT:=9876}"
 : "${BOOT_TIMEOUT_SEC:=300}"
 : "${INSTALL_TIMEOUT_SEC:=3600}"
@@ -265,7 +266,8 @@ EOF
 # Map a single character to one or more virsh key names.
 _flow_persistent_char_to_keys() {
   case "$1" in
-    [a-z]) printf 'KEY_%s'            "${1^^}" ;;
+    [a-z]) local -u upper="$1"   # -u: kept in upper case
+           printf 'KEY_%s'            "$upper" ;;
     [0-9]) printf 'KEY_%s'            "$1"     ;;
     ' ')   printf 'KEY_SPACE'                  ;;
     '.')   printf 'KEY_DOT'                    ;;

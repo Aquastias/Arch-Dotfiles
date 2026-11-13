@@ -76,7 +76,8 @@ main() {
   while (($#)); do
     case "$1" in
       --profile)      profile_reference="${2:-}"; shift 2 ;;
-      --profile=*)    profile_reference="${1#*=}"; shift ;;
+      # the reference after "--profile=" (10 characters)
+      --profile=*)    profile_reference="${1:10}"; shift ;;
       --testing)      testing=1; shift ;;
       --guided)       guided=1; shift ;;
       --recreate)     recreate=1; shift ;;
@@ -98,6 +99,7 @@ main() {
 
   local hosts_directory="$INSTALLER_DIR/hosts"
   local profile_json
+  # The profile, comments stripped (a parse error fails here).
   profile_json="$(jsonc_strip "$profile_file" | jq '.')" \
     || die "profile is not valid JSONC: $profile_file"
 
@@ -132,31 +134,39 @@ profile_file_path() {
   printf '%s\n' "$base/$profile_reference.jsonc"
 }
 
+# profile_field <profile-json> <filter> — one field of the profile, as text.
+profile_field() {
+  # The filter's value in the profile.
+  printf '%s\n' "$1" | jq -r "$2"
+}
+
 # map_profile_contract <profile-json> — map the profile into the harness
 # contract (env overrides win): VM shape, Install Config, fixtures, timeouts.
 map_profile_contract() {
   local profile_json="$1"
-  VM_NAME="$(jq -r '.name' <<<"$profile_json")"
+  VM_NAME="$(profile_field "$profile_json" '.name')"
   # shellcheck disable=SC2034 # consumed by core.sh _core_vm_create via the flow
-  mapfile -t VM_DISK_SIZES < <(jq -r '.hardware.disks[]' <<<"$profile_json")
-  VM_RAM_MB="${VM_RAM_MB:-$(jq -r '.hardware.ram_mb' <<<"$profile_json")}"
-  VM_VCPUS="${VM_VCPUS:-$(jq -r '.hardware.vcpus' <<<"$profile_json")}"
+  mapfile -t VM_DISK_SIZES < <(profile_field "$profile_json" \
+    '.hardware.disks[]')
+  VM_RAM_MB="${VM_RAM_MB:-$(profile_field "$profile_json" '.hardware.ram_mb')}"
+  VM_VCPUS="${VM_VCPUS:-$(profile_field "$profile_json" '.hardware.vcpus')}"
   INSTALL_CONFIG_CONTENT="$(vm_profile_resolve_config "$profile_json")"
 
   # Both consumed by core.sh _core_stage_fixture_files.
   # shellcheck disable=SC2034
-  mapfile -t VM_FIXTURE_FILES < <(jq -r '.fixtures[]?' <<<"$profile_json")
+  mapfile -t VM_FIXTURE_FILES < <(profile_field "$profile_json" '.fixtures[]?')
   # shellcheck disable=SC2034
   VM_SCRIPT_DIR="$INSTALLER_DIR/vm"
 
   # Timeouts: env > profile > flow default. An empty profile value leaves the
   # flow's own `: "${VAR:=default}"` to apply.
-  INSTALL_TIMEOUT_SEC="${INSTALL_TIMEOUT_SEC:-$(
-    jq -r '.timeouts.install // empty' <<<"$profile_json")}"
-  TIMEOUT_SEC="${TIMEOUT_SEC:-$(
-    jq -r '.timeouts.install // empty' <<<"$profile_json")}"
+  local install_timeout
+  install_timeout="$(profile_field "$profile_json" \
+    '.timeouts.install // empty')"
+  INSTALL_TIMEOUT_SEC="${INSTALL_TIMEOUT_SEC:-$install_timeout}"
+  TIMEOUT_SEC="${TIMEOUT_SEC:-$install_timeout}"
   BOOT_TIMEOUT_SEC="${BOOT_TIMEOUT_SEC:-$(
-    jq -r '.timeouts.boot // empty' <<<"$profile_json")}"
+    profile_field "$profile_json" '.timeouts.boot // empty')}"
 }
 
 # map_verify_contract <profile-json> <verify-boot> <verify-aur> <hold-on-fail>
@@ -164,34 +174,37 @@ map_profile_contract() {
 map_verify_contract() {
   local profile_json="$1" verify_boot="$2" verify_aur="$3" hold_on_fail="$4"
   VERIFY_BOOT="${VERIFY_BOOT:-$(
-    jq -r '.verify.boot // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.boot // false')}"
   ((verify_boot)) && VERIFY_BOOT=true
   # verify.aur_audit (ADR 0143): the booted VM audits itself; needs boot verify.
   VM_VERIFY_AUR_AUDIT="${VM_VERIFY_AUR_AUDIT:-$(
-    jq -r '.verify.aur_audit // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.aur_audit // false')}"
   ((verify_aur)) && VM_VERIFY_AUR_AUDIT=true
   [[ "$VM_VERIFY_AUR_AUDIT" == true ]] && VERIFY_BOOT=true
   DIRTY_CACHE="${DIRTY_CACHE:-$(
-    jq -r '.verify.dirty_cache // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.dirty_cache // false')}"
   # Hold-on-fail (ADR 0099): env > profile > flag. When on, a failed test
   # cell is left running with a serial autologin shell instead of powering
   # off.
   HOLD_ON_FAIL="${HOLD_ON_FAIL:-$(
-    jq -r '.verify.hold_on_fail // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.hold_on_fail // false')}"
   ((hold_on_fail)) && HOLD_ON_FAIL=true
   VM_VERIFY_BYID="${VM_VERIFY_BYID:-$(
-    jq -r '.verify.by_id // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.by_id // false')}"
   VM_REORDER_BOOT_DISKS="${VM_REORDER_BOOT_DISKS:-$(
-    jq -r '.verify.reorder_boot_disks // false' <<<"$profile_json")}"
-  mapfile -t VM_VERIFY_POOLS  < <(jq -r '.verify.pools[]?'  <<<"$profile_json")
-  mapfile -t VM_VERIFY_MOUNTS < <(jq -r '.verify.mounts[]?' <<<"$profile_json")
-  mapfile -t VM_VERIFY_OWNED  < <(jq -r '.verify.owned[]?'  <<<"$profile_json")
-  mapfile -t VM_VERIFY_FS_MOUNTS < <(jq -r '.verify.fs_mounts[]?' \
-    <<<"$profile_json")
+    profile_field "$profile_json" '.verify.reorder_boot_disks // false')}"
+  mapfile -t VM_VERIFY_POOLS < <(profile_field "$profile_json" \
+    '.verify.pools[]?')
+  mapfile -t VM_VERIFY_MOUNTS < <(profile_field "$profile_json" \
+    '.verify.mounts[]?')
+  mapfile -t VM_VERIFY_OWNED < <(profile_field "$profile_json" \
+    '.verify.owned[]?')
+  mapfile -t VM_VERIFY_FS_MOUNTS < <(profile_field "$profile_json" \
+    '.verify.fs_mounts[]?')
   # Per-desktop session verification (ADR 0062): each name here has its
   # session-launch artifacts asserted on the booted system (===<TAG>-OK===).
-  mapfile -t VM_VERIFY_DESKTOPS < <(jq -r '.verify.desktops[]?' \
-    <<<"$profile_json")
+  mapfile -t VM_VERIFY_DESKTOPS < <(profile_field "$profile_json" \
+    '.verify.desktops[]?')
   map_session_contract "$profile_json"
 }
 
@@ -199,51 +212,43 @@ map_verify_contract() {
 # virtual GPU and rollback checks of the verify block.
 map_session_contract() {
   local profile_json="$1"
-  # Display Manager (ADR 0069/0091): resolve display_manager as the installer
-  # does, so boot-verify asserts the right greeter. `auto` is desktop-aware
-  # (ADR 0091): sddm when kde is present, else greetd for a KDE-free set; `none`
-  # (no desktop) yields no DM check. The value is the systemd SERVICE checked:
-  # noctalia-greeter runs under greetd (ADR 0158), as does auto's KDE-free pick
-  # whichever greetd greeter it lands on.
-  VM_VERIFY_DM="$(jq -r '
-    (.install.environment.display_manager // "auto") as $dm
-    | (.install.environment.desktop // []) as $d0
-    | (if ($d0 | type) == "string" then [$d0] else $d0 end) as $des
-    | if ($des | length) == 0 then "none"
-      elif $dm == "auto" then (if ($des | index("kde")) then "sddm"
-                               else "greetd" end)
-      elif $dm == "noctalia-greeter" then "greetd"
-      else $dm end' <<<"$profile_json")"
+  local session_user='.verify.session_user'
+  session_user+=' // (.install.users[0]? // "aquastias")'
+  # `install` may be the string "repo" (install the repo default host profile)
+  # rather than an inline object, so the index is guarded — indexing a string
+  # aborts jq (exit 5) and, under set -e, the whole harness.
+  local root_filesystem='if (.install | type) == "object"'
+  root_filesystem+=' then (.install.filesystem // "zfs") else "zfs" end'
+  # Display Manager (ADR 0069/0091): the systemd service boot-verify checks for
+  # the greeter, resolved as the installer does (see the .jq file).
+  VM_VERIFY_DM="$(printf '%s\n' "$profile_json" \
+    | jq -r -f "$SELF_DIR/lib/verify-display-manager.jq")"
   [[ "$VM_VERIFY_DM" == "none" ]] && VM_VERIFY_DM=""
   # Per-desktop LOGIN verification (ADR 0062): each name here is actually logged
   # into (SDDM Autologin, one per boot) and its compositor confirmed up
   # (===<TAG>-SESSION-OK===). Needs a GPU (below) and a login user.
-  mapfile -t VM_VERIFY_SESSIONS < <(jq -r '.verify.sessions[]?' \
-    <<<"$profile_json")
-  VM_SESSION_USER="${VM_SESSION_USER:-$(jq -r '
-    .verify.session_user // (.install.users[0]? // "aquastias")' \
-    <<<"$profile_json")}"
+  mapfile -t VM_VERIFY_SESSIONS < <(profile_field "$profile_json" \
+    '.verify.sessions[]?')
+  VM_SESSION_USER="${VM_SESSION_USER:-$(
+    profile_field "$profile_json" "$session_user")}"
   # A virtual GPU (virtio-gpu + virgl, headless) — required for a real Wayland
   # session to start. Implied by verify.sessions, else the profile's
   # hardware.gpu.
   if ((${#VM_VERIFY_SESSIONS[@]})); then
     VM_GPU=true
   else
-    VM_GPU="${VM_GPU:-$(jq -r '.hardware.gpu // false' <<<"$profile_json")}"
+    VM_GPU="${VM_GPU:-$(
+      profile_field "$profile_json" '.hardware.gpu // false')}"
   fi
   VM_VERIFY_RESILIENCE="${VM_VERIFY_RESILIENCE:-$(
-    jq -r '.verify.resilience // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.resilience // false')}"
   VM_VERIFY_ROLLBACK="${VM_VERIFY_ROLLBACK:-$(
-    jq -r '.verify.rollback // false' <<<"$profile_json")}"
+    profile_field "$profile_json" '.verify.rollback // false')}"
   # The rollback proof's mechanics follow the root filesystem (zfs datasets vs
-  # btrfs subvols, ADR 0044); derive it from the config so a btrfs impermanence
-  # profile needs no env override. `install` may be the string "repo"
-  # (install the repo default host profile) rather than an inline object, so
-  # guard the index — indexing a string aborts jq (exit 5) and, under set -e,
-  # the whole harness.
-  VM_ROLLBACK_FS="${VM_ROLLBACK_FS:-$(jq -r '
-    if (.install | type) == "object" then (.install.filesystem // "zfs")
-    else "zfs" end' <<<"$profile_json")}"
+  # btrfs subvols, ADR 0044); derived from the config so a btrfs impermanence
+  # profile needs no env override.
+  VM_ROLLBACK_FS="${VM_ROLLBACK_FS:-$(
+    profile_field "$profile_json" "$root_filesystem")}"
 }
 
 # run_flow <rescue> <guided> <testing> — dispatch to the selected flow (each

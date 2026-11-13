@@ -2,6 +2,7 @@
 # Tests: verify blocks (split from seed-generator.bats;
 # shared setup in seed-generator-helpers.bash)
 
+load ../lib/text-helpers
 load seed-generator-helpers
 
 
@@ -100,8 +101,10 @@ load seed-generator-helpers
   [[ "$output" == *"btrfs device scan"* ]]
   # scan precedes the seed mount
   local scan_position mount_position
-  scan_position="$(awk '/btrfs device scan/{print NR; exit}' <<<"$output")"
-  mount_position="$(awk '/subvol=@ \/dev\/disk\/by-partlabel\/root \/mnt/{print NR; exit}' <<<"$output")"
+  scan_position="$(first_line_matching <(printf '%s\n' "$output") \
+    'btrfs device scan')"
+  mount_position="$(first_line_matching <(printf '%s\n' "$output") \
+    'subvol=@ /dev/disk/by-partlabel/root /mnt')"
   [ -n "$scan_position" ] && [ -n "$mount_position" ] && [ "$scan_position" -lt "$mount_position" ]
 }
 

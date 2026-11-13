@@ -17,7 +17,9 @@ if [[ "${1:-}" == "--handle" ]]; then
   # request line, drain headers, map the path to a file under $SERVE_DIR.
   read -r _method reqpath _proto || exit 0
   while IFS= read -r h; do [[ "$h" == $'\r' || -z "$h" ]] && break; done
-  reqpath="${reqpath%%\?*}"; reqpath="${reqpath#/}"     # strip query + leading /
+  # The path without its query and its leading slash.
+  reqpath="$(printf '%s\n' "$reqpath" | cut -d'?' -f1)"
+  [[ "$reqpath" == /* ]] && reqpath="${reqpath:1}"
   file="${SERVE_DIR:-.}/${reqpath}"
   if [[ -n "$reqpath" && "$reqpath" != *..* && -f "$file" ]]; then
     # -L: a symlink (repo-add's .db) must report its target's length

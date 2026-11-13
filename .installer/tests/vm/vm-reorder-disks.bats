@@ -32,12 +32,7 @@ XML
 # target sit on one line, so grab the file= on the line carrying this dev=.
 # Quote-agnostic (virsh emits single quotes; the too-few fixture uses double).
 _source_for() {
-  printf '%s' "$1" | DEVICE="$2" awk '
-    $0 ~ ("dev=[\047\"]" ENVIRON["DEVICE"] "[\047\"]") {
-      if (match($0, /file=[\047"][^\047"]*[\047"]/))
-        print substr($0, RSTART + 6, RLENGTH - 7)
-      exit
-    }'
+  printf '%s' "$1" | DEVICE="$2" awk -f "$BATS_TEST_DIRNAME/source-for-dev.awk"
 }
 
 @test "reorder: OS disk (sda) keeps its backing file" {

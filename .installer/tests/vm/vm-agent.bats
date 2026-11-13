@@ -5,6 +5,9 @@
 # run it as a subprocess for usage/dispatch. The live SSH/reboot/screenshot
 # paths are verified by hand on the persistent arch-combined VM.
 
+load ../lib/text-helpers
+load ../lib/json-helpers
+
 setup() {
   AGENT="$BATS_TEST_DIRNAME/../../vm/vm-agent.sh"
 }
@@ -133,9 +136,10 @@ _stub_io='
   run bash -c "source '$AGENT'; $_stub_io; verb_session kde; cat \"\$LOG\""
   [ "$status" -eq 0 ]
   local write_line bake_line reboot_line
-  write_line="$(awk '/zz-agent-autologin.conf/ { print NR; exit }' <<<"$output")"
-  bake_line="$(awk '/resnapshot.sh/ { print NR; exit }' <<<"$output")"
-  reboot_line="$(awk '/^reboot$/ { print NR }' <<<"$output")"
+  write_line="$(first_line_matching <(printf '%s\n' "$output") \
+    'zz-agent-autologin.conf')"
+  bake_line="$(first_line_matching <(printf '%s\n' "$output") 'resnapshot.sh')"
+  reboot_line="$(last_line_matching <(printf '%s\n' "$output") '^reboot$')"
   [ -n "$write_line" ]
   [ -n "$bake_line" ]
   [ -n "$reboot_line" ]
@@ -146,9 +150,9 @@ _stub_io='
   run bash -c "source '$AGENT'; $_stub_io; verb_greeter; cat \"\$LOG\""
   [ "$status" -eq 0 ]
   local write_line bake_line
-  write_line="$(awk '/rm -f \/etc\/sddm.conf.d\/zz-agent-autologin.conf/ {
-    print NR }' <<<"$output")"
-  bake_line="$(awk '/resnapshot.sh/ { print NR; exit }' <<<"$output")"
+  write_line="$(last_line_matching <(printf '%s\n' "$output") \
+    'rm -f /etc/sddm.conf.d/zz-agent-autologin.conf')"
+  bake_line="$(first_line_matching <(printf '%s\n' "$output") 'resnapshot.sh')"
   [ -n "$write_line" ]
   [ -n "$bake_line" ]
   (( write_line < bake_line ))
@@ -223,23 +227,22 @@ _stub_io='
 @test "key: QMP event batch presses then releases in reverse" {
   _call "agent_key_qmp down 'meta_l shift'"
   [ "$status" -eq 0 ]
-  jq -e '.execute == "input-send-event"
+  output_satisfies '.execute == "input-send-event"
     and ([.arguments.events[] | .data.down] | all)
-    and [.arguments.events[].data.key.data] == ["meta_l","shift"]' <<<"$output"
+    and [.arguments.events[].data.key.data] == ["meta_l","shift"]'
   _call "agent_key_qmp up 'meta_l shift'"
-  jq -e '[.arguments.events[].data.key.data] == ["shift","meta_l"]
-    and ([.arguments.events[] | .data.down] | any | not)' <<<"$output"
+  output_satisfies '[.arguments.events[].data.key.data] == ["shift","meta_l"]
+    and ([.arguments.events[] | .data.down] | any | not)'
 }
 
 @test "mouse: move/btn/wheel → QMP events" {
   _call "agent_mouse_qmp move 100 200"
-  jq -e '[.arguments.events[].data.axis] == ["x","y"]
-    and [.arguments.events[].data.value] == [100,200]' <<<"$output"
+  output_satisfies '[.arguments.events[].data.axis] == ["x","y"]
+    and [.arguments.events[].data.value] == [100,200]'
   _call "agent_mouse_qmp btn left down"
-  jq -e '.arguments.events[0].data == {"down":true,"button":"left"}' \
-    <<<"$output"
+  output_satisfies '.arguments.events[0].data == {"down":true,"button":"left"}'
   _call "agent_mouse_qmp wheel up"
-  jq -e '.arguments.events[0].data.button == "wheel-up"' <<<"$output"
+  output_satisfies '.arguments.events[0].data.button == "wheel-up"'
   _call "agent_mouse_qmp spin 1"
   [ "$status" -ne 0 ]
 }

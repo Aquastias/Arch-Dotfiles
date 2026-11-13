@@ -15,5 +15,5 @@ teardown() { rm -rf "$T"; }
   ln -s r.db.tar.gz "$T/r.db"
   printf 'GET /r.db HTTP/1.0\r\n\r\n' \
     | SERVE_DIR="$T" bash "$S" --handle > "$T/resp"
-  grep -aq 'Content-Length: 5000' "$T/resp"
+  grep -q 'Content-Length: 5000' "$T/resp"
 }

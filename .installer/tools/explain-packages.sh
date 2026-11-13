@@ -17,7 +17,7 @@ set -euo pipefail
 script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
-INSTALLER_DIR="${SCRIPT_DIR%/*}"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 export INSTALLER_DIR
 
 # shellcheck source=../lib/common.sh
@@ -43,7 +43,7 @@ main() {
 
   case "$mode" in
     --flat)
-      awk -F'\t' '{ print $3 }' <<<"$resolved" | sort -u
+      explain_package_names "$resolved"
       return 0 ;;
     --sources)
       explain_source_counts "$resolved"
@@ -54,14 +54,20 @@ main() {
 
 # explain_usage — the header comment as help, then the available profiles.
 explain_usage() {
-  awk 'NR >= 2 && NR <= 14 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
+  local line
+  # Lines 2-14 of this file: the header comment.
+  while IFS= read -r line; do
+    # Without the leading "# " (or a bare "#").
+    if [[ "$line" == "# "* ]]; then printf '%s\n' "${line:2}"
+    else printf '%s\n' "${line:1}"; fi
+  done < <(head -n 14 "${BASH_SOURCE[0]}" | tail -n +2)
   echo
   echo "Available profiles:"
   local directory name
   for directory in "${INSTALLER_DIR}"/hosts/*/ \
                    "${INSTALLER_DIR}"/hosts/vm/*/; do
     [[ -f "${directory}profile.jsonc" ]] || continue
-    name="$(base_name "$directory")"
+    name="$(basename "$directory")"
     profile_loader_is_layer hosts "$name" && continue
     printf '  - %s\n' "$name"
   done
@@ -102,13 +108,26 @@ explain_authored_profile() {
 # explain_source_counts <resolved> — each source name and its package count,
 # sorted by name.
 explain_source_counts() {
-  awk -F'\t' '{ print $1 }' <<<"$1" | sort | awk '
-    !($0 in count) { order[++sources] = $0 }
-    { count[$0]++ }
-    END {
-      for (i = 1; i <= sources; i++)
-        printf "  %-18s %s\n", order[i], count[order[i]]
-    }'
+  local count source_name sources
+  sources="$(printf '%s\n' "$1" | cut -f1)"
+  while read -r count source_name; do
+    printf '  %-18s %s\n' "$source_name" "$count"
+  # Each source's row count, by source name.
+  done < <(printf '%s\n' "$sources" | sort | uniq -c)
+}
+
+# explain_package_names <resolved> — the package names (column 3), sorted,
+# each once.
+explain_package_names() {
+  # Column 3 of every row, each value once.
+  printf '%s\n' "$1" | cut -f3 | sort -u
+}
+
+# explain_indented <lines> — each line, indented six spaces.
+explain_indented() {
+  local line
+  while IFS= read -r line; do printf '      %s\n' "$line"
+  done < <(printf '%s\n' "$1")
 }
 
 # explain_report <profile> <resolved> <excluded> <unresolved> — the grouped
@@ -126,19 +145,19 @@ explain_report() {
   done < <(package_resolver_sources)
 
   local total
-  total="$(awk -F'\t' '{ print $3 }' <<<"$resolved" | sort -u \
-    | awk 'END { print NR }')"
+  # How many distinct packages.
+  total="$(explain_package_names "$resolved" | wc -l)"
   printf '  %s\n' "$rule"
   printf '  Total: %d unique packages\n' "$total"
 
   if [[ -n "$excluded" ]]; then
     printf '\n  Excluded by this profile (%d):\n' \
-      "$(awk 'END { print NR }' <<<"$excluded")"
-    printf '%s\n' "      ${excluded//$'\n'/$'\n'      }"
+      "$(printf '%s\n' "$excluded" | wc -l)"
+    explain_indented "$excluded"
   fi
   if [[ -n "$unresolved" ]]; then
     printf '\n  Resolved at install time (needs the target hardware):\n'
-    printf '%s\n' "      ${unresolved//$'\n'/$'\n'      }"
+    explain_indented "$unresolved"
   fi
   printf '\n'
 }
@@ -147,24 +166,23 @@ explain_report() {
 # layers and count) and its packages wrapped to 68 columns; nothing when
 # the source contributed no package.
 explain_source_group() {
-  local source_name="$1" resolved="$2" layers
+  local source_name="$1" resolved="$2" layers row_source layer package
+  local source_layers="" source_packages=""
   local -a packages
-  mapfile -t packages < <(awk -F'\t' -v source_name="$source_name" \
-    '$1 == source_name { print $3 }' <<<"$resolved" | sort -u)
+  # This source's rows: their layers and packages.
+  while IFS=$'\t' read -r row_source layer package; do
+    [[ "$row_source" == "$source_name" ]] || continue
+    source_layers+="${layer}"$'\n'
+    source_packages+="${package}"$'\n'
+  done < <(printf '%s\n' "$resolved")
+  # The packages, sorted, each once.
+  mapfile -t packages < <(printf '%s' "$source_packages" | sort -u)
   ((${#packages[@]})) || return 0
-  layers="$(awk -F'\t' -v source_name="$source_name" \
-    '$1 == source_name { print $2 }' <<<"$resolved" | sort -u \
-    | awk '{ joined = joined (NR > 1 ? "+" : "") $0 } END { print joined }')"
+  # The layers, sorted, each once, "+"-joined.
+  layers="$(printf '%s' "$source_layers" | sort -u | paste -sd+ -)"
   printf '  %s  (%s, %d)\n' "$source_name" "$layers" "${#packages[@]}"
-  printf '%s\n' "${packages[@]}" | awk -v width=68 '
-    line != "" && length(line) + length($0) + 1 > width {
-      sub(/[[:space:]]+$/, "", line); printf "%s      %s", separator, line
-      separator = "\n"; line = ""
-    }
-    { line = line $0 " " }
-    END {
-      sub(/[[:space:]]+$/, "", line); printf "%s      %s", separator, line
-    }'
+  printf '%s\n' "${packages[@]}" \
+    | awk -v width=68 -f "${INSTALLER_DIR}/tools/explain-wrap.awk"
   printf '\n'
 }
 

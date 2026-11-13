@@ -104,3 +104,8 @@
 .installer/lib/matrix/*
 .installer/tests/feature-audit/*
 .installer/tests/matrix/*
+
+# Ticket 15 — the VM harness and the installer tools, with their tests.
+.installer/vm/**
+.installer/tools/*
+.installer/tests/vm/*

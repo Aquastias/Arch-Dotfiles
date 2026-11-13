@@ -21,7 +21,7 @@ set -euo pipefail
 script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
-INSTALLER_DIR="${SCRIPT_DIR%/*}"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 
 # shellcheck source=../lib/jsonc.sh
 source "$INSTALLER_DIR/lib/jsonc.sh"
@@ -131,8 +131,7 @@ host_profile_file() {
 # profile_name <profile-file> — the Host Profile name: the directory holding
 # its profile.jsonc.
 profile_name() {
-  local directory="${1%/*}"
-  printf '%s\n' "${directory##*/}"
+  basename "$(dirname "$1")"
 }
 
 # Abort before any change when no profile matches: recording the path is what
@@ -193,11 +192,13 @@ impermanence_add() {
   fi
   kind="$(path_kind "$target")"
   declare_in_host_profile "$target" "$kind"
+  # Each step in turn; the first failure stops the rest.
   if ! (
-    impermanence_common_persist_stage_in_copy "$target" &&
-    impermanence_common_persist_apply "$target" "$kind" &&
+    impermanence_common_persist_stage_in_copy "$target" || exit 1
+    impermanence_common_persist_apply "$target" "$kind" || exit 1
     impermanence_common_link_wants "$target" \
-      "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/local-fs.target.wants" &&
+      "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/local-fs.target.wants" \
+      || exit 1
     impermanence_common_persist_activate "$target"
   ); then
     impermanence_common_persist_unapply "$target"
@@ -238,23 +239,22 @@ impermanence_remove() {
 
 impermanence_status() {
   require_enabled
-  local line unit what fragment_path label
+  local unit what fragment_path label
   # Persist Mounts are named <esc>.mount (systemd's .mount naming contract), so
   # they share no name prefix to glob. Identify them by their intrinsic marker:
   # a bind whose source (What=) lives under the Persist Dataset mount.
-  while read -r line; do
-    [[ -z "$line" ]] && continue
-    unit="${line%% *}"
+  while read -r unit _; do
     [[ "$unit" == *.mount ]] || continue
-    what="$(systemctl show -p What --value "$unit")"
+    what="$(systemctl show -P What "$unit")"
     [[ "$what" == "$IMPERMANENCE_MOUNT"/* ]] || continue
-    fragment_path="$(systemctl show -p FragmentPath --value "$unit")"
+    fragment_path="$(systemctl show -P FragmentPath "$unit")"
     # Extensions and curated units both live in /usr/lib (ADR 0144); the
     # curated manifest tells them apart. A /persist fragment is a legacy
     # extension.
     case "$fragment_path" in
       /usr/lib/*)
-        if grep -qxF "${what#"$IMPERMANENCE_MOUNT"}" "$IMPERMANENCE_MANIFEST" \
+        # The source path below the Persist Dataset mount is a curated one.
+        if grep -qxF "${what:${#IMPERMANENCE_MOUNT}}" "$IMPERMANENCE_MANIFEST" \
              2>/dev/null; then label="curated"; else label="extension"; fi ;;
       "$IMPERMANENCE_MOUNT"/*) label="extension" ;;
       *)                       label="unknown" ;;
@@ -273,7 +273,8 @@ impermanence_status() {
 impermanence_status_zfs_blanks() {
   local entry suffix dataset count missing=0
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
+    # The dataset suffix before the ":".
+    suffix="$(printf '%s\n' "$entry" | cut -d: -f1)"
     dataset="$IMPERMANENCE_RPOOL/ROOT/$suffix"
     if ! zfs list -t snapshot "$dataset@blank" >/dev/null 2>&1; then
       echo "ERROR: $dataset@blank is missing — Rollback Hook will fail" \
@@ -281,8 +282,8 @@ impermanence_status_zfs_blanks() {
       missing=1
       continue
     fi
-    count="$(zfs diff "$dataset@blank" "$dataset" 2>/dev/null \
-      | awk 'END { print NR }')"
+    # How many paths changed since @blank.
+    count="$(zfs diff "$dataset@blank" "$dataset" 2>/dev/null | wc -l)"
     echo "$dataset: $count paths changed since @blank" \
       "(run: zfs diff $dataset@blank $dataset)"
   done
@@ -292,13 +293,20 @@ impermanence_status_zfs_blanks() {
 # impermanence_status_btrfs_blanks — each rollback subvolume's @<name>@blank
 # (ADR 0044); btrfs has no cheap per-path diff, so presence only.
 impermanence_status_btrfs_blanks() {
-  local entry suffix snapshot subvolumes missing=0
-  subvolumes="$(btrfs subvolume list -a "${IMPERMANENCE_ROOT:-/}" 2>/dev/null \
-    | awk '{ path = $NF; sub(/^<FS_TREE>\//, "", path); print path }')"
+  local entry suffix snapshot subvolumes="" path missing=0
+  local -a fields
+  # Each subvolume's path (the line's last field), "<FS_TREE>/" dropped.
+  while read -ra fields; do
+    ((${#fields[@]})) || continue
+    path="${fields[-1]}"
+    [[ "$path" == "<FS_TREE>/"* ]] && path="${path:10}"
+    subvolumes+="${path}"$'\n'
+  done < <(btrfs subvolume list -a "${IMPERMANENCE_ROOT:-/}" 2>/dev/null)
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
+    # The dataset suffix before the ":".
+    suffix="$(printf '%s\n' "$entry" | cut -d: -f1)"
     snapshot="@${suffix}@blank"
-    if ! grep -qxF "$snapshot" <<<"$subvolumes"; then
+    if ! printf '%s' "$subvolumes" | grep -qxF "$snapshot"; then
       echo "ERROR: $snapshot is missing — Rollback Hook will fail closed" \
         "on boot" >&2
       missing=1
@@ -326,7 +334,7 @@ apply_defaults_add_one() {
     return 0
   fi
   if [[ -e "$source_path" && ! -e "$persist_path" ]]; then
-    mkdir -p "${persist_path%/*}"
+    mkdir -p "$(dirname "$persist_path")"
     cp -a "$source_path" "$persist_path"
   fi
   impermanence_common_persist_unapply "$target"
@@ -390,10 +398,7 @@ warn_kind_mismatch() {
 }
 
 rewrite_manifest() {
-  local manifest_directory="."
-  [[ "$IMPERMANENCE_MANIFEST" == */* ]] \
-    && manifest_directory="${IMPERMANENCE_MANIFEST%/*}"
-  mkdir -p "${manifest_directory:-/}"
+  mkdir -p "$(dirname "$IMPERMANENCE_MANIFEST")"
   printf '%s\n' "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}" \
     | sort > "$IMPERMANENCE_MANIFEST"
 }
@@ -409,21 +414,20 @@ impermanence_apply_defaults() {
   while IFS= read -r target; do
     [[ -z "$target" ]] && continue
     apply_defaults_add_one "$target"
-  done <<< "$added"
+  done < <(printf '%s\n' "$added")
   while IFS= read -r target; do
     [[ -z "$target" ]] && continue
     apply_defaults_remove_one "$target"
-  done <<< "$removed"
+  done < <(printf '%s\n' "$removed")
   rewrite_curated_tmpfiles
   rewrite_manifest
   warn_kind_mismatch
 }
 
-# only_in_first <lines> <lines> — the lines of the first list absent from
-# the second, in the first list's order.
+# only_in_first <lines> <lines> — the lines of the first sorted list absent
+# from the second, in order.
 only_in_first() {
-  awk 'NR == FNR { seen[$0]; next } !($0 in seen)' \
-    <(printf '%s\n' "$2") <(printf '%s\n' "$1")
+  comm -23 <(printf '%s\n' "$1") <(printf '%s\n' "$2")
 }
 
 main() {

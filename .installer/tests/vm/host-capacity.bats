@@ -119,3 +119,10 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'matrix-zfs-single-plain\narch-kde')" ]
 }
+
+@test "listed: newline-separated names become one ', '-joined line" {
+  run vm_host_capacity_listed "$(printf 'arch-kde\nmatrix-x')"
+  [ "$output" = "arch-kde, matrix-x" ]
+  run vm_host_capacity_listed "solo"
+  [ "$output" = "solo" ]
+}

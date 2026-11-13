@@ -92,12 +92,16 @@ harden_boot_undo_cmdline() {
   # shellcheck source=../lib/boot/undo-entry.sh
   declare -p UNDO_ENTRY_PARAMETER >/dev/null 2>&1 || UNDO_ENTRY_LIB_ONLY=1 \
     source "$_HARDEN_BOOT_INSTALLER_DIR/lib/boot/undo-entry.sh"
-  printf '%s\n' "$1" | awk -v undo="$UNDO_ENTRY_PARAMETER" '{
-    for (i = 1; i <= NF; i++)
-      if ($i !~ /^(initrd|BOOT_IMAGE)=/ && $i != undo)
-        out = out (out == "" ? "" : " ") $i
-    print out
-  }'
+  local -a words kept=()
+  local word
+  read -ra words < <(printf '%s\n' "$1")
+  # Every word but initrd=…, BOOT_IMAGE=… and the undo flag, space-joined.
+  for word in "${words[@]}"; do
+    [[ "$word" == initrd=* || "$word" == BOOT_IMAGE=* ]] && continue
+    [[ "$word" == "$UNDO_ENTRY_PARAMETER" ]] && continue
+    kept+=("$word")
+  done
+  printf '%s\n' "${kept[*]}"
 }
 
 # harden_boot_impermanence_datasets <resnapshot-helper> — the Rollback
@@ -105,8 +109,14 @@ harden_boot_undo_cmdline() {
 # helper is absent (no Impermanence).
 harden_boot_impermanence_datasets() {
   [[ -f "$1" ]] || return 0
-  awk -F\" '/^datasets=/ { n = split($2, d, " ")
-    for (i = 1; i <= n; i++) print d[i] }' "$1"
+  local line dataset
+  while IFS= read -r line; do
+    [[ "$line" == datasets=* ]] || continue
+    # Each word of the quoted value of `datasets="…"`.
+    for dataset in $(printf '%s\n' "$line" | cut -d'"' -f2); do
+      printf '%s\n' "$dataset"
+    done
+  done < "$1"
 }
 
 # Lib-only sourcing for tests: skip the apply/runtime below.
@@ -119,24 +129,30 @@ set -Eeuo pipefail
 # boot — the loader entries' vmlinuz (systemd-boot), the kernels staged at the
 # ESP root (every ESP-mirroring loader), or GRUB_TOP_LEVEL (grub-native).
 _harden_boot_selected_kernels() {
-  local entry_file kernel
+  local entry_file kernel key value top_level
+  # The kernel bases (after "vmlinuz-", 8 characters) of the loader entries'
+  # linux lines and of the ESP's kernels, -prev ones skipped, each once.
   {
     for entry_file in "$ESP"/loader/entries/*.conf; do
       [[ -f "$entry_file" ]] || continue
-      awk '$1 == "linux" && $2 !~ /-prev$/ {
-        sub(/.*\/vmlinuz-/, "", $2); print $2 }' \
-        "$entry_file"
+      while read -r key value _; do
+        [[ "$key" == linux && "$value" != *-prev ]] || continue
+        kernel="$(basename "$value")"
+        printf '%s\n' "${kernel:8}"
+      done < "$entry_file"
     done
     for kernel in "$ESP"/vmlinuz-*; do
       [[ -f "$kernel" && "$kernel" != *-prev ]] || continue
-      printf '%s\n' "${kernel##*/vmlinuz-}"
+      kernel="$(basename "$kernel")"
+      printf '%s\n' "${kernel:8}"
     done
   } 2>/dev/null | sort -u
   [[ -f "$ROOT/etc/default/grub" ]] || return 0
-  awk '/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-.*".*/ {
-    sub(/.*GRUB_TOP_LEVEL="\/boot\/vmlinuz-/, ""); sub(/"[^"]*$/, "")
-    print
-  }' "$ROOT/etc/default/grub"
+  # GRUB_TOP_LEVEL's quoted value, then the base after "/boot/vmlinuz-" (14).
+  while IFS= read -r top_level; do
+    printf '%s\n' "${top_level:14}"
+  done < <(grep -o 'GRUB_TOP_LEVEL="/boot/vmlinuz-[^"]*"' \
+    "$ROOT/etc/default/grub" | cut -d'"' -f2)
 }
 
 # _harden_boot_write_hook <name> <when> <exec> <desc> [extra]
@@ -218,7 +234,7 @@ _harden_boot_install_undo_entry() {
   base="${base:-${bases[0]:-}}"
   [[ -n "$base" ]] || { echo "  skipped: no kernel found" >&2; return 0; }
   for image in "$ESP"/*-ucode.img; do
-    [[ -f "$image" ]] && microcode+="${microcode:+ }${image##*/}"
+    [[ -f "$image" ]] && microcode+="${microcode:+ }$(basename "$image")"
   done
   cmdline="$(harden_boot_undo_cmdline \
     "${HARDEN_BOOT_CMDLINE:-$(cat /proc/cmdline)}")"
@@ -226,8 +242,9 @@ _harden_boot_install_undo_entry() {
     "$microcode" "$cmdline" "${bases[@]}"
   if [[ -f "$mkinitcpio_config" ]] \
      && ! grep -q '^HOOKS=.*undo-update' "$mkinitcpio_config"; then
-    sed -i -E '/^HOOKS=/ s/([( ])zfs([ )])/\1zfs undo-update\2/' \
-      "$mkinitcpio_config"
+    local add_undo='s/^\(HOOKS=.*[( ]\)zfs\([ )]\)/\1zfs undo-update\2/'
+    # On the HOOKS line: undo-update right after the zfs hook.
+    sed -i "$add_undo" "$mkinitcpio_config"
   fi
   [[ -z "$ROOT" ]] || return 0
   mkinitcpio -P && /usr/local/lib/archzfs/esp-kernel-sync.sh
@@ -256,17 +273,19 @@ _harden_boot_install_resnapshot_hook() {
 
 # Drop initrd lines for *-ucode.img absent from the ESP, so no entry dangles.
 _harden_boot_reconcile_microcode() {
-  local entry_file
+  local entry_file line key image
   for entry_file in "$ESP"/loader/entries/*.conf; do
     [[ -f "$entry_file" ]] || continue
-    awk -v esp="$ESP" '
-      $1 == "initrd" {
-        f = $2; sub(/^\//, "", f)
-        if (f ~ /-ucode\.img$/ &&
-            system("test -f \"" esp "/" f "\"") != 0) next
-      }
-      { print }
-    ' "$entry_file" >"$entry_file.tmp" && mv "$entry_file.tmp" "$entry_file"
+    # The entry without its initrd lines for a microcode image not on the ESP.
+    while IFS= read -r line; do
+      read -r key image _ < <(printf '%s\n' "$line")
+      if [[ "$key" == initrd && "$image" == *-ucode.img ]]; then
+        [[ "$image" == /* ]] && image="${image:1}"
+        [[ -f "$ESP/$image" ]] || continue
+      fi
+      printf '%s\n' "$line"
+    done < "$entry_file" >"$entry_file.tmp"
+    mv "$entry_file.tmp" "$entry_file"
   done
 }
 
@@ -295,16 +314,15 @@ _harden_boot_pin_grub_default() {
 # _harden_boot_primary_kernel_base — linux-lts when installed, else the first
 # installed kernel's pkgbase.
 _harden_boot_primary_kernel_base() {
-  local pkgbase_file
+  local pkgbase_file base first=""
   for pkgbase_file in "$ROOT"/usr/lib/modules/*/pkgbase; do
-    [[ -f "$pkgbase_file" ]] && cat "$pkgbase_file"
-  done 2>/dev/null | sort | grep -m1 -x linux-lts ||
-    for pkgbase_file in "$ROOT"/usr/lib/modules/*/pkgbase; do
-      [[ -f "$pkgbase_file" ]] && {
-        cat "$pkgbase_file"
-        break
-      }
-    done 2>/dev/null
+    [[ -f "$pkgbase_file" ]] || continue
+    base="$(<"$pkgbase_file")"
+    [[ "$base" == linux-lts ]] && { printf '%s\n' "$base"; return 0; }
+    [[ -n "$first" ]] || first="$base"
+  done
+  [[ -n "$first" ]] && printf '%s\n' "$first"
+  return 0
 }
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -312,7 +330,8 @@ main() {
   DRY=0
   ROOT=/
   harden_boot_parse_arguments "$@"
-  ROOT="${ROOT%/}"
+  # Without a trailing slash (/ becomes empty).
+  [[ "$ROOT" == */ ]] && ROOT="${ROOT:0:${#ROOT}-1}"
   ESP="$ROOT/boot/efi"
 
   [[ -n "$_HARDEN_BOOT_INSTALLER_DIR" ]] || {
@@ -384,9 +403,9 @@ harden_boot_root_fstype() {
 harden_boot_esp_mib() {
   local esp_mib=""
   if [[ -d "$ESP" ]]; then
-    esp_mib="$(df -BM --output=size "$ESP" 2>/dev/null \
-      | awk '{ last = $0 }
-             END { gsub(/[^0-9]/, "", last); printf "%s", last }')"
+    # The size on df's last line, digits only.
+    esp_mib="$(df -BM --output=size "$ESP" 2>/dev/null | tail -n 1 \
+      | tr -cd '0-9')"
   fi
   printf '%s\n' "${esp_mib:-0}"
 }

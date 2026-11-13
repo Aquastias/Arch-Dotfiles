@@ -42,8 +42,10 @@ trap 'rm -rf "$TMP"' EXIT
 OLD_KEY=""
 if [[ -s "$KEY_AGE" ]]; then
   OLD_KEY="$TMP/old.txt"
+  # script reads age's answers from a regular file (a pipe makes it hang).
+  printf '%s\n' "$PASSPHRASE" > "$TMP/answer"
   script -qc "age -d -o '$OLD_KEY' '$KEY_AGE'" /dev/null \
-    <<< "${PASSPHRASE}"$'\n' >/dev/null || OLD_KEY=""
+    < "$TMP/answer" >/dev/null || OLD_KEY=""
   [[ -s "$OLD_KEY" ]] || OLD_KEY=""
 fi
 
@@ -53,23 +55,18 @@ PUB="$(age-keygen -y "$TMP/new.txt")"
 
 # 2. Passphrase-encrypt private key to key.age. age requires a tty for the
 #    passphrase prompt, so allocate a pty via util-linux `script`.
-mkdir -p "${KEY_AGE%/*}"
+mkdir -p "$(dirname "$KEY_AGE")"
+# The passphrase twice: age asks for it and its confirmation.
+printf '%s\n%s\n' "$PASSPHRASE" "$PASSPHRASE" > "$TMP/answers"
 script -qc "age -p -o '$KEY_AGE' '$TMP/new.txt'" /dev/null \
-  <<< "${PASSPHRASE}"$'\n'"${PASSPHRASE}"$'\n' >/dev/null
+  < "$TMP/answers" >/dev/null
 
 # 3. Update the test rule's age recipient in .sops.yaml. Targeted awk edit
 #    (no python, repo policy): rewrite only the `age1…` line that follows the
 #    VM-fixture (`/vm/`) `path_regex` block; the operator placeholder rule is
 #    preserved byte-for-byte. Non-zero when the test rule can't be found.
-awk -v pub="$PUB" '
-  found && !done && /^[[:space:]]*age1[a-z0-9]+[[:space:]]*$/ {
-    match($0, /^[[:space:]]*/); print substr($0, 1, RLENGTH) pub
-    done = 1; found = 0; next
-  }
-  /path_regex:.*\/vm\// { found = 1 }
-  { print }
-  END { if (!done) exit 3 }
-' "$SOPS_YAML" > "$SOPS_YAML.tmp" \
+awk -v pub="$PUB" -f "$(dirname "$0")/sops-recipient.awk" \
+  "$SOPS_YAML" > "$SOPS_YAML.tmp" \
   || { echo "regenerate.sh: failed to locate test rule in $SOPS_YAML" >&2
        rm -f "$SOPS_YAML.tmp"; exit 1; }
 mv "$SOPS_YAML.tmp" "$SOPS_YAML"

@@ -584,6 +584,7 @@ Example: `uname -r`
 Prints file details.
 
 - `-c <format>` — print only these fields (`%s` size, `%U` owner)
+- `-L` — follow a symlink: report its target
 
 Example: `stat -c %s "$file"` — the size in bytes.
 
@@ -805,6 +806,13 @@ Version control. Flags below are spread over subcommands (`git status`,
 - `--date=<form>` — (`log`) how dates print (`format-local:%F`: YYYY-MM-DD)
 - `-z` — (`ls-files`, `ls-tree`) end each path with a NUL byte
 - `-r` — (`ls-tree`) list subdirectories too
+- `-n <count>` — (`log`) only the newest <count> commits (`-n 1`: the latest)
+- `-t <type>` — (`hash-object`) the object type (`tree`)
+- `--no-pager` — print straight to the terminal, no pager
+- `--no-color` — no colour codes in the output
+- `--diff-filter=<letters>` — (`diff`) only these change kinds (`A`: added)
+- `--bare` — (`clone`) a bare repository: the history only, no working tree
+- `-d` — (`repack`) delete the packs the new one makes redundant
 
 Example: `cd "$(git rev-parse --show-toplevel)"`
 
@@ -814,6 +822,10 @@ Controls systemd services.
 - `--user` — the user's own service manager, not the system's
 - `-P <property>` — print one property value only
 - `--quiet` — print nothing; use the exit status
+- `--type=<type>` — with `list-units`: only units of that type (`mount`)
+- `--no-legend` — no header or footer lines
+- `--all` — with `list-units`: inactive units too
+- `--now` — with `enable`: also start it now
 
 Example: `systemctl enable seatd`
 
@@ -836,6 +848,9 @@ Arch's package manager.
 - `-Sl <repo>` — list the packages of a sync repository
 - `-m` — with `-Q`: only foreign packages (not in a sync repo, e.g. AUR)
 - `-l` — list a repository's packages (`-Slq`: every repo package name)
+- `-e` — with `-Q`: only explicitly installed packages
+- `-n` — with `-Q`: only packages from the sync repos (native)
+- `-m` — with `-Q`: only packages from no sync repo (foreign: the AUR)
 
 Example: `pacman -S --noconfirm --needed git`
 
@@ -1037,6 +1052,8 @@ that only reads passwords from a terminal can be fed one.
 - `-q` — quiet: no start and done messages
 - `-c <command>` — the command to run
 - `-e` — exit with the command's exit status
+- `-a` — append to the log file
+- `-f` — flush the log after each write
 
 Example: `printf '%s
 ' "$passphrase" | script -qc "age -d -o out key.age" /dev/null`
@@ -1353,6 +1370,8 @@ Manages Btrfs filesystems. Subcommands used: `subvolume create`,
 `subvolume snapshot`, `device scan`, `filesystem show`.
 
 - `-r` — (`subvolume snapshot`) make the snapshot read-only
+- `-a` — with `subvolume list`: every subvolume, each path from the top
+  (`<FS_TREE>/…`)
 
 Example: `btrfs subvolume create "${MOUNT_ROOT}/${subvol}"`
 
@@ -1500,6 +1519,7 @@ Example: `setsid -f teamspeak3`
 Signals processes by name.
 
 - `-f` — match the full command line, not only the name
+- `-P <pid>` — only the children of that process
 
 Example: `pkill -f ts3client`
 
@@ -1885,8 +1905,88 @@ The libvirt command line: defines, starts and removes VMs.
 - `--nvram` — with `undefine`: also remove the VM's UEFI variables file
 - `--remove-all-storage` — with `undefine`: also delete its disk images
 - `--reason` — with `domstate`: also say why the VM is in that state
+- `--name` — with `list` / `pool-list`: the names only
+- `--state-running` — with `list`: the running VMs only
+- `--details` — with `domblklist`: each disk's type and device too
+- `--storage <targets>` — with `undefine`: also delete those disks (comma list)
+- `--eject` — with `change-media`: take the disc out
+- `--insert` — with `change-media`: put a disc in
+- `--config` — change the saved definition (it lasts past the next start)
+- `--force` — with `console`: take the console over from another session
+- `--inactive` — with `dumpxml`: the saved definition, not the running one
 
 Example: `virsh -c qemu:///system destroy "$domain"` — power the VM off.
+
+### `hostname`
+Prints the machine's host name.
+
+Example: `: "${IMPERMANENCE_HOSTNAME:=$(hostname)}"` — the host name unless
+already set.
+
+### `grub-mkconfig`
+Writes GRUB's menu from /etc/default/grub and the installed kernels.
+
+- `-o <file>` — write the menu to <file> (`/boot/grub/grub.cfg`)
+
+Example: `grub-mkconfig -o /boot/grub/grub.cfg`
+
+### `virt-install`
+Creates a libvirt VM from a description of its hardware.
+
+- `--name <name>` — the VM's name
+- `--memory <MiB>` — its RAM
+- `--vcpus <n>` — its CPU count
+- `--osinfo <os>` — the guest OS, for defaults (`archlinux`)
+- `--boot <options>` — firmware and boot order (`uefi`, `cdrom,hd`)
+- `--disk <spec>` — one disk or disc (`path=…,device=cdrom,…`)
+- `--network <spec>` — one network card (`network=default`)
+- `--console <spec>` — a console device (`pty,target_type=serial`)
+- `--pm <spec>` — power-management features (suspend to memory / disk)
+- `--noautoconsole` — do not attach a console after creating it
+- `--noreboot` — do not start it again once the install boot ends
+
+Example: `virt-install --name "$VM_NAME" --memory 4096 --vcpus 2 …`
+
+### `cloud-localds`
+Packs cloud-init user data into a NoCloud seed image (cloud-image-utils).
+
+Example: `cloud-localds "$seed_iso" "$user_data"` — the seed the VM boots
+with.
+
+### `ssh`
+Runs a command on another machine (or a shell there) over SSH.
+
+- `-i <key>` — log in with this private key
+- `-o <option>=<value>` — one ssh option (`StrictHostKeyChecking=no`,
+  `ConnectTimeout=10`, `ControlMaster=yes`, …)
+- `-t` — give the remote command a terminal (for an interactive shell)
+- `-O <command>` — talk to a running connection master (`check`)
+- `-f` — go to the background after logging in
+- `-N` — run no remote command (only hold the connection open)
+
+Example: `ssh -i "$key" -o StrictHostKeyChecking=no "root@$ip" 'uptime'`
+
+### `scp`
+Copies files to or from another machine over SSH. Takes ssh's `-i` and
+`-o`.
+
+- `-i <key>` — log in with this private key
+- `-o <option>=<value>` — one ssh option
+
+Example: `scp -i "$key" "user@$ip:/tmp/shot.png" "$out"`
+
+### `nc`
+Netcat: opens TCP connections.
+
+- `-z` — only check that the port answers, send nothing
+
+Example: `nc -z "$ip" 22` — is the guest's SSH port up?
+
+### `socat`
+Relays data between two endpoints (sockets, programs, files).
+
+Example: `socat "TCP-LISTEN:${port},reuseaddr,fork" "EXEC:${handler}"` — run
+the handler for each TCP connection.
 
 <!-- ADR links: generated by readability.sh --fix-adr-links -->
 [ADR 0159]: ../docs/adr/0159-umbriel-adapter-and-default-session.md

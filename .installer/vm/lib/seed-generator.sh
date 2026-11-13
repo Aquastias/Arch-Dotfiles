@@ -74,7 +74,8 @@ _seed_generator_desktop_check() {
   for desktop in "$@"; do
     ok="$(_seed_generator_desktop_marker "$desktop")"; [[ -n "$ok" ]] \
       || continue
-    tag="${ok#===}"; tag="${tag%-OK===}"
+    # The tag inside "===<tag>-OK===" (3 characters before, 6 after).
+    tag="${ok:3:${#ok}-9}"
     case "$desktop" in
     kde)
       out+="if command -v startplasma-wayland > /dev/null 2>&1 && [ -f /usr/share/wayland-sessions/plasma.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
@@ -278,11 +279,13 @@ _seed_generator_guided_user_answers() {
   # drives the USER-OK boot check below.
   if [[ -n "$guided_user" && "$guided_user" != "null" ]]; then
     local user_name user_password user_sudo user_shell root_password
-    user_name="$(jq -r '.name // empty' <<<"$guided_user")"
-    user_password="$(jq -r '.password // "12345"' <<<"$guided_user")"
-    user_sudo="$(jq -r '.sudo // false' <<<"$guided_user")"
-    user_shell="$(jq -r '.shell // "/bin/bash"' <<<"$guided_user")"
-    root_password="$(jq -r '.root_password // empty' <<<"$guided_user")"
+    user_name="$(_seed_generator_field "$guided_user" '.name // empty')"
+    user_password="$(_seed_generator_field "$guided_user" \
+      '.password // "12345"')"
+    user_sudo="$(_seed_generator_field "$guided_user" '.sudo // false')"
+    user_shell="$(_seed_generator_field "$guided_user" '.shell // "/bin/bash"')"
+    root_password="$(_seed_generator_field "$guided_user" \
+      '.root_password // empty')"
     extra_answers+="new_user_name=${user_name}\\n"
     extra_answers+="new_user_shell=${user_shell}\\n"
     extra_answers+="new_user_sudo=${user_sudo}\\n"
@@ -291,6 +294,12 @@ _seed_generator_guided_user_answers() {
       && extra_answers+="root_password=${root_password}\\n"
     verify_user="$user_name"
   fi
+}
+
+# _seed_generator_field <json> <filter> — one field of a JSON object, as text.
+_seed_generator_field() {
+  # The filter's value in the object.
+  printf '%s\n' "$1" | jq -r "$2"
 }
 
 # _seed_generator_guided_extras_answers <guided-extras-json> — append the
@@ -304,13 +313,15 @@ _seed_generator_guided_extras_answers() {
   # daemons the boot-verify must find enabled (verify[] → EXTRAS-OK/FAIL).
   if [[ -n "$guided_extras" && "$guided_extras" != "null" ]]; then
     local extras_users extras_verify
-    extras_users="$(jq -r '.users // empty' <<<"$guided_extras")"
+    local answer_lines='(.answers // {}) | to_entries[] | "\(.key)=\(.value)"'
+    extras_users="$(_seed_generator_field "$guided_extras" '.users // empty')"
     [[ -n "$extras_users" ]] && extra_answers+="users=${extras_users}\\n"
     while IFS= read -r _kv; do
       [[ -n "$_kv" ]] && extra_answers+="${_kv}\\n"
-    done < <(jq -r '(.answers // {}) | to_entries[] | "\(.key)=\(.value)"' \
-      <<<"$guided_extras")
-    extras_verify="$(jq -r '(.verify // []) | join(" ")' <<<"$guided_extras")"
+    # One "key=value" line per replayed answer.
+    done < <(_seed_generator_field "$guided_extras" "$answer_lines")
+    extras_verify="$(_seed_generator_field "$guided_extras" \
+      '(.verify // []) | join(" ")')"
     verify_extras="$extras_verify"
   fi
 }
@@ -390,8 +401,11 @@ vm_seed_generator_build() {
     return 1
   }
 
-  local user_data="${output_directory%/}/user-data"
-  local seed_iso="${output_directory%/}/seed.iso"
+  local directory="$output_directory"
+  # Without a trailing slash.
+  [[ "$directory" == */ ]] && directory="${directory:0:${#directory}-1}"
+  local user_data="$directory/user-data"
+  local seed_iso="$directory/seed.iso"
 
   _seed_generator_render_user_data "$repo_url" "$hostname" > "$user_data"
 
@@ -413,12 +427,13 @@ vm_seed_generator_build() {
 # Audit Cache, ADR 0152) as the generated script's exports: `plain` lines,
 # or inline ` && export` links appended to an `&&` install chain.
 _seed_generator_env_exports() {
-  local assignment
+  local assignment key value
   for assignment in ${VM_INSTALL_ENV:-}; do
+    # The name before the first "=", the value after it.
+    IFS='=' read -r key value < <(printf '%s\n' "$assignment")
     case "$1" in
-      plain) printf "export %s='%s'\n" "${assignment%%=*}" "${assignment#*=}" ;;
-      chain) printf " && export %s='%s'" "${assignment%%=*}" \
-        "${assignment#*=}" ;;
+      plain) printf "export %s='%s'\n" "$key" "$value" ;;
+      chain) printf " && export %s='%s'" "$key" "$value" ;;
     esac
   done
 }

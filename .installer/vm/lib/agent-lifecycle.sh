@@ -24,7 +24,8 @@ declare -F vm_host_capacity_others_running >/dev/null 2>&1 \
 _agent_lifecycle_state() {
   local state
   state="$(virsh domstate "$VM_NAME" 2>/dev/null)" || state=undefined
-  printf '%s\n' "${state%%$'\n'*}"
+  # Its first line.
+  printf '%s\n' "$state" | head -n 1
 }
 
 # _agent_lifecycle_others — running domains other than VM_NAME, one per line.
@@ -44,7 +45,8 @@ agent_lifecycle_status() {
     printf '%s: %s\n' "$VM_NAME" "$state"
   fi
   others="$(_agent_lifecycle_others)"
-  [[ -z "$others" ]] || printf 'other running: %s\n' "${others//$'\n'/, }"
+  [[ -z "$others" ]] \
+    || printf 'other running: %s\n' "$(vm_host_capacity_listed "$others")"
 }
 
 agent_lifecycle_start() {
@@ -55,7 +57,8 @@ agent_lifecycle_start() {
   [[ "$state" != running ]] || { info "'$VM_NAME' already running."; return; }
   others="$(_agent_lifecycle_others)"
   [[ -z "$others" || "${VM_ALLOW_PARALLEL:-false}" == true ]] \
-    || die "other VM(s) running: ${others//$'\n'/, } — stop them first" \
+    || die "other VM(s) running: $(vm_host_capacity_listed "$others") —" \
+      "stop them first" \
       "(one VM at a time, ADR 0155) or set VM_ALLOW_PARALLEL=true"
   virsh start "$VM_NAME" >/dev/null || die "virsh start '$VM_NAME' failed"
   info "started '$VM_NAME' — \`ready\` waits for its session."

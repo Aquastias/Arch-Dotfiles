@@ -49,7 +49,7 @@ _core_ensure_dependencies() {
                 cloud-localds:cloud-image-utils jq:jq)
   local missing=() pair command_name package
   for pair in "${common[@]}" "$@"; do
-    command_name="${pair%%:*}"; package="${pair##*:}"
+    IFS=: read -r command_name package < <(printf '%s\n' "$pair")
     command -v "$command_name" >/dev/null 2>&1 || missing+=("$package")
   done
   if ((${#missing[@]} > 0)); then
@@ -59,9 +59,8 @@ _core_ensure_dependencies() {
 }
 
 _core_ensure_libvirt_group() {
-  if ! id -nG "$USER" \
-      | awk '{ for (i = 1; i <= NF; i++) if ($i == "libvirt") found = 1 }
-             END { exit !found }'; then
+  # The user's groups, one per line, include libvirt.
+  if ! id -nG "$USER" | tr ' ' '\n' | grep -qx libvirt; then
     error "User '$USER' is not in the 'libvirt' group.
   Run:  sudo usermod -aG libvirt $USER
   Then log out and back in (or run: newgrp libvirt) before retrying."
@@ -113,16 +112,8 @@ _core_vm_running() {
 # Source file path of the first cdrom attached to the domain, or empty if none.
 # Used to detect stale ISO references.
 _core_vm_install_iso_path() {
-  virsh dumpxml "$VM_NAME" 2>/dev/null |
-    awk -v q="'" '
-      BEGIN { start = "device=" q "cdrom" q
-              source = "source file=" q "[^" q "]+\\.iso" q }
-      !in_disk && $0 ~ start { in_disk = 1; first = 1 }
-      in_disk && match($0, source) {
-        print substr($0, RSTART + 13, RLENGTH - 14); exit
-      }
-      in_disk && !first && /<\/disk>/ { in_disk = 0 }
-      { first = 0 }'
+  virsh dumpxml "$VM_NAME" 2>/dev/null \
+    | awk -f "${BASH_SOURCE[0]%/*}/core-cdrom-iso.awk"
 }
 
 # =============================================================================
@@ -131,8 +122,12 @@ _core_vm_install_iso_path() {
 # Pinned-override download: cache <downloads_dir>/<basename>, fetch if absent.
 _core_resolve_pinned_iso() {
   local url="$1" downloads_directory="$2"
-  local filename="${url##*/}"
-  local target="${downloads_directory%/}/${filename}"
+  local filename target
+  filename="$(basename "$url")"
+  target="$downloads_directory/$filename"
+  # Without a doubled slash when the directory has a trailing one.
+  [[ "$downloads_directory" == */ ]] \
+    && target="${downloads_directory}${filename}"
   if [[ -f "$target" ]]; then printf '%s\n' "$target"; return 0; fi
   local partial_path="${target}.partial"
   curl -fSL --retry 2 -o "$partial_path" "$url" >&2 || {
@@ -167,10 +162,10 @@ _core_pool_for_directory() {
   local name target
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
+    # The pool's first <path>…</path>, then the text between the tags.
     target="$(virsh pool-dumpxml "$name" 2>/dev/null \
-              | awk '/<path>.*<\/path>/ {
-                  sub(/.*<path>/, ""); sub(/<\/path>.*/, ""); print; exit
-                }')"
+      | grep -o '<path>[^<]*</path>' | head -n 1)"
+    [[ -n "$target" ]] && target="${target:6:${#target}-13}"
     [[ -n "$target" ]] || continue
     target="$(readlink -f "$target" 2>/dev/null || printf '%s' "$target")"
     [[ "$target" == "$directory" ]] && { printf '%s\n' "$name"; return 0; }
@@ -182,7 +177,7 @@ _core_pool_for_directory() {
 # downloaded ISO/seed is visible to the domain. No-op when not pool-backed.
 _core_refresh_pool_for_path() {
   local pool
-  pool="$(_core_pool_for_directory "$(parent_directory "$1")" 2>/dev/null)" \
+  pool="$(_core_pool_for_directory "$(dirname "$1")" 2>/dev/null)" \
     || return 0
   virsh pool-refresh "$pool" >/dev/null
 }
@@ -200,9 +195,11 @@ _core_vm_destroy_undefine() {
     info "Force-stopping VM '${VM_NAME}'."
     virsh destroy "$VM_NAME" >/dev/null
   }
-  local own_disks
-  own_disks="$(virsh domblklist --details "$VM_NAME" 2>/dev/null \
-    | awk '$2 == "disk" { printf "%s%s", sep, $4; sep="," }')"
+  local own_disks="" type device target source
+  # The data disks' source files, comma-joined (cdroms aside).
+  while read -r type device target source; do
+    [[ "$device" == disk ]] && own_disks+="${own_disks:+,}${source}"
+  done < <(virsh domblklist --details "$VM_NAME" 2>/dev/null)
   info "Undefining VM '${VM_NAME}' (NVRAM + own data disks removed)."
   if [[ -n "$own_disks" ]]; then
     virsh undefine --nvram --storage "$own_disks" "$VM_NAME" >/dev/null
@@ -232,9 +229,10 @@ _core_vm_create() {
     && power_management_arguments=(--pm \
     suspend_to_mem.enabled=on,suspend_to_disk.enabled=on)
   local disk_summary
-  disk_summary="$(printf '%sG ' "${VM_DISK_SIZES[@]}")"
+  # Each disk's size, "<n>G", space-joined.
+  disk_summary="$(printf '%sG\n' "${VM_DISK_SIZES[@]}" | paste -sd' ' -)"
   info "Creating VM '${VM_NAME}'" \
-       "(${VM_RAM_MB} MiB, ${VM_VCPUS} vCPU, disks: ${disk_summary% })."
+       "(${VM_RAM_MB} MiB, ${VM_VCPUS} vCPU, disks: ${disk_summary})."
   virt-install \
     --name          "$VM_NAME" \
     --memory        "$VM_RAM_MB" \
@@ -255,7 +253,11 @@ _core_vm_create() {
 
 # Host RAM (MiB) from /proc/meminfo; empty when unreadable.
 _core_host_total_mb() {
-  awk '/^MemTotal:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null
+  local line kib
+  line="$(grep '^MemTotal:' /proc/meminfo 2>/dev/null)" || return 0
+  # The KiB number on the MemTotal line, as MiB.
+  read -r _ kib _ < <(printf '%s\n' "$line")
+  printf '%s\n' "$((kib / 1024))"
 }
 
 # Refuse to boot a VM whose RAM would exceed the safe fraction of host RAM, so a
@@ -278,9 +280,10 @@ _core_vm_single_preflight() {
   local running others
   mapfile -t running < <(virsh list --name --state-running 2>/dev/null)
   others="$(vm_host_capacity_others_running "$VM_NAME" "${running[@]}")"
-  [[ -z "$others" ]] || error \
-    "other VM(s) running: ${others//$'\n'/, } — shut them down first (one VM \
-at a time, ADR 0155) or set VM_ALLOW_PARALLEL=true."
+  [[ -z "$others" ]] && return 0
+  error "other VM(s) running: $(vm_host_capacity_listed "$others") — shut" \
+    "them down first (one VM at a time, ADR 0155) or set" \
+    "VM_ALLOW_PARALLEL=true."
 }
 
 # Start the domain, force-stopping a stale running instance first.
@@ -304,8 +307,16 @@ _core_vm_eject_cdroms() {
     [[ -n "$target" ]] || continue
     virsh change-media "$VM_NAME" "$target" --eject --config >/dev/null 2>&1 \
       || true
-  done < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
-            | awk '$2 == "cdrom" { print $3 }')
+  done < <(_core_cdrom_targets)
+}
+
+# _core_cdrom_targets — the domain's cdrom targets (sda, sdb, …), one per line.
+_core_cdrom_targets() {
+  local type device target
+  while read -r type device target _; do
+    [[ "$device" == cdrom ]] && printf '%s\n' "$target"
+  done < <(virsh domblklist --details "$VM_NAME" 2>/dev/null)
+  return 0
 }
 
 # =============================================================================
@@ -386,8 +397,7 @@ _core_wait_for_serial_pty() {
 _core_vm_insert_cdroms() {
   local iso="$1" seed="${2:-}"
   local -a targets=()
-  mapfile -t targets < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
-    | awk '$2 == "cdrom" { print $3 }')
+  mapfile -t targets < <(_core_cdrom_targets)
   [[ -n "${targets[0]:-}" && -n "$iso" ]] \
     && virsh change-media "$VM_NAME" "${targets[0]}" "$iso" \
          --insert --config >/dev/null 2>&1 || true
@@ -429,7 +439,7 @@ _core_stage_fixture_files() {
     fi
     [[ -f "$resolved" ]] \
       || error "VM_FIXTURE_FILES: missing source file: $entry"
-    base="$(base_name "$resolved")"
+    base="$(basename "$resolved")"
     [[ "$base" == "run" ]] \
       && error "VM_FIXTURE_FILES: basename collides with installer 'run': $entry"
     [[ -n "${_seen[$base]:-}" ]] \

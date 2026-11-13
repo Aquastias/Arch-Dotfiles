@@ -84,11 +84,11 @@ teardown() {
 
 @test "watcher does not modify or delete the log" {
   printf '===INSTALLER-EXIT-0===\n' > "$LOG"
-  before="$(sha256sum "$LOG" | awk '{print $1}')"
+  before="$(sha256sum "$LOG" | cut -d' ' -f1)"
 
   vm_sentinel_watcher_wait "$LOG" 2 || true
   [ -f "$LOG" ]
-  after="$(sha256sum "$LOG" | awk '{print $1}')"
+  after="$(sha256sum "$LOG" | cut -d' ' -f1)"
   [ "$before" = "$after" ]
 }
 

@@ -63,7 +63,8 @@ JSON
   # the tool resolves against its own tree, so run it from a copy
   mkdir -p "$test_directory/tools" "$test_directory/lib"
   cp -r "$OS/lib/." "$test_directory/lib/"
-  cp "$OS/tools/explain-packages.sh" "$test_directory/tools/"
+  cp "$OS/tools/explain-packages.sh" "$OS/tools/explain-wrap.awk" \
+    "$test_directory/tools/"
 
   run bash "$test_directory/tools/explain-packages.sh" handmade --flat
   [ "$status" -eq 0 ]
@@ -90,7 +91,8 @@ JSON
   printf '{"users":["alice"],"options":{"printing":{"enabled":false}}}\n' \
     > "$test_directory/hosts/off/profile.jsonc"
   cp -r "$OS/lib/." "$test_directory/lib/"
-  cp "$OS/tools/explain-packages.sh" "$test_directory/tools/"
+  cp "$OS/tools/explain-packages.sh" "$OS/tools/explain-wrap.awk" \
+    "$test_directory/tools/"
 
   run bash "$test_directory/tools/explain-packages.sh" on --sources
   [ "$status" -eq 0 ]
@@ -114,7 +116,8 @@ JSON
   printf '{"users":[],"packages":{"exclude":["fzf"]}}\n' \
     > "$test_directory/hosts/box/profile.jsonc"
   cp -r "$OS/lib/." "$test_directory/lib/"
-  cp "$OS/tools/explain-packages.sh" "$test_directory/tools/"
+  cp "$OS/tools/explain-packages.sh" "$OS/tools/explain-wrap.awk" \
+    "$test_directory/tools/"
 
   # … and it is NAMED in an Excluded section, so the operator can confirm the
   # exclusion took effect. The Layer Resolver strips packages.exclude from a

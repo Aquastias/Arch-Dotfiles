@@ -5,6 +5,8 @@
 # tree
 # while still sourcing the real vm/lib modules.
 
+load ../lib/json-helpers
+
 setup() {
   VM_SH="$BATS_TEST_DIRNAME/../../vm/vm.sh"
   OS_FIX="$(mktemp -d)"
@@ -60,8 +62,8 @@ teardown() { rm -rf "$OS_FIX"; }
 @test "vm.sh --print-config: inline profile resolves to its install block" {
   run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --profile cat/inline --print-config
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
 }
 
 @test "vm.sh --print-config: host_profile profile merges the host core profile" {
@@ -69,11 +71,11 @@ teardown() { rm -rf "$OS_FIX"; }
   [ "$status" -eq 0 ]
   # The resolved install config no longer carries host_profile (ADR 0036) — the
   # core+host profile merge is proven by the machine fields below.
-  [ "$(echo "$output" | jq -r 'has("host_profile")')" = "false" ]
-  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
-  [ "$(echo "$output" | jq -r '.environment.desktop')" = "kde" ]
-  [ "$(echo "$output" | jq -r '.ashift')" = "13" ]
+  output_satisfies '(has("host_profile")) == false'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
+  output_satisfies '.environment.desktop == "kde"'
+  output_satisfies '.ashift == 13'
 }
 
 @test "vm.sh --print-config: repo resolves to VM_DEFAULT_HOST_PROFILE, single" {
@@ -83,18 +85,18 @@ teardown() { rm -rf "$OS_FIX"; }
   # install:"repo" resolves as host_profile: myhost (the designated default) at
   # single — proven by myhost's machine fields; hostname falls back to the
   # host-dir name (ADR 0036), not the VM profile's name.
-  [ "$(echo "$output" | jq -r 'has("host_profile")')" = "false" ]
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
-  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
-  [ "$(echo "$output" | jq -r '.environment.desktop')" = "kde" ]
+  output_satisfies '(has("host_profile")) == false'
+  output_satisfies '.system.hostname == "myhost"'
+  output_satisfies '.mode == "single"'
+  output_satisfies '.disk == "/dev/sda"'
+  output_satisfies '.environment.desktop == "kde"'
 }
 
 @test "vm.sh --testing: flips profile resolution to the tests/vm tree" {
   run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --testing --profile cat/inline --print-config
   [ "$status" -eq 0 ]
   # the test-tree profile installs to /dev/vda, the persistent one to /dev/sda
-  [ "$(echo "$output" | jq -r '.disk')" = "/dev/vda" ]
+  output_satisfies '.disk == "/dev/vda"'
 }
 
 @test "vm.sh: an invalid profile is rejected before any work" {

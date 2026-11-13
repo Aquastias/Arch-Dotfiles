@@ -13,7 +13,7 @@
 script_path="${BASH_SOURCE[0]}"
 [[ "$script_path" == */* ]] || script_path="./$script_path"
 SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
-INSTALLER_DIR="${SCRIPT_DIR%/*}"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 source "${INSTALLER_DIR}/lib/common.sh"
 # shellcheck source=../lib/packages/iso-resolver.sh
