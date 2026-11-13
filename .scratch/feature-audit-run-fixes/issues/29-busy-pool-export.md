@@ -30,3 +30,10 @@ busy" and the installed system never boots ("Unable to import pool").
   - a live-ISO service namespace keeping the mounts;
   - a bind mount of a dataset subdirectory, which `zfs umount -a` won't
     remove.
+
+**2026-11-13 — Not seen since the holder log (f901e0b):** 0 busy exports in
+63 installs after 2026-10-09 (two full 19-install Audit Runs on 10-20, the
+rest single-variant runs), against 3 in ~54 before. No failing install
+means no `holder:` lines yet, so the cause is still unnamed. Kept open: the
+next busy export's `holder:` lines name it. The 10-20 layout/wipe teardown
+fix (e35213d) is the likeliest silent fix, unproven.
