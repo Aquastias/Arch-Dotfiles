@@ -22,12 +22,12 @@ new dependencies):
 
 ## Acceptance criteria
 
-- [ ] Inlay hints show by default and toggle off/on with `<leader>uh`.
-- [ ] blink.cmp shows signature help while typing a call.
+- [x] Inlay hints show by default and toggle off/on with `<leader>uh`.
+- [x] blink.cmp shows signature help while typing a call.
 - [x] Document and workspace symbol pickers and a command palette are mapped.
 - [x] An organise-imports action is mapped and runs via the LSP.
 - [x] No new plugins are added for any of the above.
-- [ ] Seam A asserts the inlay-hint default + toggle and the new maps; Seam B
+- [x] Seam A asserts the inlay-hint default + toggle and the new maps; Seam B
       (probe) may assert inlay hints default on.
 
 ## Blocked by

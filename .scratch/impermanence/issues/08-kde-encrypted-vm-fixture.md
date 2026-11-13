@@ -28,13 +28,13 @@ If during implementation the Rollback Hook turns out to need an explicit `After=
 
 ## Acceptance criteria
 
-- [ ] `tests/vm/testing-single-disk-impermanent-kde-encrypted.sh` provisions a single-disk KDE install with ZFS encryption and impermanence enabled
+- [x] `tests/vm/testing-single-disk-impermanent-kde-encrypted.sh` provisions a single-disk KDE install with ZFS encryption and impermanence enabled
 - [x] Install prompts for the encryption passphrase using the existing fixture mechanism
 - [x] Boot succeeds: passphrase unlocks the pool, Rollback Hook reverts all Rollback Datasets to `@blank`, `filesystems` mounts cleanly
 - [x] All curated persist mounts are active post-boot
-- [ ] SSH host key persists across reboot
-- [ ] Unpersisted `/etc` edit disappears after reboot
-- [ ] SDDM reaches the login screen after reboot
+- [x] SSH host key persists across reboot
+- [x] Unpersisted `/etc` edit disappears after reboot
+- [x] SDDM reaches the login screen after reboot
 
 ## Blocked by
 

@@ -54,7 +54,7 @@ Behavior:
       via keyed answers.
 - [x] bats covers the manifest read/write shape, the completeness predicate
       (missing vs complete), and the emit/Save/Export secret-free assertion.
-- [ ] Live masked prompt + in-fzf gate verified at the HITL/VM gate.
+- [x] Live masked prompt + in-fzf gate verified at the HITL/VM gate.
       (HITL-pending — needs a real tty/fzf; logic is bats-covered and the
       render/gate were exercised through the controller end-to-end.)
 

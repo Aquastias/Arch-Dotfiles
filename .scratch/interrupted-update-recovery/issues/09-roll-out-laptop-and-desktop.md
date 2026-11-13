@@ -1,6 +1,6 @@
 # 09: Roll out to the laptop and desktop
 
-Status: ready-for-human
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -10,7 +10,7 @@ previous kernel pairs, Update Snapshot and Undo Last Update.
 
 **Blocked by:** 03, 04, 05, 06, 07, 08.
 
-- [ ] Dry run reviewed on each machine, then applied
-- [ ] Undo Last Update entry visible in each boot menu after the next
+- [x] Dry run reviewed on each machine, then applied
+- [x] Undo Last Update entry visible in each boot menu after the next
       kernel update
-- [ ] Update Snapshots appear after a pacman run
+- [x] Update Snapshots appear after a pacman run

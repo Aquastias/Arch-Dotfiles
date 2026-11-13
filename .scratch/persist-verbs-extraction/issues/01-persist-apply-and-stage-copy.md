@@ -38,7 +38,7 @@ CLI surface is unchanged. Failure-rollback behavior is preserved
 - [x] `tools/impermanence.sh::cmd_add` composes the two verbs;
       duplicated local helpers are removed
 - [x] `tests/impermanence-tool.bats` `add` cases pass unmodified
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

@@ -29,18 +29,18 @@ Keeps fine-grained test names; collapses ~73 applies to ~5.
 
 ## Acceptance criteria
 
-- [ ] Measurement from issue 01 reviewed; decision (proceed /
+- [x] Measurement from issue 01 reviewed; decision (proceed /
       defer) recorded as a comment on this issue
-- [ ] If proceeding: original `chroot-impermanence.bats` split into
+- [x] If proceeding: original `chroot-impermanence.bats` split into
       one file per scenario, each using `setup_file()` to run
       `impermanence_apply` exactly once
-- [ ] Per-test `@test` names preserved as much as possible — no
+- [x] Per-test `@test` names preserved as much as possible — no
       consolidation into "fat" multi-assertion tests
-- [ ] All assertions still run against the same observable surface
+- [x] All assertions still run against the same observable surface
       (`$CALLS` log + generated files under `$FAKEROOT`)
-- [ ] Full bats suite still passes; total wall time decreases or
+- [x] Full bats suite still passes; total wall time decreases or
       stays flat
-- [ ] If deferring: close this issue with the measurement noted
+- [x] If deferring: close this issue with the measurement noted
 
 ## Blocked by
 

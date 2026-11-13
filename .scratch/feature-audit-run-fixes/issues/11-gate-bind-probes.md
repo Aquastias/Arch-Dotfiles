@@ -8,8 +8,8 @@ wayland_shell is none. Clears the pure/no-shell bind Findings.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] binds.bats or probe-lib bats covers both gates
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone
+- [x] binds.bats or probe-lib bats covers both gates
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone
 (niri-pure, hyprland-pure, kde-pure, no-shell)
 
 ## Comments

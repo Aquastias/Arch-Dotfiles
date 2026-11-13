@@ -7,7 +7,7 @@ repo, so the guided install runs to completion and boots. Fixes F003.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (guided)
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (guided)
 
 ## Comments
 

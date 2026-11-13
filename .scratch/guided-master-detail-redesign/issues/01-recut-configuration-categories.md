@@ -42,7 +42,7 @@ new groupings. Respect ADR 0071.
       (`menu_categories` / `menu_rows` JSON contract preserved).
 - [x] `guided-menu.bats` and `menu-enum.bats` are updated to assert the twelve
       categories, their order, and each field's new section — and pass.
-- [ ] A `--guided` replay test proves an answer file written against the old
+- [x] A `--guided` replay test proves an answer file written against the old
       section names still resolves every field (paths unchanged).
 
 ## Comments

@@ -63,7 +63,7 @@ built model — this lands now that the code does).
       categories, still bracketed by the Profiles and terminal-row dividers.
 - [x] Enter on a `── BUCKET ──` line returns `noop`; the detail pane does not
       error on a header line.
-- [ ] Existing top-screen assertions (Proceed / Save / Export / Abort, a
+- [x] Existing top-screen assertions (Proceed / Save / Export / Abort, a
       `System — ` line) still pass; `guided-menu.bats` +
       `guided-controller.bats` updated and green.
 - [x] CONTEXT.md's Guided Installer entry reflects the fourteen categories, six

@@ -25,7 +25,7 @@ Audio Resolution runs at config-load time, after the desktop value is normalised
 - [x] `"desktop": null` results in `packages.groups.audio` being empty — no audio packages in pacstrap
 - [x] `"environment"` key omitted entirely results in empty audio group
 - [x] BATS tests cover all four cases above
-- [ ] Shellcheck passes on all modified scripts
+- [x] Shellcheck passes on all modified scripts
 
 ## Blocked by
 
@@ -59,7 +59,7 @@ There is no `"audio"` config key. Audio is entirely derived from desktop selecti
 - [x] `"environment"` key omitted → `packages.groups.audio` empty
 - [x] Packages not duplicated when called multiple times
 - [x] BATS tests cover all cases
-- [ ] Shellcheck passes
+- [x] Shellcheck passes
 
 **Out of scope:**
 - PulseAudio or any audio framework other than PipeWire

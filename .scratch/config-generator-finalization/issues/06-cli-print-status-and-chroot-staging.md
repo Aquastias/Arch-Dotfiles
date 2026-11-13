@@ -37,13 +37,13 @@ to include the Shell Stdlib files added here.
 - [x] CLI sources `lib/shell-stdlib.sh` at startup
 - [x] All stderr writes in the CLI use `print_status` (error or
       warning as appropriate)
-- [ ] Stdout writes are unchanged — `--dry-run` plan stays raw
+- [x] Stdout writes are unchanged — `--dry-run` plan stays raw
       bytes; `--validate-only` happy path stays silent
 - [x] `lib/shell-stdlib.sh` and `lib/shell/` are staged into the
       chroot environment (verify by reading `lib/chroot.sh` or
       by adding the staging if absent)
 - [x] `tests/audit.sh` covers any staging additions and passes
-- [ ] `tests/run.sh` still passes — the existing CLI bats keep
+- [x] `tests/run.sh` still passes — the existing CLI bats keep
       working (stderr matchers may need updating for prefix
       changes)
 

@@ -8,7 +8,7 @@ Findings.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (base
 timers)
 
 ## Comments

@@ -26,7 +26,7 @@ it lands after the kind-enum ticket to avoid colliding edits.
 - [x] The Guided menu field key, host-program picker emit, typed-entry routing,
       and Save / Export all use `host_programs`.
 - [x] The combination-matrix registry row is renamed to `host_programs`.
-- [ ] Host Core, the desktop and laptop profiles, the committed VM host
+- [x] Host Core, the desktop and laptop profiles, the committed VM host
       profiles, and all bats fixtures are migrated; the config bats suite and
       `explain-packages` are green.
 

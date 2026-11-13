@@ -22,7 +22,7 @@ lazy-loaded and each filling a distinct gap:
 ## Acceptance criteria
 
 - [x] All five plugins are declared and lazy-load on appropriate triggers.
-- [ ] Surround edits, tag auto-close/rename, sticky-scroll header, jump motion
+- [x] Surround edits, tag auto-close/rename, sticky-scroll header, jump motion
       and inline colour swatches each work.
 - [x] Seam A asserts each plugin and its lazy trigger.
 

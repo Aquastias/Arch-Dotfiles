@@ -41,9 +41,9 @@ slice 02).
 - [x] `lib/chroot.sh::configure_system` no longer contains
       `${X:-default}` fallbacks for the options namespace; it calls
       `install_config_*` accessors instead
-- [ ] `tests/chroot-configure.bats` passes unmodified
+- [x] `tests/chroot-configure.bats` passes unmodified
       (behavior-preserving)
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

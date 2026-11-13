@@ -57,7 +57,7 @@ stays template-less.
 - [x] `profile.sh` and `profile-validate.sh` are unit-tested per behavior
       (resolution across all three sources; one test per validation rule).
       Prior art: `tests/picker.bats`, `tests/config/validation-*.bats`.
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` are green.
+- [x] `tests/run.sh` and `tests/shellcheck.sh` are green.
 
 ## Blocked by
 

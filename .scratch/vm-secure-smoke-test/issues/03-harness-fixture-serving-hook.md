@@ -76,7 +76,7 @@ extends the harness so future scripts can opt in.
       `/run` collision failure.
 - [x] `shellcheck` passes on `_harness.sh` and any new
       shell file.
-- [ ] Full bats suite passes.
+- [x] Full bats suite passes.
 - [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 

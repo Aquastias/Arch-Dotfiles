@@ -18,9 +18,9 @@ Reuse the shared non-ZFS partition/LUKS planner.
 
 ## Acceptance criteria
 
-- [ ] A btrfs root (plaintext) boots headless in a VM with the expected subvolume
+- [x] A btrfs root (plaintext) boots headless in a VM with the expected subvolume
       layout mounted.
-- [ ] An encrypted btrfs root boots (live/HITL verify acceptable).
+- [x] An encrypted btrfs root boots (live/HITL verify acceptable).
 - [x] Multi-disk btrfs groups create the native topology (raid1/raid10);
       single-disk uses `single`.
 - [x] `ROOT_CMDLINE` includes `rootflags=subvol=…`; `HOOKS` are correct (encrypt

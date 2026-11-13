@@ -44,7 +44,7 @@ Delete the 14 `tests/vm/testing-*.sh` wrappers. Rewrite the VM section of
 - [x] The 14 `testing-*.sh` scripts are deleted.
 - [x] `.os/README.md` VM section documents the new workflow with no stale
       script references.
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` are green.
+- [x] `tests/run.sh` and `tests/shellcheck.sh` are green.
 
 ## Blocked by
 

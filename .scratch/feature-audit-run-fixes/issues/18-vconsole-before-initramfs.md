@@ -8,8 +8,8 @@ vconsole journal Findings.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Install log has no sd-vconsole 'not found' warning
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+- [x] Install log has no sd-vconsole 'not found' warning
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
 
 ## Comments
 

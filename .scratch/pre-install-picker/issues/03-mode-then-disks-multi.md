@@ -70,7 +70,7 @@ Config in CONTEXT.md).
       table: every (mode, count) pair → expected ok / error.
 - [x] bats tests for the Config assembler include multi-disk
       fixtures for `mirror` and `raidz`.
-- [ ] All slice-1 and slice-2 tests continue to pass;
+- [x] All slice-1 and slice-2 tests continue to pass;
       `tests/run.sh` and `tests/shellcheck.sh` pass.
 
 ## Blocked by

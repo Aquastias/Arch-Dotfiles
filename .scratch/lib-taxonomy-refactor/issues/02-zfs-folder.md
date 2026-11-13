@@ -30,7 +30,7 @@ are preserved — files move only.
 - [x] Every `source`/path reference updated repo-wide
 - [x] All public function names unchanged
 - [x] Tests relocated to mirrored `tests/zfs/` paths
-- [ ] Full bats suite passes unchanged (no behavior change)
+- [x] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
 

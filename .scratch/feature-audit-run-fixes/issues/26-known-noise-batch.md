@@ -10,8 +10,8 @@ pass, then committed.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Maintainer approval recorded
-- [ ] check passes with the new entries
+- [x] Maintainer approval recorded
+- [x] check passes with the new entries
 
 ## Comments
 

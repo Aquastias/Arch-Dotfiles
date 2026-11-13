@@ -17,8 +17,8 @@ Layout Adapter should be a thin variant over the shared non-ZFS root path.
 
 ## Acceptance criteria
 
-- [ ] A pure xfs install (plaintext) boots headless in a VM.
-- [ ] An encrypted xfs root boots (live/HITL verify acceptable).
+- [x] A pure xfs install (plaintext) boots headless in a VM.
+- [x] An encrypted xfs root boots (live/HITL verify acceptable).
 - [x] The xfs adapter reuses the shared non-ZFS planner + emitters (no duplicated
       partition/LUKS logic).
 - [x] xfs is offered only as single-disk (no topology), enforced by the

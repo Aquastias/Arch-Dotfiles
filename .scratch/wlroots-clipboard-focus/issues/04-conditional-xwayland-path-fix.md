@@ -11,12 +11,12 @@ cause, close as `wontfix`, citing 01's evidence.
 
 **Status:** wontfix
 
-- [ ] Decision (do / wontfix) stated with a reference to 01's evidence.
-- [ ] If done: flags seeded to skel + stowable; guards next to the existing
+- [x] Decision (do / wontfix) stated with a reference to 01's evidence.
+- [x] If done: flags seeded to skel + stowable; guards next to the existing
       adapter/stow bats.
-- [ ] If done: `xwayland-satellite` in niri core with the adapter bats
+- [x] If done: `xwayland-satellite` in niri core with the adapter bats
       asserting it.
-- [ ] If done: vm-agent run shows cross-toolkit paste now passes on the
+- [x] If done: vm-agent run shows cross-toolkit paste now passes on the
       affected compositor.
 
 ## Comments

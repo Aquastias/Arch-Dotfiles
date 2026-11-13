@@ -31,7 +31,7 @@ move only.
 - [x] Every `source`/path reference updated repo-wide
 - [x] All public function names unchanged (e.g. `collect_packages`)
 - [x] Tests relocated to mirrored `tests/packages/` paths
-- [ ] Full bats suite passes unchanged (no behavior change)
+- [x] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
 

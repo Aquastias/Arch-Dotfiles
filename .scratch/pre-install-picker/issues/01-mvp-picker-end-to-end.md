@@ -71,7 +71,7 @@ operator runs `./install.sh` separately.
 
 ## Acceptance criteria
 
-- [ ] `tools/pick.sh` exists, is executable, and runs end-to-end
+- [x] `tools/pick.sh` exists, is executable, and runs end-to-end
       against a host that ships `install.template.jsonc`.
 - [x] `hosts/core/install.template.jsonc` and at least one
       `hosts/<hostname>/install.template.jsonc` exist and define
@@ -93,7 +93,7 @@ operator runs `./install.sh` separately.
       patterns analogous to `tests/jsonc.bats`,
       `tests/install-config.bats`, `tests/layout-common.bats`,
       `tests/impermanence-common.bats`.
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass.
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass.
 
 ## Blocked by
 

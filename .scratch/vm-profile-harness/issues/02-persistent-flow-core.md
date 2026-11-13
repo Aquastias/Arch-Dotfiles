@@ -40,7 +40,7 @@ this issue is verified by shellcheck, the dry-run, and bats.
 - [x] Env vars override profile hardware/timeouts; timeout precedence is
       env > profile > flow default.
 - [x] `--recreate` and `--help` behave as before.
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` are green (no real VM run
+- [x] `tests/run.sh` and `tests/shellcheck.sh` are green (no real VM run
       required to merge).
 
 ## Blocked by

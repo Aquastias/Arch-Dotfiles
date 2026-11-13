@@ -11,11 +11,11 @@ statusline renders live.
 **Status:** done
 
 - [x] `claude` is on PATH after a VM install
-- [ ] The Bash sandbox starts (bwrap/socat present) and `failIfUnavailable`
+- [x] The Bash sandbox starts (bwrap/socat present) and `failIfUnavailable`
       does not abort a healthy box
-- [ ] A `virsh`/`vm.sh` call succeeds *inside* the sandbox via the
+- [x] A `virsh`/`vm.sh` call succeeds *inside* the sandbox via the
       `allowUnixSockets` libvirt rule (no manual sandbox-disable needed)
-- [ ] The statusline renders (segments present) in a live session
+- [x] The statusline renders (segments present) in a live session
 - [x] Reuses `vm-agent.sh`; prior art `flow-persistent.bats`, `vm-agent.bats`,
       `vm-cli.bats`
 

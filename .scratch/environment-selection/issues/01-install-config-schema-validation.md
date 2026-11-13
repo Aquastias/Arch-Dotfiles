@@ -29,7 +29,7 @@ Update the install summary (printed before the final confirmation prompt) to sho
 - [x] `"gpu": "vulkan"` aborts before disk writes with an error naming the valid options
 - [x] Install summary includes resolved desktop, GPU, and audio (PipeWire / none) lines
 - [x] BATS tests cover all valid and invalid desktop/gpu values
-- [ ] Shellcheck passes on all modified scripts
+- [x] Shellcheck passes on all modified scripts
 
 ## Blocked by
 
@@ -65,7 +65,7 @@ This is an additive change: `post_install.desktop` is not removed here (issue #0
 - [x] `"gpu": "vulkan"` aborts before any disk writes, error names valid options
 - [x] Install summary includes desktop, GPU, and audio lines
 - [x] BATS tests pass for all valid/invalid combinations
-- [ ] Shellcheck passes on all modified scripts
+- [x] Shellcheck passes on all modified scripts
 
 **Out of scope:**
 - GPU package resolution (issue #02)

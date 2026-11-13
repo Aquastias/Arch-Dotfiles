@@ -29,7 +29,7 @@ the VM matrix axis entry.
       extra package set, esp-style, and ZFS support.
 - [x] The emit helper is a pure, unit-tested function covering multi-kernel and
       the load-options.
-- [ ] The VM matrix boots an efistub install end-to-end with a multi-kernel
+- [x] The VM matrix boots an efistub install end-to-end with a multi-kernel
       selection.
 
 ## Comments

@@ -10,10 +10,10 @@ is Accepted and the PRD is done.
 
 **Status:** done
 
-- [ ] Every matrix cell passes on both compositors; evidence in
+- [x] Every matrix cell passes on both compositors; evidence in
       `## Comments`. (All but Hyprland after-close, waiting for 0.57.)
-- [ ] Prober shows `CLIPBOARD-OK` on both sessions in the same run.
-- [ ] ADR 0147 status → Accepted (done); PRD status → done (after 0.57).
+- [x] Prober shows `CLIPBOARD-OK` on both sessions in the same run.
+- [x] ADR 0147 status → Accepted (done); PRD status → done (after 0.57).
 
 ## Comments
 

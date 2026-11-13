@@ -30,9 +30,9 @@ directory.
       exists with the same contents as the previous fixture
 - [x] All bats that referenced the old fixture path use the new
       one (via `PROGRAMS_ROOT` override where applicable)
-- [ ] `tests/run.sh` still passes
-- [ ] `tests/audit.sh` still passes
-- [ ] A clean fresh install does not produce
+- [x] `tests/run.sh` still passes
+- [x] `tests/audit.sh` still passes
+- [x] A clean fresh install does not produce
       `~/.config/hello/greeting`
 
 ## Blocked by

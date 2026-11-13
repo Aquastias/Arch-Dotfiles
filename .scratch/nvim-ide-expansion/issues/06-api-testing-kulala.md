@@ -19,7 +19,7 @@ lazy-loads on the `http` filetype. Register the `http` parser with treesitter
 
 - [x] kulala.nvim is declared and lazy-loads on the `http` filetype (zero
       startup cost otherwise).
-- [ ] Running a request from a `.http` buffer sends it and shows the response.
+- [x] Running a request from a `.http` buffer sends it and shows the response.
 - [x] `<leader>R` keymaps drive send/inspect and register a which-key group.
 - [x] Seam A asserts the plugin, its filetype lazy trigger and the maps.
 

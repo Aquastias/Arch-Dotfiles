@@ -19,7 +19,7 @@ Port the `virtualization/` programs from `.pkglist/programs/virtualization/` int
 - [x] `.os/programs/virtualization/virt-manager/install.sh` installs virt-manager + KVM/QEMU stack and enables required services
 - [x] All install.sh scripts source `.os/lib/shell-stdlib.sh` and use the standard env vars
 - [x] `.pkglist/programs/virtualization/` is unchanged
-- [ ] Each program installs successfully on a VM run when referenced from a config
+- [x] Each program installs successfully on a VM run when referenced from a config
 
 ## Blocked by
 

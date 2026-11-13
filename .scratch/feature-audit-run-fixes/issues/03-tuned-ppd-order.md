@@ -8,8 +8,8 @@ prompt aborts the install (ADR 0080). Arch Wiki-grounded. Fixes F002 (tuned).
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Arch Wiki page cited
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (tuned)
+- [x] Arch Wiki page cited
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (tuned)
 
 ## Comments
 

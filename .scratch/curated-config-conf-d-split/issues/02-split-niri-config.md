@@ -29,7 +29,7 @@ follow the tree; a fresh niri box seeds and boots the split config identically
 - [x] `niri-adapter.bats` fixtures/asserts and the niri content greps in
       `noctalia-stow.bats` re-point at the part-file that now holds each
       construct (autostart, cursor, binds); Hyprland asserts unchanged.
-- [ ] `niri validate` passes on the manifest + includes as one config; a fresh
+- [x] `niri validate` passes on the manifest + includes as one config; a fresh
       niri box boots the curated look with no behavior change.
 
 ## Comments

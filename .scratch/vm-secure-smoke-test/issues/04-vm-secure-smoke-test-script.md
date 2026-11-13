@@ -79,7 +79,7 @@ manually).
       quick-start section, including the passphrase prompt.
 - [x] Running `bash .os/vm/vm-secure.sh --help` prints
       usage without error.
-- [ ] Running `bash .os/vm/vm-secure.sh` on a host with
+- [x] Running `bash .os/vm/vm-secure.sh` on a host with
       libvirtd up creates the VM, boots the live ISO, types
       the installer command via `virsh send-key`, the
       operator types `test` at the Age-key passphrase

@@ -18,10 +18,10 @@ root twins are byte-identical and must be hand-synced meanwhile.
 
 ## Acceptance criteria
 
-- [ ] `~` zsh files link into `.installer/programs/system/zsh/home/`
+- [x] `~` zsh files link into `.installer/programs/system/zsh/home/`
 - [x] No zsh dotfiles at repo root
-- [ ] `stow -n` for zsh reports no conflicts
-- [ ] New shell starts clean; `dstow` alias resolves
+- [x] `stow -n` for zsh reports no conflicts
+- [x] New shell starts clean; `dstow` alias resolves
 
 ## Comments
 

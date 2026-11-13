@@ -26,7 +26,7 @@ window.
 - [x] The current value is shown as a hint while editing; empty input
       no-ops (keeps the prior / seeded value).
 - [x] Controller bats cover query-capture → setter → state (no fzf).
-- [ ] The `--guided` replay path is unchanged; full suite green; shellcheck
+- [x] The `--guided` replay path is unchanged; full suite green; shellcheck
       clean.
 
 ## Blocked by

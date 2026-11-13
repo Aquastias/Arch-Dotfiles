@@ -39,7 +39,7 @@ out of scope. Add an ADR for the Disk Wipe module extraction.
 - [x] Pure tests: no-signature disk → already-blank; ZFS/LVM/MD label or
       partition table → needs-wipe; resolved target set excludes the
       live medium
-- [ ] VM smoke tests still cover the real wipe path
+- [x] VM smoke tests still cover the real wipe path
 - [x] ADR added for the Disk Wipe module extraction
 
 ## Blocked by

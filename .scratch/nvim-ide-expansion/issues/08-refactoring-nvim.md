@@ -16,7 +16,7 @@ inline variable. Lazy-loaded under a `<leader>r` (refactor) group.
 ## Acceptance criteria
 
 - [x] refactoring.nvim is declared and lazy-loads (zero startup cost).
-- [ ] Extract-function, extract-variable and inline-variable work from a
+- [x] Extract-function, extract-variable and inline-variable work from a
       selection in a supported language.
 - [x] `<leader>r` keymaps drive the refactors and register a which-key group.
 - [x] Seam A asserts the plugin, its lazy trigger and the maps.

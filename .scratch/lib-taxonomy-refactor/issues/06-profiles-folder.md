@@ -26,7 +26,7 @@ run-program.sh -> profiles/program-runner.sh
 - [x] Every `source`/path reference updated repo-wide
 - [x] All public function names unchanged
 - [x] Tests relocated to mirrored `tests/profiles/` paths
-- [ ] Full bats suite passes unchanged (no behavior change)
+- [x] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
 

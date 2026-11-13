@@ -36,7 +36,7 @@ validation (ADR 0014) are preserved — only the paths change.
       `layout_plan`, `layout_partition`, `layout_create_pools`,
       `layout_mount_esp`, `_layout_enter_phase`, `_layout_exit_phase`)
 - [x] Tests relocated to mirrored `tests/layout/` paths
-- [ ] Full bats suite passes unchanged (no behavior change)
+- [x] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
 

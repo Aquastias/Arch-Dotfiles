@@ -19,4 +19,4 @@ links against. Unrelated to the ADR 0167 refactor (that step is unchanged).
       Arch snapshot), fix grounded on the Arch Wiki (partial upgrades)
 - [x] The bootstrap installs a zfs-utils whose libraries resolve, or pulls
       the matching openssl
-- [ ] A VM install of `desktop/combined-sops-impermanence` creates pools
+- [x] A VM install of `desktop/combined-sops-impermanence` creates pools

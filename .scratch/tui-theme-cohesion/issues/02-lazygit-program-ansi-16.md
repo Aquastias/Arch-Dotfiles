@@ -35,7 +35,7 @@ The program **owns the `lazygit` package**, which must therefore **leave core
       `configs.bats`).
 - [x] `lazygit-program.bats` also asserts the program shape and the
       `packages.shell` removal.
-- [ ] VM check: lazygit opens themed on a fresh box; follows a Noctalia palette
+- [x] VM check: lazygit opens themed on a fresh box; follows a Noctalia palette
       change (on next launch) on a compositor; stays Sapphire under KDE.
 
 ## Blocked by

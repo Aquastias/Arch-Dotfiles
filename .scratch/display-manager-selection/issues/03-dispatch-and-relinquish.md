@@ -24,7 +24,7 @@ a KDE-only machine.
 - [x] The Hyprland adapter no longer installs greetd/tuigreet nor writes the
       greeter config; it still writes the curated session files and enables
       seatd.
-- [ ] The VM environment matrix stays green: a KDE + Hyprland co-install greets
+- [x] The VM environment matrix stays green: a KDE + Hyprland co-install greets
       with greetd, a KDE-only install greets with SDDM (unchanged defaults via
       `auto`), and both desktops remain selectable at the greeter.
 - [x] The environment-runner bats assert the DM adapter is dispatched after the

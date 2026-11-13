@@ -17,7 +17,7 @@ Launcher and lock keys spawn Noctalia (`noctalia msg …`).
 
 - [x] The curated niri config carries the full shared + niri-only bind set from
       the ADR 0096 design table, in KDL dialect.
-- [ ] `niri validate` passes against the config. *(not run — `niri` not
+- [x] `niri validate` passes against the config. *(not run — `niri` not
       installed in the build env; authored against upstream default-config.
       Verify on a niri box.)*
 - [x] The niri-only feature keys land collision-free (overview `Super+O`, width

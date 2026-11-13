@@ -30,7 +30,7 @@ around them.
 - [x] Documented confirmation that git diff / less / ripgrep / fd render default
       ANSI with no change.
 - [x] neovim config is unchanged (rose-pine intact).
-- [ ] VM check: htop and a `git diff` track a Noctalia palette change on a
+- [x] VM check: htop and a `git diff` track a Noctalia palette change on a
       compositor and stay Sapphire under KDE.
 
 ## Blocked by

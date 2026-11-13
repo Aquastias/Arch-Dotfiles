@@ -7,8 +7,8 @@ does; fix or explain. Fixes F984.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Root cause noted in Comments
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (greetd,
+- [x] Root cause noted in Comments
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (greetd,
 services-off, ufw)
 
 ## Comments

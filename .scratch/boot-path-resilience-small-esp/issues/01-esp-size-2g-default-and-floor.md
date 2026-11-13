@@ -25,7 +25,7 @@ validation.
       error naming the field and the floor.
 - [x] The 2G default is defined once; no host or test/VM profile pins
       `esp_size` unless it genuinely overrides.
-- [ ] A new single-disk and a new multi-disk install partition a 2G ESP.
+- [x] A new single-disk and a new multi-disk install partition a 2G ESP.
 - [x] Bats cover resolve (unset → 2G; explicit value passes through) and
       floor (≥1G ok, <1G error).
 

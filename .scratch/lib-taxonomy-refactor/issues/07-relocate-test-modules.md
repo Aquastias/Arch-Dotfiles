@@ -30,7 +30,7 @@ duplicated harness logic into one shared harness.
 - [x] No install-time code sources them from `lib/`
 - [x] Test harness deduped to a single shared harness
 - [x] All test sourcing updated to the new paths
-- [ ] Full bats + VM test suite passes unchanged
+- [x] Full bats + VM test suite passes unchanged
 
 ## Blocked by
 

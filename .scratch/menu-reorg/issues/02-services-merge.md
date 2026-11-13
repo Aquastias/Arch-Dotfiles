@@ -35,7 +35,7 @@ Security, Backup, Advanced.
       row (with a non-empty summary) and no `Printing service` / `Bluetooth` /
       `Power` rows.
 - [x] `menu_category_rows Services` returns exactly the three service rows.
-- [ ] The Services category's aggregated `●` is set when any of the three
+- [x] The Services category's aggregated `●` is set when any of the three
       toggles is overridden, and clear on a fresh state.
 - [x] Drilling Services: power drills into its none/ppd/tuned enum; printing and
       bluetooth flip in place without leaving the screen.

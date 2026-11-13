@@ -28,7 +28,7 @@ End-to-end demo: a VM install completes with users created and firewalld install
 - [x] `.os/programs/security/firewalld/config.jsonc` exists with `system: true`
 - [x] `.os/programs/security/firewalld/install.sh` exists and installs + enables firewalld
 - [x] `.pkglist/programs/security/firewalld/` is unchanged
-- [ ] VM install verified: firewalld installed, service enabled, system boots
+- [x] VM install verified: firewalld installed, service enabled, system boots
 
 ## Blocked by
 

@@ -19,7 +19,7 @@ Port the remaining `security/` programs from `.pkglist/programs/security/` into 
 - [x] `.os/programs/security/ufw/` exists with `config.jsonc` and `install.sh`
 - [x] All install.sh scripts source `.os/lib/shell-stdlib.sh` and use the standard env vars
 - [x] `.pkglist/programs/security/` is unchanged (including firewalld)
-- [ ] Each program installs successfully on a VM run when referenced from a config
+- [x] Each program installs successfully on a VM run when referenced from a config
 
 ## Blocked by
 

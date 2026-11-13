@@ -10,11 +10,11 @@ services-off (F591-F595), xdg dirs on stock (F379-F384), smartd on kde-pure
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] New probe-lib bats: fixture profiles (stock, no shell, services off) →
+- [x] New probe-lib bats: fixture profiles (stock, no shell, services off) →
 SKIP; base → runs
-- [ ] report.bats: skips listed, not Findings
-- [ ] ADR 0152 amended
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone
+- [x] report.bats: skips listed, not Findings
+- [x] ADR 0152 amended
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone
 (services-off, hyprland-pure, kde-pure)
 
 ## Comments

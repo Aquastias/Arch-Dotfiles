@@ -8,8 +8,8 @@ into the loader entry; fallback entries are valid and boot. Fixes the logind
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] loader-entries.bats: noisy staging still yields a clean entry
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+- [x] loader-entries.bats: noisy staging still yields a clean entry
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
 
 ## Comments
 

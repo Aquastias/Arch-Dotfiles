@@ -28,7 +28,7 @@ progress.sh     -> wipe/progress.sh
 - [x] Every `source`/path reference updated, including `02-wipe.sh`
 - [x] All public function names unchanged
 - [x] Tests relocated to mirrored `tests/wipe/` paths
-- [ ] Full bats suite passes unchanged (no behavior change)
+- [x] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
 

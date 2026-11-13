@@ -38,7 +38,7 @@ clearly to the operator.
 
 ## Acceptance criteria
 
-- [ ] `.os/tools/fetch-iso.sh` runs end-to-end and leaves a verified
+- [x] `.os/tools/fetch-iso.sh` runs end-to-end and leaves a verified
       compatible ISO in `~/Downloads` (default) or the given dir.
 - [x] Missing `jq`/`curl` are installed via `sudo pacman -Sy`; the
       download itself runs without root.
@@ -49,7 +49,7 @@ clearly to the operator.
       (dd one-liner + Ventoy/Impression/Rufus mention).
 - [x] No flashing is performed; resolver failures surface with clear
       errors.
-- [ ] VM harness behavior is unchanged.
+- [x] VM harness behavior is unchanged.
 - [x] The tool is sourceable (`main` guarded by `BASH_SOURCE == $0`)
       and `tests/fetch-iso.bats` covers output-dir resolution
       (default + arg), checksum-mismatch cleanup, and happy-path

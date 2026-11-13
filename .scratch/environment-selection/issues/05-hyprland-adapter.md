@@ -38,7 +38,7 @@ Reference for companion package selection: stepskop/.dotfiles on GitHub.
 - [x] `xdg-desktop-portal-hyprland` and `polkit-kde-agent` are always installed regardless of toggles
 - [x] `install-hyprland.jsonc` has all companions defaulting to `true` with inline comments naming the package each toggle controls
 - [x] BATS tests cover: Hyprland-only (greetd installed), KDE+Hyprland (greetd skipped), companion toggle respected (disabled companion absent from pacman call), always-installed packages present regardless of toggles
-- [ ] Shellcheck passes on all new scripts
+- [x] Shellcheck passes on all new scripts
 
 ## Blocked by
 
@@ -102,7 +102,7 @@ Reference implementation for companion selection: stepskop/.dotfiles on GitHub.
 - [x] `xdg-desktop-portal-hyprland` and `polkit-kde-agent` always installed
 - [x] `install-hyprland.jsonc` has all 8 companion toggles defaulting to `true` with package name in comment
 - [x] BATS tests pass for all cases above
-- [ ] Shellcheck passes on all new scripts
+- [x] Shellcheck passes on all new scripts
 
 **Out of scope:**
 - Hyprland dotfiles / config file deployment (no `.config/hypr/` written by the adapter)

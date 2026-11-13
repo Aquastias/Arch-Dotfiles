@@ -10,7 +10,7 @@ Agreed order: #1 → #2 → #3 → #4; #5–#8 untriaged.
 
 **Blocked by:** None
 
-**Status:** needs-triage
+**Status:** done
 
 ## Candidates
 

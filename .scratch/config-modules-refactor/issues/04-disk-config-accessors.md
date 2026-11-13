@@ -48,8 +48,8 @@ lines (`kde="$(cfgo '.desktop.kde')"`, the fallback, and the
 - [x] `grep -rnB1 '^\s*[a-z_]\+="\${[a-z_]\+:-' .os/lib/ | grep -B0 -A1 cfgo`
       returns no hits after migration
 - [x] `.desktop.kde` reference removed from `lib/config.sh`
-- [ ] Existing bats suite passes
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] Existing bats suite passes
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

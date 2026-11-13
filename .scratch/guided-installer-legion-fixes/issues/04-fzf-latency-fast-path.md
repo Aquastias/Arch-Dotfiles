@@ -38,7 +38,7 @@ this slice only changes speed.
       change (output-equivalence bats; full 1909-test suite green).
 - [x] The architecture is unchanged (still one persistent fzf + stateless
       subprocesses); no new long-lived process.
-- [ ] Felt latency improvement confirmed at the HITL/VM gate on the Legion.
+- [x] Felt latency improvement confirmed at the HITL/VM gate on the Legion.
       (HITL-pending — re-measure on device; escalate to a warm-server only if
       still laggy, per the agreed scope.)
 

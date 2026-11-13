@@ -41,7 +41,7 @@ Scope:
 - [x] `apply-defaults` rewrites `/usr/lib/impermanence/defaults.manifest` after the diff is applied
 - [x] `apply-defaults` is idempotent (second run is a no-op)
 - [x] `apply-defaults` does NOT touch the Persist Extensions under `/persist/etc/systemd/system/`
-- [ ] `tests/impermanence-tool.bats` covers both verbs' happy paths, idempotency, and the missing-`@blank` failure path
+- [x] `tests/impermanence-tool.bats` covers both verbs' happy paths, idempotency, and the missing-`@blank` failure path
 
 ## Blocked by
 

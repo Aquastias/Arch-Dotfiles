@@ -20,9 +20,9 @@ fields, or defaults.
 - [x] Each screen shows context-appropriate header / prompt text.
 - [x] The post-menu disk pick shows the lsblk / SMART preview with sensible
       window sizing.
-- [ ] Any edge-case seams from slices 01–03 are smoothed; the live draw is
+- [x] Any edge-case seams from slices 01–03 are smoothed; the live draw is
       exercised by the guided VM smoke.
-- [ ] Full suite green; shellcheck clean.
+- [x] Full suite green; shellcheck clean.
 
 ## Blocked by
 

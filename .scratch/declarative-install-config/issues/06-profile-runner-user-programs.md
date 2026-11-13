@@ -19,7 +19,7 @@ End-to-end demo: VM install lands with users created, firewalld installed at sys
 
 ## Acceptance criteria
 
-- [ ] profiles.sh bootstraps paru per user via `arch-chroot /mnt su - <username>` before any user programs are installed
+- [x] profiles.sh bootstraps paru per user via `arch-chroot /mnt su - <username>` before any user programs are installed
 - [x] User programs are installed via `arch-chroot /mnt su - <username>` running paru
 - [x] Validation aborts the install if a user config references a program with `system: true`
 - [x] Validation aborts the install if a user config references a non-existent program
@@ -28,7 +28,7 @@ End-to-end demo: VM install lands with users created, firewalld installed at sys
 - [x] `.os/programs/communication/teamspeak3/addons/` contains the bundled icons and theme files
 - [x] `.pkglist/programs/communication/teamspeak3/` is unchanged
 - [x] No first-boot scripts are dropped into user homes
-- [ ] VM install verified: first login as the user reveals teamspeak3 installed with icons + theme already in place
+- [x] VM install verified: first login as the user reveals teamspeak3 installed with icons + theme already in place
 
 ## Blocked by
 

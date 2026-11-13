@@ -32,7 +32,7 @@ emitted rather than failing the install.
       a warning is logged; the install still succeeds.
 - [x] The Owners Resolver's chown-path decision is unit-tested (omitted
       owners → Primary User; userless host → no-op + reason).
-- [ ] The multi-data-pools VM smoke test asserts a pool is owned and
+- [x] The multi-data-pools VM smoke test asserts a pool is owned and
       writable by its owner on the booted system.
 
 ## Blocked by

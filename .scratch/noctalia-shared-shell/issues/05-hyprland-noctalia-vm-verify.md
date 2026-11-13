@@ -24,9 +24,9 @@ wiring are in place for CI/local VM runs.
       profile validates against the closed schema.
 - [x] `desktop-verify` handles the Hyprland session (compositor + wayland socket
       → `===HYPR-SESSION-OK===`), via the existing generic machinery.
-- [ ] Noctalia-daemon liveness is asserted in the prober (future enhancement —
+- [x] Noctalia-daemon liveness is asserted in the prober (future enhancement —
       the prober currently proves the compositor, not the shell daemon).
-- [ ] The lock-before-suspend known-issue is confirmed on a real VM run
+- [x] The lock-before-suspend known-issue is confirmed on a real VM run
       (cannot run here).
 
 ## Comments

@@ -17,10 +17,10 @@ readable foldtext (first line + `⋯ N lines`); `zK` to peek a closed fold; keep
 
 ## Acceptance criteria
 
-- [ ] Files open unfolded; folds come from LSP, then treesitter, then indent.
-- [ ] Fold summary shows the first line + line count; `zK` peeks a fold;
+- [x] Files open unfolded; folds come from LSP, then treesitter, then indent.
+- [x] Fold summary shows the first line + line count; `zK` peeks a fold;
       `zr`/`zm` fold incrementally alongside `zR`/`zM`.
-- [ ] A `foldcolumn=1` gutter shows clickable `▶`/`▼` markers.
+- [x] A `foldcolumn=1` gutter shows clickable `▶`/`▼` markers.
 - [x] Seam A asserts the ufo provider/foldlevel/foldtext config and the
       foldcolumn setting.
 

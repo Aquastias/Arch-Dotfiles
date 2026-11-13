@@ -31,7 +31,7 @@ Cover the fields `LS_COLORS` misses (permissions, size, date, user/group, git).
       stow tree, byte-identical (rides the existing `system/zsh` delivery).
 - [x] The existing zsh program test asserts the `EZA_COLORS` ANSI-16 export is
       present.
-- [ ] VM check: a Noctalia palette change on a compositor repaints `eza` output
+- [x] VM check: a Noctalia palette change on a compositor repaints `eza` output
       on the next run; under KDE `eza` stays on Catppuccin Mocha Sapphire.
 
 ## Blocked by

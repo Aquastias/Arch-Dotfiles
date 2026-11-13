@@ -19,7 +19,7 @@ but does not replace across files). Lazy-loads on command; keymaps under the
 
 - [x] grug-far.nvim is declared and lazy-loads on command (zero startup cost).
 - [x] A `<leader>s` keymap opens the find/replace panel with live matches.
-- [ ] Applying a replace edits matches across multiple files.
+- [x] Applying a replace edits matches across multiple files.
 - [x] Seam A asserts the plugin, its lazy trigger and the map.
 
 ## Blocked by

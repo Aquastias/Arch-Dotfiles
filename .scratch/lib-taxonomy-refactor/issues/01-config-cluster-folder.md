@@ -46,7 +46,7 @@ numbers continue from 0032.
       `load_config`, `detect_mode`, `print_summary`,
       `generate_template`, layer/validation/categorized-list functions)
 - [x] These modules' tests relocated to mirrored `tests/config/` paths
-- [ ] Full bats suite passes unchanged (no behavior change)
+- [x] Full bats suite passes unchanged (no behavior change)
 - [x] New ADR added: `lib/` folder taxonomy + ≥2-file rule + root
       singletons; historical ADRs untouched
 

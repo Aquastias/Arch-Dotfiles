@@ -94,9 +94,9 @@ automation verifies itself — no HITL.
       non-prompt serial noise (unit-tested against captured serial text).
 - [x] An encrypted single-disk cell boots unattended: the Answerer supplies the
       passphrase over serial and the run observes `===FIRSTBOOT-OK===`.
-- [ ] An encrypted GRUB-bootloader cell routes its prompt to serial and unlocks.
-- [ ] An encrypted-impermanent cell passes `verify.rollback` unattended.
-- [ ] A wrong/absent passphrase surfaces `ENCRYPTED-BOOT-FAIL` within the
+- [x] An encrypted GRUB-bootloader cell routes its prompt to serial and unlocks.
+- [x] An encrypted-impermanent cell passes `verify.rollback` unattended.
+- [x] A wrong/absent passphrase surfaces `ENCRYPTED-BOOT-FAIL` within the
       bounded timeout, never a 600 s hang.
 - [x] The oracle table treats encrypted the same as its plain/impermanent peer
       (no install-only carve-out).

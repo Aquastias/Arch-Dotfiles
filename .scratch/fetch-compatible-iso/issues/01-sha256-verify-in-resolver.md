@@ -45,7 +45,7 @@ existing caller invokes verification.
       `_iso_resolver_fetch_arch_releases`:
       match → 0; mismatch → error names file; no line for filename →
       error; sums fetch failure → error.
-- [ ] Existing resolver tests and VM-harness behavior are unaffected.
+- [x] Existing resolver tests and VM-harness behavior are unaffected.
 
 ## Blocked by
 

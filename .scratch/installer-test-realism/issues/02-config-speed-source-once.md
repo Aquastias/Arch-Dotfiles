@@ -44,13 +44,13 @@ deferred follow-up.
 
 ## Acceptance criteria
 
-- [ ] Lib `source` moved to `setup_file` + `export -f` in the three target
+- [x] Lib `source` moved to `setup_file` + `export -f` in the three target
       files; per-test mutable state stays in `setup()`
-- [ ] Test behavior unchanged (same names/count, or a documented dedupe)
-- [ ] Before/after suite wall-time recorded; soft target ~110-120 s on
+- [x] Test behavior unchanged (same names/count, or a documented dedupe)
+- [x] Before/after suite wall-time recorded; soft target ~110-120 s on
       24 cores (record the number even if not hit)
-- [ ] No production `lib/*.sh` change
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] No production `lib/*.sh` change
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

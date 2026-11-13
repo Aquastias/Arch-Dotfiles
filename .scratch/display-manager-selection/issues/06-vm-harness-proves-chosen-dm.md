@@ -20,7 +20,7 @@ SDDM-launched Hyprland session coverage is retained.
       greeter the install enables.
 - [x] SDDM-launched Hyprland stays covered (the compositor comes up —
       `===HYPR-SESSION-OK===`), and Plasma coverage is unchanged.
-- [ ] The matrix run is green end to end.
+- [x] The matrix run is green end to end.
 
 ## Comments
 

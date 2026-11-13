@@ -41,7 +41,7 @@ package-install guard from `create-user.sh`.
 - [x] `tests/chroot/chroot-password.bats`: root's `/etc/passwd` shell ends up at
       the resolved `options.root_shell`; a non-default shell triggers the package
       install (guard prior art in `tests/chroot/chroot-create-user.bats`).
-- [ ] VM (`arch-zfs-test-guided-secure` or an equivalent guided run):
+- [x] VM (`arch-zfs-test-guided-secure` or an equivalent guided run):
       `options.root_shell` is observable as root's shell in the booted system.
 
 ## Blocked by

@@ -77,7 +77,7 @@ Single commit. `CONTEXT.md` is unaffected.
       `tests/install-state.bats` is preserved in the new
       structure.
 - [x] `shellcheck` passes on every changed file.
-- [ ] Full `bats` suite passes.
+- [x] Full `bats` suite passes.
 - [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 

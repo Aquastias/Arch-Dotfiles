@@ -99,8 +99,8 @@ change.
       `tests/gpu-resolution.bats`,
       `tests/audio-resolution.bats` is preserved (per-phase
       via the rename; integration via the new test).
-- [ ] `shellcheck` passes on every changed file.
-- [ ] Full `bats` suite passes.
+- [x] `shellcheck` passes on every changed file.
+- [x] Full `bats` suite passes.
 - [x] Resolved environment state (desktop, GPU packages,
       audio packages) is byte-identical to today's output for
       the same input.

@@ -37,7 +37,7 @@ paths, defaults, shapes, emit, or resolver behaviour change.
 - [x] The top screen (`guided_ctl_list` at `top`) lists a `System — ` line, and
       drilling `System` opens its fields; no `General` string remains in the
       menu model or its tests.
-- [ ] `guided-menu.bats` + `guided-controller.bats` updated (canonical-order
+- [x] `guided-menu.bats` + `guided-controller.bats` updated (canonical-order
       test, section assertions, and the `General` nav fixtures repointed to
       `System`); the full guided bats suite passes.
 

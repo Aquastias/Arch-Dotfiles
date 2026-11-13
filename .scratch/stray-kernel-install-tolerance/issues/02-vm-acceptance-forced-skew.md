@@ -24,11 +24,11 @@ is what runs.
 
 ## Acceptance criteria
 
-- [ ] A forced-skew `arch-combined` recreation completes the install (clean exit
+- [x] A forced-skew `arch-combined` recreation completes the install (clean exit
       sentinel; no `No ZFS kernel module` abort).
-- [ ] `install.log` shows the lts pin firing (held back to the override version)
+- [x] `install.log` shows the lts pin firing (held back to the override version)
       and the stray `linux` tolerated (guard warn, preset skipped).
-- [ ] The selected `linux-lts` has a `zfs.ko`; the stray `linux` has none and no
+- [x] The selected `linux-lts` has a `zfs.ko`; the stray `linux` has none and no
       initramfs.
 
 ## Blocked by

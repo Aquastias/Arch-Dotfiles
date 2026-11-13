@@ -26,7 +26,7 @@ with GRUB_DEFAULT pinned to the Primary — no change needed there.)
 - [x] `esp-kernel-sync` tests are extended to prove entries referencing several
       kernels mirror all of them, and a Stray Kernel still gets no entry and is
       never mirrored.
-- [ ] A multi-kernel selection boots each selected kernel end-to-end in a VM.
+- [x] A multi-kernel selection boots each selected kernel end-to-end in a VM.
 
 ## Comments
 

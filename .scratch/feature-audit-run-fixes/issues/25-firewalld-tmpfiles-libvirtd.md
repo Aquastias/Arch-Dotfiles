@@ -7,8 +7,8 @@ with a reason (goes to 26).
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Root cause per item noted in Comments
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+- [x] Root cause per item noted in Comments
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
 
 ## Comments
 

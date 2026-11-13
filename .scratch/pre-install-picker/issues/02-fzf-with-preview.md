@@ -70,7 +70,7 @@ deterministic given the same inputs, so it is snapshot-testable.
 - [x] bats tests cover the Disk preview formatter — snapshot-style
       assertions against a fixture by-id path and stubbed `lsblk` /
       `smartctl` outputs.
-- [ ] All slice-1 tests continue to pass; `tests/run.sh` and
+- [x] All slice-1 tests continue to pass; `tests/run.sh` and
       `tests/shellcheck.sh` pass.
 
 ## Blocked by

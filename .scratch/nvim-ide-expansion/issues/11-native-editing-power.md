@@ -24,11 +24,11 @@ plugins:
 
 ## Acceptance criteria
 
-- [ ] `cn`/`cN` + `.` change repeated words; the visual variant changes a
+- [x] `cn`/`cN` + `.` change repeated words; the visual variant changes a
       selection's occurrences; visual-block editing works.
-- [ ] `af`/`ac` operate on function/class definitions via mini.ai + treesitter.
-- [ ] Incremental selection grows/shrinks by syntax node.
-- [ ] `gc` comments correctly in JSX/Vue/Svelte embedded regions.
+- [x] `af`/`ac` operate on function/class definitions via mini.ai + treesitter.
+- [x] Incremental selection grows/shrinks by syntax node.
+- [x] `gc` comments correctly in JSX/Vue/Svelte embedded regions.
 - [x] No multi-cursor plugin is added.
 - [x] Seam A asserts the multi-cursor maps, the mini.ai treesitter wiring, the
       incremental-selection maps and the context-comment setup.

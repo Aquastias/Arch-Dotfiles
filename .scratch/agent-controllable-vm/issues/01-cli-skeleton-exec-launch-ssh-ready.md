@@ -30,7 +30,7 @@ piped harness password.
 - [x] `.installer/tests/vm/vm-agent.bats` (new, mirroring `vm-cli.bats`) asserts
       verb dispatch/usage and the pure session-env-discovery helper — no live VM
       provisioned.
-- [ ] Hand-verified on the persistent `arch-combined` VM.
+- [x] Hand-verified on the persistent `arch-combined` VM.
 
 ## Comments
 

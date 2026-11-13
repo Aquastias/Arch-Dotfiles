@@ -24,11 +24,11 @@ to `12345`). Then the laptop single-disk variant.
 - [x] The installed machine is encrypted, impermanent, and ssh-enabled ZFS with
       the `rpool` mirror + `data` raidz1 layout
 - [x] Root, the user, and the disk passphrase are `12345` (the applied defaults)
-- [ ] `/home`, `/var/lib/docker`, `/var/lib/libvirt` survive an impermanence
+- [x] `/home`, `/var/lib/docker`, `/var/lib/libvirt` survive an impermanence
       rollback (reboot)
 - [x] The `laptop` profile installs as encrypted single-disk ZFS the same way
 - [x] The `INSTALL` consent gate is exercised (install refuses without it)
-- [ ] Realized as VM coverage alongside the existing `tests/vm/` guided suites
+- [x] Realized as VM coverage alongside the existing `tests/vm/` guided suites
 
 ## Blocked by
 

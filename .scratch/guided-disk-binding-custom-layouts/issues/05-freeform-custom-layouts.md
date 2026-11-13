@@ -43,7 +43,7 @@ list/action affordances exist.
       than backing out; `single` still backs out.
 - [x] Adding/removing a standalone data pool updates the layout and the editor
       list (pure + fzf-entry seams).
-- [ ] Full existing bats suite stays green.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 

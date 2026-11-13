@@ -19,7 +19,7 @@ new packages: `grim` already ships via the niri set, `spectacle` via KDE.
       default).
 - [x] `vm-agent.bats` asserts the compositor→tool selection helper
       (`kwin_wayland`→spectacle; niri/Hyprland→grim).
-- [ ] Hand-verified on `arch-combined` across a wlroots session and Plasma.
+- [x] Hand-verified on `arch-combined` across a wlroots session and Plasma.
 
 ## Comments
 

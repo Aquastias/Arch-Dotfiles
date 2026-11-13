@@ -32,7 +32,7 @@ tickets extend. Anchored by ADR 0127.
 - [x] The installer does not stow the config (seed-only).
 - [x] New `pi-agent.bats` (modeled on `noctalia-stow.bats`) asserts the above
       static facts.
-- [ ] On the `arch-combined` VM, `pi` is on PATH and launches.
+- [x] On the `arch-combined` VM, `pi` is on PATH and launches.
 
 ## Comments
 

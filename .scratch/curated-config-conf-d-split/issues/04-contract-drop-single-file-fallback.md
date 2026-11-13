@@ -21,7 +21,7 @@ fallback can be removed.
       exists.
 - [x] Any adapter-test fixture still exercising the single-file path is removed
       or converted to the tree path; the full bats suite stays green.
-- [ ] `niri validate` and `Hyprland --verify-config` still pass; a fresh box of
+- [x] `niri validate` and `Hyprland --verify-config` still pass; a fresh box of
       either compositor seeds and boots unchanged.
 
 ## Comments

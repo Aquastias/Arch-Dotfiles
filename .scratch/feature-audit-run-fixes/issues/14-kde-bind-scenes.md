@@ -7,7 +7,7 @@ task-manager entries before Meta+D and Meta+7. Fixes F876-F878.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (desktop)
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (desktop)
 
 ## Comments
 

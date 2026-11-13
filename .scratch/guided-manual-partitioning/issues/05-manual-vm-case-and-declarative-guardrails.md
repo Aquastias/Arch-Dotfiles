@@ -12,7 +12,7 @@ file.
 
 **Status:** done
 
-- [ ] A manual VM matrix case (scripted partition table standing in for the
+- [x] A manual VM matrix case (scripted partition table standing in for the
       operator's `cfdisk`) assigns, installs, and boots; registered on the
       Combination Matrix as a `disk_config.kind: manual` axis value.
 - [x] The `--profile` Pre-Install Picker rejects a config whose

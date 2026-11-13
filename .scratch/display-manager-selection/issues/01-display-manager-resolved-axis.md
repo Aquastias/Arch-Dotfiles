@@ -26,7 +26,7 @@ ticket lays the data spine and its guards.
       host-write / chroot-load schema list.
 - [x] The Layer Resolver treats `environment.display_manager` as a replace key
       (no new merge classification).
-- [ ] Existing behavior is unchanged: the VM environment matrix stays green and
+- [x] Existing behavior is unchanged: the VM environment matrix stays green and
       the Desktop Environment Adapters still enable their display managers.
 - [x] Resolution and validation are covered by the environment-resolution and
       environment-validation bats (prior art: the GPU `auto` cases).

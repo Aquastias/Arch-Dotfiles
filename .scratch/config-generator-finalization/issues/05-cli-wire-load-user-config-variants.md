@@ -44,8 +44,8 @@ the right resolved tree.
       Defaults applied from User Core
 - [x] The same bats case verifies User Config overrides per-
       key (the standard deep-merge contract from `configs.sh`)
-- [ ] `tests/run.sh` still passes
-- [ ] `tests/audit.sh` still passes
+- [x] `tests/run.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 

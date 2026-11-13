@@ -22,7 +22,7 @@ Profiles must stay closed-schema-valid and round-trip through the resolver.
       installs its package but not its config.
 - [x] Guided-emitted Profiles carrying either key pass closed-schema validation
       and resolve correctly.
-- [ ] Guided fzf smoke / preview coverage updated for the new affordances.
+- [x] Guided fzf smoke / preview coverage updated for the new affordances.
 
 ## Blocked by
 

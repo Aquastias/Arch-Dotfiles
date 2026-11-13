@@ -25,7 +25,7 @@ core and the reset verbs; the header advertises them.
       loses a value.
 - [x] Controller / dispatch bats cover the bind handling against the
       history core.
-- [ ] The `--guided` replay path is unchanged; full suite green; shellcheck
+- [x] The `--guided` replay path is unchanged; full suite green; shellcheck
       clean.
 
 ## Blocked by

@@ -39,9 +39,9 @@ tickets 02 and 03 already migrated every consumer.
 - [x] The rung executor is wrapped in `_retry` with 2 attempts / `3,10` backoff
       and cleans `$BUILD` between attempts.
 - [x] Skip-check short-circuits when either helper is already installed.
-- [ ] The existing VM / combination-matrix happy path (rung 1) still installs
+- [x] The existing VM / combination-matrix happy path (rung 1) still installs
       end-to-end; no new VM case is added for fallback rungs.
-- [ ] No literal `paru -S` / `paru -Sp` remains in the Runner AUR pass.
+- [x] No literal `paru -S` / `paru -Sp` remains in the Runner AUR pass.
 
 ## Blocked by
 

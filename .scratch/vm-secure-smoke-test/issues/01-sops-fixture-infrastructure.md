@@ -100,7 +100,7 @@ files still decrypt successfully with that key.
       decryptable.
 - [x] The bats test never mutates the committed fixtures in
       `.os/vm/fixtures/` or under `hosts/` / `users/`.
-- [ ] Full bats suite passes; shellcheck passes on every
+- [x] Full bats suite passes; shellcheck passes on every
       changed shell file.
 - [x] Single commit, conventional-commit style, capitalized
       after the prefix.

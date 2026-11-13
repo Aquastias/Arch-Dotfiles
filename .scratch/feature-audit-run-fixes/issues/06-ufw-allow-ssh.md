@@ -7,8 +7,8 @@ operator (and the harness) can reach it. Fixes F387-F389, F405.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Arch Wiki-grounded
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (ufw):
+- [x] Arch Wiki-grounded
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (ufw):
 sessions ready, probes staged
 
 ## Comments

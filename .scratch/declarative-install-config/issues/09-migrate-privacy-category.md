@@ -18,7 +18,7 @@ Port the `privacy/` programs from `.pkglist/programs/privacy/` into `.os/program
 - [x] Bundled `settings.yml` and `update.sh` (or equivalent support files) are present and used by install.sh
 - [x] install.sh sources `.os/lib/shell-stdlib.sh` and uses the standard env vars
 - [x] `.pkglist/programs/privacy/` is unchanged
-- [ ] searxng installs successfully on a VM run when referenced from a config
+- [x] searxng installs successfully on a VM run when referenced from a config
 
 ## Blocked by
 

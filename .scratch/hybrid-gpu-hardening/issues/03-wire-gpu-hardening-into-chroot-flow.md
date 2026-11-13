@@ -39,14 +39,14 @@ display-manager change in this slice.
       `mkinitcpio -P`: modprobe conf present, MODULES line contains the four
       nvidia modules, udev rule + pacman hook installed, suspend/resume/hibernate
       services enabled.
-- [ ] On a single-vendor / VM config the module is a no-op — no GPU artifacts
+- [x] On a single-vendor / VM config the module is a no-op — no GPU artifacts
       written, install output unchanged.
 - [x] `CONTEXT.md` gains the Hybrid Graphics / GPU Hardening / Early KMS / RTD3
       terms.
 - [x] The manual on-Legion checklist is recorded (modeset=Y, prime-run → NVIDIA
       renderer, idle dGPU D3cold, clean suspend/resume, regen hook survives a
       driver/kernel upgrade).
-- [ ] An install-only run (e.g. a matrix cell / VM) still completes without
+- [x] An install-only run (e.g. a matrix cell / VM) still completes without
       error — the module never aborts a non-hybrid install.
 
 ## Blocked by

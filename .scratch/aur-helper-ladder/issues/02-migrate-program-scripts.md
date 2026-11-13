@@ -27,7 +27,7 @@ Communication scripts that invoke `paru -S`.
       behaviour).
 - [x] A grep confirms no `programs/*/install.sh` hardcodes `paru` for the
       install call (comments referencing paru are fine).
-- [ ] Existing suite / VM happy path stays green.
+- [x] Existing suite / VM happy path stays green.
 
 ## Blocked by
 

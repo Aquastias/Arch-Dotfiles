@@ -34,7 +34,7 @@ fallback for the install pin.
       the exact version can't be fetched.
 - [x] bats cover the IgnorePkg editor, `archzfs_pin_candidates`, and the
       build-repo candidate fallback.
-- [ ] Verified on the existing `arch-combined` VM (forced low ceiling → held;
+- [x] Verified on the existing `arch-combined` VM (forced low ceiling → held;
       real ceiling → cleared).
 
 ## Blocked by

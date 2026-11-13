@@ -42,9 +42,9 @@ issue 07; this issue is verified by shellcheck, the dry-run, and bats.
 - [x] Their bats (`sentinel-watcher`, `seed-generator`, `vm-pool-verify`,
       `vm-reorder-disks`) and `vm-fixtures-regenerate.bats` are under
       `tests/vm/`, rewired, and green.
-- [ ] A test profile run WITHOUT `--testing` builds a persistent VM of
+- [x] A test profile run WITHOUT `--testing` builds a persistent VM of
       that case (debug path).
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` are green (no real VM run
+- [x] `tests/run.sh` and `tests/shellcheck.sh` are green (no real VM run
       required to merge).
 
 ## Blocked by

@@ -22,11 +22,11 @@ after — both arrays contain the same entries today.
 - [x] `_validation_persist_one` iterates `CURATED_FILES + CURATED_DIRS`
 - [x] `_VALIDATION_CURATED` array is removed
 - [x] "must mirror" comment is removed
-- [ ] `tests/validation-impermanence.bats` passes unmodified
+- [x] `tests/validation-impermanence.bats` passes unmodified
 - [x] A regression test exists asserting the curated-defaults warning
       fires for at least one path from each of `CURATED_FILES` and
       `CURATED_DIRS` (add one if absent)
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

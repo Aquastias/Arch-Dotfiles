@@ -62,7 +62,7 @@ Migration:
 - [x] `tests/chroot-configure.bats`,
       `tests/chroot-install-state-persist.bats`,
       `tests/profiles-secrets.bats` pass unmodified
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

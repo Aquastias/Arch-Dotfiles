@@ -29,7 +29,7 @@ lockstep.)
 - [x] The launcher (`wofi`), file manager (`dolphin`), and `playerctl` binds are
       present but remain operator-supplied — the config assumes nothing is
       installed by the adapter except the lock (ticket 03).
-- [ ] The config is valid Hyprland syntax (loads without error in a running
+- [x] The config is valid Hyprland syntax (loads without error in a running
       Hyprland). *(not verified — Hyprland can't check config offline without
       launching a session; authored against the stock grammar. Confirm on next
       Hyprland login.)*

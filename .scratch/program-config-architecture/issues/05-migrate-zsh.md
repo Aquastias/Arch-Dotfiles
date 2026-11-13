@@ -17,14 +17,14 @@ config-apply pass from the same `home/` source, not by `install.sh`.
 
 ## Acceptance criteria
 
-- [ ] `zsh` config lives only under its `home/`; all repo-root zsh files
+- [x] `zsh` config lives only under its `home/`; all repo-root zsh files
       removed; the drift test's target no longer has a second author.
 - [x] `install.sh` does not seed `$HOME` config; it warms the zinit cache via a
       throwaway `ZDOTDIR` reading its own `home/`.
 - [x] `/etc/skel` and `/root` receive the zsh config from the apply pass, from
       the single `home/` source.
 - [x] `config_exclude: ["zsh"]` installs the tooling but applies no user config.
-- [ ] VM harness confirms a fresh user lands on a working, themed zsh with a
+- [x] VM harness confirms a fresh user lands on a working, themed zsh with a
       warmed cache (no first-login plugin clone).
 
 ## Blocked by

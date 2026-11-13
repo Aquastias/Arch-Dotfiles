@@ -101,7 +101,7 @@ land together. `CONTEXT.md` already updated.
       `layout_plan`) is updated to seed `_LAYOUT_PHASE` to the
       prerequisite value in its setup.
 - [x] `shellcheck` passes on every changed file.
-- [ ] Full `bats` suite passes.
+- [x] Full `bats` suite passes.
 - [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 

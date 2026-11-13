@@ -40,7 +40,7 @@ persisted data.
       duplicated local helpers are removed
 - [x] `tests/impermanence-tool.bats` `remove` cases (default and
       `--yes`) pass unmodified
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

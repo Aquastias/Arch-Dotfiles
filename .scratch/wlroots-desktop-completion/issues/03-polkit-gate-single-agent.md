@@ -24,7 +24,7 @@ implementation time from ticket 01's result, not per install (ADR 0100):
 - [x] Verify-pass path: `polkit-kde-agent` no longer installed by either
       wlroots adapter; the `niri-adapter.bats` assertion that it *is* installed
       is flipped; the KDE adapter test stays green.
-- [ ] Verify-fail path: the KDE-else-hyprpolkitagent ladder installs/autostarts
+- [x] Verify-fail path: the KDE-else-hyprpolkitagent ladder installs/autostarts
       the correct agent for each co-installed `environment.desktop` set.
 - [x] The [[Package Resolver]] reports the resulting agent set with no drift
       from what installs.

@@ -35,7 +35,7 @@ longer installs `envycontrol`.
 - [x] Resolving `[amd,nvidia]` yields a `GPU_PARU_PACKAGES` with **no**
       `envycontrol` (bats regression test).
 - [x] `CONTEXT.md` GPU Resolution entry reflects the envycontrol removal.
-- [ ] Existing environment-resolution and install-state tests still pass; no
+- [x] Existing environment-resolution and install-state tests still pass; no
       change to single-vendor / VM installs.
 
 ## Blocked by

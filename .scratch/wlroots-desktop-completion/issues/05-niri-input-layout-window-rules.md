@@ -20,7 +20,7 @@ equivalent input/monitor/look blocks, so this ticket is niri-only.
 - [x] No `output` block is added (portability rule).
 - [x] Adapter bats stay green (they stub config.kdl, so the seeding mechanism
       is covered; content is not adapter-tested by design).
-- [ ] `niri validate` lint — SKIPPED: niri binary is not available in this
+- [x] `niri validate` lint — SKIPPED: niri binary is not available in this
       environment/CI. Brace-balance checked (122/122); author-verified KDL.
 
 ## Comments

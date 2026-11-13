@@ -29,7 +29,7 @@ the mirror first, so secondary ESPs would receive stale images.
       the ESP.
 - [x] On a multi-disk OS layout, the ESP Kernel Sync runs before the ESP
       Mirror Hook (verified by hook ordering).
-- [ ] A fresh systemd-boot install still boots (no regression).
+- [x] A fresh systemd-boot install still boots (no regression).
 - [x] The shared artifact is lib-only-sourceable for tests.
 
 ## Blocked by

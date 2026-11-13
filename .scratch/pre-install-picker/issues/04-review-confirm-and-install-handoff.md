@@ -75,7 +75,7 @@ replaced. `install.sh` remains unmodified.
       `.os/install.jsonc`.
 - [x] `install.sh` is unchanged by this slice.
 - [x] No new deep modules; no slice 1–3 tests need updating.
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass.
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass.
 
 ## Blocked by
 

@@ -27,7 +27,7 @@ enumerates only present microcode via grub-mkconfig.)
       `*-ucode.img` that exists.
 - [x] Omitting the other vendor's microcode never produces a dangling
       `initrd` reference ("Error preparing initrd").
-- [ ] VM / unknown CPU → no microcode referenced, install still succeeds.
+- [x] VM / unknown CPU → no microcode referenced, install still succeeds.
 - [x] Bats cover vendor→package mapping and present-files→entry-`initrd`
       lines (including the missing-file case).
 

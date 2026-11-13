@@ -32,9 +32,9 @@ tests.
       seed seam).
 - [x] A replayed bound layout resolves through the slice-04 assignment path (no
       summed flat pick) into a valid Effective Config.
-- [ ] One bound multi-disk cell installs in a VM and reports PASS on
+- [x] One bound multi-disk cell installs in a VM and reports PASS on
       `INSTALLER-EXIT-0` + `===FIRSTBOOT-OK===`.
-- [ ] Full existing bats suite stays green.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 

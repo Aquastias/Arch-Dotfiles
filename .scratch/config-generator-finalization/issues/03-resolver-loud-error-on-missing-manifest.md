@@ -31,9 +31,9 @@ positive assertion that a `configs/` without a manifest errors.
       and the missing file
 - [x] `configs-variant-resolver.bats` loses the "skipped"
       case and gains a positive "errors" case
-- [ ] All other resolver bats cases still pass
-- [ ] `tests/run.sh` still passes
-- [ ] `tests/audit.sh` still passes
+- [x] All other resolver bats cases still pass
+- [x] `tests/run.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 

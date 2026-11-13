@@ -23,7 +23,7 @@ interpolation; servers lazy). Anchored by ADR 0127.
       seeded and stow-ready; no secret value is committed.
 - [x] `pi-agent.bats` asserts the three packages in settings and the `mcp.json`
       shape.
-- [ ] On the `arch-combined` VM, the three packages load and a web search returns
+- [x] On the `arch-combined` VM, the three packages load and a web search returns
       results (SearXNG path, with fallback exercised when the container is down).
 
 ## Comments

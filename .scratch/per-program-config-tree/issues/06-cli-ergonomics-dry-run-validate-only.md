@@ -51,7 +51,7 @@ operator-visible output.
 - [x] A test (bats or shell) covers each flag's exit-code matrix
       and the no-writes guarantee for `--dry-run` and
       `--validate-only`
-- [ ] `tests/audit.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 

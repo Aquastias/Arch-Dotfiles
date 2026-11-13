@@ -21,7 +21,7 @@ ZFS root by reading the ESP-mirrored kernels.
 - [x] The per-kernel entry rendering is a pure, unit-tested function.
 - [x] A manifest row declares limine's loader path, `limine` package, esp-style,
       and ZFS support.
-- [ ] The VM matrix boots a limine install end-to-end with a multi-kernel
+- [x] The VM matrix boots a limine install end-to-end with a multi-kernel
       selection.
 - [x] Tests cover the manifest row, package resolution (`limine`), the enum
       entry, and the `limine.conf` emission.

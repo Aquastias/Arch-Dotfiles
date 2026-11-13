@@ -38,7 +38,7 @@ profile, options, env overrides). Leave ADRs 0019/0028 untouched.
 - [x] The 4 `vm/vm-*.sh` scripts are deleted.
 - [x] `vm/README.md` documents the `vm.sh --profile` workflow; no stale
       references to the deleted scripts remain in it.
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` are green.
+- [x] `tests/run.sh` and `tests/shellcheck.sh` are green.
 
 ## Blocked by
 

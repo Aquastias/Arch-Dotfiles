@@ -63,11 +63,11 @@ history stack, the skeleton builder, the Pre-Install Picker) and the
 - [x] Pure setters, the controller dispatch, and the nav-state transitions
       are bats-tested (state files in → list / next-nav / new state out,
       no fzf).
-- [ ] The `--guided` replay path and its bats interface are unchanged; full
+- [x] The `--guided` replay path and its bats interface are unchanged; full
       suite green; shellcheck clean (`--severity=warning`).
-- [ ] VM spine smoke: a default guided install drives the persistent menu
+- [x] VM spine smoke: a default guided install drives the persistent menu
       to a booting system (served via `git daemon` + `REPO_URL`).
-- [ ] **HITL gate:** a human drives the live menu and confirms it feels
+- [x] **HITL gate:** a human drives the live menu and confirms it feels
       continuous (no flash) before this slice is closed and 02–04 begin.
 
 ## Blocked by

@@ -22,7 +22,7 @@ enumerating present files.
       Primary Kernel even when a higher-versioned Stray Kernel is
       installed.
 - [x] The stray kernel remains a selectable (non-default) menu entry.
-- [ ] A fresh GRUB install boots the Primary Kernel by default.
+- [x] A fresh GRUB install boots the Primary Kernel by default.
 
 ## Blocked by
 

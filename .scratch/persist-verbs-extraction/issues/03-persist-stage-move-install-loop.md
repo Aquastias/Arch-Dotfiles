@@ -36,9 +36,9 @@ disk) must be byte-identical before and after for the same inputs.
       extension paths
 - [x] Duplicated `_impermanence_write_*` helpers covering mount unit
       / tmpfiles / data move are removed
-- [ ] `tests/chroot-impermanence.bats` passes unmodified
-- [ ] `tests/chroot-install-state-persist.bats` passes unmodified
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/chroot-impermanence.bats` passes unmodified
+- [x] `tests/chroot-install-state-persist.bats` passes unmodified
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

@@ -7,8 +7,8 @@ forced; fix. Fixes F1000 (printed F000) and borgmatic journal Findings.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Root cause noted in Comments
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base
+- [x] Root cause noted in Comments
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (base
 timers)
 
 ## Comments

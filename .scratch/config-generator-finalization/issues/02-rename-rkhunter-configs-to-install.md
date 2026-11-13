@@ -28,8 +28,8 @@ prerequisite for the resolver gate change (slice 03).
       file contents as the previous `configs/`
 - [x] `programs/security/rkhunter/install.sh` references
       `install/` (no remaining `configs/` references)
-- [ ] `tests/audit.sh` still passes
-- [ ] `tests/run.sh` still passes
+- [x] `tests/audit.sh` still passes
+- [x] `tests/run.sh` still passes
 - [x] One commit, scoped to rkhunter only
 
 ## Blocked by

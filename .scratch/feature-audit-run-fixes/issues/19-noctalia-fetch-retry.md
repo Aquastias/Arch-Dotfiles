@@ -7,7 +7,7 @@ skipping, so a network blip does not drop plugins.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (kernels,
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (kernels,
 greetd)
 
 ## Comments

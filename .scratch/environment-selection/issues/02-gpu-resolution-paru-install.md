@@ -31,11 +31,11 @@ Add a step in the profiles phase: after paru is bootstrapped for the primary use
 - [x] `"gpu": ["amd", "nvidia"]` populates `packages.groups.gpu` with both sets and adds `envycontrol` to `GPU_PARU_PACKAGES`
 - [x] `"gpu": "auto"` with AMD lspci stub resolves to the AMD package set
 - [x] `"gpu": "auto"` with hybrid (AMD + NVIDIA) lspci stub resolves to both sets plus `envycontrol` in `GPU_PARU_PACKAGES`
-- [ ] `"gpu": "auto"` with VMware lspci stub resolves to `mesa` only, logs a notice, does not abort
+- [x] `"gpu": "auto"` with VMware lspci stub resolves to `mesa` only, logs a notice, does not abort
 - [x] `"gpu": "auto"` with virtio-gpu lspci stub resolves to `mesa` only, does not abort
 - [x] Profiles phase installs `GPU_PARU_PACKAGES` via paru for the primary user after paru bootstrap, before user programs
-- [ ] BATS tests cover all vendor branches, hybrid, VM stubs, and Intel gen detection using the lspci seam
-- [ ] Shellcheck passes on all modified scripts
+- [x] BATS tests cover all vendor branches, hybrid, VM stubs, and Intel gen detection using the lspci seam
+- [x] Shellcheck passes on all modified scripts
 
 ## Blocked by
 
@@ -81,12 +81,12 @@ Profiles phase addition: after paru is bootstrapped for the primary user (first 
 - [x] `["amd","nvidia"]` produces both sets plus `envycontrol` in `GPU_PARU_PACKAGES`
 - [x] `"auto"` with AMD lspci stub → AMD packages
 - [x] `"auto"` with hybrid stub → both sets + `envycontrol`
-- [ ] `"auto"` with VMware stub → `mesa` only, notice logged, no abort
+- [x] `"auto"` with VMware stub → `mesa` only, notice logged, no abort
 - [x] `"auto"` with virtio-gpu stub → `mesa` only, no abort
 - [x] Intel Broadwell+ PCI ID → `intel-media-driver`; pre-Broadwell → `libva-intel-driver`
 - [x] Profiles phase installs `GPU_PARU_PACKAGES` via paru for primary user after bootstrap
 - [x] BATS tests cover all branches using the lspci seam
-- [ ] Shellcheck passes
+- [x] Shellcheck passes
 
 **Out of scope:**
 - Audio resolution (issue #03)

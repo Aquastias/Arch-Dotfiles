@@ -25,7 +25,7 @@ adapter writes its own `kb_layout` (it ignores `xorg.conf.d`).
 - [x] `identity.sh` sets vconsole `KEYMAP=keymap[0]`.
 - [x] When a desktop is selected, `identity.sh` writes
       `/etc/X11/xorg.conf.d/00-keyboard.conf` with `XkbLayout=keymap[]`.
-- [ ] The Hyprland adapter writes its own `kb_layout` from `keymap[]`.
+- [x] The Hyprland adapter writes its own `kb_layout` from `keymap[]`.
       *Deferred → VM-verified phase: no `hyprland.conf` seam exists in the
       repo (it comes from the operator's `dotfiles_repo`), arrays don't
       `export` to the adapter subprocess, and the effect is unverifiable

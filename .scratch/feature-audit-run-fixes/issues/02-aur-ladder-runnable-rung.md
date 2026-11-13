@@ -9,10 +9,10 @@ libalpm.so.15). Amends ADR 0052.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] profiles-bootstrap.bats: non-running helper drops to next rung
-- [ ] profiles-bootstrap.bats: bootstrap build env set for rung 1
-- [ ] ADR 0052 amended
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (minimal)
+- [x] profiles-bootstrap.bats: non-running helper drops to next rung
+- [x] profiles-bootstrap.bats: bootstrap build env set for rung 1
+- [x] ADR 0052 amended
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (minimal)
 
 ## Comments
 

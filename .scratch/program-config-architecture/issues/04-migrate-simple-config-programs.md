@@ -26,7 +26,7 @@ in `install.sh`.
       `./stow-configs`, and is skippable via `config_exclude` / `--except`.
 - [x] `teamspeak3` static add-ons/themes stow from `home/`; the client lands
       styled without an `install.sh` copy.
-- [ ] VM harness confirms each Program installs and configures as before when
+- [x] VM harness confirms each Program installs and configures as before when
       not excluded.
 
 ## Blocked by

@@ -23,8 +23,8 @@ Small UI ergonomics plus the hybrid keybind convention:
 
 ## Acceptance criteria
 
-- [ ] Indent guides render; no new plugin added for them.
-- [ ] A terminal toggle and a buffer-delete keymap work.
+- [x] Indent guides render; no new plugin added for them.
+- [x] A terminal toggle and a buffer-delete keymap work.
 - [x] which-key shows the full set of `<leader>` group prefixes with the
       agreed convention.
 - [x] Seam A asserts snacks.indent enabled, the terminal/bufdelete maps and

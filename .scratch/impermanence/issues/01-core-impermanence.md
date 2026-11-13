@@ -44,7 +44,7 @@ Out of scope for this slice (deferred):
 - [x] With `enabled=false`, the existing install flow is unchanged (no new datasets, no unit files, no initramfs changes, no validation differences)
 - [x] With `enabled=true`, the installer creates five Rollback Datasets (`rpool/ROOT/{etc,root,opt,srv,usrlocal}`) plus the Persist Dataset
 - [x] Validation aborts the install if `options.impermanence.dataset` is not on the same pool as `rpool/ROOT/arch`
-- [ ] All Curated Persist Defaults are bind-mounted from `/persist` after install
+- [x] All Curated Persist Defaults are bind-mounted from `/persist` after install
 - [x] The Curated Persist Defaults bash arrays live at the top of the new Chroot Configuration Module (single source of truth)
 - [x] `/usr/lib/impermanence/defaults.manifest` is written by the installer with the sorted curated list
 - [x] `@blank` snapshots exist on every Rollback Dataset post-install and contain no curated-default data (snapshot is genuinely blank)
@@ -52,7 +52,7 @@ Out of scope for this slice (deferred):
 - [x] Booting with `@blank` missing on any Rollback Dataset drops to emergency shell with a clear error message
 - [x] Booting with `/persist` failing to mount drops to emergency (via the bootstrap mount's `RequiredBy=local-fs.target`)
 - [x] `tests/chroot-impermanence.bats` covers dataset creation, unit-file generation, tmpfiles content, move semantics, and snapshot calls (all `zfs` invocations mocked)
-- [ ] `tests/vm/testing-single-disk-impermanent.sh` provisions an impermanent single-disk VM, reboots, and verifies: SSH host key stable across reboot; an unpersisted `/etc/touch-me` write disappears after reboot; all curated persist mounts are active
+- [x] `tests/vm/testing-single-disk-impermanent.sh` provisions an impermanent single-disk VM, reboots, and verifies: SSH host key stable across reboot; an unpersisted `/etc/touch-me` write disappears after reboot; all curated persist mounts are active
 
 ## Blocked by
 

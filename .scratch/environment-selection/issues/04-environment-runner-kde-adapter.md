@@ -28,7 +28,7 @@ Remove `post_install.desktop` from `install.jsonc` (now superseded by `"environm
 - [x] `post_install.desktop` key removed from `install.jsonc`; existing `post_install.backup` and `post_install.security` keys unchanged
 - [x] BATS tests for the runner cover: single DE, dual DE, empty, unknown DE (error path)
 - [x] BATS tests for the KDE adapter cover: SDDM install when KDE-only, SDDM install when KDE+Hyprland
-- [ ] Shellcheck passes on all modified scripts
+- [x] Shellcheck passes on all modified scripts
 
 ## Blocked by
 
@@ -71,7 +71,7 @@ The KDE adapter (`extras/desktop/kde/kde.sh`) is updated to read `ENVIRONMENT_DE
 - [x] KDE adapter: SDDM installed and enabled when `"kde"` in `ENVIRONMENT_DESKTOP`
 - [x] `post_install.desktop` removed from `install.jsonc`; backup/security keys untouched
 - [x] BATS tests pass for all runner cases and KDE DM guard
-- [ ] Shellcheck passes
+- [x] Shellcheck passes
 
 **Out of scope:**
 - Hyprland adapter implementation (issue #05)

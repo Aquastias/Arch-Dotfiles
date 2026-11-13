@@ -7,8 +7,8 @@ applies it, check validates it. Absent = global. Amends ADR 0152 (with 10).
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] report.bats: entry scoped to a variant mutes only there
-- [ ] check.bats: bad variants value rejected; unknown variant id rejected
+- [x] report.bats: entry scoped to a variant mutes only there
+- [x] check.bats: bad variants value rejected; unknown variant id rejected
 
 ## Comments
 

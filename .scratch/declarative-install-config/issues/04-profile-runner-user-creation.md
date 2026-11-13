@@ -30,7 +30,7 @@ End-to-end demo: a VM install completes successfully, with the same set of users
 - [x] Default password `12345` applied to every created user
 - [x] Missing host config aborts the new flow with a warning, install continues
 - [x] Validation aborts the install if a host config references a non-existent user
-- [ ] VM install verified end-to-end: users created via new flow, system boots, login works
+- [x] VM install verified end-to-end: users created via new flow, system boots, login works
 
 ## Blocked by
 

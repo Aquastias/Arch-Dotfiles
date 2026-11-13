@@ -50,8 +50,8 @@ informational (e.g. diagnostics, summary).
 - [x] `grep -rn "cfgo.*}.*:-" .os/lib/ .os/tools/` returns no hits
       outside `lib/install-config.sh`
 - [x] All listed consumer modules are migrated
-- [ ] Existing bats suite passes unmodified
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] Existing bats suite passes unmodified
+- [x] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 

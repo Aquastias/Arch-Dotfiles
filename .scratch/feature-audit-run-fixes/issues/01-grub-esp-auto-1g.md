@@ -8,10 +8,10 @@ clears the absolute 1G floor (ADR 0038) and installs. Fixes jsonl F001, F002
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] esp-budget.bats: grub auto = 1G; floor still rejects <1G for all loaders
-- [ ] check.bats: every manifest variant validates
-- [ ] ADR 0078 amended
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (grub)
+- [x] esp-budget.bats: grub auto = 1G; floor still rejects <1G for all loaders
+- [x] check.bats: every manifest variant validates
+- [x] ADR 0078 amended
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (grub)
 
 ## Comments
 

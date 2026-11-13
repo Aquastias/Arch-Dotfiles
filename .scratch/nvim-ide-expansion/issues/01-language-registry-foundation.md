@@ -35,12 +35,12 @@ All current languages are kept; none added or removed.
 
 - [x] A single registry table is the source of truth for the per-language
       toolchain; lsp, conform and lint specs derive their config from it.
-- [ ] Every language wired today is still wired (no server/formatter/linter
+- [x] Every language wired today is still wired (no server/formatter/linter
       added or dropped).
 - [x] The row shape includes an (as-yet-unused) `dap` field.
 - [x] Seam A (`nvim-program.bats`) asserts the registry exists and that the
       lsp/conform/lint specs consume it rather than inline lists.
-- [ ] Seam B: `:checkhealth` stays green and every in-scope LSP still resolves
+- [x] Seam B: `:checkhealth` stays green and every in-scope LSP still resolves
       on PATH — no runtime regression from the refactor.
 
 ## Blocked by

@@ -26,12 +26,12 @@ Scope:
 
 ## Acceptance criteria
 
-- [ ] `tests/vm/testing-multi-os-mirror-impermanent.sh` provisions a mirrored OS pool with impermanence enabled
+- [x] `tests/vm/testing-multi-os-mirror-impermanent.sh` provisions a mirrored OS pool with impermanence enabled
 - [x] Multi-disk layout module invokes the impermanence dataset-creation helper
 - [x] All Rollback Datasets exist on the mirrored pool with `@blank` post-install
-- [ ] SSH host key persists across reboot on the multi-disk install
-- [ ] Unpersisted edit to `/etc` disappears after reboot
-- [ ] ESP mirror hook and pacman resnapshot hook coexist (kernel update mirrors ESPs; test package install survives reboot)
+- [x] SSH host key persists across reboot on the multi-disk install
+- [x] Unpersisted edit to `/etc` disappears after reboot
+- [x] ESP mirror hook and pacman resnapshot hook coexist (kernel update mirrors ESPs; test package install survives reboot)
 
 ## Blocked by
 

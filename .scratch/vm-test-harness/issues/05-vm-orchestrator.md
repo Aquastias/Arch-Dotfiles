@@ -54,15 +54,15 @@ Add `.os/.gitignore` containing `.vm-test/` and `testing-vm-logs`.
 - [x] First run on a clean host: dependency check installs missing packages via pacman, then proceeds
 - [x] User-not-in-libvirt-group case fails fast with a usermod hint instead of attempting libvirt operations
 - [x] First-run with no cached ISO downloads it; subsequent runs reuse the cached ISO without re-downloading
-- [ ] First-run with no existing VM creates one via `virt-install` matching the spec from the PRD
-- [ ] Subsequent runs with the existing VM force it off and start it again, producing a fresh log
-- [ ] `--recreate` undefines the VM including its storage and NVRAM and re-creates it cleanly
+- [x] First-run with no existing VM creates one via `virt-install` matching the spec from the PRD
+- [x] Subsequent runs with the existing VM force it off and start it again, producing a fresh log
+- [x] `--recreate` undefines the VM including its storage and NVRAM and re-creates it cleanly
 - [x] Log file is overwritten (not appended) on every run
 - [x] The script's exit code is the installer's exit code on completion, or 124 on timeout
 - [x] Background console capture is killed before the script exits, in both success and timeout paths
 - [x] `.os/.gitignore` (or the appropriate root gitignore) excludes `.vm-test/` and `testing-vm-logs`
 - [x] Shellcheck passes
-- [ ] The script is verified by running it end-to-end on the user's host: VM is created, ISO is downloaded once, installer runs to completion, log file contains installer output ending with the sentinel line, exit code is correct
+- [x] The script is verified by running it end-to-end on the user's host: VM is created, ISO is downloaded once, installer runs to completion, log file contains installer output ending with the sentinel line, exit code is correct
 
 ## Blocked by
 

@@ -7,8 +7,8 @@ inactive; fix so it answers on 127.0.0.1:8080. Fixes F585-F586.
 
 **Status:** done (pending the full Audit Run, ticket 27)
 
-- [ ] Root cause noted in Comments
-- [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+- [x] Root cause noted in Comments
+- [x] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
 
 ## Comments
 

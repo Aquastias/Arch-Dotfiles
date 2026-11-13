@@ -20,7 +20,7 @@ ESP-mirroring loaders.
       correct root cmdline (ZFS and non-ZFS), and defaults to the Primary Kernel.
 - [x] A manifest row declares refind's loader path, `refind` package, esp-style,
       and ZFS support.
-- [ ] The VM matrix boots a refind install end-to-end; all selected kernels are
+- [x] The VM matrix boots a refind install end-to-end; all selected kernels are
       bootable via autodetect.
 - [x] Tests cover the manifest row, package resolution (`refind`), the enum
       entry, and the config emission.

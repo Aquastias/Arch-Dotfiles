@@ -26,12 +26,12 @@ This fixture is the canary for any future change that might disrupt the SOPS / a
 
 ## Acceptance criteria
 
-- [ ] `tests/vm/testing-single-disk-impermanent-kde-sops.sh` provisions a single-disk KDE install with SOPS and impermanence enabled
-- [ ] `/etc/secrets/age/keys.txt` and `/etc/ssh/ssh_host_ed25519_key` are bind-mounted from `/persist` after install
-- [ ] SOPS Runtime Service successfully decrypts secrets on first boot
-- [ ] After reboot, SOPS Runtime Service decrypts the same secrets to the same plaintext values
-- [ ] The Machine Age Key public form (`ssh-to-age` output) is identical across reboot
-- [ ] SDDM reaches the login screen after reboot
+- [x] `tests/vm/testing-single-disk-impermanent-kde-sops.sh` provisions a single-disk KDE install with SOPS and impermanence enabled
+- [x] `/etc/secrets/age/keys.txt` and `/etc/ssh/ssh_host_ed25519_key` are bind-mounted from `/persist` after install
+- [x] SOPS Runtime Service successfully decrypts secrets on first boot
+- [x] After reboot, SOPS Runtime Service decrypts the same secrets to the same plaintext values
+- [x] The Machine Age Key public form (`ssh-to-age` output) is identical across reboot
+- [x] SDDM reaches the login screen after reboot
 
 ## Blocked by
 

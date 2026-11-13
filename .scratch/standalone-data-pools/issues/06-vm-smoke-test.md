@@ -27,7 +27,7 @@ Scope:
 
 - [x] `testing-multi-data-pools.sh` provisions 1 OS disk + a single-disk
       pool + a mirror pool and runs the installer to completion.
-- [ ] After reboot, all pools import without `-f` and the `<name>/data`
+- [x] After reboot, all pools import without `-f` and the `<name>/data`
       datasets are mounted at their configured mountpoints.
 - [x] The test fails loudly if any pool is missing or unmounted.
 - [x] Conforms to the existing VM test harness (prior art:

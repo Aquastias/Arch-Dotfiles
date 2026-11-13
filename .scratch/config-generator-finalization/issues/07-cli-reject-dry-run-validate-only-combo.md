@@ -33,9 +33,9 @@ when both flags are passed.
 - [x] CLI's usage / help output names the mutual exclusion
 - [x] A bats case in `configs-cli-flags.bats` verifies the
       exit code
-- [ ] All other CLI flag bats cases still pass
-- [ ] `tests/run.sh` still passes
-- [ ] `tests/audit.sh` still passes
+- [x] All other CLI flag bats cases still pass
+- [x] `tests/run.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 

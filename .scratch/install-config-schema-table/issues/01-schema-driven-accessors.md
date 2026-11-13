@@ -96,7 +96,7 @@ split is impossible. `CONTEXT.md` is unaffected (no domain change).
       `tests/install-config.bats` is preserved in the new
       structure.
 - [x] `shellcheck` passes on every changed file.
-- [ ] Full `bats` suite passes (regressions in any consumer of
+- [x] Full `bats` suite passes (regressions in any consumer of
       `install_config_*` accessors must surface here).
 - [x] No call site of any `install_config_*` accessor changes.
 - [x] Single commit, conventional-commit style, capitalized

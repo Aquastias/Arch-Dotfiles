@@ -22,7 +22,7 @@ group.
       cost).
 - [x] `<leader>g` keymaps open the diff/conflict view and file history.
 - [x] A `<leader>g` keymap toggles gitsigns inline blame.
-- [ ] lazygit + gitsigns behaviour is unchanged.
+- [x] lazygit + gitsigns behaviour is unchanged.
 - [x] Seam A asserts the plugin, its lazy trigger and the new maps.
 
 ## Blocked by

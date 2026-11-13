@@ -53,7 +53,7 @@ target; the Secrets Manifest / `.guided_passwords.*` no-SOPS seam (ADR 0049); an
       untouched.
 - [x] Back-end resolution covered (prior art `tests/secrets.bats`): each
       precedence tier yields the right `ZFS_PASSPHRASE`.
-- [ ] VM `arch-zfs-test-guided-secure` still passes: the guided→manifest→
+- [x] VM `arch-zfs-test-guided-secure` still passes: the guided→manifest→
       `collect_enc_passphrase` handoff drives the real passphrase-unlock path via
       the `INSTALL_ENC_PASSPHRASE` preset.
 

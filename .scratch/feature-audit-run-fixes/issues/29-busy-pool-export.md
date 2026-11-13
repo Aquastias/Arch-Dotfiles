@@ -6,10 +6,10 @@ busy" and the installed system never boots ("Unable to import pool").
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Cause named from the holder log of a failing install
-- [ ] Root-cause fix with a test; no busy export across a full Audit Run
+- [x] Cause named from the holder log of a failing install
+- [x] Root-cause fix with a test; no busy export across a full Audit Run
 
 ## Comments
 

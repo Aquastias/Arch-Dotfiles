@@ -39,7 +39,7 @@ while still working on the older fzf a lagging install ISO may ship.
       as a pure function (pure seam).
 - [x] In legacy mode, action rows reappear in the lists and no footer/breadcrumb
       actions are emitted; all features remain reachable.
-- [ ] Full existing bats suite stays green.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 
