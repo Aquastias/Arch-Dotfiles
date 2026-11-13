@@ -5,6 +5,8 @@
 load ../lib/json-helpers
 load shell-helpers
 
+bats_require_minimum_version 1.5.0
+
 
 # ── the typed INSTALL is the sole consent gate ─────────────────────────────
 
@@ -129,6 +131,19 @@ load shell-helpers
   run _guided_shell_committed_userform_edits
   echo "$output" | grep -qx alice
   ! echo "$output" | grep -qx dave
+}
+
+@test "_guided_shell_save: the Save-warn names every edited user, comma-joined" {
+  # Was `paste -sd, -`, and `paste -sd', '` before: "alice,bob carol".
+  guided_prompt() { echo myhost; }
+  _guided_shell_committed_userform_edits() { printf 'alice\nbob\ncarol\n'; }
+  _guided_shell_effective() { echo '{}'; }
+  skeleton_flatten_devices() { echo "$1"; }
+  guided_save_host_profile() { return 0; }
+  _guided_shell_materialize_users() { return 0; }
+  run --separate-stderr _guided_shell_save
+  [ "$status" -eq 0 ]
+  [[ "$stderr" == *"NOT saved for: alice, bob, carol — edit"* ]]
 }
 
 @test "_guided_shell_apply_userforms save: does NOT rewrite a committed profile" {

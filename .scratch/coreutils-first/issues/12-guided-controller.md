@@ -11,7 +11,7 @@ strict there from now on.
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Area added to Migrated Areas; strict Readability Lint passes
 - [x] Tool Reference entries added for every command/flag the area keeps

@@ -161,6 +161,16 @@ first_word() {
   printf '%s\n' "$word"
 }
 
+# join_list — stdin's non-blank lines joined by ", " on one line ("a, b, c").
+join_list() {
+  local list="" line
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    list+="${list:+, }${line}"
+  done
+  printf '%s\n' "$list"
+}
+
 # join_words — stdin's words joined by single spaces on one line (a trim
 # that also folds lines). "${words[*]}" joins an array with spaces.
 join_words() {

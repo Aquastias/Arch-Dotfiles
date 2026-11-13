@@ -276,17 +276,12 @@ _lifecycle_print_packages() {
 # Security & Backup Extras (ADR 0041) — the resolved program list installed
 # via the Primary User's paru pass. Empty when nothing is selected.
 _lifecycle_print_extras() {
-  local post_install_json extras="" program
-  local -a programs
+  local post_install_json extras
   # The post_install selection ({} when absent).
   post_install_json="$(jsonc_strip "$CONFIG_FILE" \
     | jq -c '.post_install // {}')"
-  mapfile -t programs < <(post_install_programs "$post_install_json" \
-    "$(install_config_any_zfs)")
-  # Comma-joined ("a, b, c").
-  for program in "${programs[@]}"; do
-    extras+="${extras:+, }${program}"
-  done
+  extras="$(post_install_programs "$post_install_json" \
+    "$(install_config_any_zfs)" | join_list)"
   echo ""
   echo -e "  ${BOLD}Security & Backup Extras:${NC}"
   printf "    %-12s %s\n" "install:" "${extras:-(none)}"

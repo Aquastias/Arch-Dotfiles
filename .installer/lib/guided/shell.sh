@@ -347,8 +347,7 @@ _guided_shell_save() {
   # so the drop is never silent. Computed before materialize (which writes
   # ad-hoc profiles) so only genuinely-committed users are reported.
   local edited_users
-  # The edited users' names, comma-joined.
-  edited_users="$(_guided_shell_committed_userform_edits | paste -sd, -)"
+  edited_users="$(_guided_shell_committed_userform_edits | join_list)"
   guided_save_host_profile \
     "$(skeleton_flatten_devices "$(_guided_shell_effective)")" "$name" \
     || return 1

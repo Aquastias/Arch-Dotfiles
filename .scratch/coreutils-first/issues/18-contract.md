@@ -9,7 +9,7 @@ Stdlib) now that no caller remains. ADR 0167's status becomes
 
 **Blocked by:** 04, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Migrated Areas mechanism and its tests removed
 - [x] Strict Readability Lint passes on the whole repo
