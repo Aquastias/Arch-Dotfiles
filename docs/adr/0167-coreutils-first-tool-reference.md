@@ -1,7 +1,7 @@
 # ADR 0167: Coreutils first, Tool Reference as the allowlist
 
 ## Status
-Accepted — not yet implemented. Supersedes the Tool Tiers of [ADR 0153];
+Accepted — implemented 2026-11-13. Supersedes the Tool Tiers of [ADR 0153];
 its names, sizes, prefixes and ADR-link rules stay.
 Amended 2026-11-12: grep also allows `-w` (whole words): its regex spelling
 reads worse than the flag.

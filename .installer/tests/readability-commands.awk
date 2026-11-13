@@ -13,7 +13,6 @@
 #
 # Inputs (awk -v):
 #   tool_reference   path of the Tool Reference doc ("" = no doc)
-#   migrated_areas   path of the Migrated Areas list ("" = none)
 #   generated_functions  path of the list of functions built at run time
 
 # load_tool_reference() — read the Tool Reference doc.
@@ -62,18 +61,6 @@ function load_tool_reference(   row, tool, rest, token, flag) {
   close(tool_reference)
 }
 
-# load_migrated_areas() — read the Migrated Areas list: one glob per line,
-# `#` comments. Fills migrated_glob[1..migrated_globs].
-function load_migrated_areas(   row) {
-  if (migrated_areas == "") return
-  while ((getline row < migrated_areas) > 0) {
-    sub(/#.*$/, "", row)
-    gsub(/[ \t]/, "", row)
-    if (row != "") migrated_glob[++migrated_globs] = glob_regex(row)
-  }
-  close(migrated_areas)
-}
-
 # load_generated_functions() — read the list of functions built at run
 # time: one glob per line, `#` comments. Fills generated_glob[].
 function load_generated_functions(   row) {
@@ -84,22 +71,6 @@ function load_generated_functions(   row) {
     if (row != "") generated_glob[++generated_globs] = glob_regex(row)
   }
   close(generated_functions)
-}
-
-# is_migrated(file) — 1 when the file is in a Migrated Area.
-function is_migrated(file,   n) {
-  for (n = 1; n <= migrated_globs; n++)
-    if (file ~ migrated_glob[n]) return 1
-  return 0
-}
-
-# strictness(rule, file) — "strict" or "advisory". ADR 0153 rules stay
-# strict inside .installer/; every other finding is advisory until its
-# file's area is migrated.
-function strictness(rule, file) {
-  if (is_migrated(file)) return "strict"
-  if ((rule in legacy_rule) && file ~ /^\.installer\//) return "strict"
-  return "advisory"
 }
 
 # is_command_word(word) — 1 when the word can name a command to look up.
@@ -222,11 +193,9 @@ function flag_problems(tool, flag,   position, letter) {
   return ""
 }
 
-# report() — print one finding as TSV: rule, file, line, symbol, detail,
-# strictness.
+# report() — print one finding as TSV: rule, file, line, symbol, detail.
 function report(rule, file, line, symbol, detail) {
-  printf "%s\t%s\t%d\t%s\t%s\t%s\n", rule, file, line, symbol, detail, \
-    strictness(rule, file)
+  printf "%s\t%s\t%d\t%s\t%s\n", rule, file, line, symbol, detail
 }
 
 function commands_finish(   n, tool, count, flag, problem, f) {
@@ -260,13 +229,7 @@ BEGIN {
   split("bash sh zsh", list, " ")
   for (n in list) shell_command[list[n]] = 1
 
-  # ADR 0153 rules: strict inside .installer/ before any migration.
-  split("function-name local-name function-length nesting file-length " \
-        "prefix", list, " ")
-  for (n in list) legacy_rule[list[n]] = 1
-
   load_tool_reference()
-  load_migrated_areas()
   load_generated_functions()
 }
 

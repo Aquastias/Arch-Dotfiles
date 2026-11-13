@@ -28,7 +28,5 @@ source "${_STDLIB_DIR}/notifications.sh"
 source "${_STDLIB_DIR}/runtime.sh"
 # shellcheck source=./shell/files.sh
 source "${_STDLIB_DIR}/files.sh"
-# shellcheck source=./shell/paths.sh
-source "${_STDLIB_DIR}/paths.sh"
 
 unset _STDLIB_DIR

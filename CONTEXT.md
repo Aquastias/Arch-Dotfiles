@@ -893,18 +893,12 @@ _Avoid_: bash subset, shell dialect
 `.installer/tests/readability.sh` — checks the Readability Rules, the Tool
 Tiers against the Tool Reference, the Bash Feature Tier, one step per line
 ([ADR 0167]), linked ADR mentions in docs, and that backticked doc paths are
-tracked files (`doc-path`, [ADR 0156]). [ADR 0153]'s rules are strict inside
-`.installer/`; [ADR 0167]'s are advisory outside a Migrated Area.
+tracked files (`doc-path`, [ADR 0156]). Every rule is strict everywhere.
 (It began as a ratchet against the **Readability Baseline** — the list of
 violations that existed when the lint landed — which shrank to zero and
-was removed.)
+was removed. [ADR 0167]'s rules then turned strict area by area, through a
+**Migrated Areas** list removed once every area was in.)
 _Avoid_: style check, linter (unqualified)
-
-### Migrated Area
-Part of the code already rewritten to [ADR 0167], where every Readability
-Lint rule is strict. Outside one, [ADR 0167]'s rules only advise. The list
-goes away once every area is migrated.
-_Avoid_: clean area, done area
 
 ### Program Install Script
 `install.sh` inside each `.installer/programs/<category>/<name>/`. Source of

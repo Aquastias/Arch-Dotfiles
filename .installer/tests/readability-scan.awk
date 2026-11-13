@@ -1,6 +1,6 @@
 # readability-scan.awk — the Readability Lint's scanner (ADR 0153, ADR 0167),
 # driven by readability.sh. Reads shell files, prints one TSV row per finding:
-#   rule <TAB> file <TAB> line <TAB> symbol <TAB> detail <TAB> strictness
+#   rule <TAB> file <TAB> line <TAB> symbol <TAB> detail
 #
 # Shell is scanned as CODE only: a per-character state machine blanks quoted
 # text and comments (quotes may span lines — multi-line awk/jq programs in
@@ -133,7 +133,7 @@ function check_prefix(name, line,   n, want) {
     emit("prefix", line, name, name " (want " want "…)")
 }
 
-# emit() prints one finding; report() and strictness() live in
+# emit() prints one finding; report() lives in
 # readability-commands.awk.
 function emit(rule, line, symbol, detail) {
   report(rule, FILENAME, line, symbol, detail)

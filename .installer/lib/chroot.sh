@@ -303,7 +303,7 @@ _chroot_resolve_root_password() {
 _chroot_seed_zpool_cache() {
   local cache="$1"; shift
   local pool
-  mkdir -p "$(parent_directory "$cache")"
+  mkdir -p "$(dirname "$cache")"
   for pool in "$@"; do
     if ! zpool set cachefile="$cache" "$pool" 2>/dev/null; then
       rm -f "$cache"
@@ -494,7 +494,7 @@ chroot_apply_impermanence() {
   # apply aborts and the system can't boot).
   local target_log="${MOUNT_ROOT}/var/log/install-impermanence.log"
   local iso_log="/tmp/install-impermanence.log"
-  mkdir -p "$(parent_directory "$target_log")"
+  mkdir -p "$(dirname "$target_log")"
   arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/impermanence.sh \
     2>&1 | tee -a "$target_log" "$iso_log"
 }

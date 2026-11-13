@@ -49,27 +49,3 @@ ensure_login_shell_installed() {
   echo "  [chroot] login shell '${shell}' missing — installing '${package}'" >&2
   pacman -S --noconfirm --needed "$package"
 }
-
-# ── Path helpers (ADR 0153) — one copy per world, never shared ──
-
-# parent_directory <path> — the directory holding <path>, like dirname.
-parent_directory() {  # readability-ok: removed with ticket 18 (ADR 0167)
-  local path="$1"
-  while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
-  if [[ "$path" != */* ]]; then
-    printf '.\n'
-    return 0
-  fi
-  path="${path%/*}"
-  while [[ "$path" == */ ]]; do path="${path%/}"; done
-  printf '%s\n' "${path:-/}"
-}
-
-# base_name <path> [suffix] — the last part of <path>, like basename.
-base_name() {  # readability-ok: removed with ticket 18 (ADR 0167)
-  local path="$1" suffix="${2:-}"
-  while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
-  [[ "$path" == / ]] || path="${path##*/}"
-  [[ -n "$suffix" && "$path" != "$suffix" ]] && path="${path%"$suffix"}"
-  printf '%s\n' "$path"
-}

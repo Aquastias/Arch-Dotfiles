@@ -60,8 +60,7 @@ entry (meaning + a real example) before using something new. In short:
 
 - **Coreutils and bash builtins first** (`cut head tail wc tr sort uniq comm
   basename dirname`, `mapfile`, `printf`, …). Call `dirname`/`basename`
-  directly; the old `parent_directory` / `base_name` helpers are being
-  removed. The one pattern operator left is the bootstrap line that finds a
+  directly. The one pattern operator left is the bootstrap line that finds a
   script's own directory before anything is sourced — guard a path with no
   slash first (`bash 03-install.sh` would otherwise `cd` into the file
   name):
@@ -144,15 +143,9 @@ rules read the single-quoted program of a jq call). A line ending in `\`,
 `|`, `&&` or `||` continues on the next; the joined command is checked at
 the line it starts on.
 
-**Strict and advisory.** [ADR 0153]'s rules (names, sizes, prefix) are strict
-inside `.installer/`. [ADR 0167]'s rules, and every rule outside
-`.installer/`, are advisory until the file's area is listed in the
-**Migrated Areas** file (`.installer/tests/readability-migrated.txt`, one
-glob per line); then every rule is strict there. Advisory findings never
-fail the lint; `--list` shows them.
+Every rule is strict in every scanned file: any finding fails the lint.
 
-- `readability.sh --list` prints every violation, strict and advisory,
-  without failing.
+- `readability.sh --list` prints every violation without failing.
 - `readability.sh --fix-adr-links` links every ADR mention in the docs in
   place: `ADR 0058` becomes the shortcut link `[ADR 0058]`, resolved by a
   generated definition block at the end of the file (two extra characters,
@@ -207,7 +200,7 @@ other file takes its stem).
      `vm/vm.sh`, `vm/vm-agent.sh`, `tests/*.sh`, program `scripts/`;
    - the stdlibs — `lib/common.sh`, `lib/chroot/chroot-common.sh`,
      `lib/chroot/extras-common.sh`, `lib/shell/*.sh` — they are the base
-     vocabulary (`info`, `confirm`, `parent_directory`);
+     vocabulary (`info`, `confirm`, `text_before`);
    - a function named exactly its stem (`jsonc`, `finalize`);
    - bats files (test-local helpers);
    - files defining no functions (program `install.sh` scripts, staged

@@ -5,8 +5,8 @@ each with what it means and an example from the repo ([ADR 0167]). If a
 line of code puzzles you, look its command up here.
 
 This doc is also the allowlist. The Readability Lint fails on a command or
-flag that is not listed here (strict in Migrated Areas, advisory
-elsewhere). To use a new command or flag, add its entry first.
+flag that is not listed here. To use a new command or flag, add its entry
+first.
 
 ## How an entry is written
 

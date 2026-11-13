@@ -18,7 +18,7 @@ exempt-file .installer/programs/**/scripts/*.sh
 exempt-file .installer/aur/aur-vet
 exempt-file .installer/aur/aur-vet-*.sh
 
-# Stdlibs: the base vocabulary (info, confirm, parent_directory).
+# Stdlibs: the base vocabulary (info, confirm, text_before).
 exempt-file .installer/lib/common.sh
 exempt-file .installer/lib/chroot/chroot-common.sh
 exempt-file .installer/lib/chroot/extras-common.sh

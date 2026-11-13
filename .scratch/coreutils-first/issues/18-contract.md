@@ -11,9 +11,9 @@ Stdlib) now that no caller remains. ADR 0167's status becomes
 
 **Status:** ready-for-agent
 
-- [ ] Migrated Areas mechanism and its tests removed
-- [ ] Strict Readability Lint passes on the whole repo
-- [ ] Path helpers deleted; no reference left outside ADRs/`.scratch/`
+- [x] Migrated Areas mechanism and its tests removed
+- [x] Strict Readability Lint passes on the whole repo
+- [x] Path helpers deleted; no reference left outside ADRs/`.scratch/`
 - [ ] Full bats suite (`-j 4` max) and audit pass
 - [ ] One final VM install passes
-- [ ] ADR 0167 status set to implemented
+- [x] ADR 0167 status set to implemented

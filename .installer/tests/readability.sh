@@ -7,11 +7,6 @@
 # user scripts in .local/bin, and every other tracked *.sh outside
 # .scratch/ and vendored .agents/skills/.
 #
-# Strict and advisory findings. ADR 0153's rules are strict inside
-# .installer/. ADR 0167's rules (and any finding outside .installer/) are
-# advisory — shown by --list, never failing — until the file's area is in
-# the Migrated Areas list (readability-migrated.txt).
-#
 # Commands and flags are checked against the Tool Reference
 # (docs/tool-reference.md): it is the allowlist.
 #
@@ -21,8 +16,8 @@
 # (readability-doc-paths.awk, ADR 0156).
 #
 # Usage: readability.sh [--list | --fix-adr-links]
-#   (none)            fail on any strict violation
-#   --list            print every violation, strict and advisory, never fail
+#   (none)            fail on any violation
+#   --list            print every violation, never fail
 #   --fix-adr-links   link every ADR mention in the docs, in place
 # Escape hatch: a line containing `readability-ok` is exempt (on a function's
 # opening line it exempts the whole-function rules too).
@@ -43,8 +38,6 @@ cd "$(git rev-parse --show-toplevel)"
 
 PREFIX_RULES=".installer/tests/readability-prefixes.txt"
 [[ -f "$PREFIX_RULES" ]] || PREFIX_RULES=""
-MIGRATED_AREAS=".installer/tests/readability-migrated.txt"
-[[ -f "$MIGRATED_AREAS" ]] || MIGRATED_AREAS=""
 GENERATED_FUNCTIONS=".installer/tests/readability-generated.txt"
 [[ -f "$GENERATED_FUNCTIONS" ]] || GENERATED_FUNCTIONS=""
 TOOL_REFERENCE="docs/tool-reference.md"
@@ -98,14 +91,12 @@ adr_index() {
   return 0
 }
 
-# Violations as TSV: rule, file, line, symbol, detail, strictness. Doc
-# rows have no strictness column: they are always strict.
+# Violations as TSV: rule, file, line, symbol, detail.
 violations() {
   local files
   mapfile -t files < <(scanned_files)
   if ((${#files[@]})); then
     awk -v prefix_rules="$PREFIX_RULES" \
-      -v migrated_areas="$MIGRATED_AREAS" \
       -v generated_functions="$GENERATED_FUNCTIONS" \
       -v tool_reference="$TOOL_REFERENCE" \
       -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" -f "$COMMAND_CHECKER" \
@@ -125,8 +116,8 @@ violations() {
 # print_findings — read TSV violations on stdin, print each as
 # `rule: file:line: detail`.
 print_findings() {
-  local rule file line _symbol detail _strictness
-  while IFS=$'\t' read -r rule file line _symbol detail _strictness; do
+  local rule file line _symbol detail
+  while IFS=$'\t' read -r rule file line _symbol detail; do
     printf '%s: %s:%s: %s\n' "$rule" "$file" "$line" "$detail"
   done
 }
@@ -156,11 +147,11 @@ case "$mode" in
     ;;
 esac
 
-# Only strict violations fail the lint.
-strict_rows="$(violations | grep -v $'\tadvisory$' || true)"
-[[ -z "$strict_rows" ]] && exit 0
-# The strict findings as `rule: file:line: detail`, sorted.
-mapfile -t findings < <(printf '%s\n' "$strict_rows" | print_findings | sort)
+# Any violation fails the lint.
+rows="$(violations)"
+[[ -z "$rows" ]] && exit 0
+# The findings as `rule: file:line: detail`, sorted.
+mapfile -t findings < <(printf '%s\n' "$rows" | print_findings | sort)
 for finding in "${findings[@]}"; do
   printf 'readability: %s\n' "$finding" >&2
 done

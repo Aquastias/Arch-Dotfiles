@@ -106,7 +106,7 @@ runner_stage_runtime() {
   fi
   local file
   for file in "${_STAGED_RUNTIME_FILES[@]}"; do
-    mkdir -p "$(parent_directory "$target/${file}")"
+    mkdir -p "$(dirname "$target/${file}")"
     cp -r "${INSTALLER_DIR}/${file}" "$target/${file}"
   done
   chmod +x "$target/lib/profiles/program-runner.sh"

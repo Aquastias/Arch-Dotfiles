@@ -7,14 +7,16 @@
 
 CHECK="$BATS_TEST_DIRNAME/readability.sh"
 
-# make_repo: cd into a fresh git repo with an empty .installer/.
+# make_repo: cd into a fresh git repo with an empty .installer/ and this
+# repo's Tool Reference (every rule is strict, so commands need entries).
 make_repo() {
   REPO="$(mktemp -d)"
   cd "$REPO"
   git init -q
   git config user.email t@t
   git config user.name t
-  mkdir -p .installer/tests
+  mkdir -p .installer/tests docs
+  cp "$BATS_TEST_DIRNAME/../../docs/tool-reference.md" docs/
   # Non-prefix tests share a.sh; keep the Prefix rule out of their way.
   printf 'exempt-file .installer/a.sh\n' \
     > .installer/tests/readability-prefixes.txt
@@ -104,8 +106,8 @@ shallow_function() {
   fi
 }
 SH
-  check_repo
-  [ "$status" -eq 0 ]
+  check_repo --list
+  [[ "$output" != *"nesting"* ]]
 }
 
 @test "catches a file over 500 lines" {
@@ -130,8 +132,8 @@ assign_keys() {
   jq -n 'def assign($k): .[$k] // [] end; {} | assign("a")'
 }
 SH
-  check_repo
-  [ "$status" -eq 0 ]
+  check_repo --list
+  [[ "$output" != *"function-name"* && "$output" != *"prefix"* ]]
 }
 
 @test "reads only the declaration on a 'local x; x=…' line" {
@@ -352,8 +354,7 @@ RULES
 # ── Tool Reference: commands and flags (ADR 0167) ──────────────────────────
 
 # make_reference_repo: a repo whose Tool Reference lists `cut` (with -d
-# taking a value and -f) and `rm` (with -r, -f), and whose Migrated Areas
-# list holds .installer/lib/.
+# taking a value and -f), `rm` (with -r, -f) and `sudo` (with -u).
 make_reference_repo() {
   make_repo
   mkdir -p docs .installer/lib
@@ -378,7 +379,6 @@ Prints selected fields.
 ### `sudo`
 - `-u <user>` — run as this user
 DOC
-  printf '.installer/lib/*\n' > .installer/tests/readability-migrated.txt
 }
 
 @test "tool-reference: a command missing from the Tool Reference fails" {
@@ -435,16 +435,6 @@ DOC
   check_repo
   [ "$status" -ne 0 ]
   [[ "$output" == *"tool-reference: .installer/lib/a.sh:1: example has no"* ]]
-}
-
-@test "tool-reference: outside Migrated Areas findings are advisory" {
-  make_reference_repo
-  mkdir -p .installer/tools
-  printf 'stow /etc/passwd\n' > .installer/tools/a.sh
-  check_repo
-  [ "$status" -eq 0 ]
-  check_repo --list
-  [[ "$output" == *"tool-reference: .installer/tools/a.sh:1: stow has no"* ]]
 }
 
 @test "tool-reference: repo functions, scripts and variables need no entry" {
@@ -571,21 +561,20 @@ SH
   [[ "$output" == *"tool-reference: .installer/aur/aur-vet:2: wc has no"* ]]
 }
 
-@test "ADR 0153 rules are advisory outside .installer/ until migrated" {
+@test "every rule is strict outside .installer/ too" {
   make_reference_repo
   mkdir -p .local/bin
   printf 'greet() {\n  local f=1\n}\n' > .local/bin/tool
-  check_repo
-  [ "$status" -eq 0 ]
-  printf '.local/bin/*\n' >> .installer/tests/readability-migrated.txt
+  printf 'stow /etc/passwd\n' > .local/bin/other
   check_repo
   [ "$status" -ne 0 ]
   [[ "$output" == *"local-name: .local/bin/tool:2: f"* ]]
+  [[ "$output" == *"tool-reference: .local/bin/other:1: stow has no"* ]]
 }
 
 # ── Bash Feature Tier and jq features (ADR 0167) ───────────────────────────
 
-@test "bash-feature: each banned form is reported in a Migrated Area" {
+@test "bash-feature: each banned form is reported" {
   make_reference_repo
   cat > .installer/lib/a.sh <<'SH'
 value="${!name}"
@@ -618,16 +607,6 @@ echo 'a ${x##*/} in single quotes' # and ${y%%z} in a comment
 SH
   check_repo --list
   [[ "$output" != *"bash-feature"* ]]
-}
-
-@test "bash-feature: outside Migrated Areas it is advisory" {
-  make_reference_repo
-  mkdir -p .installer/tools
-  printf 'eval "$x"\n' > .installer/tools/a.sh
-  check_repo
-  [ "$status" -eq 0 ]
-  check_repo --list
-  [[ "$output" == *"bash-feature: .installer/tools/a.sh:1: eval is banned"* ]]
 }
 
 @test "jq-feature: banned jq features are reported, also on later lines" {
