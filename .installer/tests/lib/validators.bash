@@ -37,7 +37,7 @@ validators_skip_unless() {
 _validators_verify_isolated() {
   local unit="$1"; shift
   local base iso status
-  base="${unit##*/}"
+  base="$(basename "$unit")"
   iso="$(mktemp -d)"
   cp "$unit" "$iso/$base"
   chmod 0644 "$iso/$base"
@@ -65,9 +65,9 @@ validators_verify_unit() {
 # real deps are present. This tier's job is malformed-unit syntax.
 validators_verify_user_unit() {
   local out remainder
+  local tolerated=': Command .* is not executable|Unit [^ ]+ not found'
   out="$(_validators_verify_isolated "$1" --user)"
-  remainder="$(grep -vE ': Command .* is not executable|Unit [^ ]+ not found' \
-    <<<"$out" | grep -v '^[[:space:]]*$')"
+  remainder="$(printf '%s\n' "$out" | grep -vE "$tolerated|^[[:space:]]*\$")"
   if [[ -n "$remainder" ]]; then
     printf '%s\n' "$remainder"
     return 1
@@ -80,9 +80,11 @@ validators_verify_user_unit() {
 # HOOKS=(...) list — or a bare hook string — is unavailable, so the slice stays
 # green everywhere and runs for real where the hooks are present.
 validators_skip_unless_hooks_installable() {
-  local hooks="${1//HOOKS=(/}"; hooks="${hooks//)/}"
-  local hook
+  local hooks hook
+  # The hook names, the HOOKS=( ) wrapping blanked out.
+  hooks="$(printf '%s\n' "$1" | tr '()' '  ')"
   for hook in $hooks; do
+    [[ "$hook" == "HOOKS=" ]] && continue
     [[ -f "/usr/lib/initcpio/install/$hook" ]] \
       || skip "initcpio hook '$hook' not installed on host"
   done
@@ -105,10 +107,11 @@ validators_fstab_lint() {
   local file="$1" mountpoint filesystem dump pass extra line
   local -A seen=()
   while IFS= read -r line; do
-    [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ || "$line" == \#* ]] && continue
     # fields: <device> <mountpoint> <fstype> <options> <dump> <pass>; device
     # and options are not linted here, so read them into the throwaway `_`.
-    read -r _ mountpoint filesystem _ dump pass extra <<<"$line"
+    read -r _ mountpoint filesystem _ dump pass extra \
+      < <(printf '%s\n' "$line")
     if [[ -z "$pass" || -n "$extra" ]]; then
       echo "fstab: line needs exactly 6 fields: $line"; return 1
     fi

@@ -16,6 +16,8 @@ bash "$tests/readability.sh"
 bash "$tests/no-python.sh" >/dev/null
 bash "$tests/raw-config-reads.sh" >/dev/null
 
+# The staged installer shell files (added, copied, modified, renamed), minus
+# the vendored bats-core tree.
 mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR \
   | grep -E '^\.installer/.*\.sh$' | grep -v '^\.installer/tests/bats/' \
   || true)

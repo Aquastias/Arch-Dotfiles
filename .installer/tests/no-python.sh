@@ -13,6 +13,7 @@
 # Escape hatch: a line containing `no-python-ok` is exempt from check 3.
 set -euo pipefail
 
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
 
 fail=0
@@ -30,9 +31,10 @@ done < <(git ls-files '*.py')
 # ── 2. python-family shebang (any tracked non-doc, non-self file) ────────────
 while IFS= read -r hit; do
   [[ -n "$hit" ]] || continue
-  is_self "${hit%%:*}" && continue
+  # The file before the first ":".
+  is_self "$(printf '%s\n' "$hit" | cut -d: -f1)" && continue
   emit "Python shebang: $hit"
-done < <(git grep -I -nE '^#!.*python' -- ':!*.md' || true)
+done < <(git grep -I -n -E '^#!.*python' -- ':!*.md' || true)
 
 # ── 3. python invocation in shell scripts ───────────────────────────────────
 # Shell scripts = repo tooling that could run python inline: *.sh/*.bash/*.bats
@@ -41,19 +43,14 @@ inv='(^|[^[:alnum:]_-])(python[23]?|pip[23]?|pipx|poetry|pyenv|uv)([[:space:]]|$
 while IFS= read -r f; do
   [[ -n "$f" ]] || continue
   is_self "$f" && continue
-  # Blank pragma lines (keep numbering), strip comments, then match invocations.
   while IFS= read -r hit; do
     [[ -n "$hit" ]] && emit "Python invocation: $f:$hit"
-  done < <(
-    awk '/no-python-ok/ { print ""; next }
-         { sub(/[[:space:]]#.*$/, ""); sub(/^[[:space:]]*#.*$/, ""); print }' \
-        "$f" \
-      | grep -nE "$inv" || true
-  )
+  # The file's code lines that invoke Python, numbered.
+  done < <(INV="$inv" awk -f "$here/no-python-invocations.awk" "$f")
 done < <(
   {
     git ls-files '*.sh' '*.bash' '*.bats'
-    git grep -I -lE '^#!.*(bash|[[:space:]/]sh)([[:space:]]|$)' -- ':!*.md' \
+    git grep -I -l -E '^#!.*(bash|[[:space:]/]sh)([[:space:]]|$)' -- ':!*.md' \
       || true
   } | sort -u
 )

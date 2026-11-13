@@ -51,14 +51,15 @@ _file() {
 _function_in() {
   local function_name="$1" file="$2"
   if grep -qE "^${function_name}[[:space:]]*\(\)" "$file" 2>/dev/null; then
-    _pass "${function_name}() defined in ${file##*/}"
+    _pass "${function_name}() defined in $(basename "$file")"
   else
-    _fail "${function_name}() missing from ${file##*/}"
+    _fail "${function_name}() missing from $(basename "$file")"
   fi
 }
 
 _jsonc_valid() {
   local file_path="$1" label="$2"
+  # The file parses as JSON once its comments are stripped.
   if _strip "$file_path" | jq empty 2>/dev/null; then
     _pass "$label — valid JSON"
   else
@@ -68,8 +69,27 @@ _jsonc_valid() {
 
 # Strip JSONC comments → plain JSON on stdout
 _strip() {
-  awk '{ sub(/[[:space:]]*\/\/[^"]*$/, "") } !/^[[:space:]]*\/\// { print }' \
-    "$1"
+  awk -f "${BASH_SOURCE[0]%/*}/audit-strip-jsonc.awk" "$1"
+}
+
+# _jsonc_call_before_source <script> — the number of the line sourcing
+# extras-common.sh when a jsonc() call comes before it; nothing otherwise
+# (rc 1). A line naming a `.jsonc` file is no call.
+_jsonc_call_before_source() {
+  local line number=0 first_call="" call='(^|[^[:alnum:]_])jsonc[[:space:](]'
+  while IFS= read -r line; do
+    number=$((number + 1))
+    if [[ "$line" == *extras-common.sh* ]]; then
+      [[ -n "$first_call" ]] && { printf '%s\n' "$number"; return 0; }
+      return 1
+    fi
+    [[ "$line" == *.jsonc* ]] && continue
+    [[ "$line" =~ $call ]] \
+      && first_call="${first_call:-$number}"
+  done < "$1"
+  # No source line: any call counts (against line 999, as before).
+  [[ -n "$first_call" && "$first_call" -lt 999 ]] && return 0
+  return 1
 }
 
 # =============================================================================
@@ -140,11 +160,7 @@ for desktop in kde; do
     _fail "extras/${desktop}: does not source extras-common.sh via lib/chroot/ path"
   fi
   # Must NOT call jsonc() or other helpers before the source line
-  src_line=$(awk '/extras-common\.sh/ { print NR; exit }' "$script")
-  if grep -nE '\bjsonc[[:space:](]' "$script" 2>/dev/null \
-      | grep -v '\.jsonc' \
-      | awk -F: '$1 < '"${src_line:-999}"' {found=1} END{exit !found}'; \
-      then
+  if src_line="$(_jsonc_call_before_source "$script")"; then
     _fail "extras/${desktop}: calls jsonc() before sourcing" \
           "extras-common.sh (line ${src_line})"
   else
@@ -217,10 +233,8 @@ _section "7. STAGED_RUNTIME_FILES  (profiles.sh → /var/tmp/.installer-runtime/
 while IFS= read -r entry; do
   _file "${OS}/${entry}" "_STAGED_RUNTIME_FILES: ${entry}"
 done < <(
-  awk '/_STAGED_RUNTIME_FILES=\(/, /^\)/ {
-    if (!/"/) next
-    sub(/"[^"]*$/, ""); sub(/.*"/, ""); print
-  }' "${OS}/lib/profiles/runner.sh"
+  awk -f "${BASH_SOURCE[0]%/*}/audit-staged-files.awk" \
+    "${OS}/lib/profiles/runner.sh"
 )
 
 # =============================================================================
@@ -229,8 +243,8 @@ _section "8. Program registry"
 # Build name → path map from all program config.jsonc files.
 declare -A _program_directories=()
 while IFS= read -r cfg; do
-  name="${cfg%/*}"; name="${name##*/}"
-  _program_directories["$name"]="${cfg%/*}"
+  name="$(basename "$(dirname "$cfg")")"
+  _program_directories["$name"]="$(dirname "$cfg")"
 done < <(find "${OS}/programs" -name "config.jsonc")
 
 _check_program() {
@@ -241,12 +255,9 @@ _check_program() {
   fi
   local program_directory="${_program_directories[$name]}"
   local got_kind
-  got_kind="$(awk '/"kind"/ {
-      if (match($0, /"kind"[[:space:]]*:[[:space:]]*"(host|user)"/)) {
-        $0 = substr($0, RSTART, RLENGTH); sub(/^"kind"[^"]*"/, ""); sub(/"$/, "")
-      }
-      print; exit
-    }' "${program_directory}/config.jsonc" 2>/dev/null)"
+  # The program's declared kind.
+  got_kind="$(_strip "${program_directory}/config.jsonc" 2>/dev/null \
+    | jq -r '.kind // ""' 2>/dev/null)"
   if [[ "$got_kind" == "$want_kind" ]]; then
     _pass "${context}: program '${name}' (kind=${got_kind})"
   else
@@ -260,19 +271,21 @@ _check_program() {
 
 # Host configs → host_programs must have kind:host
 while IFS= read -r cfg; do
-  host="${cfg%/*}"; host="${host##*/}"
+  host="$(basename "$(dirname "$cfg")")"
   [[ "$host" == "core" ]] && continue
   while IFS= read -r prog; do
     _check_program "$prog" "host" "host:${host}"
+  # The host's programs.
   done < <(_strip "$cfg" | jq -r '.host_programs[]?' 2>/dev/null)
 done < <(find "${OS}/hosts" -name "profile.jsonc")
 
 # User configs → programs must have kind:user
 while IFS= read -r cfg; do
-  user="${cfg%/*}"; user="${user##*/}"
+  user="$(basename "$(dirname "$cfg")")"
   [[ "$user" == "core" ]] && continue
   while IFS= read -r prog; do
     _check_program "$prog" "user" "user:${user}"
+  # The user's programs.
   done < <(_strip "$cfg" | jq -r '.programs[]?' 2>/dev/null)
 done < <(find "${OS}/users" -name "profile.jsonc")
 
@@ -293,7 +306,7 @@ done
 _section "10. Host config cross-refs  (referenced users exist)"
 # =============================================================================
 while IFS= read -r cfg; do
-  host="${cfg%/*}"; host="${host##*/}"
+  host="$(basename "$(dirname "$cfg")")"
   [[ "$host" == "core" ]] && continue
   while IFS= read -r user; do
     # Same lookup as the Profile Loader: users/<name>, else users/vm/<name>.
@@ -302,6 +315,7 @@ while IFS= read -r cfg; do
     else
       _fail "host:${host} → user '${user}' not found in users/ or users/vm/"
     fi
+  # The host's users.
   done < <(_strip "$cfg" | jq -r '.users[]?' 2>/dev/null)
 done < <(find "${OS}/hosts" -name "profile.jsonc")
 
@@ -309,7 +323,7 @@ done < <(find "${OS}/hosts" -name "profile.jsonc")
 _section "11. User config cross-refs  (referenced programs consistent)"
 # =============================================================================
 while IFS= read -r cfg; do
-  user="${cfg%/*}"; user="${user##*/}"
+  user="$(basename "$(dirname "$cfg")")"
   [[ "$user" == "core" ]] && continue
   while IFS= read -r prog; do
     if [[ -v _program_directories["$prog"] ]]; then
@@ -317,6 +331,7 @@ while IFS= read -r cfg; do
     else
       _fail "user:${user} → program '${prog}' not found in programs/"
     fi
+  # The user's programs.
   done < <(_strip "$cfg" | jq -r '.programs[]?' 2>/dev/null)
 done < <(find "${OS}/users" -name "profile.jsonc")
 
@@ -330,7 +345,7 @@ _commons_fns=(print_status check_root send_user_notification command_exists \
               package_installed)
 _dups_found=0
 while IFS= read -r script; do
-  rel="${script#"${OS}"/}"
+  rel="${script:${#OS}+1}"
   for function_name in "${_commons_fns[@]}"; do
     if grep -qE "^[[:space:]]*(function[[:space:]]+)?${function_name}[[:space:]]*\(" \
         "$script" 2>/dev/null; then
@@ -352,7 +367,7 @@ _section "13. No _fixture/ directories under .installer/programs/"
 # overrides.
 _strays=0
 while IFS= read -r d; do
-  rel="${d#"${OS}"/}"
+  rel="${d:${#OS}+1}"
   _fail "${rel}: _fixture/ directory must not live under programs/"
   _strays=$((_strays + 1))
 done < <(find "${OS}/programs" -type d -name "_fixture")
@@ -376,19 +391,20 @@ _section "14. Package existence  (repo → official/archzfs, aur → AUR/officia
 _ARCHZFS_OK=" zfs-dkms zfs-utils zfs-linux zfs-linux-headers zfs-linux-lts \
 zfs-linux-lts-headers "
 
+# _audit_declared <slot> — every package name the profiles declare under
+# packages.<slot> (any category), sorted, each once.
+_audit_declared() {
+  # shellcheck disable=SC2016  # $s is the jq variable
+  local config names='(.packages[$s] // {}) | [.. | strings] | .[]'
+  while IFS= read -r config; do
+    # The profile's package names in the slot.
+    _strip "$config" | jq -r --arg s "$1" "$names" 2>/dev/null
+  done < <(find "${OS}/hosts" "${OS}/users" -name profile.jsonc) | sort -u
+}
+
 # Collect config-declared packages (the user-editable surface).
-_repo_pkgs="$(
-  while IFS= read -r cfg; do
-    _strip "$cfg" | jq -r '(.packages.repo // {}) | [.. | strings] | .[]' \
-      2>/dev/null
-  done < <(find "${OS}/hosts" "${OS}/users" -name profile.jsonc) | sort -u
-)"
-_aur_pkgs="$(
-  while IFS= read -r cfg; do
-    _strip "$cfg" | jq -r '(.packages.aur // {}) | [.. | strings] | .[]' \
-      2>/dev/null
-  done < <(find "${OS}/hosts" "${OS}/users" -name profile.jsonc) | sort -u
-)"
+_repo_pkgs="$(_audit_declared repo)"
+_aur_pkgs="$(_audit_declared aur)"
 
 # Resolve AUR membership once (used by both checks). Empty if curl/net absent.
 _aur_found=""
@@ -396,12 +412,15 @@ if command -v curl >/dev/null 2>&1; then
   _aur_args=""
   while IFS= read -r p; do
     [[ -n "$p" ]] && _aur_args+="&arg[]=${p}"
-  done <<<"${_aur_pkgs}"$'\n'"${_repo_pkgs}"
+  done < <(printf '%s\n%s\n' "$_aur_pkgs" "$_repo_pkgs")
+  # The AUR's names among them (the query without its leading "&").
   _aur_found="$(curl -fsS --max-time 20 \
-    "https://aur.archlinux.org/rpc/v5/info?${_aur_args#&}" 2>/dev/null \
+    "https://aur.archlinux.org/rpc/v5/info?${_aur_args:1}" 2>/dev/null \
     | jq -r '.results[]?.Name' 2>/dev/null | sort -u || true)"
 fi
-_in_aur() { [[ -n "$_aur_found" ]] && grep -qxF "$1" <<<"$_aur_found"; }
+_in_aur() {
+  [[ -n "$_aur_found" ]] && printf '%s\n' "$_aur_found" | grep -qxF "$1"
+}
 
 # ── Repo packages → must resolve in the official repos (or archzfs) ──────────
 if command -v pacman >/dev/null 2>&1 \
@@ -410,7 +429,7 @@ if command -v pacman >/dev/null 2>&1 \
   _repo_bad=0
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
-    grep -qxF "$p" <<<"$_avail" && continue              # direct repo match
+    printf '%s\n' "$_avail" | grep -qxF "$p" && continue  # direct repo match
     [[ "$_ARCHZFS_OK" == *" $p "* ]] && continue          # archzfs allowlist
     pacman -Sp --print-format '%n' "$p" >/dev/null 2>&1 && continue  # provides
     if _in_aur "$p"; then
@@ -419,7 +438,7 @@ if command -v pacman >/dev/null 2>&1 \
       _fail "packages.repo: '${p}' not found in any official repo or AUR"
     fi
     _repo_bad=$(( _repo_bad + 1 ))
-  done <<<"$_repo_pkgs"
+  done < <(printf '%s\n' "$_repo_pkgs")
   (( _repo_bad == 0 )) \
     && _pass "all packages.repo entries resolve (official repos / archzfs)"
 else
@@ -442,7 +461,7 @@ if command -v curl >/dev/null 2>&1 \
       && pacman -Sp --print-format '%n' "$p" >/dev/null 2>&1 && continue
     _fail "packages.aur: '${p}' not found in AUR (or official repos)"
     _aur_bad=$(( _aur_bad + 1 ))
-  done <<<"$_aur_pkgs"
+  done < <(printf '%s\n' "$_aur_pkgs")
   (( _aur_bad == 0 )) && _pass "all packages.aur entries exist in AUR/official"
 else
   _skip "packages.aur existence — curl or AUR RPC unavailable"

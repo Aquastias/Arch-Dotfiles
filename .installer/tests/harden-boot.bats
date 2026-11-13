@@ -4,6 +4,8 @@
 # Sourced lib-only (HARDEN_BOOT_LIB_ONLY=1) so the pure planner helpers are
 # exercised without the apply/runtime (which mutates a running system).
 
+load lib/text-helpers
+
 setup() {
   HARDEN_BOOT_LIB_ONLY=1
   # shellcheck source=../tools/harden-boot.sh
@@ -188,8 +190,8 @@ teardown() { rm -rf "$ROOT"; }
     "$ROOT/etc/pacman.d/hooks/zzz-update-snapshot-done.hook"
   [ -x "$ROOT/usr/local/lib/archzfs/update-snapshot.sh" ]
   local helper="$ROOT/usr/lib/impermanence/resnapshot.sh"
-  [ "$(awk '/keep-blank/ { print NR; exit }' "$helper")" -lt \
-    "$(awk '/zfs destroy/ { print NR; exit }' "$helper")" ]
+  [ "$(first_line_matching "$helper" 'keep-blank')" -lt \
+    "$(first_line_matching "$helper" 'zfs destroy')" ]
   # idempotent: a second run does not insert the line twice
   HARDEN_BOOT_ROOT_FSTYPE=zfs bash \
     "$BATS_TEST_DIRNAME/../tools/harden-boot.sh" --root "$ROOT"

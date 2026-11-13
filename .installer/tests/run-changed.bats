@@ -4,6 +4,8 @@
 # it changed paths, assert the emitted target set (or the `--full` sentinel);
 # no git, no bats, no filesystem walk. Mirrors profiles-aur.bats's style.
 
+load lib/text-helpers
+
 setup() {
   # shellcheck source=../tests/select-changed.sh
   source "$BATS_TEST_DIRNAME/../tests/select-changed.sh"
@@ -13,38 +15,38 @@ setup() {
 @test "a mirrored source dir maps to its tests/ subdir" {
   run select_changed_targets .installer/lib/packages/derivation.sh
   [ "$status" -eq 0 ]
-  grep -qx 'packages' <<< "$output"
+  text_has_line "$output" 'packages'
 }
 
 @test "a top-level mirrored dir (extras, vm) maps to its tests/ subdir" {
   run select_changed_targets .installer/extras/desktop/niri/niri.sh
-  grep -qx 'extras' <<< "$output"
+  text_has_line "$output" 'extras'
   run select_changed_targets .installer/vm/lib/domain.sh
-  grep -qx 'vm' <<< "$output"
+  text_has_line "$output" 'vm'
 }
 
 # A root/tools script with no mirrored dir maps via the explicit table.
 @test "a tools script maps to its root test file(s)" {
   run select_changed_targets .installer/tools/install-pkglist.sh
-  grep -qx 'install-pkglist.bats' <<< "$output"
-  grep -qx 'pkglist-profile.bats' <<< "$output"
+  text_has_line "$output" 'install-pkglist.bats'
+  text_has_line "$output" 'pkglist-profile.bats'
 }
 
 @test "a lib root script maps to its root test file" {
   run select_changed_targets .installer/lib/finalize.sh
-  grep -qx 'finalize.bats' <<< "$output"
+  text_has_line "$output" 'finalize.bats'
 }
 
 @test "02-wipe.sh maps to every wipe test file" {
   run select_changed_targets .installer/02-wipe.sh
-  grep -qx 'wipe-probe.bats' <<< "$output"
-  grep -qx 'wipe-select.bats' <<< "$output"
+  text_has_line "$output" 'wipe-probe.bats'
+  text_has_line "$output" 'wipe-select.bats'
 }
 
 # A changed test file targets itself (tests/-relative).
 @test "a changed test file targets itself" {
   run select_changed_targets .installer/tests/guided/emit.bats
-  grep -qx 'guided/emit.bats' <<< "$output"
+  text_has_line "$output" 'guided/emit.bats'
 }
 
 # Broad-Blast Paths widen to --full.
@@ -74,14 +76,14 @@ setup() {
   run select_changed_targets .bashrc docs/adr/0103-foo.md .scratch/x/spec.md
   [ "$status" -eq 0 ]
   [ "$output" != "--full" ]
-  grep -qx 'config' <<< "$output"   # core-only floor
+  text_has_line "$output" 'config'   # core-only floor
 }
 
 @test "unrelated untracked files alongside a mapped change stay narrow" {
   run select_changed_targets .idea/workspace.xml .mcp.json \
                              .installer/lib/packages/derivation.sh
   [ "$output" != "--full" ]
-  grep -qx 'packages' <<< "$output"
+  text_has_line "$output" 'packages'
 }
 
 # One broad-blast/unmapped path in a batch forces --full for the whole run.
@@ -95,10 +97,10 @@ setup() {
 @test "a narrow result always includes the install-correctness core" {
   run select_changed_targets .installer/lib/packages/derivation.sh
   [ "$output" != "--full" ]
-  grep -qx 'packages' <<< "$output"
-  grep -qx 'config' <<< "$output"           # core dir
-  grep -qx 'wipe' <<< "$output"             # core dir
-  grep -qx 'commons-part-name.bats' <<< "$output"  # core FAST_ROOT guard
+  text_has_line "$output" 'packages'
+  text_has_line "$output" 'config'           # core dir
+  text_has_line "$output" 'wipe'             # core dir
+  text_has_line "$output" 'commons-part-name.bats'  # core FAST_ROOT guard
 }
 
 # Empty change still runs the core (no --full, no error).
@@ -106,7 +108,7 @@ setup() {
   run select_changed_targets
   [ "$status" -eq 0 ]
   [ "$output" != "--full" ]
-  grep -qx 'config' <<< "$output"
+  text_has_line "$output" 'config'
 }
 
 # Multiple mapped paths union and dedupe.
@@ -115,8 +117,8 @@ setup() {
                              .installer/lib/zfs/pools.sh \
                              .installer/lib/packages/package-resolver.sh
   [ "$output" != "--full" ]
-  grep -qx 'packages' <<< "$output"
-  grep -qx 'zfs' <<< "$output"
+  text_has_line "$output" 'packages'
+  text_has_line "$output" 'zfs'
   # deduped: exactly one 'packages' line despite two lib/packages changes
-  [ "$(grep -cx 'packages' <<< "$output")" -eq 1 ]
+  [ "$(printf '%s\n' "$output" | grep -cx 'packages')" -eq 1 ]
 }

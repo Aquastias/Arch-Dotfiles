@@ -109,3 +109,9 @@
 .installer/vm/**
 .installer/tools/*
 .installer/tests/vm/*
+
+# Ticket 16 — the lints, audit, test runner and test helpers, with the
+# remaining tests.
+.installer/tests/*
+.installer/tests/lib/*
+.githooks/*

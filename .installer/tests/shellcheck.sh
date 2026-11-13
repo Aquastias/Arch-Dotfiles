@@ -43,8 +43,11 @@ fi
 
 echo "[shellcheck.sh] Using ${SHELLCHECK}"
 echo "[shellcheck.sh] Checking ${#TARGETS[@]} file(s) under ${INSTALLER_DIR}"
+# Each file is shown from .installer/: its first character after the
+# "$INSTALLER_DIR/" prefix on.
+relative_start=$((${#INSTALLER_DIR} + 2))
 for command_file in "${TARGETS[@]}"; do
-  printf '  - %s\n' "${command_file#"${INSTALLER_DIR}/"}"
+  printf '  - %s\n' "$(printf '%s\n' "$command_file" | cut -c"$relative_start"-)"
 done
 echo ""
 

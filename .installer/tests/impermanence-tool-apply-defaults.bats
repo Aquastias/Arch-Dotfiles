@@ -145,7 +145,7 @@ load impermanence-tool-helpers
 
 @test "apply-defaults: does not touch extension tmpfiles under /persist/" {
   local extensions_tmpfiles="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  mkdir -p "${extensions_tmpfiles%/*}"
+  mkdir -p "$(dirname "$extensions_tmpfiles")"
   echo "f /etc/extfoo 0644 root root - -" > "$extensions_tmpfiles"
   seed_all_curated_live
   "$TOOL" apply-defaults
@@ -168,7 +168,7 @@ load impermanence-tool-helpers
   : > "$IMPERMANENCE_MANIFEST"
   seed_all_curated_live
   local extensions_tmpfiles="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  mkdir -p "${extensions_tmpfiles%/*}"
+  mkdir -p "$(dirname "$extensions_tmpfiles")"
   echo "d /etc/ssh 0755 root root - -" > "$extensions_tmpfiles"
   echo "f /etc/extfoo 0644 root root - -" >> "$extensions_tmpfiles"
   "$TOOL" apply-defaults

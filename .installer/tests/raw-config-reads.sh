@@ -12,26 +12,8 @@
 # (e.g. the same keys on a Host Profile before assembly).
 set -euo pipefail
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA=".installer/lib/config/install-config.sh"
-
-# The schema's jq paths, one per line: each `"name|path|type|default"` row of
-# _INSTALL_CONFIG_SCHEMA (a row split as `"a|"\` + `"b"` is joined first).
-schema_paths() {
-  [[ -f "$SCHEMA" ]] || return 0
-  awk '
-    /^_INSTALL_CONFIG_SCHEMA=\(/ { inside = 1; next }
-    inside && /^\)/ { exit }
-    inside && /^[[:space:]]*#/ { next }
-    inside && /"\\$/ { held = held $0; next }
-    inside {
-      row = held $0; held = ""
-      gsub(/"\\[[:space:]]*"/, "", row)
-      if (match(row, /"[^"]*"/)) {
-        split(substr(row, RSTART + 1, RLENGTH - 2), field, "|")
-        if (field[2] != "") print field[2]
-      }
-    }' "$SCHEMA"
-}
 
 # A raw read: a schema-owned path (from a jq input or a `$variable`, not a
 # deeper path that merely ends the same), optional `[i]` steps, then `//` and
@@ -41,45 +23,48 @@ schema_paths() {
 # raw read.
 raw_read_pattern() {
   local paths
-  paths="$(schema_paths | awk '{ gsub(/[.[\]]/, "\\\\&"); print }' \
-    | awk 'NR > 1 { printf "|" } { printf "%s", $0 }')"
+  [[ -f "$SCHEMA" ]] || return 0
+  # The schema's jq paths as ERE literals, joined by "|".
+  paths="$(awk -v escape=1 -f "$HERE/raw-config-schema-paths.awk" "$SCHEMA" \
+    | paste -sd'|')"
   [[ -n "$paths" ]] || return 0
   printf '%s' '(^|[^A-Za-z0-9_\]]|[$][A-Za-z_]+)('"$paths"')(\[[^]]*\])*'
   printf '%s' ' *// *("[^"]|\[[^]]|[0-9]|true|false)'
 }
 
+# Tracked installer scripts, minus home/ payloads and the reader itself.
 scanned_files() {
   local directories='(lib|vm|tools|extras|programs)'
-  git ls-files '.installer/*.sh' \
+  local payloads='^\.installer/programs/[^/]+/[^/]+/home/'
+  local reader='^\.installer/lib/config/install-config[^/]*\.sh$'
+  local tracked
+  tracked="$(git ls-files '.installer/*.sh')"
+  # Top-level scripts and those under the scanned directories, minus
+  # payloads and the reader.
+  printf '%s\n' "$tracked" \
     | grep -E "^\\.installer/([^/]+\\.sh|$directories/.+\\.sh)\$" \
-    | grep -vE '^\.installer/programs/[^/]+/[^/]+/home/' \
-    | grep -vE '^\.installer/lib/config/install-config[^/]*\.sh$' \
+    | grep -vE "$payloads|$reader" \
     || true
 }
 
-# Raw reads as `file<TAB>line<TAB>text`.
-raw_reads() {
+# Every raw read as `file:line: text`, one per line.
+listed_reads() {
   local files pattern
   pattern="$(raw_read_pattern)"
   [[ -n "$pattern" ]] || return 0
   mapfile -t files < <(scanned_files)
   ((${#files[@]})) || return 0
-  PATTERN="$pattern" awk '
-    $0 ~ ENVIRON["PATTERN"] && $0 !~ /raw-config-ok/ {
-      text = $0; sub(/^[[:space:]]+/, "", text)
-      print FILENAME "\t" FNR "\t" text
-    }' "${files[@]}"
+  PATTERN="$pattern" awk -f "$HERE/raw-config-match.awk" "${files[@]}"
 }
-
-# Every raw read as `file:line: text`, one per line.
-listed_reads() { raw_reads | awk -F'\t' '{ print $1 ":" $2 ": " $3 }'; }
 
 # Fail on any raw read, naming each one and the fix.
 check_reads() {
-  local reads
+  local reads read
   reads="$(listed_reads)"
   [[ -z "$reads" ]] && return 0
-  awk '{ print "raw config read: " $0 }' <<<"$reads"
+  while IFS= read -r read; do
+    echo "raw config read: $read"
+  done < <(printf '%s\n' "$reads")
   echo "Read these through the Install Config Reader" \
     "(docs/agents/readability.md, Config reads)."
   return 1

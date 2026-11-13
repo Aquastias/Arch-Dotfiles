@@ -37,7 +37,7 @@ case "${1:-}" in
   --changed) MODE="changed"; CHANGED_REF="${2:-}" ;;
   --vm) MODE="vm" ;;
   -h | --help)
-    awk 'NR >= 2 && NR <= 17 { sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
+    awk -f "$HERE/run-usage.awk" "${BASH_SOURCE[0]}"
     exit 0
     ;;
   *)
@@ -106,9 +106,11 @@ collect_changed() {
     collect_all
   else
     echo "[run.sh] --changed targets (+ install-correctness core):" >&2
-    # shellcheck disable=SC2001  # sed line-prefix clearer than repeating literal
-    awk '{ print "[run.sh]   " $0 }' <<< "$targets" >&2
-    local token; while IFS= read -r token; do expand_tokens "$token"; done <<< "$targets"
+    local token
+    while IFS= read -r token; do
+      echo "[run.sh]   $token" >&2
+      expand_tokens "$token"
+    done < <(printf '%s\n' "$targets")
   fi
 }
 

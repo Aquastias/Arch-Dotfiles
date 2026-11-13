@@ -61,11 +61,10 @@ case "${1:-}" in
     ;;
 esac
 
-# Never scanned: program home/ payloads (app config), test fixtures
-# (sample data), and the lint's own files (they hold the banned patterns
-# as data).
+# Never scanned: program home/ payloads (app config) and test fixtures
+# (sample data). The lint's own tests hold the banned patterns as data.
 NOT_SCANNED='^\.installer/(programs/[^/]+/[^/]+/home/|tests/fixtures/'
-NOT_SCANNED+='|tests/readability(\.sh|\.bats|-.*\.awk)$)'
+NOT_SCANNED+='|tests/readability\.bats$)'
 # Other tracked files: .installer/ is listed on its own; notes and
 # vendored skills are not ours to lint.
 NOT_OURS='^(\.installer/|\.scratch/|\.agents/skills/)'
@@ -76,13 +75,14 @@ scanned_files() {
   installer_files="$(git ls-files '.installer/*.sh' '.installer/*.bash' \
     '.installer/*.bats' '.installer/*.jq' '.installer/*.awk' \
     '.installer/aur/aur-vet')"
-  other_files="$(git ls-files '*.sh' '.local/bin/*' \
+  other_files="$(git ls-files '*.sh' '.local/bin/*' '.githooks/*' \
     | grep -vE "$NOT_OURS" || true)"
   printf '%s\n' "$installer_files" "$other_files" \
     | grep -vE "$NOT_SCANNED|^$" || true
 }
 
 linked_docs() {
+  # Tracked docs, minus notes, vendored skills and program payloads.
   git ls-files '*.md' \
     | grep -vE '^(\.scratch/|\.agents/skills/)' \
     | grep -vE '^\.installer/programs/[^/]+/[^/]+/home/' \
@@ -93,7 +93,7 @@ linked_docs() {
 adr_index() {
   local adr
   for adr in docs/adr/[0-9][0-9][0-9][0-9]-*.md; do
-    [[ -e "$adr" ]] && printf '%s\n' "${adr##*/}"
+    [[ -e "$adr" ]] && basename "$adr"
   done
   return 0
 }
@@ -111,10 +111,11 @@ violations() {
       -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" -f "$COMMAND_CHECKER" \
       -f "$FEATURE_CHECKER" -f "$SHAPE_CHECKER" "${files[@]}"
   fi
+  local index_text
   mapfile -t files < <(linked_docs)
   ((${#files[@]})) || return 0
-  awk -v mode=check -v adr_index="$(adr_index)" -f "$ADR_LINKER" \
-    "${files[@]}"
+  index_text="$(adr_index)"
+  awk -v mode=check -v adr_index="$index_text" -f "$ADR_LINKER" "${files[@]}"
   # ADRs are history: they keep naming files that later moved.
   mapfile -t files < <(linked_docs | grep -v '^docs/adr/' || true)
   ((${#files[@]})) || return 0
@@ -158,6 +159,7 @@ esac
 # Only strict violations fail the lint.
 strict_rows="$(violations | grep -v $'\tadvisory$' || true)"
 [[ -z "$strict_rows" ]] && exit 0
+# The strict findings as `rule: file:line: detail`, sorted.
 mapfile -t findings < <(printf '%s\n' "$strict_rows" | print_findings | sort)
 for finding in "${findings[@]}"; do
   printf 'readability: %s\n' "$finding" >&2

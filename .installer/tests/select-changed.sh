@@ -105,13 +105,24 @@ _changed_root_map() {
   esac
 }
 
+# _changed_relative <path> — the path without a leading "./".
+_changed_relative() {
+  if [[ "$1" == ./* ]]; then
+    printf '%s\n' "$1" | cut -c3-
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
 # _changed_map_one <path> — print target tokens for one changed path, or return
 # non-zero if unmapped (caller then widens to --full).
 _changed_map_one() {
-  local path="${1#./}" directory
-  # A changed test file targets itself (path relative to tests/).
+  local path directory
+  path="$(_changed_relative "$1")"
+  # A changed test file targets itself (path relative to tests/: drop the
+  # `.installer/tests/` directories).
   case "$path" in
-    .installer/tests/*.bats) printf '%s\n' "${path#.installer/tests/}"; return 0 ;;
+    .installer/tests/*.bats) printf '%s\n' "$path" | cut -d/ -f3-; return 0 ;;
   esac
   # Mirrored source subdir: .installer/lib/<d>/ or .installer/<d>/ → tests/<d>.
   for directory in "${_MIRRORED_DIRS[@]}"; do
@@ -121,8 +132,9 @@ _changed_map_one() {
   done
   # Root/tools explicit map.
   local tokens; if tokens="$(_changed_root_map "$path")"; then
-    local -a token_list; read -ra token_list <<<"$tokens"
-    printf '%s\n' "${token_list[@]}"; return 0
+    local token
+    for token in $tokens; do echo "$token"; done
+    return 0
   fi
   return 1
 }
@@ -132,7 +144,7 @@ _changed_map_one() {
 select_changed_targets() {
   local path token; local -A want=()
   for path in "$@"; do
-    path="${path#./}"
+    path="$(_changed_relative "$path")"
     [[ -n "$path" ]] || continue
     # Only .installer/ paths are test-relevant. Anything else (repo-root
     # dotfiles, docs/, .scratch/, editor dirs — often untracked) is ignored,

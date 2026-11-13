@@ -2,6 +2,7 @@
 # Tests: verbs (split from impermanence-tool.bats;
 # shared setup in impermanence-tool-helpers.bash)
 
+load lib/json-helpers
 load impermanence-tool-helpers
 
 
@@ -151,7 +152,7 @@ load impermanence-tool-helpers
 
 @test "add: preserves existing tmpfiles entries (append-only)" {
   local tmpfiles_config="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  mkdir -p "${tmpfiles_config%/*}"
+  mkdir -p "$(dirname "$tmpfiles_config")"
   printf "d /etc/preexisting 0755 root root - -\n" > "$tmpfiles_config"
   seed_live_file /etc/foo.conf
   "$TOOL" add /etc/foo.conf
@@ -253,8 +254,9 @@ JSONC
   seed_live_directory /etc/wireguard
   "$TOOL" add /etc/wireguard
   source "$BATS_TEST_DIRNAME/../lib/jsonc.sh"
-  jsonc_strip "$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc" \
-    | jq -e '.persist.directories | index("/etc/wireguard")'
+  json_satisfies \
+    "$(jsonc_strip "$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc")" \
+    '.persist.directories | index("/etc/wireguard")'
 }
 
 # ── cycle 5: remove happy path ──────────────────────────────────────────────

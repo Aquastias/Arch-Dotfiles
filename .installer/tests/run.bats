@@ -36,7 +36,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
   [ "$status" -eq 0 ]
   [ -f "$TEST_DIR/argv" ]
-  run head -2 "$TEST_DIR/argv"
+  run head -n 2 "$TEST_DIR/argv"
   [ "${lines[0]}" = "--jobs" ]
   local cores; cores="$(nproc)"
   [ "${lines[1]}" = "$(( cores < 4 ? cores : 4 ))" ]

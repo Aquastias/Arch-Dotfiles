@@ -81,7 +81,7 @@ STUB
   # Pin the filesystem the tool would otherwise detect from the live root.
   export IMPERMANENCE_FILESYSTEM=zfs
   mkdir -p "$IMPERMANENCE_MOUNT" \
-           "${IMPERMANENCE_MANIFEST%/*}" \
+           "$(dirname "$IMPERMANENCE_MANIFEST")" \
            "$IMPERMANENCE_HOSTS_DIR/testhost"
   : > "$IMPERMANENCE_MANIFEST"
   cat > "$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc" <<'JSONC'
@@ -99,7 +99,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 # Helper: a "live" file under FAKEROOT, ready to be persisted.
 seed_live_file() {
   local path="$1"
-  mkdir -p "$IMPERMANENCE_ROOT${path%/*}"
+  mkdir -p "$IMPERMANENCE_ROOT$(dirname "$path")"
   echo "live-data" > "$IMPERMANENCE_ROOT$path"
 }
 
@@ -123,7 +123,7 @@ seed_all_curated_live() {
   local curated_path
   for curated_path in /etc/machine-id /etc/hostname /etc/locale.conf \
            /etc/vconsole.conf /etc/adjtime /etc/fstab; do
-    mkdir -p "$IMPERMANENCE_ROOT${curated_path%/*}"
+    mkdir -p "$IMPERMANENCE_ROOT$(dirname "$curated_path")"
     echo "x" > "$IMPERMANENCE_ROOT$curated_path"
   done
   for curated_path in /etc/ssh /etc/secrets /etc/NetworkManager/system-connections \
