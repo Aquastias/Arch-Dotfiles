@@ -72,7 +72,7 @@ setup() {
   run layout_btrfs_root_fstab "UUID=DEAD-BEEF"
   [ "$status" -eq 0 ]
   [ "${#lines[@]}" -eq 9 ]
-  ! [[ "$output" =~ "subvol=@root" ]]
+  ! [[ "$output" =~ "subvol=@root" ]] || return 1
   [[ "$output" =~ "UUID=DEAD-BEEF  /etc  btrfs  rw,relatime,subvol=@etc  0 0" ]]
   [[ "$output" =~ "UUID=DEAD-BEEF  /usr/local  btrfs  rw,relatime,subvol=@usrlocal  0 0" ]]
 }

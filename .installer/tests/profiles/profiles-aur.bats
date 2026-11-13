@@ -116,7 +116,8 @@ _adapter() {
 @test "qt6ct-kde is no longer declared in any host packages.aur" {
   local host
   for host in core desktop laptop; do
-    ! grep -q '"qt6ct-kde"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
+    ! grep -q '"qt6ct-kde"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc" \
+      || return 1
   done
 }
 
@@ -130,7 +131,8 @@ _adapter() {
 @test "octopi is no longer declared in any host packages.aur" {
   local host
   for host in core desktop laptop; do
-    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
+    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc" \
+      || return 1
   done
 }
 
@@ -166,7 +168,7 @@ _adapter() {
   local host
   for host in core desktop laptop; do
     ! grep -q '"steam-native-runtime"' \
-      "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
+      "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc" || return 1
   done
 }
 
@@ -176,6 +178,7 @@ _adapter() {
   grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/fleet/profile.jsonc"
   local host
   for host in desktop laptop; do
-    ! grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc"
+    ! grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$host/profile.jsonc" \
+      || return 1
   done
 }

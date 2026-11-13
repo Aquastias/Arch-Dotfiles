@@ -43,7 +43,8 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
 
   # The exact regression: must NOT install linux-headers from a mirror/archive.
-  ! grep -qE 'pacman .*(^| )linux(-lts|-hardened|-zen)?-headers' "$CALLS"
+  ! grep -qE 'pacman .*(^| )linux(-lts|-hardened|-zen)?-headers' "$CALLS" \
+    || return 1
   ! grep -q 'curl' "$CALLS"
 }
 

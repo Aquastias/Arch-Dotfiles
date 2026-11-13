@@ -143,6 +143,6 @@ stub() {
   printf 'KDE\n' > "$DESKTOP_VERIFY_STATE/tags"
   run "$PROBER"
   grep -q '===KDE-SESSION-OK===' "$DESKTOP_VERIFY_TTY"
-  ! grep -q 'POLKIT\|IDLE\|CLIPBOARD' "$DESKTOP_VERIFY_TTY"
+  ! grep -q 'POLKIT\|IDLE\|CLIPBOARD' "$DESKTOP_VERIFY_TTY" || return 1
   grep -q '===SESSION-VERIFY-DONE===' "$DESKTOP_VERIFY_TTY"
 }

@@ -336,7 +336,7 @@ JSON
   # The plugin package names.
   names="$(jsonc_strip "$real" \
     | jq -r '.plugins | to_entries[].value | keys[]')"
-  ! printf '%s\n' "$names" | grep -qx "7zip"
+  ! printf '%s\n' "$names" | grep -qx "7zip" || return 1
   ! printf '%s\n' "$names" | grep -qx "unrar"
 }
 

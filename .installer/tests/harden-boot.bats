@@ -223,7 +223,7 @@ teardown() { rm -rf "$ROOT"; }
   local template="$ROOT/usr/local/lib/archzfs/undo-entry.template"
   grep -q "cmdline: root=ZFS=rpool/ROOT/arch rw undo_last_update" "$template"
   grep -q "module_path: boot():/amd-ucode.img" "$template"
-  ! grep -q "initrd=" "$template"
+  ! grep -q "initrd=" "$template" || return 1
   [ "$(cat "$ROOT/etc/mkinitcpio.conf")" \
     = "HOOKS=(base udev block zfs undo-update filesystems)" ]
 }
@@ -256,7 +256,7 @@ teardown() { rm -rf "$ROOT"; }
     [ "$status" -eq 0 ]
   done
   [ "$(cat "$ROOT/usr/local/lib/archzfs/selected-kernels")" = linux-lts ]
-  ! grep -q "prev-prev" "$ROOT/boot/efi/EFI/refind/refind.conf"
+  ! grep -q "prev-prev" "$ROOT/boot/efi/EFI/refind/refind.conf" || return 1
   [ "$(grep -c '^dont_scan_files' "$ROOT/boot/efi/EFI/refind/refind.conf")" \
     -eq 1 ]
 }

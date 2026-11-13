@@ -93,7 +93,7 @@ load controller-helpers
   run guided_controller_list
   echo "$output" | grep -q "^alice — "          # enabled: name — shell · pw …
   echo "$output" | grep -q "^bob — disabled$"   # disabled: no checkbox
-  ! echo "$output" | grep -q "core"
+  ! echo "$output" | grep -q "core" || return 1
   echo "$output" | grep -q "+ Create user"
 }
 
@@ -183,7 +183,7 @@ load controller-helpers
     > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_values Users users users)"
   run guided_controller_list
-  ! echo "$output" | grep -q "disk encryption:"
+  ! echo "$output" | grep -q "disk encryption:" || return 1
   echo "$output" | grep -qx "root — bash · pw default 12345"   # account default
 }
 
@@ -358,8 +358,8 @@ load controller-helpers
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_navigation '{"screen":"top"}'
   run guided_controller_list
-  ! echo "$output" | grep -q "pw needed"
-  ! echo "$output" | grep -q "set passwords first"
+  ! echo "$output" | grep -q "pw needed" || return 1
+  ! echo "$output" | grep -q "set passwords first" || return 1
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
@@ -370,7 +370,7 @@ load controller-helpers
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_navigation '{"screen":"top"}'
   run guided_controller_list
-  ! echo "$output" | grep -q "pw needed"
+  ! echo "$output" | grep -q "pw needed" || return 1
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
@@ -378,7 +378,7 @@ load controller-helpers
   unset GUIDED_SECRETS_FILE
   set_navigation '{"screen":"top"}'
   run guided_controller_list
-  ! echo "$output" | grep -q "pw needed"
+  ! echo "$output" | grep -q "pw needed" || return 1
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
@@ -391,7 +391,7 @@ load controller-helpers
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_navigation '{"screen":"top"}'
   run guided_controller_list
-  ! echo "$output" | grep -q "pw needed"
+  ! echo "$output" | grep -q "pw needed" || return 1
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
@@ -420,7 +420,8 @@ load controller-helpers
   set_navigation '{"screen":"top"}'
   [ "$(guided_controller_enter "Proceed ▸ review & install")" = "terminal proceed" ]
   run guided_controller_list
-  ! echo "$output" | grep -qE '^Disks — .*pw needed'   # no gate while off
+  # no gate while off
+  ! echo "$output" | grep -qE '^Disks — .*pw needed' || return 1
   # retain-silently: the stored passphrase survives the toggle-off
   file_satisfies "$GUIDED_SECRETS_FILE" '.enc_passphrase == "corrhorse"'
 }

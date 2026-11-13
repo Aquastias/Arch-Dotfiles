@@ -52,7 +52,7 @@ load packages-helpers
   set_navigation "$(navigation_to_package_derived_source Packages gpu)"
   run guided_controller_list
   echo "$output" | grep -q "vulkan-radeon"
-  ! echo "$output" | grep -q "nvidia-open-dkms"
+  ! echo "$output" | grep -q "nvidia-open-dkms" || return 1
 
   printf '%s\n' '{"environment":{"gpu":["nvidia"]}}' > "$GUIDED_STATE_FILE"
   run guided_controller_list
@@ -64,7 +64,7 @@ load packages-helpers
   printf '%s\n' '{"environment":{"desktop":[]}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_package_derived Packages)"
   run guided_controller_list
-  ! echo "$output" | grep -qE '^audio ▸'
+  ! echo "$output" | grep -qE '^audio ▸' || return 1
 
   printf '%s\n' '{"environment":{"desktop":["kde"]}}' > "$GUIDED_STATE_FILE"
   run guided_controller_list

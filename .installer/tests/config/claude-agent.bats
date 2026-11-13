@@ -42,8 +42,8 @@ setup() {
 @test "install.sh does NOT seed config and never writes .credentials.json" {
   # ADR 0134: the Config Apply pass places home/.claude/; install.sh is
   # package-only and touches no $HOME config.
-  ! grep -qE 'cp -r "\$\{PROGRAMS\}/dev/claude/payload' "$INSTALL"
-  ! grep -qE 'cp[^#]*"\$\{HOME\}/\.claude' "$INSTALL"
+  ! grep -qE 'cp -r "\$\{PROGRAMS\}/dev/claude/payload' "$INSTALL" || return 1
+  ! grep -qE 'cp[^#]*"\$\{HOME\}/\.claude' "$INSTALL" || return 1
   run grep -qE '(cp|tee|>)[^#]*\.credentials\.json' "$INSTALL"
   [ "$status" -ne 0 ]
 }
@@ -139,8 +139,8 @@ _sleep_hook() {
   # outside it — the only file that may linger. The operator's gitignored
   # runtime .claude is untouched.
   run git -C "$REPO" ls-files .claude
-  ! text_has_line "$output" '.claude/CLAUDE.md'
-  ! text_has_line "$output" '.claude/scripts/statusline.sh'
+  ! text_has_line "$output" '.claude/CLAUDE.md' || return 1
+  ! text_has_line "$output" '.claude/scripts/statusline.sh' || return 1
   local tracked
   for tracked in "${lines[@]}"; do
     [ "$tracked" = '.claude/settings.json' ]

@@ -29,8 +29,8 @@ teardown() { rm -f "$FILE"; }
 
 @test "has_root / has_user reflect what is set" {
   printf '{}\n' > "$FILE"
-  ! guided_secrets_file_has_root "$FILE"
-  ! guided_secrets_file_has_user "$FILE" alex
+  ! guided_secrets_file_has_root "$FILE" || return 1
+  ! guided_secrets_file_has_user "$FILE" alex || return 1
   guided_secrets_file_set_root "$FILE" "r"
   guided_secrets_file_set_user "$FILE" alex "a"
   guided_secrets_file_has_root "$FILE"

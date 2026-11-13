@@ -57,14 +57,14 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   local state
   state='{"data_pools":[{"name":"tank0","devices":["'"$BY_ID"'/nvme-Disk_One"]}]}'
   run _controller_free_disks "$state"
-  ! echo "$output" | grep -q "nvme-Disk_One"
+  ! echo "$output" | grep -q "nvme-Disk_One" || return 1
   echo "$output" | grep -q "nvme-Disk_Two"
 }
 
 @test "_controller_free_disks: excludes a disk bound to the os_pool (cross-group)" {
   local state='{"os_pool":{"devices":["'"$BY_ID"'/ata-Disk_Three"]}}'
   run _controller_free_disks "$state"
-  ! echo "$output" | grep -q "ata-Disk_Three"
+  ! echo "$output" | grep -q "ata-Disk_Three" || return 1
   [ "${#lines[@]}" -eq 2 ]
 }
 

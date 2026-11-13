@@ -29,7 +29,7 @@ teardown() { rm -f "$CONF"; }
 @test "hold=0 removes the marked line, leaves the rest" {
   lts_hold_set "$CONF" 1
   lts_hold_set "$CONF" 0
-  ! grep -q 'archzfs-lts-hold' "$CONF"
+  ! grep -q 'archzfs-lts-hold' "$CONF" || return 1
   grep -q '^HoldPkg = pacman glibc$' "$CONF"   # operator's own line intact
   grep -q '^\[core\]' "$CONF"
 }

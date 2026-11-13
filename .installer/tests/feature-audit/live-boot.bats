@@ -65,7 +65,7 @@ sum_lines() {
 
 @test "feature_audit_phase_wanted: an undeclared phase is skipped and recorded" {
   FA_VARIANT_PHASES="boot2 upgrade"
-  ! feature_audit_phase_wanted "$T/v" keybinds
+  ! feature_audit_phase_wanted "$T/v" keybinds || return 1
   grep -qx 'SKIP phase-keybinds not in this variant'"'"'s Variant Phases' \
     "$T/v/keybinds/phase@gate.probe"
   feature_audit_phase_wanted "$T/v" boot2
@@ -74,7 +74,7 @@ sum_lines() {
 
 @test "feature_audit_phase_wanted: FEATURE_AUDIT_SKIP drops a phase silently" {
   FA_VARIANT_PHASES="boot2 upgrade" FEATURE_AUDIT_SKIP="boot2"
-  ! feature_audit_phase_wanted "$T/v" boot2
+  ! feature_audit_phase_wanted "$T/v" boot2 || return 1
   [ ! -e "$T/v/boot2" ]
 }
 
@@ -168,7 +168,7 @@ sum_lines() {
   feature_audit_wait_ssh() { return 1; }
   feature_audit_boot_evidence() { :; }
   virsh() { echo "virsh $*" >> "$T/virsh.log"; }
-  ! feature_audit_boot "$T/boot1"
+  ! feature_audit_boot "$T/boot1" || return 1
   [ ! -e "$T/boot1/vm-retry.txt" ]
   grep -q 'never reached SSH' "$T/boot1/fatal.lines"
 }
@@ -293,7 +293,7 @@ reset run probes-online collect probes-online" ]
   feature_audit_agent() { cat >/dev/null; echo "boom here" >&2; return 1; }
   feature_audit_pull_into() { :; }
   feature_audit_wait_ssh() { :; }
-  ! feature_audit_collect "$T/boot1"
+  ! feature_audit_collect "$T/boot1" || return 1
   grep -q 'collector failed to run in the guest: boom here' \
     "$T/boot1/fatal.lines"
 }

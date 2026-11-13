@@ -36,7 +36,7 @@ load controller-helpers
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_user_edit Users dave)"
   run guided_controller_list
-  ! echo "$output" | grep -q "enabled:"        # ad-hoc → no enabled
+  ! echo "$output" | grep -q "enabled:" || return 1        # ad-hoc → no enabled
   echo "$output" | grep -q "shell: zsh"        # User Core default
   echo "$output" | grep -q "✗ remove user"
 }
@@ -420,9 +420,9 @@ load controller-helpers
   echo "$output" | grep -qx "\[ \] docker"
   # borg is Backup-owned (ADR 0086): filtered from the user picker too; only the
   # free-standing docker is offered.
-  ! echo "$output" | grep -q "borg"
-  ! echo "$output" | grep -q "cups"
-  ! echo "$output" | grep -q "grub"
+  ! echo "$output" | grep -q "borg" || return 1
+  ! echo "$output" | grep -q "cups" || return 1
+  ! echo "$output" | grep -q "grub" || return 1
   [ "$(echo "$output" | grep -c '^\[')" -eq 1 ]
 }
 

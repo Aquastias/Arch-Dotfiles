@@ -81,7 +81,7 @@ bats_require_minimum_version 1.5.0
   guided_pick_disks() { echo CALLED; return 1; }
   run _guided_shell_resolve_assignment
   [ "$status" -eq 0 ]
-  ! echo "$output" | grep -q CALLED
+  ! echo "$output" | grep -q CALLED || return 1
   output_satisfies '.os_pool == ["/dev/disk/by-id/a","/dev/disk/by-id/b"]'
 }
 

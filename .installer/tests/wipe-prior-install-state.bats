@@ -53,8 +53,9 @@ setup() {
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" | grep -qx '/mnt'        # install root kept
   printf '%s\n' "$output" | grep -qx '/mnt/boot/efi'        # ESP kept
-  ! printf '%s\n' "$output" | grep -qx '/'   # live root excluded
-  ! printf '%s\n' "$output" | grep -qx '/run/archiso/bootmnt'   # archiso excluded
+  ! printf '%s\n' "$output" | grep -qx '/' || return 1   # live root excluded
+  # archiso excluded
+  ! printf '%s\n' "$output" | grep -qx '/run/archiso/bootmnt' || return 1
   ! printf '%s\n' "$output" | grep -qx '/mntfoo'   # no false prefix match
 }
 

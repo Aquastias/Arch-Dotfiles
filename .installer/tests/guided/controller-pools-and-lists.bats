@@ -278,7 +278,7 @@ load controller-helpers
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_list
   echo "$output" | grep -qE '^zswap: off$'
-  ! echo "$output" | grep -qE '^compressor:'
+  ! echo "$output" | grep -qE '^compressor:' || return 1
   ! echo "$output" | grep -qE '^max pool %:'
 }
 
@@ -286,7 +286,7 @@ load controller-helpers
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_navigation "$(navigation_to_swap_edit Disks)"
   run guided_controller_list
-  ! echo "$output" | grep -qE '^zswap:'
+  ! echo "$output" | grep -qE '^zswap:' || return 1
   ! echo "$output" | grep -qE '^compressor:'
 }
 

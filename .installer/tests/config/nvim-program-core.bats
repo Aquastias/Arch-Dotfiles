@@ -25,8 +25,8 @@ load nvim-program-helpers
 }
 
 @test "install.sh does NOT seed home/ config — the pass applies it (ADR 0134)" {
-  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL" || return 1
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL" || return 1
   ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 
@@ -42,7 +42,7 @@ load nvim-program-helpers
 
 @test "config is hand-rolled on lazy.nvim, not the LazyVim distro (ADR 0135)" {
   tree_has 'folke/lazy.nvim' "$NVIM/lua/config/lazy.lua"
-  ! tree_has 'LazyVim/LazyVim' "$NVIM"
+  ! tree_has 'LazyVim/LazyVim' "$NVIM" || return 1
   ! tree_has 'import = "lazyvim' "$NVIM"
 }
 
@@ -311,7 +311,7 @@ load nvim-program-helpers
 }
 
 @test "nvim-emmet is dropped; Emmet is served by emmet_language_server" {
-  ! tree_has 'olrtg/nvim-emmet' "$NVIM/lua"
+  ! tree_has 'olrtg/nvim-emmet' "$NVIM/lua" || return 1
   [ ! -e "$NVIM/lua/plugins/emmet.lua" ]
   grep -q 'emmet_language_server' "$NVIM/lua/config/languages.lua"
 }

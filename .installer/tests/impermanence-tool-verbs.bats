@@ -296,7 +296,7 @@ JSONC
   : > "$CALLS"
   local tmpfiles_config="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
   "$TOOL" remove /etc/foo.conf
-  ! grep -qE "^f /etc/foo.conf " "$tmpfiles_config"
+  ! grep -qE "^f /etc/foo.conf " "$tmpfiles_config" || return 1
   grep -qE "^f /etc/bar.conf " "$tmpfiles_config"
 }
 

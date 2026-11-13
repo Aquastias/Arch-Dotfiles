@@ -125,7 +125,7 @@ wl-clipboard" "$PACMAN_LOG"
 @test "installs no greeter and enables no display manager (ADR 0069)" {
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -Eq "greetd|sddm" "$PACMAN_LOG"
+  ! grep -Eq "greetd|sddm" "$PACMAN_LOG" || return 1
   ! grep -Eq "greetd|sddm" "$SYSTEMCTL_LOG"
 }
 
@@ -149,7 +149,7 @@ wl-clipboard" "$PACMAN_LOG"
 @test "wayland_shell=none installs only the core and seeds nothing" {
   ENVIRONMENT_WAYLAND_SHELL=none run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -q "noctalia" "$PACMAN_LOG"
+  ! grep -q "noctalia" "$PACMAN_LOG" || return 1
   [ ! -e "$SKEL/.config/umbriel/config.toml" ]
 }
 
@@ -157,7 +157,7 @@ wl-clipboard" "$PACMAN_LOG"
   ENVIRONMENT_WAYLAND_SHELL=noctalia ENVIRONMENT_STOCK=true \
     run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -q "noctalia" "$PACMAN_LOG"
+  ! grep -q "noctalia" "$PACMAN_LOG" || return 1
   [ ! -e "$SKEL/.config/umbriel/config.toml" ]
 }
 

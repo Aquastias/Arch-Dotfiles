@@ -31,7 +31,8 @@ setup() {
 @test "boot: waits for the network, allows a slow first pull, no warning" {
   # Audit Run 20261004: the masked network wait crash-looped searxng's
   # startup network check; the first pull outran the 90s start timeout.
-  ! grep 'podman-user-wait-network-online' "$S/install.sh" | grep -q 'ln -s'
+  ! grep 'podman-user-wait-network-online' "$S/install.sh" | grep -q 'ln -s' \
+    || return 1
   grep -qx 'TimeoutStartSec=900' "$Q/searxng.container"
   [ -f "$S/limiter.toml" ]
   grep -q 'limiter.toml' "$S/install.sh"
@@ -55,7 +56,7 @@ setup() {
   # Audit Run 20261004: NM wait-online is masked (base-services.sh), so a
   # default.target start pulled before the link was up; waiting in the unit
   # would hold the user manager's startup (and a login) instead
-  ! grep -q 'WantedBy=default.target' "$Q/searxng.container"
+  ! grep -q 'WantedBy=default.target' "$Q/searxng.container" || return 1
   local timer_file="$S/home/.config/systemd/user/searxng.timer"
   grep -qx 'OnStartupSec=30' "$timer_file"
   grep -qx 'WantedBy=timers.target' "$timer_file"

@@ -30,6 +30,7 @@ SCANNER="$TESTS_DIR/readability-scan.awk"
 COMMAND_CHECKER="$TESTS_DIR/readability-commands.awk"
 FEATURE_CHECKER="$TESTS_DIR/readability-features.awk"
 PROGRAM_FILE_CHECKER="$TESTS_DIR/readability-program-files.awk"
+NEGATION_CHECKER="$TESTS_DIR/readability-negation.awk"
 SHAPE_CHECKER="$TESTS_DIR/readability-shape.awk"
 ADR_LINKER="$TESTS_DIR/readability-adr-links.awk"
 DOC_PATH_CHECKER="$TESTS_DIR/readability-doc-paths.awk"
@@ -99,8 +100,9 @@ violations() {
     awk -v prefix_rules="$PREFIX_RULES" \
       -v generated_functions="$GENERATED_FUNCTIONS" \
       -v tool_reference="$TOOL_REFERENCE" \
-      -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" -f "$COMMAND_CHECKER" \
-      -f "$FEATURE_CHECKER" -f "$SHAPE_CHECKER" "${files[@]}"
+      -f "$NEGATION_CHECKER" -f "$PROGRAM_FILE_CHECKER" -f "$SCANNER" \
+      -f "$COMMAND_CHECKER" -f "$FEATURE_CHECKER" -f "$SHAPE_CHECKER" \
+      "${files[@]}"
   fi
   local index_text
   mapfile -t files < <(linked_docs)

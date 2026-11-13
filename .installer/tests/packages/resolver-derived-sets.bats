@@ -86,8 +86,8 @@ load resolver-helpers
   none="$(packages_of '{"users":[],"environment":{"desktop":[]}}')"
   kde="$(packages_of  '{"users":[],"environment":{"desktop":["kde"],"stock":false}}')"
 
-  ! text_has_line "$none" "pipewire"
-  ! text_has_line "$none" "plasma-meta"
+  ! text_has_line "$none" "pipewire" || return 1
+  ! text_has_line "$none" "plasma-meta" || return 1
   text_has_line "$kde" "pipewire"
   text_has_line "$kde" "wireplumber"
   text_has_line "$kde" "plasma-meta"
@@ -338,7 +338,7 @@ load resolver-helpers
   xfs="$(packages_of   '{"users":[],"filesystem":"xfs"}')"
 
   text_has_line "$zfs" "zfs-dkms"
-  ! text_has_line "$btrfs" "zfs-dkms"
+  ! text_has_line "$btrfs" "zfs-dkms" || return 1
   text_has_line "$btrfs" "btrfs-progs"
   text_has_line "$xfs" "xfsprogs"
 }
@@ -354,7 +354,7 @@ load resolver-helpers
   local systemd_boot_packages grub
   systemd_boot_packages="$(packages_of   '{"users":[],"options":{"bootloader":"systemd-boot"}}')"
   grub="$(packages_of '{"users":[],"options":{"bootloader":"grub"}}')"
-  ! text_has_line "$systemd_boot_packages" "grub"
+  ! text_has_line "$systemd_boot_packages" "grub" || return 1
   text_has_line "$grub" "grub"
 }
 
@@ -366,8 +366,8 @@ load resolver-helpers
   text_has_line "$limine" "limine"
   text_has_line "$refind" "refind"
   # efistub needs no extra package beyond efibootmgr (already in base)
-  ! text_has_line "$efistub" "grub"
-  ! text_has_line "$efistub" "limine"
+  ! text_has_line "$efistub" "grub" || return 1
+  ! text_has_line "$efistub" "limine" || return 1
   ! text_has_line "$efistub" "refind"
 }
 

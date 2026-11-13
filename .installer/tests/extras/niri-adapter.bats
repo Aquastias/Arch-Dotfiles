@@ -153,9 +153,9 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "installs no greeter and enables no display manager (ADR 0069)" {
   run_niri
   [ "$status" -eq 0 ]
-  ! grep -q "greetd" "$PACMAN_LOG"
-  ! grep -q "sddm" "$PACMAN_LOG"
-  ! grep -q "enable greetd" "$SYSTEMCTL_LOG"
+  ! grep -q "greetd" "$PACMAN_LOG" || return 1
+  ! grep -q "sddm" "$PACMAN_LOG" || return 1
+  ! grep -q "enable greetd" "$SYSTEMCTL_LOG" || return 1
   ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
 }
 
@@ -164,9 +164,9 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "wayland_shell=none installs only the core and seeds nothing" {
   run_niri ENVIRONMENT_WAYLAND_SHELL="none"
   [ "$status" -eq 0 ]
-  ! grep -q "noctalia" "$PACMAN_LOG"
-  ! grep -q "kitty" "$PACMAN_LOG"
-  ! grep -q "pcmanfm-qt" "$PACMAN_LOG"
+  ! grep -q "noctalia" "$PACMAN_LOG" || return 1
+  ! grep -q "kitty" "$PACMAN_LOG" || return 1
+  ! grep -q "pcmanfm-qt" "$PACMAN_LOG" || return 1
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
@@ -175,7 +175,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "stock niri seeds nothing despite wayland_shell=noctalia" {
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" ENVIRONMENT_STOCK="true"
   [ "$status" -eq 0 ]
-  ! grep -q "noctalia" "$PACMAN_LOG"
+  ! grep -q "noctalia" "$PACMAN_LOG" || return 1
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
@@ -272,7 +272,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   printf '{"cava":false,"cliphist":false}\n' > "$noctalia_json"
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$noctalia_json"
   [ "$status" -eq 0 ]
-  ! grep -qw "cava" "$PACMAN_LOG"
+  ! grep -qw "cava" "$PACMAN_LOG" || return 1
   ! grep -qw "cliphist" "$PACMAN_LOG"
 }
 
@@ -309,7 +309,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
     [ ! -e "$base/$plugin" ] || { echo "unexpectedly vendored: $plugin"; return 1; }
   done
   # the dropped bitwarden CLI backend and mini-docker's docker never install
-  ! grep -qw "bitwarden-cli" "$PACMAN_LOG"
+  ! grep -qw "bitwarden-cli" "$PACMAN_LOG" || return 1
   ! grep -qw "docker" "$PACMAN_LOG"
 }
 

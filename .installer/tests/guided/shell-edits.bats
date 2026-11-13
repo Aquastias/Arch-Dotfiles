@@ -282,9 +282,9 @@ load shell-helpers
   run _guided_shell_user_names
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "alice"
-  ! echo "$output" | grep -qx "core"
-  ! echo "$output" | grep -qx "vm"
-  ! echo "$output" | grep -qx "test"
+  ! echo "$output" | grep -qx "core" || return 1
+  ! echo "$output" | grep -qx "vm" || return 1
+  ! echo "$output" | grep -qx "test" || return 1
   ! echo "$output" | grep -qx "data"
 }
 

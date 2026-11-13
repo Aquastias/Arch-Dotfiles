@@ -11,10 +11,21 @@ Readability Lint rule that rejects a non-final `! cmd` line in a `@test` body
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] No `@test` body in `.installer/tests/` has a non-final `! cmd` line
-- [ ] The lint rule flags a planted non-final `! cmd` and passes a final one
-- [ ] Any test that turns red is triaged: a real bug is fixed or filed, a
+- [x] No `@test` body in `.installer/tests/` has a non-final `! cmd` line
+- [x] The lint rule flags a planted non-final `! cmd` and passes a final one
+- [x] Any test that turns red is triaged: a real bug is fixed or filed, a
       stale assertion is corrected — never deleted to go green
-- [ ] Full suite green
+- [x] Full suite green
+
+## Comments
+
+- 166 non-final `! cmd` lines became `! cmd || return 1` (safe as a loop's
+  last line, unlike `cmd && return 1`). The lint rule `negated-assertion`
+  (`readability-negation.awk`) allows a final `! cmd`, `! cmd || …`, and
+  `readability-ok`.
+- Two went red, both stale assertions (no product bug): the qt6ct check
+  matched the file's own header comment; the impermanence tmpfiles check
+  grepped `/etc/a.b` as a regex, so `.` hit the kept `/etc/aXb`.
+- Full suite: 4148 tests, green after the two corrections.

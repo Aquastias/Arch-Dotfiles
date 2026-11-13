@@ -50,7 +50,7 @@ setup() {
   single_only+=' or .axes.filesystem == "xfs")'
   single_only+=' | .axes.topology == "single" and .axes.disk_count == 1'
   # No ext4/xfs cell breaks single-disk.
-  ! printf '%s\n' "$cells" | jq -c "$single_only" | grep -q false
+  ! printf '%s\n' "$cells" | jq -c "$single_only" | grep -q false || return 1
 
   local multi_pair='select(.axes.mode == "multi")'
   multi_pair+=' | "\(.axes.filesystem)\t\(.axes.topology)"'

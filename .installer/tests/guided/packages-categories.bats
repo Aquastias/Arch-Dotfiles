@@ -280,7 +280,7 @@ load packages-helpers
   guard_registry
   out="$(_controller_route_package_entry '{}' grub repo 2>"$TEST_DIR/msg")"
   json_satisfies "$out" '. == {}'           # state untouched
-  ! json_satisfies "$out" '.host_programs' >/dev/null 2>&1
+  ! json_satisfies "$out" '.host_programs' >/dev/null 2>&1 || return 1
   grep -qi "Bootloader" "$TEST_DIR/msg"
 }
 
@@ -297,7 +297,8 @@ load packages-helpers
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   out="$(_controller_route_package_entry '{"users":["dave"]}' docker repo \
     2>"$TEST_DIR/msg")"
-  ! json_satisfies "$out" '.packages' >/dev/null 2>&1     # not a package
+  # not a package
+  ! json_satisfies "$out" '.packages' >/dev/null 2>&1 || return 1
   json_satisfies "$(guided_userform_get "$GUIDED_USERFORMS_FILE" dave)" \
     '.programs | index("docker")'                   # on dave's programs
   grep -qi "Users" "$TEST_DIR/msg"
@@ -309,7 +310,7 @@ load packages-helpers
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   out="$(_controller_route_package_entry '{"users":[]}' docker repo 2>"$TEST_DIR/msg")"
   json_satisfies "$out" '. == {"users":[]}'       # untouched
-  ! json_satisfies "$out" '.packages' >/dev/null 2>&1
+  ! json_satisfies "$out" '.packages' >/dev/null 2>&1 || return 1
   grep -qi "add a user first" "$TEST_DIR/msg"
 }
 

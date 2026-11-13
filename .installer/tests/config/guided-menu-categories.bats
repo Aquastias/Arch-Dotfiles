@@ -229,8 +229,8 @@ load guided-menu-helpers
   [ "$status" -eq 0 ]
   # Neither extra packages nor host programs — Packages is a pure
   # repo/aur/derived drill now (ADR 0086).
-  ! output_satisfies 'any(.[]; .field == "packages.repo.extra")'
-  ! output_satisfies 'any(.[]; .field == "host_programs")'
+  ! output_satisfies 'any(.[]; .field == "packages.repo.extra")' || return 1
+  ! output_satisfies 'any(.[]; .field == "host_programs")' || return 1
   output_satisfies 'length == 0'
 }
 

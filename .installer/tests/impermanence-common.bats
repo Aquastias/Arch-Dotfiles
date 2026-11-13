@@ -411,6 +411,6 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf 'd /etc/a.b 0755 root root - -\nd /etc/aXb 0755 root root - -\n' \
     >"$config_file"
   impermanence_common_persist_unapply /etc/a.b
-  ! grep -q ' /etc/a.b ' "$config_file"
+  ! grep -qF ' /etc/a.b ' "$config_file" || return 1
   grep -q ' /etc/aXb ' "$config_file"
 }

@@ -34,7 +34,7 @@ setup() {
   [ -x "$INSTALL" ]
   grep -q '${AUR_HELPER} -S --noconfirm --needed pi-coding-agent-bin' "$INSTALL"
   # ADR 0134: package-only — no $HOME config seed, never writes secret auth.json
-  ! grep -qE 'cp -r "\$\{PROGRAMS\}/dev/pi/agent' "$INSTALL"
+  ! grep -qE 'cp -r "\$\{PROGRAMS\}/dev/pi/agent' "$INSTALL" || return 1
   run grep -qE '(cp|tee|>)[^#]*auth\.json' "$INSTALL"
   [ "$status" -ne 0 ]
 }

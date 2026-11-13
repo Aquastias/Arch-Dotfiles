@@ -50,7 +50,7 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   in_output vmlinuz-linux-lts
   in_output intel-ucode.img
   in_output initramfs-linux-lts.img
-  ! in_output vmlinuz-linux
+  ! in_output vmlinuz-linux || return 1
   ! in_output initramfs-linux.img
 }
 
@@ -71,7 +71,7 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   in_output vmlinuz-linux-zen
   in_output initramfs-linux-zen.img
   in_output amd-ucode.img
-  ! in_output vmlinuz-linux
+  ! in_output vmlinuz-linux || return 1
   ! in_output initramfs-linux.img
 }
 
@@ -81,7 +81,7 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   run esp_kernel_sync_planned_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output vmlinuz-linux-lts
-  ! in_output intel-ucode.img
+  ! in_output intel-ucode.img || return 1
   ! in_output initramfs-linux-lts.img
 }
 
@@ -159,7 +159,7 @@ zero_file() { : >"$2"; truncate -s "$1" "$2"; }
   run esp_kernel_sync_optional_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output initramfs-linux-lts-fallback.img
-  ! in_output vmlinuz-linux-lts
+  ! in_output vmlinuz-linux-lts || return 1
   ! in_output initramfs-linux-lts.img
 }
 

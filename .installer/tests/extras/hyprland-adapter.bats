@@ -277,7 +277,7 @@ run_hypr() {
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
   [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
-  ! grep -qw "noctalia" "$PACMAN_LOG"
+  ! grep -qw "noctalia" "$PACMAN_LOG" || return 1
   [ ! -f "$GIT_LOG" ]
 }
 
@@ -336,8 +336,8 @@ run_hypr() {
 @test "Hyprland adapter installs no greeter and enables no display manager" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
-  ! grep -q "greetd" "$PACMAN_LOG"
-  ! grep -q "enable greetd" "$SYSTEMCTL_LOG"
+  ! grep -q "greetd" "$PACMAN_LOG" || return 1
+  ! grep -q "enable greetd" "$SYSTEMCTL_LOG" || return 1
   ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
 }
 

@@ -167,7 +167,8 @@ CONF
   _write_config_with_pin "$pacman_config"
   run archzfs_kernel_lts_pin_cleanup "$pacman_config"
   [ "$status" -eq 0 ]
-  ! grep -q 'archzfs-lts-pin' "$pacman_config"     # block + comments gone
+  # block + comments gone
+  ! grep -q 'archzfs-lts-pin' "$pacman_config" || return 1
   grep -q '^\[core\]' "$pacman_config"             # untouched
   grep -q '^\[extra\]' "$pacman_config"            # untouched
   rm -f "$pacman_config"
@@ -195,7 +196,7 @@ CONF
   # 6.19.1 excluded (minor > 6.18); rest newest-first
   [ "${lines[0]}" = "6.18.52-1" ]
   [ "${lines[1]}" = "6.18.51-1" ]
-  ! printf '%s\n' "${lines[@]}" | grep -qx "6.19.1-1"
+  ! printf '%s\n' "${lines[@]}" | grep -qx "6.19.1-1" || return 1
   printf '%s\n' "${lines[@]}" | grep -qx "6.12.75-1"
 }
 

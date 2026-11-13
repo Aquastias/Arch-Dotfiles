@@ -57,7 +57,7 @@ teardown() { rm -rf "$HOSTS" "$HOSTS.installer"; }
 
 @test "profiles_list: excludes the vm/ harness tree" {
   run profiles_list "$HOSTS"
-  ! text_has_line "$output" vm
+  ! text_has_line "$output" vm || return 1
   ! text_has_line "$output" arch-kde
 }
 

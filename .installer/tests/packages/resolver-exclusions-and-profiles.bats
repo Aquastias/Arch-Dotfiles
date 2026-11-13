@@ -14,7 +14,7 @@ load resolver-helpers
   [ "$output" = "$(printf 'btop\nfzf')" ]
   # and they are absent from the installed set
   local packages; packages="$(packages_of "$config")"
-  ! text_has_line "$packages" "fzf"
+  ! text_has_line "$packages" "fzf" || return 1
   ! text_has_line "$packages" "btop"
 }
 

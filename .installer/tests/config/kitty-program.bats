@@ -45,8 +45,8 @@ setup() {
 @test "install.sh does NOT seed home/ config — the pass applies it (ADR 0134)" {
   # Config is decoupled from package install: install.sh installs the package,
   # the Runner's Config Apply pass copies home/. So no home/ cp lives here.
-  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL" || return 1
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL" || return 1
   ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 

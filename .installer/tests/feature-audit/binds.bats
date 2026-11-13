@@ -102,7 +102,7 @@ J
   text_has_line "$output" $'kde\tMeta+Plus\tkwin/view_zoom_in'
   text_has_line "$output" $'kde\tMeta+=\tkwin/view_zoom_in'
   text_has_line "$output" $'kde\tMeta\tplasmashell/activate application launcher'
-  ! echo "$output" | grep -q 'Cycle Overview'
+  ! echo "$output" | grep -q 'Cycle Overview' || return 1
   [ "${#lines[@]}" -eq 7 ]
 }
 
@@ -131,7 +131,7 @@ J
   text_has_line "$output" $'nvim\t<leader>xx\tn Diags'
   text_has_line "$output" $'nvim\ts\tn,x Flash'
   # a dynamically built lhs is left to the live keymap dump
-  ! echo "$output" | grep -q $'\t<leader>\t'
+  ! echo "$output" | grep -q $'\t<leader>\t' || return 1
   [ "${#lines[@]}" -eq 5 ]
 }
 

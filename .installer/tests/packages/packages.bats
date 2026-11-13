@@ -90,7 +90,7 @@ write_config() {
   write_config '{"filesystem":"ext4","options":{"kernel":"lts"}}'
   run package_list_collect
   [ "$status" -eq 0 ]
-  ! echo "$output" | grep -qx "zfs-dkms"
+  ! echo "$output" | grep -qx "zfs-dkms" || return 1
   ! echo "$output" | grep -qx "zfs-utils"
 }
 
@@ -214,7 +214,7 @@ write_config() {
   echo "$output" | grep -qx "linux-lts=6.18.52-1"
   echo "$output" | grep -qx "linux-lts-headers=6.18.52-1"
   # the bare, unpinned tokens must be gone
-  ! echo "$output" | grep -qx "linux-lts"
+  ! echo "$output" | grep -qx "linux-lts" || return 1
   ! echo "$output" | grep -qx "linux-lts-headers"
 }
 

@@ -40,7 +40,7 @@ write_file() {
   write_file "$TEST_DIR/f.jsonc" '{"key": "value" // trailing comment}'
   run jsonc_strip "$TEST_DIR/f.jsonc"
   [ "$status" -eq 0 ]
-  ! [[ "$output" == *"trailing comment"* ]]
+  ! [[ "$output" == *"trailing comment"* ]] || return 1
   [[ "$output" == *'"key": "value"'* ]]
 }
 

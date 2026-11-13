@@ -91,7 +91,8 @@ load controller-helpers
   set_navigation "$(navigation_to_category Disks)"
   run guided_controller_list
   echo "$output" | grep -qx "Encryption ▸ off"
-  ! echo "$output" | grep -qE "^Encryption: "        # no generic bool row
+  # no generic bool row
+  ! echo "$output" | grep -qE "^Encryption: " || return 1
   ! echo "$output" | grep -q "encryption password:"  # no old sub-row
 }
 
@@ -134,7 +135,7 @@ load controller-helpers
   set_navigation "$(navigation_to_encryption Disks)"
   run guided_controller_list
   echo "$output" | grep -qx "enabled: off"
-  ! echo "$output" | grep -q "password:"
+  ! echo "$output" | grep -q "password:" || return 1
   echo "$output" | grep -q "← Back"
 }
 
@@ -261,7 +262,7 @@ load controller-helpers
   set_navigation "$(navigation_to_category Disks)"
   run guided_controller_list
   [ "$(echo "$output" | grep -cE '^Impermanence ▸ ')" = "1" ]
-  ! echo "$output" | grep -qiE '^impermanence:'
+  ! echo "$output" | grep -qiE '^impermanence:' || return 1
   ! echo "$output" | grep -q "Add persist directory"
 }
 
@@ -286,8 +287,8 @@ load controller-helpers
   set_navigation "$(navigation_to_impermanence Disks)"
   run guided_controller_list
   echo "$output" | grep -qE '^enabled: off$'
-  ! echo "$output" | grep -q "Add persist directory"
-  ! echo "$output" | grep -q "curated defaults"
+  ! echo "$output" | grep -q "Add persist directory" || return 1
+  ! echo "$output" | grep -q "curated defaults" || return 1
   echo "$output" | grep -q "← Back"
 }
 

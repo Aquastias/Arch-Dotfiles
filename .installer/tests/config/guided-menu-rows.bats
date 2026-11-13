@@ -302,7 +302,7 @@ load guided-menu-helpers
   run menu_rows "$(config_state_new)"
   [ "$status" -eq 0 ]
   # host_programs has no menu row (ADR 0086): every host program is Menu-Owned.
-  ! output_satisfies 'any(.[]; .field == "host_programs")'
+  ! output_satisfies 'any(.[]; .field == "host_programs")' || return 1
   row_satisfies post_install.backup.borg '.section == "Backup"'
   row_satisfies post_install.security.firewall '.section == "Security"'
   row_satisfies post_install.security.firewall '.value == "none"'

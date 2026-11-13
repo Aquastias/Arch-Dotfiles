@@ -186,8 +186,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "directive→action(render) legacy: no footer or breadcrumb" {
   set_navigation "$(navigation_to_data_pools Disks)"
   run _controller_directive_to_action render /x/entry.sh
-  ! echo "$output" | grep -q "change-footer("
-  ! echo "$output" | grep -q "change-list-label("
+  ! echo "$output" | grep -q "change-footer(" || return 1
+  ! echo "$output" | grep -q "change-list-label(" || return 1
   echo "$output" | grep -q "change-header("   # header stays in both modes
 }
 

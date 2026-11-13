@@ -82,7 +82,7 @@ _previous_pair() {
   [ "$(grep -c 'Undo Last Update' "$ESP/limine.conf")" -eq 1 ]
   rm "$ESP/vmlinuz-linux-lts-prev"
   undo_entry_reconcile "$ESP" limine linux-lts "$ESP/template"
-  ! grep -q 'undo' "$ESP/limine.conf"
+  ! grep -q 'undo' "$ESP/limine.conf" || return 1
   [ "$(cat "$ESP/limine.conf")" = "$(printf 'timeout: 4\n\n/Arch Linux')" ]
 }
 

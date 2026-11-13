@@ -90,7 +90,7 @@ fixture() { # $1 ctx% $2 hit $3 r5% $4 add $5 del
   echo a >"$repository/a"; git -C "$repository" add a; git -C "$repository" commit -qm init
   local fixture_json; fixture_json="$(fixture 38 0.94 42 120 30)"
   run bash -c "cd '$repository'; printf '%s' '$fixture_json' | bash '$SL'"
-  ! echo "$output" | grep -q '●'
+  ! echo "$output" | grep -q '●' || return 1
   echo b >>"$repository/a"
   run bash -c "cd '$repository'; printf '%s' '$fixture_json' | bash '$SL'"
   echo "$output" | grep -q '●'

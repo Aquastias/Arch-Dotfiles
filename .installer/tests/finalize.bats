@@ -177,7 +177,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   sleep() { :; }
   finalize >/dev/null
   grep -qx 'kill -KILL 41' "$CALLS"
-  ! grep -q 'kill -KILL 42' "$CALLS"
+  ! grep -q 'kill -KILL 42' "$CALLS" || return 1
   ! grep -q 'export -f' "$CALLS"
 }
 

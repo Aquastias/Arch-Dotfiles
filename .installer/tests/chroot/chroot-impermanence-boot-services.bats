@@ -95,7 +95,7 @@ load chroot-impermanence-helpers
   local unit_file="$FAKEROOT/usr/lib/systemd/system/impermanence-user-linger.service"
   [ -f "$unit_file" ]
   grep -qF "loginctl enable-linger aquastias" "$unit_file"
-  ! grep -qF "nobody" "$unit_file"
+  ! grep -qF "nobody" "$unit_file" || return 1
   [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/impermanence-user-linger.service" ]
   [ -f "$FAKEROOT/var/lib/systemd/linger/aquastias" ]
 }

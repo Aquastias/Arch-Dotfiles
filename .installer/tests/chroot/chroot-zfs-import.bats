@@ -82,7 +82,7 @@ UNIT
   [ "$status" -eq 0 ]
   local unit_file="$root/etc/systemd/system/zfs-import-cache.service"
   [ -f "$unit_file" ]
-  ! grep -q 'systemd-udev-settle' "$unit_file"
+  ! grep -q 'systemd-udev-settle' "$unit_file" || return 1
   grep -q '^ExecStart=' "$unit_file"          # full unit, not a drop-in
 }
 

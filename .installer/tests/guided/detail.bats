@@ -43,7 +43,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   # the highlighted category's own fields show
   echo "$output" | grep -qE 'hostname:'
   # ...but sibling categories are NOT listed (parent column removed)
-  ! echo "$output" | grep -q "Locales"
+  ! echo "$output" | grep -q "Locales" || return 1
   ! echo "$output" | grep -q "Mirrors & Repositories"
 }
 
@@ -75,7 +75,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_preview "Proceed ▸ review & install"
   [ "$status" -eq 0 ]
   # no parent column and no bogus "Proceed" field summary (ADR 0082)
-  ! echo "$output" | grep -q "Locales"
+  ! echo "$output" | grep -q "Locales" || return 1
   ! echo "$output" | grep -qE 'hostname:|Proceed:'
 }
 

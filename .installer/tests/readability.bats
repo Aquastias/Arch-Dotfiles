@@ -125,6 +125,32 @@ SH
   [ "$status" -eq 0 ]
 }
 
+@test "negated-assertion: a non-final ! cmd in a @test body fails" {
+  make_repo
+  # Not a heredoc: bats rewrites every `@test` line in its file, even there.
+  printf '%s\n' '@test "planted" {' '  ! grep -q x /etc/hostname' '  true' \
+    '}' > .installer/tests/a.bats
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"negated-assertion: .installer/tests/a.bats:2:"* ]]
+}
+
+@test "negated-assertion: a final ! cmd, ! cmd || …, and the pragma pass" {
+  make_repo
+  printf '%s\n' '@test "fine" {' > .installer/tests/a.bats
+  cat >> .installer/tests/a.bats <<'BATS'
+  ! grep -q x /etc/hostname || return 1
+  ! grep -q x /etc/hostname \
+    || { echo "found x"; return 1; }
+  ! grep -q y /etc/hostname  # readability-ok: checked by the next line
+  true
+  ! grep -q z /etc/hostname
+}
+BATS
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
 @test "allows a jq def look-alike" {
   make_repo
   cat > .installer/a.sh <<'SH'

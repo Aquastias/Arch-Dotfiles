@@ -36,8 +36,8 @@ setup() {
 }
 
 @test "install.sh does NOT seed home/ config — the pass applies it (ADR 0134)" {
-  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL" || return 1
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL" || return 1
   ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 
@@ -51,7 +51,7 @@ setup() {
 
 @test "lazygit theme is ANSI names only — no hex color" {
   cfg="$HOMESEED/.config/lazygit/config.yml"
-  ! grep -qE '#[0-9a-fA-F]{6}' "$cfg"
+  ! grep -qE '#[0-9a-fA-F]{6}' "$cfg" || return 1
   grep -q 'activeBorderColor' "$cfg"
   grep -qE '^[[:space:]]*-[[:space:]]*(blue|red|green|yellow|cyan|default)' \
     "$cfg"

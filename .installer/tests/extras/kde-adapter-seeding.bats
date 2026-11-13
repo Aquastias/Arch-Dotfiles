@@ -81,7 +81,7 @@ JSON
 JSON
   run env ENVIRONMENT_DESKTOP="kde" bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
+  ! grep -q "enable sddm" "$SYSTEMCTL_LOG" || return 1
   ! grep -q "enable greetd" "$SYSTEMCTL_LOG"
 }
 
@@ -253,7 +253,8 @@ JSON
   local appletsrc="$TEST_DIR/seed/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc"
   # the coordinate-capable widget replaced the stock plasmoid in the same slot
   grep -q "plugin=org.kde.weatherWidget-3" "$appletsrc"
-  ! grep -q "provider=bbcukmet" "$appletsrc"          # stock Sibiu config gone
+  # stock Sibiu config gone
+  ! grep -q "provider=bbcukmet" "$appletsrc" || return 1
   grep -q '"providerId":"metno"' "$appletsrc"
   grep -q 'lat=45.10&lon=24.37' "$appletsrc"
   grep -q "layoutType=Compact" "$appletsrc"           # operator's compact layout

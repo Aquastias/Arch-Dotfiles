@@ -87,18 +87,20 @@ load noctalia-stow-helpers
 # ── config.toml: host-bound / dead content excluded ──────────────────────────
 
 @test "config.toml carries no host-bound or orphan state" {
-  ! grep -q 'Virtual-1' "$CT"          # VM output name
-  ! tr '[:upper:]' '[:lower:]' < "$CT" | grep -q 'bing'   # wallpaper path
-  ! grep -q 'login_box' "$CT"          # lockscreen widget geometry
-  ! grep -q 'lockscreen-login-box' "$CT"
-  ! grep -q 'phone-connect' "$CT"      # orphan widget (plugin not enabled)
-  ! grep -q 'ip-monitor' "$CT"         # orphan widget
+  ! grep -q 'Virtual-1' "$CT" || return 1          # VM output name
+  # wallpaper path
+  ! tr '[:upper:]' '[:lower:]' < "$CT" | grep -q 'bing' || return 1
+  ! grep -q 'login_box' "$CT" || return 1          # lockscreen widget geometry
+  ! grep -q 'lockscreen-login-box' "$CT" || return 1
+  # orphan widget (plugin not enabled)
+  ! grep -q 'phone-connect' "$CT" || return 1
+  ! grep -q 'ip-monitor' "$CT" || return 1         # orphan widget
   ! grep -q 'fel/ocr' "$CT"            # orphan widget
 }
 
 @test "config.toml enables none of the dropped plugins (ADR 0094)" {
-  ! grep -q 'noctalia/bitwarden' "$CT"
-  ! grep -q 'mini-docker' "$CT"
+  ! grep -q 'noctalia/bitwarden' "$CT" || return 1
+  ! grep -q 'mini-docker' "$CT" || return 1
   ! grep -q 'system-updater' "$CT"
 }
 
@@ -180,7 +182,8 @@ load noctalia-stow-helpers
 @test "the palette cycler is executable and uses the v5 native CLI" {
   [ -x "$CYCLE" ]
   grep -q 'noctalia msg color-scheme-set builtin' "$CYCLE"
-  ! grep -q 'qs -c noctalia-shell' "$CYCLE"   # not the dead v4 Quickshell IPC
+  # not the dead v4 Quickshell IPC
+  ! grep -q 'qs -c noctalia-shell' "$CYCLE" || return 1
   grep -q 'Rosé Pine' "$CYCLE"
   grep -q 'Nord' "$CYCLE"
 }
@@ -361,7 +364,8 @@ EOF
   # points at the .colors KColorScheme (qt6ct-kde applies the full scheme so
   # Dolphin's accents follow), NOT the qt6ct QPalette colors/noctalia.conf (0124).
   grep -q 'color-schemes/noctalia.colors' "$QT6CT"
-  ! grep -q 'colors/noctalia.conf' "$QT6CT"
+  # Its setting lines only: the file's header comment names the old path.
+  ! grep -v '^#' "$QT6CT" | grep -qF 'colors/noctalia.conf' || return 1
   grep -q '^custom_palette=true' "$QT6CT"
   # Fusion honours the custom palette; Papirus matches the GTK icon theme.
   grep -q '^style=Fusion' "$QT6CT"
@@ -433,7 +437,7 @@ EOF
 @test "kitty.conf includes the generated theme, not Catppuccin (ADR 0130)" {
   [ -f "$KITTY" ]
   grep -q '^include themes/noctalia.conf' "$KITTY"
-  ! grep -q 'catppuccin' "$KITTY"
+  ! grep -q 'catppuccin' "$KITTY" || return 1
   # the LS_COLORS env pass-through part-file was dropped from the include list
   ! grep -q 'conf/env.conf' "$KITTY"
 }

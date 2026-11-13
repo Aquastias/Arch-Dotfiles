@@ -36,8 +36,8 @@ setup() {
 }
 
 @test "install.sh does NOT seed home/ theme — the pass applies it (ADR 0134)" {
-  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL" || return 1
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL" || return 1
   ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 
@@ -51,7 +51,7 @@ setup() {
 
 @test "yazi theme is named ANSI colors only — no hex, current [mgr] table" {
   thm="$HOMESEED/.config/yazi/theme.toml"
-  ! grep -qE '#[0-9a-fA-F]{6}' "$thm"
+  ! grep -qE '#[0-9a-fA-F]{6}' "$thm" || return 1
   grep -q '^\[mgr\]' "$thm"          # current table name, not [manager]
   grep -qE 'fg = "(blue|red|green|yellow|cyan|black|white|reset)"' "$thm"
 }

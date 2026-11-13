@@ -74,7 +74,7 @@ JSON
   echo "$output" | grep -qx "btrfs-progs"   # derived from filesystem
   echo "$output" | grep -qx "vulkan-radeon" # derived from gpu
   echo "$output" | grep -qx "zsh"           # derived from the login shell
-  ! echo "$output" | grep -qx "plasma-meta" # no desktop selected
+  ! echo "$output" | grep -qx "plasma-meta" || return 1 # no desktop selected
   rm -rf "$test_directory"
 }
 
@@ -102,7 +102,7 @@ JSON
 
   run bash "$test_directory/tools/explain-packages.sh" off --flat
   [ "$status" -eq 0 ]
-  ! echo "$output" | grep -qx "cups"
+  ! echo "$output" | grep -qx "cups" || return 1
   rm -rf "$test_directory"
 }
 
@@ -129,7 +129,7 @@ JSON
 
   # fzf is excluded, so it is not in the installed set …
   run bash "$test_directory/tools/explain-packages.sh" box --flat
-  ! echo "$output" | grep -qx "fzf"
+  ! echo "$output" | grep -qx "fzf" || return 1
   echo "$output" | grep -qx "htop"
   rm -rf "$test_directory"
 }
@@ -144,7 +144,7 @@ JSON
   [[ "$output" == *"microcode"* ]]
 
   run bash "$TOOL" desktop --flat
-  ! echo "$output" | grep -q "auto —"
+  ! echo "$output" | grep -q "auto —" || return 1
   ! echo "$output" | grep -q "("
 }
 

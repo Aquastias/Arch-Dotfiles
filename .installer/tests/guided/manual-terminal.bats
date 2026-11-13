@@ -38,6 +38,6 @@ set_state() { printf '%s\n' "$1" > "$GUIDED_STATE_FILE"; }
   run guided_controller_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -q '^Proceed'
-  ! echo "$output" | grep -q '^Save profile'
+  ! echo "$output" | grep -q '^Save profile' || return 1
   ! echo "$output" | grep -q '^Export config'
 }

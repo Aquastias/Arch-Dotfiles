@@ -42,7 +42,7 @@ setup() {
   echo "$output" | grep -qx ttf-liberation
   text_has_line "$output" ttf-ms-fonts && return 1
   text_has_line "$output" ttf-firacode-nerd && return 1
-  ! echo "$output" | grep -qx otf-monaspace-nerd
+  ! echo "$output" | grep -qx otf-monaspace-nerd || return 1
   ! echo "$output" | grep -qx ttf-sazanami
 }
 

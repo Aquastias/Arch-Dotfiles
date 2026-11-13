@@ -57,7 +57,7 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   grep -qx 'ILoveCandy' "$CONF"           # not shipped → appended
   grep -qx 'ParallelDownloads = 5' "$CONF"
   grep -qx '#NoProgressBar' "$CONF"       # default off → stays commented
-  ! grep -qx 'NoProgressBar' "$CONF"
+  ! grep -qx 'NoProgressBar' "$CONF" || return 1
   ! grep -q 'DisableDownloadTimeout' "$CONF"  # off + absent → never added
 }
 
@@ -80,7 +80,7 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx '#Color' "$CONF"
-  ! grep -qx 'Color' "$CONF"
+  ! grep -qx 'Color' "$CONF" || return 1
   ! grep -qx 'ILoveCandy' "$CONF"
 }
 

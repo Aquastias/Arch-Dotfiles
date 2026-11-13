@@ -156,7 +156,7 @@ load controller-helpers
   echo "$output" | grep -q "Auto"
   echo "$output" | grep -q "greetd"
   echo "$output" | grep -q "SDDM"
-  ! echo "$output" | grep -qx "true"
+  ! echo "$output" | grep -qx "true" || return 1
   ! echo "$output" | grep -qx "false"
 }
 

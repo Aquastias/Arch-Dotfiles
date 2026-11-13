@@ -62,7 +62,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   run archive_ensure_package_version "linux-lts" "6.12.48.arch1-1"
   [ "$status" -eq 0 ]
   grep -q "pacman -S --noconfirm --needed linux-lts=6.12.48.arch1-1" "$CALLS"
-  ! grep -q "curl" "$CALLS"
+  ! grep -q "curl" "$CALLS" || return 1
   ! grep -q "pacman -U" "$CALLS"
 }
 

@@ -142,7 +142,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
   guided_save_host_profile "$state" "eterniox"
   saved="$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
-  ! grep -qE "enc_passphrase|12345678" "$saved"
+  ! grep -qE "enc_passphrase|12345678" "$saved" || return 1
 
   effective="$(config_state_set "$state" disk '"/dev/sda"')"
   out="$TEST_DIR/usb/eterniox.effective.jsonc"

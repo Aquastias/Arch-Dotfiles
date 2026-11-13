@@ -19,7 +19,7 @@ load emacs-program-helpers
 }
 
 @test "Emacs is opt-in: not in User Core, listed by the operator" {
-  ! grep -q '"emacs"' "$UCORE"
+  ! grep -q '"emacs"' "$UCORE" || return 1
   json_satisfies "$(jsonc_strip "$OPERATOR")" '.programs | index("emacs") != null'
 }
 
@@ -130,7 +130,7 @@ load emacs-program-helpers
   module_enabled '(syntax +flymake)'
   module_enabled '(format +onsave)'
   # +lsp would hand formatting to the server, overriding conform's choice.
-  ! elisp "$DOOMDIR/init.el" | grep -qE '\(format [^)]*\+lsp'
+  ! elisp "$DOOMDIR/init.el" | grep -qE '\(format [^)]*\+lsp' || return 1
   ! elisp "$DOOMDIR/init.el" | grep -qE '(^|[[:space:]])debugger'
 }
 

@@ -111,7 +111,8 @@ reports `rule: file:line: detail`. Its awk parts, each with its own header:
 `readability-scan.awk` (the shell scanner and [ADR 0153] rules),
 `readability-commands.awk` (Tool Reference), `readability-features.awk`
 (Bash Feature Tier, jq features), `readability-shape.awk` (one step per
-line), `readability-program-files.awk` (`.jq`/`.awk` headers).
+line), `readability-program-files.awk` (`.jq`/`.awk` headers),
+`readability-negation.awk` (bats negated assertions).
 
 | Rule | Catches |
 | --- | --- |
@@ -133,6 +134,7 @@ line), `readability-program-files.awk` (`.jq`/`.awk` headers).
 | `what-comment` | a jq/awk/sed program or 2-pipe pipeline with no comment above |
 | `perf-reason` | `readability-ok: perf` without a `<before>→<after>` measurement |
 | `program-header` | a `.jq` / `.awk` file without a header comment |
+| `negated-assertion` | a `! cmd` in a bats `@test` that is not its last line and has no `\|\|` after it: set -e ignores it, so it never fails — write `! cmd \|\| return 1` |
 | `adr-link` | an `ADR NNNN` in a doc that is not a link |
 | `doc-path` | a backticked repo path in a doc (ADRs aside) that is not a tracked file — name a removed file without backticks ([ADR 0156]) |
 

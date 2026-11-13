@@ -70,7 +70,7 @@ _covered() {
   run matrix_pairwise "$axes" "$cons" 0
   [ "$status" -eq 0 ]
   # the forbidden combo is absent...
-  ! _covered "$output" fs '"ext4"' topology '"mirror"'
+  ! _covered "$output" fs '"ext4"' topology '"mirror"' || return 1
   # ...while a valid pair sharing a value is still covered.
   _covered "$output" fs '"ext4"'  topology '"single"'
   _covered "$output" fs '"zfs"'   topology '"mirror"'
@@ -95,8 +95,8 @@ _covered() {
   run matrix_pairwise "$axes" "$cons" 0
   [ "$status" -eq 0 ]
   # no row may pair ext4 with a forbidden topology
-  ! _covered "$output" fs '"ext4"' topology '"mirror"'
-  ! _covered "$output" fs '"ext4"' topology '"raidz1"'
+  ! _covered "$output" fs '"ext4"' topology '"mirror"' || return 1
+  ! _covered "$output" fs '"ext4"' topology '"raidz1"' || return 1
   # the only feasible fs×topology pair is covered, and enc still varies
   _covered "$output" fs '"ext4"' topology '"single"'
   _covered "$output" topology '"single"' enc false

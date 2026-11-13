@@ -50,8 +50,8 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_list
   echo "$output" | grep -q "topology: mirror   (Enter cycles)"
   echo "$output" | grep -q "disks:"
-  ! echo "$output" | grep -q "filesystem:"
-  ! echo "$output" | grep -q "encryption:"
+  ! echo "$output" | grep -q "filesystem:" || return 1
+  ! echo "$output" | grep -q "encryption:" || return 1
   ! echo "$output" | grep -q "remove"
 }
 
@@ -98,10 +98,10 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_controller_list
   echo "$output" | grep -q "name: data"
   echo "$output" | grep -q "mount: /data"
-  ! echo "$output" | grep -q "mount: /data   (Enter to edit)"
+  ! echo "$output" | grep -q "mount: /data   (Enter to edit)" || return 1
   echo "$output" | grep -q "topology: raidz1   (Enter cycles)"
   echo "$output" | grep -q "disks: 0 bound   (Enter to edit)"
-  ! echo "$output" | grep -q "filesystem:"
+  ! echo "$output" | grep -q "filesystem:" || return 1
   echo "$output" | grep -q "remove"
 }
 
@@ -229,7 +229,7 @@ set_navigation() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   local state='{"os_pool":{"devices":["'"$BY_ID"'/nvme-Disk_One"]},
             "data_pools":[{"name":"tank0"}]}'
   run _controller_free_disks "$state"
-  ! echo "$output" | grep -q "nvme-Disk_One"
+  ! echo "$output" | grep -q "nvme-Disk_One" || return 1
   echo "$output" | grep -q "nvme-Disk_Two"
 }
 

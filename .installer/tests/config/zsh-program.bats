@@ -54,15 +54,15 @@ setup() {
 
 @test "install.sh does NOT seed config; warms zinit from the bundle" {
   # Config (home/) is applied by the Config Apply pass, not install.sh.
-  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL" || return 1
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL" || return 1
   # cache warm sources the zinit config from the BUNDLE, not from a seeded $HOME
   grep -q 'source "${SELF}/home/.zsh/zinit/default.zsh"' "$INSTALL"
 }
 
 @test "install.sh seeds /root theme + cache and makes zsh root's shell" {
   # /root config is placed by the pass; install.sh no longer copies home/ there.
-  ! grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+  ! grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL" || return 1
   grep -q '/root/.zsh/themes/noctalia.zsh' "$INSTALL"    # theme (seed-only)
   grep -q 'sudo chsh -s /usr/bin/zsh root' "$INSTALL"
 }
@@ -161,7 +161,7 @@ setup() {
   # falls back to system node: no npx); install.sh links nvm.sh into it
   grep -q 'export NVM_DIR="$HOME/.nvm"' "$HOMESEED/.zsh/env/exports.zsh"
   grep -q 'ln -sfn /usr/share/nvm/nvm.sh' "$INSTALL"
-  ! tree_has '/usr/share/nvm/init-nvm.sh' "$HOMESEED/.zsh" "$ZSHRC"
+  ! tree_has '/usr/share/nvm/init-nvm.sh' "$HOMESEED/.zsh" "$ZSHRC" || return 1
   [ ! -e "$HOMESEED/.zsh/vendors/nodejs" ]
 }
 
@@ -171,8 +171,8 @@ setup() {
 }
 
 @test "alias pruning: web + ckb-reload cut, anime + freshclam kept" {
-  ! grep -q "alias web=" "$ALIASES"
-  ! grep -q "ckb-reload" "$ALIASES"
+  ! grep -q "alias web=" "$ALIASES" || return 1
+  ! grep -q "ckb-reload" "$ALIASES" || return 1
   grep -q "alias anime=" "$ALIASES"
   grep -q "freshclam" "$ALIASES"
 }
@@ -207,8 +207,8 @@ setup() {
 @test "p10k context is ANSI red/yellow, not a hardcoded Catppuccin hex" {
   local p10k="$HOMESEED/.p10k.zsh"
   # the two Catppuccin Mocha hexes are gone from the context segments
-  ! grep -q "#f38ba8" "$p10k"
-  ! grep -q "#fab387" "$p10k"
+  ! grep -q "#f38ba8" "$p10k" || return 1
+  ! grep -q "#fab387" "$p10k" || return 1
   # root/sudo = ANSI red (1), remote/default = ANSI yellow (3)
   grep -qE 'POWERLEVEL9K_CONTEXT_\{ROOT,SUDO,REMOTE_SUDO\}_FOREGROUND=1' "$p10k"
   grep -qE 'POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND=3' "$p10k"
@@ -221,6 +221,6 @@ setup() {
 
 @test "the warmed zinit cache is copied by contents, never nested on re-run" {
   # `cp -a ~/.zinit /etc/skel/.zinit` nests into .zinit/.zinit when it exists.
-  ! grep -qE 'cp -a "\$\{HOME\}/\.zinit" ' "$INSTALL"
+  ! grep -qE 'cp -a "\$\{HOME\}/\.zinit" ' "$INSTALL" || return 1
   grep -q 'cp -a "${HOME}/.zinit/." /etc/skel/.zinit/' "$INSTALL"
 }

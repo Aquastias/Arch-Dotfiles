@@ -100,7 +100,7 @@ _install() { run bash "$T/os/tools/install-pkglist.sh" "$@"; }
   [ "$status" -eq 0 ]
   grep -qx "ripgrep" "$CALLED"
   grep -qx "brave-bin" "$CALLED"
-  ! grep -q "DRIFT SNAPSHOT" "$CALLED"
+  ! grep -q "DRIFT SNAPSHOT" "$CALLED" || return 1
   ! grep -q "^#" "$CALLED"
 }
 

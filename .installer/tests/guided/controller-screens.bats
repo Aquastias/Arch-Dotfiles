@@ -219,7 +219,8 @@ load controller-helpers
   run _controller_host_program_names
   [ "$status" -eq 0 ]
   for program in cups bluetooth power-profiles-daemon tuned grub sops; do
-    ! text_has_line "$output" "$program"      # Menu-Owned, filtered out
+    # Menu-Owned, filtered out
+    ! text_has_line "$output" "$program" || return 1
   done
   text_has_line "$output" myhostprog    # free-standing host program stays
 }
@@ -246,9 +247,9 @@ load controller-helpers
 
   run _controller_user_program_names
   [ "$status" -eq 0 ]
-  ! text_has_line "$output" clamav      # Security-owned
-  ! text_has_line "$output" firewalld   # Security-owned
-  ! text_has_line "$output" borg        # Backup-owned
+  ! text_has_line "$output" clamav || return 1      # Security-owned
+  ! text_has_line "$output" firewalld || return 1   # Security-owned
+  ! text_has_line "$output" borg || return 1        # Backup-owned
   text_has_line "$output" docker        # free-standing user program stays
   text_has_line "$output" teamspeak3
 }
@@ -318,7 +319,7 @@ load controller-helpers
   echo "$output" | grep -qE '^aur ▸'
   echo "$output" | grep -qE '^derived ▸'
   # Both former field rows are gone (ADR 0086): Packages is a pure drill now.
-  ! echo "$output" | grep -qi "Extra packages:"
+  ! echo "$output" | grep -qi "Extra packages:" || return 1
   ! echo "$output" | grep -qi "Host programs:"
 }
 
