@@ -23,6 +23,11 @@ setup() {
   grep -q -- '- torch' "$S/settings.yml"
 }
 
+@test "contact_url is set: wikidata, wikipedia and OSM refuse to load without" {
+  # Audit Run 20261113: each engine logged "requires general.contact_url".
+  grep -qE '^  contact_url: "https://' "$S/settings.yml"
+}
+
 @test "boot: waits for the network, allows a slow first pull, no warning" {
   # Audit Run 20261004: the masked network wait crash-looped searxng's
   # startup network check; the first pull outran the 90s start timeout.

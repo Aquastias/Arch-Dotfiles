@@ -5,6 +5,11 @@ use_default_settings:
     remove:
       - ahmia
       - torch
+general:
+  # Required: wikidata, wikipedia and openstreetmap refuse to load without a
+  # way to reach the instance's operator (Wikidata's API policy). A web form,
+  # not a mailto, so no address is sent to them.
+  contact_url: "https://github.com/Aquastias/Arch-Dotfiles/issues"
 server:
   # base_url is defined in the SEARXNG_BASE_URL environment variable (quadlet)
   secret_key: "ultrasecretkey"  # change this!
