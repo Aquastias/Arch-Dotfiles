@@ -34,3 +34,15 @@ base_services_enable_optional() {
     systemctl enable sshd.service
   fi
 }
+
+# Test-only, like INSTALL_EXTRA_CMDLINE: the VM harness passes its key in
+# INSTALL_ROOT_AUTHORIZED_KEY when the profile creates no user, so it can
+# still SSH into the installed system (as root: sshd's default allows a key).
+base_services_root_test_key() {
+  [[ -n "${INSTALL_ROOT_AUTHORIZED_KEY:-}" ]] || return 0
+  local ssh_directory="${ROOT:-}/root/.ssh"
+  install -d -m 700 "$ssh_directory"
+  printf '%s\n' "$INSTALL_ROOT_AUTHORIZED_KEY" \
+    > "$ssh_directory/authorized_keys"
+  chmod 600 "$ssh_directory/authorized_keys"
+}

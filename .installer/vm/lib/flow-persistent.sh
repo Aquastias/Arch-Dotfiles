@@ -160,6 +160,14 @@ _flow_persistent_render_installer_script() {
   # Feature Audit (ADR 0152): a clean install powers off right after the
   # sentinel, taking /root/install.log with it, so wait (bounded) for the host
   # to pull the log over the seed's SSH before powering off.
+  # No user to SSH in as: authorize the key for the installed root instead
+  # (base_services_root_test_key). Blank when the profile has users.
+  local root_key_line="" user_count
+  # How many users the profile creates.
+  user_count="$(printf '%s\n' "${INSTALL_CONFIG_CONTENT}" \
+    | jq '.users // [] | length')"
+  ((user_count)) \
+    || root_key_line="export INSTALL_ROOT_AUTHORIZED_KEY='${pubkey}'"
   local hold_line=""
   # shellcheck disable=SC2016 # expands in the guest, not here
   [[ -n "${VM_HOLD_FOR_LOG_PULL:-}" ]] \
@@ -230,6 +238,7 @@ export SECRETS_AGE_PASSPHRASE='test'
 # Route every loader's installed kernel console to serial (efistub's cmdline
 # lives in NVRAM, so it can't be patched after install like grub.cfg).
 export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200'
+${root_key_line}
 $(_seed_generator_env_exports plain)
 # Forced-skew gate (ADR 0137): fake-low archzfs LTS ceiling, host-injected. A
 # blank line when unset — the happy path is untouched.

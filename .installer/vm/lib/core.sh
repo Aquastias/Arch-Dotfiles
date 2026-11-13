@@ -302,6 +302,36 @@ _core_vm_boot() {
   virsh start "$VM_NAME" >/dev/null
 }
 
+# _core_vm_bring_up <iso> <seed> [keep-installed] — both flows' VM lifecycle:
+# (re)create the domain when it is missing, recreated on request, or does not
+# hold <iso> (another ISO, or none: verify-boot ejects it), then boot it. Each
+# flow runs the installer from the live ISO next, so a domain without it would
+# boot its old installed disk and never start the installer. With
+# keep-installed (the persistent flow: its VMs hold the operator's state) an
+# installed domain is never destroyed unasked: rebuilding it takes --recreate.
+_core_vm_bring_up() {
+  local iso="$1" seed="$2" keep="${3:-}" current_iso
+  section "VM lifecycle"
+  $RECREATE && _core_vm_destroy_undefine
+  if _core_vm_exists; then
+    current_iso="$(_core_vm_install_iso_path)"
+    if [[ -z "$current_iso" && "$keep" == keep-installed ]]; then
+      error "VM '${VM_NAME}' is already installed (no install ISO attached)." \
+        "Rerun with --recreate to rebuild it, or drive it with vm-agent.sh."
+      return 1
+    fi
+    if [[ "$current_iso" != "$iso" ]]; then
+      info "Existing VM holds ${current_iso:-no install ISO}, not ${iso};" \
+        "recreating."
+      _core_vm_destroy_undefine
+    fi
+  fi
+  _core_refresh_pool_for_path "$iso"
+  _core_refresh_pool_for_path "$seed"
+  _core_vm_exists || _core_vm_create "$iso" "$seed"
+  _core_vm_boot
+}
+
 # Eject every cdrom (install ISO + seed) from the domain so a subsequent boot
 # falls through to the installed disk's systemd-boot entry instead of the live
 # ISO (the domain is created --boot cdrom,hd). Shared by both flows; operates on

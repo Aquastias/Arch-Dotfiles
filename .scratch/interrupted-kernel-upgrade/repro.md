@@ -18,8 +18,10 @@ post-install hooks, before the initramfs build and the ESP Kernel Sync.
 ```
 
 ZFS root, systemd-boot, Impermanence, headless, 4 GiB (profile
-`vm/profiles/boot/interrupted-update.jsonc`). Drive it with
-`.installer/vm/vm-agent.sh --vm arch-interrupted-update ssh '<cmd>'`.
+`vm/profiles/boot/interrupted-update.jsonc`). It creates no user, so the
+harness key lands on root. Drive it with
+`.installer/vm/vm-agent.sh --vm arch-interrupted-update --user root ssh
+'<cmd>'`.
 
 ## The interruption
 

@@ -67,6 +67,14 @@ bash vm/vm.sh --help
 
 `--recreate` destroys the libvirt domain and its own data disks before
 creating a fresh one (the shared install ISO + seed cdroms are kept).
+Without it, an existing domain is reused only while it still holds the
+resolved install ISO. One holding another ISO, or none (a finished install
+ejects it), is recreated by the disposable flows (`--testing`, `--guided`);
+the persistent flow stops instead, so an installed VM's state is never
+destroyed unasked.
+
+A profile that creates no user (an inline lab profile) gets the harness key
+on the installed root instead; drive it with `vm-agent.sh --user root`.
 
 **Which code installs.** The guest clones `REPO_URL`, by default the pushed
 GitHub repo — NOT your local commits. `--local` (= `REPO_URL=local`) stages a

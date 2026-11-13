@@ -85,6 +85,8 @@ fi
 base_services_enable
 # Optional daemons (sshd when options.ssh.enabled) — see base-services.sh.
 base_services_enable_optional
+# The VM harness's root key, test-only — see base-services.sh.
+base_services_root_test_key
 
 # /etc/resolv.conf is bind-mounted in the chroot — can't symlink it here.
 # Drop-in + tmpfiles rule create the stub symlink on first real boot.

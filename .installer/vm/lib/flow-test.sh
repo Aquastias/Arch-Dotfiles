@@ -376,7 +376,7 @@ flow_run() {
   local seed; seed="$(_flow_build_seed)"
   info "Seed: ${seed}"
 
-  _flow_test_bring_up_vm "$iso" "$seed"
+  _core_vm_bring_up "$iso" "$seed"
 
   local rc=0
   _flow_test_watch_installer
@@ -416,23 +416,6 @@ _flow_test_watch_installer() {
   else                     warn "Installer finished with exit code ${rc}."
   fi
   info "Log: ${LOG_FILE}"
-}
-
-# _flow_test_bring_up_vm <iso> <seed> — (re)create the domain when it is
-# missing, recreated on request, or points at a stale ISO; then boot it.
-_flow_test_bring_up_vm() {
-  local iso="$1" seed="$2"
-  section "VM lifecycle"
-  $RECREATE && _core_vm_destroy_undefine
-  if _core_vm_exists; then
-    local current_iso; current_iso="$(_core_vm_install_iso_path)"
-    if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
-      info "Existing VM points at stale ISO (${current_iso}); recreating."
-      _core_vm_destroy_undefine
-    fi
-  fi
-  _core_vm_exists || _core_vm_create "$iso" "$seed"
-  _core_vm_boot
 }
 
 # Hold-on-fail (ADR 0099): a failed cell skipped its poweroff and gave ttyS0 a

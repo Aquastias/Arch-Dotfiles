@@ -27,9 +27,10 @@ flow_run() {
   trap '_core_stop_console_capture; _flow_persistent_stop_http_server' EXIT
   _flow_persistent_prepare
   vm_repo_source_resolve
-  # Primary user (users[0]) owns the authorized harness key + the ssh command.
+  # Primary user (users[0]; root when the profile creates none) owns the
+  # authorized harness key + the ssh command.
   PRIMARY_USER="$(printf '%s\n' "${INSTALL_CONFIG_CONTENT}" \
-    | jq -r '.users[0] // "aquastias"')"
+    | jq -r '.users[0] // "root"')"
 
   section "Resolving Arch ISO"
   local iso; iso="$(vm_resolve_iso "$ISO_DIR")" || exit 1
@@ -41,7 +42,7 @@ flow_run() {
   local seed; seed="$(_flow_build_seed "$public_key")"
   info "Seed: ${seed}"
 
-  _flow_persistent_bring_up_vm "$iso" "$seed"
+  _core_vm_bring_up "$iso" "$seed" keep-installed
 
   section "Waiting for live system"
   local vm_ip; vm_ip="$(_flow_persistent_get_vm_ip)"
@@ -55,25 +56,6 @@ flow_run() {
     return 0
   fi
   _flow_persistent_boot_installed
-}
-
-# _flow_persistent_bring_up_vm <iso> <seed> — (re)create the domain when it is
-# missing, recreated on request, or points at a stale ISO; then boot it.
-_flow_persistent_bring_up_vm() {
-  local iso="$1" seed="$2"
-  section "VM lifecycle"
-  $RECREATE && _core_vm_destroy_undefine
-  if _core_vm_exists; then
-    local current_iso; current_iso="$(_core_vm_install_iso_path)"
-    if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
-      info "Existing VM points at stale ISO (${current_iso}); recreating."
-      _core_vm_destroy_undefine
-    fi
-  fi
-  _core_refresh_pool_for_path "$iso"
-  _core_refresh_pool_for_path "$seed"
-  _core_vm_exists || _core_vm_create "$iso" "$seed"
-  _core_vm_boot
 }
 
 # _flow_persistent_run_installer <vm-ip> — launch the installer and wait for its

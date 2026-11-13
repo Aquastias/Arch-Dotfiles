@@ -43,6 +43,23 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'ssh_authorized_keys'* ]]
 }
 
+@test "render: a profile with no users authorizes the key for root" {
+  # Lab VM 20261113: no user to SSH in as, so the installed guest was unreachable.
+  INSTALL_CONFIG_CONTENT='{"options":{}}'
+  run _flow_persistent_render_installer_script https://example/repo.git \
+    'ssh-ed25519 AAAAKEY test' aquastias
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"export INSTALL_ROOT_AUTHORIZED_KEY='ssh-ed25519 AAAAKEY test'"* ]]
+}
+
+@test "render: a profile with users leaves root without the key" {
+  INSTALL_CONFIG_CONTENT='{"users":["bob"],"options":{}}'
+  run _flow_persistent_render_installer_script https://example/repo.git \
+    'ssh-ed25519 AAAAKEY test' bob
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'INSTALL_ROOT_AUTHORIZED_KEY'* ]]
+}
+
 @test "render: still clones the repo and runs the unattended installer" {
   INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
   run _flow_persistent_render_installer_script https://example/repo.git 'k' aquastias

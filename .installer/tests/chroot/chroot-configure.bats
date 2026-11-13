@@ -155,6 +155,26 @@ _load_base_services() {
   ! grep -q "sshd" "$SYSCTL_LOG"
 }
 
+# ── base_services_root_test_key: the VM harness's root key (test-only) ─────────
+# A harness VM whose profile creates no user still needs SSH into the
+# installed system: the harness passes its key in INSTALL_ROOT_AUTHORIZED_KEY.
+
+@test "base_services_root_test_key authorizes the harness key for root" {
+  _load_base_services
+  ROOT="$TEST_DIR" INSTALL_ROOT_AUTHORIZED_KEY='ssh-ed25519 AAAAkey harness' \
+    base_services_root_test_key
+  [ "$(cat "$TEST_DIR/root/.ssh/authorized_keys")" = \
+    'ssh-ed25519 AAAAkey harness' ]
+  [ "$(stat -c %a "$TEST_DIR/root/.ssh")" = 700 ]
+  [ "$(stat -c %a "$TEST_DIR/root/.ssh/authorized_keys")" = 600 ]
+}
+
+@test "base_services_root_test_key writes nothing without the key" {
+  _load_base_services
+  ROOT="$TEST_DIR" base_services_root_test_key
+  [ ! -e "$TEST_DIR/root/.ssh" ]
+}
+
 @test "base_services_enable masks the network-online wait stall" {
   _load_base_services
   base_services_enable
