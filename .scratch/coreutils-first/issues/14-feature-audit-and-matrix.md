@@ -12,7 +12,7 @@ strict there from now on.
 
 **Blocked by:** 05
 
-**Status:** done (pending the Audit Run rerun)
+**Status:** done
 
 - [x] Area added to Migrated Areas; strict Readability Lint passes
 - [x] Tool Reference entries added for every command/flag the area keeps
@@ -21,4 +21,4 @@ strict there from now on.
       paths, grepped strings)
 - [x] Any `readability-ok: perf` line carries a measured before→after
 - [x] Area bats files pass (`-j 4` max); audit passes
-- [ ] A Feature Audit run in the VM passes
+- [x] A Feature Audit run in the VM passes

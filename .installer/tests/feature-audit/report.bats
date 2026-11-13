@@ -432,3 +432,15 @@ advisory_satisfies() {
   [ -n "$error_line" ] && [ -n "$warn_line" ]
   [ "$error_line" -lt "$warn_line" ]
 }
+
+@test "known noise: the skills CLI's skipped-skill line, old and prefixed form" {
+  # Audit Run 20261113: the CLI began prefixing the line with its code.
+  export FEATURE_AUDIT_KNOWN_NOISE="$INSTALLER_DIR/tests/vm/feature-audit/known-noise.jsonc"
+  local skipped='Skipped /tmp/skills-zhgpEg/skills/in-progress/x/SKILL.md'
+  art base install installer.log \
+    "⚠ $skipped — YAML parse error: Nested mappings" \
+    "[SKILLS_SKILL_SKIPPED] ⚠ $skipped — YAML parse error: Nested mappings"
+  report
+  [ "$status" -eq 0 ]
+  [ ! -s "$RUN/findings.jsonl" ]
+}
