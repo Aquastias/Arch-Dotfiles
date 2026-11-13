@@ -114,3 +114,16 @@ Run 2026-11-06 (VM rebuilt from HEAD) for the two older bugs:
 - Stash guard: after an interrupted kernel update, an unrelated
   `pacman -U tree` left the stash and the restored tree; `finish` then
   completed and the new kernel booted. PASS.
+
+Run 2026-11-13 (VM rebuilt from HEAD, `zfs-dkms`), the Impermanence `/etc`
+check for Undo (ticket 08): canary package `undo-canary` (`backup=` file
+`/etc/undo-canary.conf` on the `ROOT/etc` Rollback Dataset, plus
+`/usr/share/undo-canary/version`) at v1; one transaction updating
+linux-lts 6.18.63-2 → 63-3 (Arch Linux Archive) and the canary to v2. Undo
+(`bootctl set-oneshot arch-undo.conf`): kernel 63-2, `pacman -Q` canary 1,
+`/etc` says `version=1` and `/usr` says `1`; system `running`, ESP re-sync
+ran, no `db.lck`. The next normal boot (Impermanence Rollback to `@blank`)
+keeps `/etc` at v1 and runs 63-2, no failed units. PASS.
+Note: the inline profile has no harness key in the installed guest; it was
+added for root by serving a key script and typing `curl …|bash` on the
+console (the console typer maps only `a-z0-9 ./-:|`).

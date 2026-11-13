@@ -1,6 +1,6 @@
 # 08: Undo Last Update
 
-Status: ready-for-agent
+Status: done
 
 PRD: `.scratch/interrupted-update-recovery/PRD.md`, ADR 0166.
 
@@ -18,7 +18,7 @@ NVRAM entries are written once.
       previous Primary Kernel pair
 - [x] VM: complete an update, boot Undo, previous kernel and package
       versions are back, normal boot afterwards
-- [ ] VM on an Impermanence profile: `/etc` matches the rolled-back `/usr`
+- [x] VM on an Impermanence profile: `/etc` matches the rolled-back `/usr`
 - [x] Retrofit adds the entry where the ESP holds a previous pair
 
 ## Comments
@@ -42,3 +42,6 @@ NVRAM entries are written once.
 - The Impermanence `/etc` blocker is fixed
   (`.scratch/impermanence-resnapshot-hook-hidden`); Rollback Datasets now
   carry `@update-*`. The `/etc` restore by Undo itself is not yet VM-run.
+- Impermanence `/etc` check VM-run 2026-11-13: PASS (canary v1/v2 across
+  `/etc` and `/usr`; Undo and the next normal boot both keep v1). See
+  `.scratch/interrupted-kernel-upgrade/repro.md`.
